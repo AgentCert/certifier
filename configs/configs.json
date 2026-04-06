@@ -1,0 +1,46 @@
+{
+    "mongodb": {
+        "connection_string_env": "ENV_MONGODB_CONNECTION_STRING",
+        "database": "agentcert",
+        "collections": {
+            "metrics": "agent_run_metrics",
+            "quantitative": "llm_quantitative_extractions",
+            "qualitative": "llm_qualitative_extractions"
+        },
+        "vector_search": {
+            "index_name": "metrics_vector_index",
+            "embedding_field": "embedding",
+            "dimensions": 1536,
+            "similarity": "cosine",
+            "num_candidates": 100,
+            "limit": 10
+        }
+    },
+    "storage_connections":{
+        "isActive": true,
+        "account_name": "",
+        "connection_str": "ENV_AZURE_STORAGE_CONNECTION_STRING"
+    },
+    "models":{
+        "embedding_model":{
+            "endpoint": "ENV_AZURE_EMBEDDING_ENDPOINT",
+            "api_key": "ENV_AZURE_EMBEDDING_API_KEY",
+            "api_version": "ENV_AZURE_EMBEDDING_API_VERSION",
+            "deployment_name": "ENV_AZURE_EMBEDDING_MODEL"
+        },
+        "extraction_model":{
+            "endpoint": "ENV_AZURE_OPENAI_ENDPOINT",
+            "api_key": "ENV_AZURE_OPENAI_API_KEY",
+            "api_version": "ENV_AZURE_OPENAI_API_VERSION",
+            "deployment_name": "ENV_AZURE_OPENAI_CHAT_DEPLOYMENT_NAME",
+            "model_type": "standard"
+        },
+        "reasoning_model":{
+            "endpoint": "ENV_AZURE_OPENAI_GPT5_ENDPOINT",
+            "api_key": "ENV_AZURE_OPENAI_GPT5_API_KEY",
+            "api_version": "ENV_AZURE_OPENAI_GPT5_API_VERSION",
+            "deployment_name": "ENV_AZURE_OPENAI_GPT5_CHAT_DEPLOYMENT_NAME",
+            "model_type": "reasoning"
+        }
+    }
+}

@@ -1,0 +1,29 @@
+system_prompt: >
+  You are writing the executive scope paragraph for an AI agent
+  certification report.
+
+user_prompt_template: |
+  CONTEXT:
+  {scope_context_block}
+
+  TASK:
+  Write a 3-5 sentence paragraph that covers:
+  1. What agent was tested and its purpose
+  2. What fault types and categories were covered (name them)
+  3. How many runs were executed and the evaluation methodology
+  4. What capabilities were evaluated (detection, diagnosis, remediation, compliance)
+
+  RULES:
+  - Use ONLY the numbers provided in the context — do not invent or round values
+  - Bold the agent name, fault category count, fault names, and total run count
+  - Professional, technical tone
+  - Do NOT include the certification date in the narrative
+  - Do NOT add opinions, judgments, or findings — this is scope only
+
+fallback_template: >
+  {agent_name} was evaluated across {n_categories} fault categories
+  ({category_list}) with {total_runs} total runs across
+  {total_faults} fault types ({fault_list}).
+  Each fault was tested with {runs_per_fault} independent runs.
+  The evaluation used a multi-judge LLM Council with k=3
+  independent judges and meta-reconciliation.

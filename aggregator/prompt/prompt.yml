@@ -1,0 +1,156 @@
+# Prompt templates for aggregation LLM Council judges.
+# Placeholders use Python str.format() syntax: {variable_name}
+
+judge:
+  system_prompt: >
+    You are an expert evaluator of AI agent performance metrics.
+    Always respond with valid JSON only.
+
+  narrative: |
+    You are evaluating the metric "{metric_name}" across {n} independent runs of an AI agent responding to faults in the "{fault_category}" category.
+
+    Below are the per-run narrative values collected from {n} runs:
+
+    {narratives}
+
+    Instructions:
+    1. Summarise the recurring themes, notable outliers, and overall assessment in 1-2 paragraphs.
+    2. Assign a severity / quality label: Strong, Adequate, or Weak.
+    3. Assign a confidence label: High, Medium, or Low.
+
+    Respond with a JSON object exactly matching this schema:
+    {{
+      "consensus_summary": "<1-2 paragraph summary>",
+      "severity_label": "<Strong|Adequate|Weak>",
+      "confidence": "<High|Medium|Low>"
+    }}
+
+  limitations: |
+    You are evaluating the metric "{metric_name}" across {n} independent runs of an AI agent responding to faults in the "{fault_category}" category.
+
+    Below are the per-run values collected from {n} runs. Each run may contain multiple items.
+
+    {narratives}
+
+    Instructions:
+    1. Merge all items across runs, deduplicate similar entries.
+    2. Cluster related items and rank them by frequency and severity.
+    3. Produce a list of ranked limitations, each with a description, frequency count, and severity (High/Medium/Low).
+
+    Respond with a JSON object exactly matching this schema:
+    {{
+      "ranked_items": [
+        {{
+          "limitation": "<description>",
+          "frequency": <int>,
+          "severity": "<High|Medium|Low>"
+        }}
+      ]
+    }}
+
+  recommendations: |
+    You are evaluating the metric "{metric_name}" across {n} independent runs of an AI agent responding to faults in the "{fault_category}" category.
+
+    Below are the per-run values collected from {n} runs. Each run may contain multiple items.
+
+    {narratives}
+
+    Instructions:
+    1. Merge all items across runs, deduplicate similar entries.
+    2. Cluster related items and rank them by frequency and priority.
+    3. Produce a prioritized list, each with a recommendation, priority (Critical/High/Medium/Low), and frequency count.
+
+    Respond with a JSON object exactly matching this schema:
+    {{
+      "prioritized_items": [
+        {{
+          "recommendation": "<description>",
+          "priority": "<Critical|High|Medium|Low>",
+          "frequency": <int>
+        }}
+      ]
+    }}
+
+meta_judge:
+  system_prompt: >
+    You are a meta-judge reconciling multiple evaluator outputs.
+    Always respond with valid JSON only.
+
+  reconciliation: |
+    You are a meta-judge reconciling the outputs of {k} independent LLM judges who each evaluated the metric "{metric_name}" across {n} runs of an AI agent in the "{fault_category}" fault category.
+
+    Here are the {k} judge outputs:
+
+    {judge_outputs}
+
+    Instructions:
+    1. Produce a single authoritative consensus summary (1-2 paragraphs) that reconciles any disagreements among the judges.
+    2. Choose a final severity/quality label: Strong, Adequate, or Weak.
+    3. Choose a final confidence label: High, Medium, or Low.
+    4. Compute inter-judge agreement as a float (0-1): 1.0 means all judges agree on labels, 0.0 means complete disagreement.
+
+    Respond with JSON matching this schema:
+    {{
+      "consensus_summary": "<authoritative summary>",
+      "severity_label": "<Strong|Adequate|Weak>",
+      "confidence": "<High|Medium|Low>",
+      "inter_judge_agreement": <float 0-1>
+    }}
+
+scorecard_synthesis:
+  system_prompt: >
+    You are an expert evaluator of AI agent performance metrics.
+    Always respond with valid JSON only.
+
+  prompt: |
+    You are an expert evaluator producing a certification scorecard for an AI agent that autonomously detects, diagnoses, and remediates infrastructure faults.
+
+    You are analysing the "{fault_category}" fault category based on {total_runs} experiment runs across these fault types: {faults_tested}.
+
+    Below are the aggregated metrics computed across all runs:
+
+    ## Numeric Metrics
+    {numeric_metrics}
+
+    ## Derived Rates
+    {derived_rates}
+
+    ## Boolean / Status Metrics
+    {boolean_metrics}
+
+    ## Textual Summaries (LLM-synthesized consensus from per-run observations)
+    {textual_summaries}
+
+    Using ONLY the evidence above, produce:
+
+    1. **known_limitations**: A ranked list of the agent's weaknesses and failure patterns observed in this fault category. Each limitation should be:
+       - Specific and actionable (not vague)
+       - Grounded in the metrics (e.g., cite detection/mitigation rates, scores, or textual findings)
+       - Ranked by severity (High > Medium > Low) and estimated frequency across runs
+
+    2. **recommendations**: A prioritized list of improvements for the agent. Each should:
+       - Directly address one or more of the identified limitations
+       - Be technically actionable
+       - Be ranked by priority (Critical > High > Medium > Low) and estimated frequency
+
+    Respond with a JSON object exactly matching this schema:
+    {{
+      "known_limitations": {{
+        "ranked_items": [
+          {{
+            "limitation": "<specific description grounded in metrics>",
+            "frequency": <estimated count out of {total_runs} runs>,
+            "severity": "<High|Medium|Low>"
+          }}
+        ]
+      }},
+      "recommendations": {{
+        "prioritized_items": [
+          {{
+            "recommendation": "<actionable improvement>",
+            "priority": "<Critical|High|Medium|Low>",
+            "frequency": <estimated count of runs that would benefit>
+          }}
+        ]
+      }}
+    }}
