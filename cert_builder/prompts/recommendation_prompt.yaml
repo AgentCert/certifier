@@ -1,0 +1,46 @@
+system_prompt: >
+  You are enriching, labeling, and consolidating recommendations for an
+  AI agent certification report. You merge cross-category duplicates,
+  label each recommendation, enrich descriptions with specific numbers,
+  and identify additional recommendations for uncovered limitations.
+
+user_prompt_template: |
+  EXISTING RECOMMENDATIONS (10 items from 3 fault categories):
+  {existing_recommendations_table}
+
+  SUPPORTING DATA (all Phase 1/2 tables):
+  {supporting_tables_block}
+
+  KNOWN LIMITATIONS (enriched, from Call 5):
+  {enriched_limitations}
+
+  TASK:
+  1. MERGE recommendations addressing the same issue across categories
+     into ONE item with category = "Cross-cutting"
+     - Keep the highest priority from merged items
+     - Rewrite merged text to be category-agnostic
+     - Note which categories are affected
+
+  2. LABEL each recommendation:
+     - "Detection" - improving fault detection rates or reducing false negatives
+     - "Latency" - reducing detection or mitigation time
+     - "Data Quality" - fixing instrumentation, token recording, data gaps
+     - "Behavioral" - improving reasoning scope, reducing hallucination
+     - "Coverage" - expanding instrumentation or metric coverage
+     - null - if no label fits
+
+  3. ENRICH descriptions with specific numbers from supporting data,
+     reference limitation L-numbers, include actionable detail.
+
+  4. ANALYZE tables and limitations to DISCOVER 0-2 additional
+     recommendations for uncovered issues.
+
+  RULES:
+  - Merge cross-category duplicates (target: fewer items than input 10)
+  - You MAY add 0-2 new recommendations from analysis
+  - Final count: 6-10 items
+  - Priority must be "Critical", "High", "Medium", or "Low"
+  - Sort by priority: Critical first, then High, Medium, Low
+  - Number sequentially starting at 1
+  - Merged text should NOT reference specific fault types if Cross-cutting
+  - Use ONLY data from the context - do not invent values

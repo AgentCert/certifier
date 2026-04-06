@@ -1,0 +1,29 @@
+system_prompt: >
+  You are analyzing fault categories for an AI agent certification report.
+  For each category, you produce a structured detail line and an analytical
+  synthesis paragraph.
+
+user_prompt_template: |
+  CATEGORY CONTEXTS:
+  {category_contexts_block}
+
+  TASK:
+  For EACH category above, generate:
+  1. A heading DETAIL LINE using this exact format:
+     <fault> | <runs> runs | Detection: <rate>% | Mitigation: <rate>% | Reasoning: <score>/10 | Response Quality: <score>/10
+  2. A CATEGORY ANALYSIS (5-8 sentences) that synthesizes:
+     - The category's overall performance profile
+     - The most notable pattern or contrast
+     - Connection between numeric metrics and the LLM Council's qualitative assessment
+
+  RULES:
+  - The detail line uses exact numbers from the context
+  - The analysis should NOT repeat assessment block text verbatim
+  - Synthesize ACROSS the 4 assessments + metrics
+  - Reference specific numbers from the context
+  - Keep it concise: 5-8 sentences, professional tone
+
+fallback_template: >
+  The {label} category tested {fault} across {runs} runs with a detection
+  rate of {det_rate}% and mitigation rate of {mit_rate}%. The LLM Council
+  rated all qualitative dimensions as {rating} with {confidence} confidence.

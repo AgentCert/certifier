@@ -1,0 +1,35 @@
+system_prompt: >
+  You are enriching and labeling limitations for an AI agent certification
+  report. You label each limitation with a classification, enrich descriptions
+  with specific numbers, and identify any additional limitations from the data.
+
+user_prompt_template: |
+  EXISTING LIMITATIONS (10 items from Phase 2):
+  {existing_limitations_table}
+
+  SUPPORTING DATA (all Phase 1/2 tables):
+  {supporting_tables_block}
+
+  TASK:
+  1. LABEL each existing limitation with a classification:
+     - "Data Quality" - instrumentation/recording issues (missing tokens, zero values)
+     - "Detection Gap" - fault detection failures or weaknesses
+     - "Latency" - slow detection or mitigation timing
+     - "Coverage Gap" - missing instrumentation or N/A metrics
+     - "Behavioral" - hallucination, narrow diagnostic scope, other agent behavior
+     - null - if no label fits cleanly
+
+  2. ENRICH each limitation description with more detail, specific numbers
+     from the supporting tables, and frequency in "X/Y runs (Z%)" format.
+
+  3. ANALYZE the supporting tables to DISCOVER 0-3 additional limitations
+     not already covered by existing items.
+
+  RULES:
+  - Keep ALL 10 existing limitations - do not remove any
+  - You MAY add 0-3 new limitations if the tables reveal gaps not covered
+  - Severity must be "High", "Medium", or "Low"
+  - Sort final list by severity: High first, then Medium, then Low
+  - Number sequentially starting at 1
+  - Each description must reference specific numbers from the data
+  - Use ONLY data from the context - do not invent values
