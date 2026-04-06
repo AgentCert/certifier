@@ -11,7 +11,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "envFile": "${workspaceFolder}/certifier/.env"
+            "envFile": "${workspaceFolder}/.env"
         },
         {
             "name": "Run multi-fault trace generation",
@@ -19,11 +19,11 @@
             "request": "launch",
             "module": "multi_fault_trace_generation.main",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/certifier",
-            "envFile": "${workspaceFolder}/certifier/.env",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--faults-file", "${workspaceFolder}/certifier/multi_fault_trace_generation/config/fault_file.json",
-                "--output-dir", "${workspaceFolder}/certifier/data/langfuse_minio_traces/multi_fault/",
+                "--faults-file", "${workspaceFolder}/multi_fault_trace_generation/config/fault_file.json",
+                "--output-dir", "${workspaceFolder}/data/langfuse_minio_traces/multi_fault/",
                 "--num-traces", "5",
                 "--num-cycles", "3",
                 "--agent-name", "Flash",
@@ -37,11 +37,11 @@
             "request": "launch",
             "module": "fault_bucketing.scripts.fault_bucketing",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/certifier",
-            "envFile": "${workspaceFolder}/certifier/.env",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trace-file", "${workspaceFolder}/certifier/data/langfuse_minio_traces/multi_fault/multi_fault_trace.json",
-                "--output-dir", "${workspaceFolder}/certifier/data/reports/buckets",
+                "--trace-file", "${workspaceFolder}/data/langfuse_minio_traces/multi_fault/multi_fault_trace.json",
+                "--output-dir", "${workspaceFolder}/data/reports/buckets",
                 "--batch-size", "10"
             ]
         },
@@ -51,11 +51,11 @@
             "request": "launch",
             "module": "metric_extraction.scripts.metrics_extractor_from_trace",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/certifier",
-            "envFile": "${workspaceFolder}/certifier/.env",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trace-file-name", "${workspaceFolder}/certifier/data/reports/buckets/multi_fault_trace_bucket_disk-fill.json",
-                "--fault-config-path", "${workspaceFolder}/certifier/data/fault_configs/disk_fill_fault_configuration.json"
+                "--trace-file-name", "${workspaceFolder}/data/reports/buckets/multi_fault_trace_bucket_disk-fill.json",
+                "--fault-config-path", "${workspaceFolder}/data/fault_configs/disk_fill_fault_configuration.json"
             ]
         },
         {
@@ -64,11 +64,11 @@
             "request": "launch",
             "module": "run_bucketing_and_extraction_pipeline",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/certifier",
-            "envFile": "${workspaceFolder}/certifier/.env",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trace-file", "${workspaceFolder}/certifier/data/langfuse_minio_traces/multi_fault/trace-multi_fault_614837e8-3f89-49dc-886e-304f545c02c9.json",
-                "--output-dir", "${workspaceFolder}/certifier/data/reports",
+                "--trace-file", "${workspaceFolder}/data/langfuse_minio_traces/multi_fault/trace-multi_fault_614837e8-3f89-49dc-886e-304f545c02c9.json",
+                "--output-dir", "${workspaceFolder}/data/reports",
                 "--store"
             ]
         },
@@ -78,14 +78,14 @@
             "request": "launch",
             "module": "aggregation.scripts.aggregation",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/certifier",
-            "envFile": "${workspaceFolder}/certifier/.env",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
             "args": [
                 "--agent-id", "flash-001-abc123",
                 "--agent-name", "Flash",
                 "--source", "directory",
-                "--directory", "${workspaceFolder}/certifier/data/reports/metrics",
-                "--output-path", "${workspaceFolder}/certifier/data/reports/aggregated/"
+                "--directory", "${workspaceFolder}/data/reports/metrics",
+                "--output-path", "${workspaceFolder}/data/reports/aggregated/"
             ]
         },
         {
@@ -94,11 +94,11 @@
             "request": "launch",
             "module": "run_aggregation_and_certification_pipeline",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/certifier",
-            "envFile": "${workspaceFolder}/certifier/.env",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--metrics-dir", "${workspaceFolder}/certifier/data/reports/metrics",
-                "--output-dir", "${workspaceFolder}/certifier/data/reports/certification",
+                "--metrics-dir", "${workspaceFolder}/data/reports/metrics",
+                "--output-dir", "${workspaceFolder}/data/reports/certification",
                 "--agent-id", "flash-001-abc123",
                 "--agent-name", "Flash",
                 "--debug"
