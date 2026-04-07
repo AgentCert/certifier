@@ -2,17 +2,20 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from main.models.requests import BucketingExtractionRequest
-from main.models.responses import TaskAcceptedResponse
-from main.services.pipeline_service import PipelineService
+from main.models.bucket_requests import BucketingExtractionRequest
+from main.models.bucket_responses import TaskAcceptedResponse
+from main.services.pipeline_service import BucketPipelineService
 from main.services.session_service import SessionService
 from main.services.trace_service import TraceService
-from main.workers.task_runner import run_task
+from main.workers.bucket_task_runner import run_task
 
 router = APIRouter()
 
 
-# ── Dependency factories ──────────────────────────────────────────────────
+# ── Dependency factories ──────────────────────────────────────────────────────
+# FastAPI resolves these at request time and injects the result into endpoint
+# parameters.  Using factories (instead of module-level singletons) ensures
+# each request gets a fresh service instance bound to the current DB collection.
 
 def _session_svc(request: Request) -> SessionService:
     return SessionService(request.app.state.task_col)
@@ -22,11 +25,11 @@ def _trace_svc() -> TraceService:
     return TraceService()
 
 
-def _pipeline_svc() -> PipelineService:
-    return PipelineService()
+def _pipeline_svc() -> BucketPipelineService:
+    return BucketPipelineService()
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────
+# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/bucketing-extraction", status_code=202, response_model=TaskAcceptedResponse)
 async def submit_bucketing_extraction(
@@ -35,9 +38,17 @@ async def submit_bucketing_extraction(
     request: Request,
     session_svc: SessionService = Depends(_session_svc),
     trace_svc: TraceService = Depends(_trace_svc),
-    pipeline_svc: PipelineService = Depends(_pipeline_svc),
+    pipeline_svc: BucketPipelineService = Depends(_pipeline_svc),
 ):
-    # Reject duplicate active submissions for the same workspace path
+    """Accept a bucketing-extraction job and enqueue it as a background task.
+
+    Returns HTTP 202 with a ``task_id`` immediately; clients poll
+    ``GET /api/v1/tasks/{task_id}`` for status.
+
+    Raises:
+        HTTP 409: If a task for this ``(experiment_id, run_id)`` is already active.
+    """
+    # Reject duplicate active submissions for the same (experiment_id, run_id) workspace path
     existing = await session_svc.find_active_task(body.experiment_id, body.run_id)
     if existing:
         raise HTTPException(
@@ -59,11 +70,14 @@ async def submit_bucketing_extraction(
 
     task_id = str(uuid.uuid4())
 
-    # Strip Langfuse secret_key before persisting the request snapshot
+    # Strip the Langfuse secret_key before persisting the request snapshot to MongoDB;
+    # we never want credentials stored at rest in the task collection.
     snapshot = body.model_dump()
     if snapshot.get("trace_source", {}).get("type") == "langfuse":
         snapshot["trace_source"].pop("secret_key", None)
 
+    # Persist the task document BEFORE dispatching the background worker so that
+    # the poll endpoint can return the task immediately after this response is sent.
     await session_svc.create_task(
         task_id=task_id,
         agent_id=body.agent_id,
@@ -95,6 +109,7 @@ async def get_task_status(
     task_id: str,
     session_svc: SessionService = Depends(_session_svc),
 ):
+    """Poll the status of a bucketing-extraction task by its UUID."""
     task = await session_svc.get_task(task_id)
     if task is None:
         raise HTTPException(

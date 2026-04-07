@@ -1,0 +1,87 @@
+# =============================================================================
+# AgentCert — Docker Compose
+#
+# Services:
+#   app    – AgentCert FastAPI application
+#   mongo  – MongoDB 7 (task tracking + metrics storage)
+#
+# Quick start:
+#   1. cp .env.example .env  && fill in Azure credentials
+#   2. docker compose up --build
+#   3. API available at http://localhost:${API_PORT:-8000}
+#      Docs at          http://localhost:${API_PORT:-8000}/docs
+#
+# The `app` service connects to Mongo via the internal Docker network using the
+# hostname `mongo`; MONGODB_CONNECTION_STRING is overridden in the environment
+# block below, so you do NOT need to change it in your .env file.
+# =============================================================================
+
+services:
+
+  # ── AgentCert API ───────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Target the final runtime stage (skips re-running builder on plain `up`)
+      target: runtime
+    image: agentcert:latest
+    container_name: agentcert_app
+    restart: unless-stopped
+    ports:
+      # Both sides use API_PORT so changing the variable is the only thing needed
+      - "${API_PORT:-8000}:${API_PORT:-8000}"
+    env_file:
+      # Load all Azure credentials and optional overrides from your .env file
+      - .env
+    environment:
+      # Override the MongoDB URI so the app connects to the `mongo` service
+      # inside the Docker network, regardless of what .env says
+      MONGODB_CONNECTION_STRING: "mongodb://mongo:27017/${MONGODB_DATABASE:-agentcert}"
+      PYTHONPATH: /app
+      # Expose the port to the container so settings.py picks it up via API_PORT
+      API_PORT: "${API_PORT:-8000}"
+      # Workspace dirs are inside the container; bind-mounted below
+      WORKSPACE_DIR: /app/workspace
+      CERT_WORKSPACE_DIR: /app/workspace/cert
+    volumes:
+      # Persist pipeline output (traces, metrics, reports) on the host
+      - ./workspace:/app/workspace
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c",
+             "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${API_PORT:-8000}/docs')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── MongoDB ─────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: agentcert_mongo
+    restart: unless-stopped
+    ports:
+      # Expose on host so you can connect with Compass / mongosh during development.
+      # Remove or restrict this in production.
+      - "27017:27017"
+    environment:
+      # Set credentials here for production; remove ALLOW_EMPTY_PASSWORD for prod.
+      MONGO_INITDB_DATABASE: "${MONGODB_DATABASE:-agentcert}"
+    volumes:
+      # Named volume keeps data across `docker compose down` restarts
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+volumes:
+  # Persistent MongoDB data — survives container restarts
+  mongo_data:
+    driver: local
