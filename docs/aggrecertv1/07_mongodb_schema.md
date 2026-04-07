@@ -1,0 +1,264 @@
+# 07 — MongoDB Collections & Schemas
+
+## Database
+
+All collections live in the single MongoDB database defined by `MONGODB_DATABASE` env var
+(default: `agentcert`). All three new collections are **created and indexed at application
+startup** (see `03_app_startup.md`). No collection is created lazily at write time.
+
+---
+
+## Collection Map
+
+| Collection | Name (env-configurable) | Written by | When |
+|---|---|---|---|
+| `pipeline_tasks` | `API_TASK_COLLECTION` (default: `pipeline_tasks`) | `session_service.py` | Every faultv1 POST (unchanged) |
+| `agent_run_metrics` | `configs.json → mongodb.collections.metrics` | Existing `MongoDBClient` in `utils/` | Phase 1 (storage_config.type = mongodb / hybrid) |
+| `certification_tasks` | `CERT_TASK_COLLECTION` (default: `certification_tasks`) | `cert_session_service.py` | Every POST /aggregation-certification |
+| `certification_metadata` | `CERT_METADATA_COLLECTION` (default: `certification_metadata`) | `cert_task_runner.py` | After successful Phase 2+3 pipeline |
+| `aggregated_category_metadata` | `AGG_CATEGORY_COLLECTION` (default: `aggregated_category_metadata`) | `cert_task_runner.py` | After successful pipeline, one doc per fault category |
+
+---
+
+## 1. `certification_tasks`
+
+**Purpose**: API session store for certification runs. Tracks every submitted cert task from
+creation through completion or failure.
+
+**Written by**: `main/services/cert_session_service.py`
+
+### Document Schema
+
+```json
+{
+  "_id": "ObjectId",
+  "cert_task_id": "uuid-v4-string",
+
+  "agent_id": "agent_v2_4_1",
+  "agent_name": "Agent V2.4.1",
+  "experiment_id": "exp_001",
+  "certification_run_id": "cert_run_001",
+
+  "status": "PENDING | RUNNING | COMPLETED | FAILED",
+  "stage":  "pending | fetching_metrics | running_pipeline | storing_metadata | done",
+
+  "created_at":   "2026-04-07T11:00:00.000Z",
+  "updated_at":   "2026-04-07T11:00:00.000Z",
+  "started_at":   "2026-04-07T11:00:02.000Z",
+  "completed_at": "2026-04-07T11:04:15.000Z",
+
+  "request": {
+    "runs_per_fault": 30,
+    "storage_config": {
+      "type": "local",
+      "metrics_dir": "/srv/projects/.../workspace/exp_001/run_001/metrics",
+      "container_name": ""
+    }
+  },
+
+  "result": {
+    "total_documents": 120,
+    "total_fault_categories": 3,
+    "fault_categories": ["compute", "network", "storage"],
+    "certification_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "storage_paths": {
+      "aggregated_scorecard": "workspace/cert/agent_v2_4_1/exp_001/aggregated_scorecard_output_agent_v2_4_1.json",
+      "certification_report": "workspace/cert/agent_v2_4_1/exp_001/certification_report_agent_v2_4_1.json",
+      "summary": "workspace/cert/agent_v2_4_1/exp_001/pipeline_summary.json"
+    },
+    "processing_time_seconds": 243.7
+  },
+
+  "error": {
+    "error_code": "AGGREGATION_FAILED",
+    "message": "LLM Council returned empty consensus for fault category 'compute'",
+    "failed_stage": "running_pipeline",
+    "detail": "Traceback (most recent call last): ..."
+  }
+}
+```
+
+### Field Rules
+
+- `result` is `null` until `set_completed()` writes it.
+- `error` is `null` unless `set_failed()` writes it.
+- `started_at` / `completed_at` are `null` until the relevant transition occurs.
+- `storage_paths` uses relative paths from `certifier/` root for portability.
+
+### Indexes
+
+```
+idx_cert_task_id_unique    {cert_task_id: 1}                  unique
+idx_cert_agent_exp         {agent_id: 1, experiment_id: 1}
+idx_cert_status_created    {status: 1, created_at: -1}
+idx_cert_created_at        {created_at: 1}
+```
+
+---
+
+## 2. `certification_metadata`
+
+**Purpose**: One document per completed certification run. Records certification identity,
+artifact paths, processing summary, and pipeline timing. Supports history queries across
+certification runs for the same agent.
+
+**Written by**: `main/workers/cert_task_runner.py` in the `storing_metadata` stage, after
+`run_pipeline()` completes successfully.
+
+### Document Schema
+
+```json
+{
+  "_id": "ObjectId",
+  "certification_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "cert_task_id": "7c3a9f12-4b8e-41d6-a2f7-1c9e6d5b3a08",
+  "agent_id": "agent_v2_4_1",
+  "agent_name": "Agent V2.4.1",
+  "experiment_id": "exp_001",
+  "certification_run_id": "cert_run_001",
+  "status": "success | failed",
+  "created_at": "2026-04-07T11:04:15.000Z",
+  "storage_paths": {
+    "aggregated_scorecard": "workspace/cert/agent_v2_4_1/exp_001/aggregated_scorecard_output_agent_v2_4_1.json",
+    "certification_report": "workspace/cert/agent_v2_4_1/exp_001/certification_report_agent_v2_4_1.json",
+    "summary": "workspace/cert/agent_v2_4_1/exp_001/pipeline_summary.json"
+  },
+  "summary": {
+    "total_documents": 120,
+    "total_fault_categories": 3,
+    "fault_categories": ["compute", "network", "storage"]
+  },
+  "processing_time_seconds": 243.7,
+  "error_message": null
+}
+```
+
+### Field Rules
+
+- `certification_id` is a UUID generated by the cert task runner at the start of the
+  `storing_metadata` stage. It is the primary join key to `aggregated_category_metadata`.
+- `cert_task_id` links back to the `certification_tasks` document for traceability.
+- `status` is always `"success"` when this document is written (failed pipelines do not
+  write to this collection; the failure is recorded in `certification_tasks.error` instead).
+- `error_message` is reserved for iteration 2 partial-failure scenarios.
+
+### Indexes
+
+```
+idx_certmeta_id_unique     {certification_id: 1}              unique
+idx_certmeta_agent_exp     {agent_id: 1, experiment_id: 1}
+idx_certmeta_agent_created {agent_id: 1, created_at: -1}
+idx_certmeta_run_id        {certification_run_id: 1}           sparse
+```
+
+---
+
+## 3. `aggregated_category_metadata`
+
+**Purpose**: One document per fault category per certification run. Stores aggregated numeric
+statistics and derived rates at fault-category granularity. Supports per-category queries and
+cross-run comparisons.
+
+**Written by**: `main/workers/cert_task_runner.py` in the `storing_metadata` stage, one
+insert per `fault_category_scorecard` entry in the aggregated scorecard.
+
+### Document Schema
+
+```json
+{
+  "_id": "ObjectId",
+  "fault_category": "compute",
+  "certification_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "agent_id": "agent_v2_4_1",
+  "experiment_id": "exp_001",
+  "total_runs": 40,
+  "faults_tested": ["pod-delete", "cpu-spike", "disk-fill"],
+  "numeric_metrics": {
+    "time_to_detect": {
+      "mean": 18.4,
+      "std_dev": 3.2,
+      "min": 12.0,
+      "max": 26.0,
+      "p50": 17.5,
+      "p95": 24.8
+    },
+    "time_to_mitigate": {
+      "mean": 92.1,
+      "std_dev": 11.5,
+      "min": 70.0,
+      "max": 115.0,
+      "p50": 91.0,
+      "p95": 112.0
+    },
+    "trajectory_steps": {
+      "mean": 35.3,
+      "std_dev": 2.1,
+      "min": 33,
+      "max": 38,
+      "p50": 35.0,
+      "p95": 38.5
+    },
+    "input_tokens": {
+      "mean": 4250,
+      "std_dev": 150,
+      "min": 4100,
+      "max": 4400,
+      "p50": 4200,
+      "p95": 4390
+    }
+  },
+  "derived_metrics": {
+    "fault_detection_success_rate": 0.95,
+    "fault_mitigation_success_rate": 0.90,
+    "rai_compliance_rate": 1.0,
+    "security_compliance_rate": 0.95
+  },
+  "created_at": "2026-04-07T11:04:15.000Z"
+}
+```
+
+### Field Rules
+
+- `certification_id` is the join key to `certification_metadata`. It is the same UUID
+  generated at the start of the `storing_metadata` stage.
+- `numeric_metrics` is sourced from `FaultCategoryScorecard.numeric_metrics` in the
+  aggregated scorecard JSON, mapped verbatim.
+- `derived_metrics` is sourced from `FaultCategoryScorecard.derived_metrics` in the
+  aggregated scorecard JSON, mapped verbatim.
+- If a numeric field has insufficient data for a statistic (e.g., `p95` requires ≥ 20
+  samples), the field value is `null` in the document.
+
+### Indexes
+
+```
+idx_aggcat_cert_fault_unique   {certification_id: 1, fault_category: 1}   unique
+idx_aggcat_agent_exp           {agent_id: 1, experiment_id: 1}
+idx_aggcat_created_at          {created_at: -1}
+```
+
+The compound unique index on `(certification_id, fault_category)` ensures idempotency: if
+the `storing_metadata` stage is retried (e.g., on partial failure), it cannot insert duplicate
+documents for the same certification run and fault category.
+
+---
+
+## Write Ownership Summary
+
+```
+POST /api/v1/aggregation-certification
+│
+├── Always:   certification_tasks  ← cert_session_service.py (new)
+│
+└── If pipeline succeeds:
+    ├── certification_metadata         ← cert_task_runner.py (new, one doc per run)
+    └── aggregated_category_metadata   ← cert_task_runner.py (new, N docs per run)
+
+POST /api/v1/bucketing-extraction (faultv1, unchanged)
+│
+├── Always:   pipeline_tasks      ← session_service.py (unchanged)
+│
+└── If storage_config.type = mongodb | hybrid:
+    └── Phase 1: agent_run_metrics  ← utils/mongodb_util.py (existing, unchanged)
+```
+
+No collection created by aggrecertv1 is written by faultv1 code, and vice versa.
