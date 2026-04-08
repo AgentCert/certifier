@@ -226,7 +226,7 @@ td code{
     <span>&alpha; = 0.05</span>
     <span>6 Hypothesis Tests</span>
     <span>11 Statistical Methods</span>
-    <span>15 Research Papers</span>
+    <span>25 Research Papers</span>
   </div>
 </div>
 
@@ -307,6 +307,238 @@ td code{
     Each test below answers a simple question about the AI agent's behavior.
     We run the agent 30+ times against each type of fault (application faults, network faults, resource faults)
     and then use these tests to figure out: <strong>Is the agent reliable? Is it consistent? Where is it weak?</strong>
+  </div>
+
+  <h3>The Chaos Engineering Lens</h3>
+  <p>AgentCert borrows the hypothesis-driven discipline of
+  <strong>chaos engineering</strong>
+  (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas, Tuzlutas &amp; Yesiltas, EASE &rsquo;25</a>).
+  The same six principles that Netflix
+  (<a href="https://netflix.github.io/chaosmonkey/" style="color:#2563eb">Chaos Monkey</a>),
+  Google, and Amazon use to harden distributed systems
+  apply directly to certifying AI agents. The core principle:
+  <em>"the deliberate introduction of controlled disruption to verify system behavior&hellip;
+  focusing on proactive failure injection rather than reactive problem-solving"</em>
+  (<a href="https://arxiv.org/abs/2412.01418" style="color:#2563eb">Owotogbe et al., 2024</a>).</p>
+
+  <div class="card-grid two">
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">1 &mdash; Building a Hypothesis</div>
+      <p>Engineers start by defining <strong>"steady state"</strong> behavior &mdash;
+      the normal operating profile of the agent. This baseline serves as
+      the control group for experiments.
+      In AgentCert, steady state = the agent's expected detection/mitigation
+      capability under a <em>specific fault combination</em>.</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">2 &mdash; Setting Up Monitoring</div>
+      <p>Tools are used to monitor the system for <strong>deviations from
+      normal behavior</strong> during controlled experiments
+      (<a href="https://prometheus.io/" style="color:#2563eb">Prometheus</a>,
+      <a href="https://grafana.com/" style="color:#2563eb">Grafana</a>,
+      <a href="https://newrelic.com/" style="color:#2563eb">New Relic</a>).
+      In AgentCert this is the metrics extraction and aggregation pipeline.</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">3 &mdash; Conducting Experiments</div>
+      <p>Real-world systems face unpredictable conditions. Chaos experiments vary
+      real-world events &mdash; <strong>server failures, malformed responses, network latency</strong>.
+      Results are reviewed, improvements applied, and tests repeated.
+      Tools like <a href="https://litmuschaos.io/" style="color:#2563eb">LitmusChaos</a>,
+      <a href="https://chaos-mesh.org/" style="color:#2563eb">Chaos Mesh</a>, and
+      <a href="https://www.gremlin.com/" style="color:#2563eb">Gremlin</a> automate this
+      (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., &sect;2.3</a>).</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">4 &mdash; Minimizing Impact</div>
+      <p>To avoid widespread outages, experiments are designed to
+      <strong>minimize blast radius</strong>, often starting small and gradually
+      increasing in scope &mdash; mirrored in AgentCert's per-fault-category scoping
+      and the <a href="https://doi.org/10.1145/3358960.3379084" style="color:#2563eb">Chaos Maturity Model</a>
+      (Basiri et al., 2019).</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">5 &mdash; Expanding to Production</div>
+      <p>While controversial, the most valuable insights come from
+      experimenting in <strong>production environments</strong> where actual user
+      behavior and data patterns exist
+      (<a href="https://www.oreilly.com/library/view/chaos-engineering/9781492043850/" style="color:#2563eb">Rosenthal &amp; Jones, 2020</a>).</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">6 &mdash; Automation &amp; Continuous Learning</div>
+      <p>Automating experiments for <strong>repeatability</strong> and continuously
+      analyzing results is crucial to enhance system resilience.
+      Jernberg (2020) identifies four maturity phases:
+      <em>Discovery &rarr; Implementation &rarr; Sophistication &rarr; Expansion</em>
+      (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., &sect;3.2</a>).</p>
+    </div>
+  </div>
+
+  <h3>How AgentCert Creates Experiments</h3>
+  <p>An <strong>experiment</strong> in AgentCert directly maps to a chaos engineering experiment:
+  a <em>fixed combination of fault injections</em> repeated across multiple independent runs.
+  The paper's fault injection taxonomy
+  (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., &sect;2.3</a>)
+  categorizes faults into three levels &mdash; the same levels AgentCert uses:</p>
+
+  <div class="card-grid three">
+    <div class="card" style="border-left:4px solid #ef4444">
+      <div class="card-title">Network-Level Chaos</div>
+      <p>Latency injection, packet loss simulation, bandwidth throttling, DNS failure simulation</p>
+    </div>
+    <div class="card" style="border-left:4px solid #f59e0b">
+      <div class="card-title">Resource-Level Chaos</div>
+      <p>CPU stress testing, memory exhaustion, disk I/O saturation, storage corruption simulation</p>
+    </div>
+    <div class="card" style="border-left:4px solid #8b5cf6">
+      <div class="card-title">Application-Level Chaos</div>
+      <p>Service dependency failure, API error injection, database connection termination, cache invalidation</p>
+    </div>
+  </div>
+
+  <h3>Experiment Identity &amp; Scoping</h3>
+  <p>Each experiment is uniquely identified by its <strong>fault combination</strong>.
+  AgentCert computes a deterministic <code>experiment_id</code> = <code>SHA-256(sorted fault names)[:24]</code>.
+  The same faults always yield the same experiment, regardless of ordering.</p>
+
+  <div class="info-box warn">
+    <strong>Concrete Example &mdash; Two Experiments, One Shared Fault:</strong>
+  </div>
+
+  <table>
+    <tr>
+      <th style="width:160px">Experiment</th>
+      <th style="width:220px">Fault Combination</th>
+      <th style="width:80px">Runs</th>
+      <th>experiment_id (deterministic)</th>
+    </tr>
+    <tr>
+      <td><strong>Experiment&nbsp;1</strong></td>
+      <td><code>network_fault</code>, <code>f2</code>, <code>f3</code></td>
+      <td>30</td>
+      <td><code>SHA256("f2|f3|network_fault")[:24]</code></td>
+    </tr>
+    <tr>
+      <td><strong>Experiment&nbsp;2</strong></td>
+      <td><code>network_fault</code>, <code>f5</code></td>
+      <td>20</td>
+      <td><code>SHA256("f5|network_fault")[:24]</code></td>
+    </tr>
+  </table>
+
+  <p>Each run within an experiment gets a unique <code>run_id</code> (UUID).
+  So Experiment 1 produces 30 run_ids, Experiment 2 produces 20 run_ids.
+  Every fault bucket and extracted metric carries both <code>experiment_id</code> and <code>run_id</code>.</p>
+
+  <h3>The Cross-Experiment Question: Can We Pool <code>network_fault</code>?</h3>
+  <p><code>network_fault</code> appears in <em>both</em> experiments &mdash; 30 observations from Experiment 1
+  and 20 from Experiment 2. That's 50 total observations. <strong>Can we pool them?</strong></p>
+
+  <div class="compare">
+    <div class="col basic">
+      <h4>Naive Pooling (50 observations)</h4>
+      <ul>
+        <li>Combine all 50 <code>network_fault</code> metrics into one sample</li>
+        <li>Run hypothesis tests on the combined set</li>
+        <li>More data &rArr; narrower confidence intervals</li>
+      </ul>
+      <p style="color:#dc2626;font-weight:600">&cross; Violates experimental independence.
+      The <strong>context differs</strong>: in Exp 1 the agent handles network_fault alongside f2 &amp; f3;
+      in Exp 2 alongside f5. Different co-occurring faults create different
+      <strong>confounding conditions</strong> (batch effects, Simpson's Paradox).</p>
+    </div>
+    <div class="col advanced">
+      <h4>Per-Experiment Testing + Meta-Analysis</h4>
+      <ul>
+        <li>Run H-01&ndash;H-05 separately within each experiment</li>
+        <li>Each experiment produces its own certificate</li>
+        <li>Optionally combine via <strong>random-effects meta-analysis</strong> with I&sup2; heterogeneity gating</li>
+      </ul>
+      <p style="color:#16a34a;font-weight:600">&check; Respects experimental boundaries.
+      Each experiment is a self-contained chaos experiment with controlled conditions.
+      <strong>"Minimize blast radius"</strong> applies to statistical analysis too &mdash;
+      keep the analysis scope matched to the experiment scope.</p>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>Rule:</strong> Statistical hypothesis tests (H-01&ndash;H-05) run <strong>per experiment</strong>,
+    never across experiments. Cross-experiment synthesis uses Level 2 meta-analysis
+    (see Section F2). This follows chaos engineering's core discipline: each experiment
+    is a <strong>controlled, scoped, repeatable</strong> unit
+    (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., 2025</a>;
+    <a href="https://doi.org/10.1109/MS.2016.60" style="color:#2563eb">Basiri et al., IEEE Software 2016</a>).
+  </div>
+
+  <h3>End-to-End Flow: From Chaos Experiment to Certificate</h3>
+  <table>
+    <tr>
+      <th style="width:50px">Step</th>
+      <th style="width:200px">Phase</th>
+      <th>What Happens</th>
+      <th style="width:180px">Chaos Eng. Parallel</th>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td><strong>Fault Injection</strong></td>
+      <td>User defines fault combination (e.g., <code>network_fault</code>, <code>f2</code>, <code>f3</code>).
+      System computes <code>experiment_id</code> = SHA-256 of sorted fault names.</td>
+      <td>Building a Hypothesis + Conducting Experiments</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>Repeated Runs</strong></td>
+      <td>Agent runs 30+ times against the same fault set. Each run: fresh <code>run_id</code> (UUID),
+      same <code>experiment_id</code>. Every span carries both IDs.</td>
+      <td>Automation &amp; Repeatability</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Fault Bucketing</strong></td>
+      <td>Each trace is decomposed into per-fault <code>FaultBucket</code> objects.
+      Each bucket inherits <code>experiment_id</code> + <code>run_id</code>.</td>
+      <td>Setting Up Monitoring</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Metrics Extraction</strong></td>
+      <td>Quantitative + qualitative metrics extracted per fault per run.
+      Stored with full provenance (<code>experiment_id</code>, <code>run_id</code>, <code>fault_category</code>).</td>
+      <td>Resilience Measurement (MTTR, MTTD, SLOs)</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>Aggregation</strong></td>
+      <td>Metrics grouped by <code>fault_category</code> within the experiment.
+      Numeric aggregates, derived rates, boolean summaries, LLM Council assessments.</td>
+      <td>Reviewing Results</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><strong>Statistical Hypothesis Testing</strong></td>
+      <td>H-01&ndash;H-06 run <strong>per experiment</strong>. CI estimation, cross-category comparison,
+      variance stability, drift detection. Multiple-comparisons corrected.</td>
+      <td>Continuous Analysis</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><strong>Certificate</strong></td>
+      <td>One certificate per experiment: CONSISTENT / FLAGGED / ALERT.
+      Cross-experiment synthesis via Level 2 meta-analysis (optional).</td>
+      <td>Improvements Applied &amp; Tests Repeated</td>
+    </tr>
+  </table>
+
+  <div class="info-box green">
+    <strong>Key References:</strong>
+    <a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al. (EASE &rsquo;25)</a> &mdash; Custom Chaos Engineering Framework |
+    <a href="https://doi.org/10.1109/MS.2016.60" style="color:#2563eb">Basiri et al. (IEEE Software 2016)</a> &mdash; Chaos Engineering Principles |
+    <a href="https://doi.org/10.1145/3358960.3379084" style="color:#2563eb">Basiri et al. (ICSE-SEIP 2019)</a> &mdash; Chaos in Production |
+    <a href="https://arxiv.org/abs/2412.01418" style="color:#2563eb">Owotogbe et al. (2024)</a> &mdash; Multi-Vocal Literature Review |
+    <a href="https://doi.org/10.1145/3340433.3368303" style="color:#2563eb">Jernberg (ESEM 2020)</a> &mdash; Discovery &rarr; Implementation &rarr; Sophistication &rarr; Expansion |
+    <a href="https://chaos-mesh.org/" style="color:#2563eb">Chaos Mesh</a> |
+    <a href="https://litmuschaos.io/" style="color:#2563eb">LitmusChaos</a> |
+    <a href="https://www.gremlin.com/" style="color:#2563eb">Gremlin</a>
   </div>
 
   <h3>The Core Idea</h3>
@@ -1337,6 +1569,258 @@ td code{
   </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     SECTION F2 — CROSS-EXPERIMENT ANALYSIS: POOLING vs META-ANALYSIS
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION F2</span>
+  <h2>Cross-Experiment Analysis: Why Per-Experiment Testing, Not Pooling</h2>
+
+  <p>When an agent is certified across <strong>multiple experiments</strong> with overlapping faults
+  (e.g., Experiment 1 tests {f1, f2, f3} &times; 30 runs; Experiment 2 tests {f1, f5} &times; 20 runs),
+  fault f1 accumulates 50 observations from two different experimental contexts.
+  A critical design question arises: <strong>should the 50 f1 observations be pooled for hypothesis testing,
+  or should tests remain scoped per experiment with meta-analytic combination?</strong></p>
+
+  <div class="info-box">
+    <strong>Decision: Per-experiment hypothesis testing with meta-analytic combination (Level 2 architecture).</strong>
+    Raw data pooling across experiments is statistically invalid when the experimental context
+    (fault combination) acts as a confounding variable. The literature from clinical trials, genomics,
+    machine learning evaluation, and causal inference converges on this conclusion.
+  </div>
+
+  <h3>Why Naive Pooling Is Invalid</h3>
+
+  <div class="card-grid three">
+    <div class="card">
+      <div class="card-title">Simpson's Paradox</div>
+      <p>Aggregating data across subgroups with different confounder distributions can
+      <strong>reverse the direction</strong> of observed effects. In the canonical example
+      (<a href="https://doi.org/10.1126/science.187.4175.398" style="color:#2563eb">Bickel et al., Science 1975</a>),
+      men had higher overall admission rates at UC Berkeley, but no individual department showed bias.
+      Pooling f1 data from Experiment 1 (alongside f2, f3) and Experiment 2 (alongside f5) risks the same reversal.
+      <a href="https://doi.org/10.1017/CBO9780511803161" style="color:#2563eb">Pearl (2009)</a> proved this arises from
+      conflating observational with interventional probabilities when confounders exist.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Batch Effects</div>
+      <p><a href="https://doi.org/10.1093/biostatistics/kxj037" style="color:#2563eb">Johnson et al. (Biostatistics, 2007)</a>
+      stated: <strong>&ldquo;it is inappropriate to combine data sets without adjusting for batch effects.&rdquo;</strong>
+      Different fault combinations constitute different experimental batches.
+      <a href="https://doi.org/10.1038/nrg2825" style="color:#2563eb">Leek et al. (Nature Reviews Genetics, 2010)</a>
+      showed that <strong>correlations can reverse sign across batches</strong>, and standard normalization
+      does not fix this. When batch effects correlate with the outcome, pooling corrupts
+      the entire correlation structure.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Ecological Fallacy</div>
+      <p><a href="https://doi.org/10.1093/ije/dyn357" style="color:#2563eb">Robinson (American Sociological Review, 1950)</a>
+      established that group-level correlations cannot approximate individual-level correlations.
+      <a href="https://doi.org/10.1093/ije/30.6.1343" style="color:#2563eb">Greenland (Int J Epidemiology, 2001)</a>
+      showed ecological data provide &ldquo;only marginal observations on the joint distribution&rdquo;
+      and cannot identify individual-level effects. Aggregate experiment data provides only a
+      marginal view of per-experiment agent behavior.</p>
+    </div>
+  </div>
+
+  <h3>The Correct Approach: Two-Level Architecture</h3>
+
+  <table>
+    <tr>
+      <th style="width:140px">Level</th>
+      <th>Scope</th>
+      <th>What Runs</th>
+      <th>Output</th>
+    </tr>
+    <tr>
+      <td><strong>Level 1</strong><br>Per-Experiment</td>
+      <td>Within each experiment (same fault combination, same context)</td>
+      <td>H-01 through H-05: CIs, cross-category comparisons, variance stability.
+        All observations come from the same experimental context &mdash; no confounding.</td>
+      <td>Per-experiment statistical evidence block + certificate</td>
+    </tr>
+    <tr>
+      <td><strong>Level 2</strong><br>Cross-Experiment</td>
+      <td>Across experiments (different fault combinations, different contexts)</td>
+      <td><strong>Homogeneity pre-test</strong> (Mann-Whitney U or Kolmogorov-Smirnov) on shared faults.
+        If homogeneous (p &gt; 0.05): pool is valid &mdash; run H-01/H-02 on combined data for tighter CIs.
+        If <em>not</em> homogeneous: do NOT pool &mdash; report separately, flag context-dependency.
+        <strong>H-06 (drift)</strong> runs across experiment temporal ordering.</td>
+      <td>Combined certificate with per-experiment evidence + cross-experiment meta-analysis</td>
+    </tr>
+  </table>
+
+  <div class="info-box warn">
+    <strong>Fault co-occurrence as a confounder:</strong> When agent A is tested on fault f1 alongside
+    {f2, f3} in Experiment 1, and alongside {f5} in Experiment 2, the agent's resource allocation,
+    reasoning path, and timing on f1 may be influenced by co-occurring faults. This makes the
+    experiment context a confounder &mdash; correlated with both the treatment (fault injection)
+    and the outcome (agent metrics). Pooling without adjustment produces estimates that
+    <strong>&ldquo;may not actually exist in any population&rdquo;</strong>
+    (<a href="https://training.cochrane.org/handbook" style="color:#2563eb">Cochrane Handbook, 2024</a>,
+    Mandatory Expectation C62).
+  </div>
+
+  <h3>Meta-Analytic Combination: How It Works</h3>
+
+  <p>The combined certificate uses <strong>random-effects meta-analysis</strong>
+  (<a href="https://doi.org/10.1016/0197-2456(86)90046-2" style="color:#2563eb">DerSimonian &amp; Laird, 1986</a>)
+  to combine per-experiment estimates while accounting for between-experiment heterogeneity:</p>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-title">Step 1: Assess Heterogeneity</div>
+      <p>For each shared fault, compute the <strong>I&sup2; statistic</strong>
+      (<a href="https://doi.org/10.1002/sim.1186" style="color:#2563eb">Higgins &amp; Thompson, 2002</a>)
+      &mdash; the proportion of total variation due to between-experiment differences rather than sampling error.</p>
+      <ul>
+        <li><strong>I&sup2; &lt; 40%:</strong> Low heterogeneity &mdash; pooling may be acceptable</li>
+        <li><strong>I&sup2; = 40&ndash;75%:</strong> Moderate heterogeneity &mdash; random-effects model required</li>
+        <li><strong>I&sup2; &gt; 75%:</strong> Substantial heterogeneity &mdash; do not pool, report separately</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Step 2: Combine or Report Separately</div>
+      <p>If I&sup2; is acceptable, combine per-experiment effect estimates using inverse-variance weighting
+      with the DerSimonian-Laird &tau;&sup2; estimator. The random-effects model yields
+      <strong>wider confidence intervals</strong> than naive pooling
+      (<a href="https://doi.org/10.1002/jrsm.12" style="color:#2563eb">Borenstein et al., 2010</a>),
+      properly reflecting between-experiment uncertainty.</p>
+      <p>If I&sup2; is high: report per-experiment results side-by-side and flag
+      <strong>context-dependent fault response</strong> &mdash; this itself is a certification finding.</p>
+    </div>
+  </div>
+
+  <h3>Combined Certificate Structure</h3>
+
+  <div class="schema-block"><span class="comment">// Combined Certificate with Two-Level Architecture</span>
+{
+  <span class="key">"combined_certificate"</span>: {
+    <span class="key">"agent_id"</span>: <span class="str">"agent-abc"</span>,
+
+    <span class="key">"per_experiment_evidence"</span>: [
+      {
+        <span class="key">"experiment_id"</span>: <span class="str">"exp_001"</span>,
+        <span class="key">"faults"</span>: [<span class="str">"f1"</span>, <span class="str">"f2"</span>, <span class="str">"f3"</span>],
+        <span class="key">"runs"</span>: <span class="num">30</span>,
+        <span class="key">"statistical_evidence"</span>: { ... }       <span class="comment">// H-01 through H-05 (scoped)</span>
+      },
+      {
+        <span class="key">"experiment_id"</span>: <span class="str">"exp_002"</span>,
+        <span class="key">"faults"</span>: [<span class="str">"f1"</span>, <span class="str">"f5"</span>],
+        <span class="key">"runs"</span>: <span class="num">20</span>,
+        <span class="key">"statistical_evidence"</span>: { ... }       <span class="comment">// H-01 through H-05 (scoped)</span>
+      }
+    ],
+
+    <span class="key">"cross_experiment_analysis"</span>: {
+      <span class="key">"shared_faults"</span>: {
+        <span class="key">"f1"</span>: {
+          <span class="key">"total_observations"</span>: <span class="num">50</span>,           <span class="comment">// 30 + 20</span>
+          <span class="key">"sources"</span>: [<span class="str">"exp_001"</span>, <span class="str">"exp_002"</span>],
+          <span class="key">"homogeneity_test"</span>: {
+            <span class="key">"test"</span>: <span class="str">"mann_whitney_u"</span>,
+            <span class="key">"p_value"</span>: <span class="num">0.34</span>,
+            <span class="key">"result"</span>: <span class="str">"homogeneous"</span>         <span class="comment">// p > 0.05: same distribution</span>
+          },
+          <span class="key">"i_squared"</span>: <span class="num">22.4</span>,                  <span class="comment">// low heterogeneity</span>
+          <span class="key">"poolable"</span>: <span class="bool">true</span>,
+          <span class="key">"combined_ci"</span>: {                    <span class="comment">// tighter CI from n=50</span>
+            <span class="key">"method"</span>: <span class="str">"random_effects_dsl"</span>,
+            <span class="key">"time_to_detect_iqm"</span>: { <span class="key">"ci_95"</span>: [<span class="num">245.2</span>, <span class="num">418.7</span>], <span class="key">"ci_width"</span>: <span class="num">173.5</span> }
+          }
+        }
+      },
+      <span class="key">"unique_faults"</span>: {
+        <span class="key">"f2"</span>: { <span class="key">"source"</span>: <span class="str">"exp_001"</span>, <span class="key">"runs"</span>: <span class="num">30</span> },
+        <span class="key">"f3"</span>: { <span class="key">"source"</span>: <span class="str">"exp_001"</span>, <span class="key">"runs"</span>: <span class="num">30</span> },
+        <span class="key">"f5"</span>: { <span class="key">"source"</span>: <span class="str">"exp_002"</span>, <span class="key">"runs"</span>: <span class="num">20</span>, <span class="key">"adequacy"</span>: <span class="str">"marginal"</span> }
+      }
+    },
+
+    <span class="key">"fault_coverage_summary"</span>: {
+      <span class="key">"f1"</span>: { <span class="key">"total_runs"</span>: <span class="num">50</span>, <span class="key">"status"</span>: <span class="str">"sufficient"</span> },
+      <span class="key">"f2"</span>: { <span class="key">"total_runs"</span>: <span class="num">30</span>, <span class="key">"status"</span>: <span class="str">"sufficient"</span> },
+      <span class="key">"f3"</span>: { <span class="key">"total_runs"</span>: <span class="num">30</span>, <span class="key">"status"</span>: <span class="str">"sufficient"</span> },
+      <span class="key">"f5"</span>: { <span class="key">"total_runs"</span>: <span class="num">20</span>, <span class="key">"status"</span>: <span class="str">"marginal"</span> }
+    },
+
+    <span class="key">"drift_analysis"</span>: {                      <span class="comment">// H-06 across experiments</span>
+      <span class="key">"temporal_order"</span>: [<span class="str">"exp_001"</span>, <span class="str">"exp_002"</span>],
+      <span class="key">"drift_detected"</span>: <span class="bool">false</span>
+    }
+  }
+}</div>
+
+  <h3>Research Grounding (10 Papers)</h3>
+
+  <table>
+    <tr>
+      <th style="width:50px">Category</th>
+      <th style="width:280px">Paper</th>
+      <th>Key Finding Supporting Per-Experiment Analysis</th>
+    </tr>
+    <tr>
+      <td>Simpson's Paradox</td>
+      <td><a href="https://doi.org/10.1126/science.187.4175.398" style="color:#2563eb">Bickel, Hammel &amp; O'Connell (Science, 1975)</a></td>
+      <td>Pooling across heterogeneous subgroups reversed the direction of observed gender bias. The aggregate told the opposite story from every individual department.</td>
+    </tr>
+    <tr>
+      <td>Causal Inference</td>
+      <td><a href="https://doi.org/10.1017/CBO9780511803161" style="color:#2563eb">Pearl, <em>Causality</em> (Cambridge UP, 2009)</a></td>
+      <td>Proved Simpson's Paradox arises from conflating P(S|T) with P(S|do(T)). When confounders exist, the pooled association diverges from the causal effect. The back-door criterion defines when conditioning eliminates confounding.</td>
+    </tr>
+    <tr>
+      <td>Batch Effects</td>
+      <td><a href="https://doi.org/10.1093/biostatistics/kxj037" style="color:#2563eb">Johnson, Li &amp; Rabinovic (Biostatistics, 2007)</a></td>
+      <td>&ldquo;It is inappropriate to combine data sets without adjusting for batch effects.&rdquo; Proposed ComBat empirical Bayes framework for cross-batch adjustment.</td>
+    </tr>
+    <tr>
+      <td>Batch Effects</td>
+      <td><a href="https://doi.org/10.1038/nrg2825" style="color:#2563eb">Leek et al. (Nature Reviews Genetics, 2010)</a></td>
+      <td>Correlations reverse sign across batches. The most dangerous case: batch effects correlated with outcome of interest. Standard normalization does not fix this.</td>
+    </tr>
+    <tr>
+      <td>Ecological Fallacy</td>
+      <td><a href="https://doi.org/10.1093/ije/dyn357" style="color:#2563eb">Robinson (American Sociological Review, 1950)</a></td>
+      <td>Group-level correlations cannot approximate individual-level correlations. Inferences from aggregated data about individual behavior are fundamentally invalid.</td>
+    </tr>
+    <tr>
+      <td>Meta-Analysis</td>
+      <td><a href="https://doi.org/10.1016/0197-2456(86)90046-2" style="color:#2563eb">DerSimonian &amp; Laird (Controlled Clinical Trials, 1986)</a></td>
+      <td>Published meta-analyses &ldquo;lack consistent assessment of homogeneity before pooling.&rdquo; Proposed random-effects approach incorporating between-study variance.</td>
+    </tr>
+    <tr>
+      <td>Heterogeneity</td>
+      <td><a href="https://doi.org/10.1002/sim.1186" style="color:#2563eb">Higgins &amp; Thompson (Statistics in Medicine, 2002)</a></td>
+      <td>Introduced I&sup2; statistic: proportion of variation due to heterogeneity rather than sampling error. High I&sup2; = between-study differences are real, not noise.</td>
+    </tr>
+    <tr>
+      <td>Meta-Analysis</td>
+      <td><a href="https://doi.org/10.1002/jrsm.12" style="color:#2563eb">Borenstein, Hedges, Higgins &amp; Rothstein (Research Synthesis Methods, 2010)</a></td>
+      <td>Fixed-effect and random-effects models are not interchangeable. Ignoring between-study heterogeneity (as naive pooling does) systematically underestimates uncertainty.</td>
+    </tr>
+    <tr>
+      <td>Guidelines</td>
+      <td><a href="https://training.cochrane.org/handbook" style="color:#2563eb">Cochrane Handbook Ch.10 (Deeks, Higgins et al., 2024)</a></td>
+      <td>&ldquo;Undertake a meta-analysis only if participants, interventions, comparisons and outcomes are judged sufficiently similar.&rdquo; A pooled estimate under heterogeneity &ldquo;may be an intervention effect that does not actually exist in any population.&rdquo;</td>
+    </tr>
+    <tr>
+      <td>ML Evaluation</td>
+      <td><a href="https://jmlr.org/papers/v7/demsar06a.html" style="color:#2563eb">Dem&scaron;ar (JMLR, 2006)</a></td>
+      <td>ML&rsquo;s canonical argument against aggregating performance across heterogeneous conditions. Recommends per-dataset non-parametric comparisons (Friedman, Wilcoxon) over pooled analysis.</td>
+    </tr>
+  </table>
+
+  <div class="info-box green">
+    <strong>Total research grounding: 25 peer-reviewed papers.</strong>
+    The original framework cites 15 papers (Sections D&ndash;E). This section adds 10 papers
+    from clinical trials, causal inference, genomics, epidemiology, and ML evaluation methodology,
+    all converging on the same conclusion: per-experiment analysis with meta-analytic combination
+    is the only statistically valid approach when experimental contexts differ.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      SECTION G — AGG.JSON EXTENSION + RENDERING
      ════════════════════════════════════════════════════════════ -->
 <div class="section">
@@ -1535,7 +2019,7 @@ td code{
 <div class="footer">
   AgentCert — Statistical Hypothesis Framework (No-SLA Mode) &nbsp;|&nbsp; Generated 2026-04-03 &nbsp;|&nbsp;
   Methods: Wilson CI, Bootstrap CI, IQM, Shapiro-Wilk, Kruskal-Wallis, Mann-Whitney U, A&sub1;&sub2;, Welch's ANOVA, Fisher's Exact, Levene's, CUSUM &nbsp;|&nbsp;
-  Corrections: Holm-Bonferroni, BH-FDR &nbsp;|&nbsp; Grounded in 15 research papers
+  Corrections: Holm-Bonferroni, BH-FDR &nbsp;|&nbsp; Grounded in 25 research papers
 </div>
 
 </div><!-- /page -->
