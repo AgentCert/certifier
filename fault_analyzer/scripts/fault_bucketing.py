@@ -1,14 +1,21 @@
 """
 Fault Bucketing Pipeline for Multi-Fault Langfuse Traces.
 
-Implements the Log Preprocessing & Fault Bucketing algorithm described in
-Section 1.4 of the AgentCert Methodologies wiki. Streams Langfuse trace events
-in chronological order, identifies fault lifecycle phases (detection →
-investigation → remediation → verification → confirmation), and uses an LLM
-classifier to assign interleaved events into per-fault buckets.
+Creates per-fault buckets **deterministically** by scanning span names
+for the ``fault: *`` pattern (e.g. ``fault: pod-delete``).  No LLM is
+used for bucket creation.
 
-Supports both multi-fault traces (multiple fault_detected events) and
-single-fault traces (creates one pass-through bucket).
+Deduplication rules:
+  - If an active (not yet closed) bucket with the same fault name exists,
+    the new span is added to the existing bucket instead of creating a
+    duplicate.
+  - If all previous buckets with that name are closed, a new bucket is
+    created with a numeric suffix for uniqueness.
+
+Ground truth is extracted from the fault span's metadata when present.
+Remaining non-fault events are assigned to fault buckets using an LLM
+classifier that determines which fault(s) each event relates to, and
+whether an event represents a fault mitigation.
 
 Output: per-fault JSON files for downstream metrics extraction.
 """
@@ -58,18 +65,19 @@ def _load_module_config() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 class FaultBucketingPipeline:
-    """
-    Preprocesses a Langfuse trace by separating interleaved events into
+    """Preprocesses a Langfuse trace by separating interleaved events into
     per-fault buckets so each fault's lifecycle can be evaluated independently.
 
     Algorithm:
-      1. Initialize empty active-faults list and bucket dictionary.
-      2. Extract FAULT_DATA events (injected ground truth from chaos platform).
-      3. Stream remaining events in temporal order through the LLM in batches.
-      4. The LLM determines fault detection, mitigation, and event assignment.
-      5. On LLM-identified fault detection → create bucket, add to active faults.
-      6. On LLM-identified mitigation → close bucket, remove from active faults.
-      7. Output per-fault JSON files.
+      1. Scan spans for the ``fault: *`` naming pattern to create fault
+         buckets deterministically (no LLM).
+      2. Deduplicate: skip creation if an active bucket with the same
+         fault name exists; create a new bucket only if the previous one
+         was closed.
+      3. Extract ground truth from the fault span's metadata.
+      4. Stream remaining (non-fault) events through the LLM classifier
+         in batches to assign them to fault buckets and detect mitigations.
+      5. Output per-fault JSON files.
     """
 
     def __init__(
@@ -97,7 +105,7 @@ class FaultBucketingPipeline:
         else:
             self.config = {}
 
-        # LLM classifier
+        # LLM classifier for assigning non-fault events to buckets
         self._classifier = FaultEventClassifier(config=self.config)
 
         # Pipeline state
@@ -106,7 +114,7 @@ class FaultBucketingPipeline:
         self.injected_faults: Dict[str, FaultBucket] = {}  # from FAULT_DATA
         self.unclassified_events: List[Dict[str, Any]] = []
 
-        # Agent metadata extracted from the first trace event
+        # Agent metadata extracted from early trace events (before first fault span)
         self.agent_id: Optional[str] = None
         self.agent_name: Optional[str] = None
         self.agent_version: Optional[str] = None
@@ -125,33 +133,52 @@ class FaultBucketingPipeline:
     # Extract agent metadata
     # ------------------------------------------------------------------
 
-    def _extract_agent_metadata(self, sorted_events: List[Dict[str, Any]]) -> None:
-        """Extract agent_id, agent_name, agent_version, experiment_id, and run_id from the first trace event.
+    def _all_agent_metadata_found(self) -> bool:
+        """Return True if all agent metadata fields have been populated."""
+        return all([
+            self.agent_id,
+            self.agent_name,
+            self.agent_version,
+            self.experiment_id,
+            self.run_id,
+        ])
 
-        Looks at the input and metadata fields of the first event for agent
-        onboarding information.
+    def _extract_agent_metadata(self, sorted_events: List[Dict[str, Any]]) -> None:
+        """Extract agent_id, agent_name, agent_version, experiment_id, and run_id from early trace events.
+
+        Scans events in chronological order, checking the input and metadata
+        fields of each event, stopping as soon as a ``fault: *`` span is
+        encountered or all metadata fields have been populated.
         """
         if not sorted_events:
             return
 
-        first_event = sorted_events[0]
-        # Try input field first, then metadata
-        for field_name in ("input", "metadata"):
-            raw = first_event.get(field_name)
-            if not raw:
-                continue
-            parsed = safe_parse_python_literal(raw)
-            if isinstance(parsed, dict):
-                if not self.agent_id and parsed.get("agent_id"):
-                    self.agent_id = parsed["agent_id"]
-                if not self.agent_name and parsed.get("agent_name"):
-                    self.agent_name = parsed["agent_name"]
-                if not self.agent_version and parsed.get("agent_version"):
-                    self.agent_version = parsed["agent_version"]
-                if not self.experiment_id and parsed.get("experiment_id"):
-                    self.experiment_id = parsed["experiment_id"]
-                if not self.run_id and parsed.get("run_id"):
-                    self.run_id = parsed["run_id"]
+        for event in sorted_events:
+            # Stop scanning once we hit a fault span
+            if self._is_fault_name_span(event):
+                break
+
+            # Try input field first, then metadata
+            for field_name in ("input", "metadata"):
+                raw = event.get(field_name)
+                if not raw:
+                    continue
+                parsed = safe_parse_python_literal(raw)
+                if isinstance(parsed, dict):
+                    if not self.agent_id and parsed.get("agent_id"):
+                        self.agent_id = parsed["agent_id"]
+                    if not self.agent_name and parsed.get("agent_name"):
+                        self.agent_name = parsed["agent_name"]
+                    if not self.agent_version and parsed.get("agent_version"):
+                        self.agent_version = parsed["agent_version"]
+                    if not self.experiment_id and parsed.get("experiment_id"):
+                        self.experiment_id = parsed["experiment_id"]
+                    if not self.run_id and parsed.get("run_id"):
+                        self.run_id = parsed["run_id"]
+
+            # Stop early if all fields are populated
+            if self._all_agent_metadata_found():
+                break
 
         if self.agent_id:
             logger.info(
@@ -159,6 +186,41 @@ class FaultBucketingPipeline:
                 f"name={self.agent_name}, version={self.agent_version}, "
                 f"experiment_id={self.experiment_id}, run_id={self.run_id}"
             )
+
+    # ------------------------------------------------------------------
+    # Fault span identification (deterministic bucketing)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_fault_name_span(event: Dict[str, Any]) -> bool:
+        """Return True if the event's name matches the ``fault: *`` pattern."""
+        name = event.get("name", "")
+        return isinstance(name, str) and name.startswith("fault: ")
+
+    @staticmethod
+    def _extract_fault_name_from_span(event: Dict[str, Any]) -> Optional[str]:
+        """Extract the fault name from a span with name ``fault: <name>``.
+
+        E.g. ``fault: pod-delete`` → ``pod-delete``.
+        """
+        name = event.get("name", "")
+        if isinstance(name, str) and name.startswith("fault: "):
+            fault_name = name[len("fault: "):].strip()
+            return fault_name if fault_name else None
+        return None
+
+    @staticmethod
+    def _extract_metadata_dict(event: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse the metadata field of an event into a dictionary."""
+        raw = event.get("metadata")
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return {}
 
     # ------------------------------------------------------------------
     # Load and sort events
@@ -246,6 +308,26 @@ class FaultBucketingPipeline:
         )
 
     # ------------------------------------------------------------------
+    # Ground-truth extraction from fault span metadata
+    # ------------------------------------------------------------------
+
+    def _extract_ground_truth_from_metadata(
+        self, event: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Extract ground truth from a fault span's metadata.
+
+        Looks for a ``ground_truth`` key in the top-level metadata dict
+        or inside the ``attributes`` sub-dict.
+        """
+        metadata = self._extract_metadata_dict(event)
+        gt = metadata.get("ground_truth")
+        if gt is None:
+            gt = metadata.get("attributes", {}).get("ground_truth")
+        if isinstance(gt, str):
+            gt = safe_parse_python_literal(gt)
+        return gt if isinstance(gt, dict) else None
+
+    # ------------------------------------------------------------------
     # Ground-truth enrichment
     # ------------------------------------------------------------------
 
@@ -275,6 +357,92 @@ class FaultBucketingPipeline:
                     f"from injected fault '{injected.fault_name}'"
                 )
                 return
+
+    # ------------------------------------------------------------------
+    # Deterministic fault bucket creation from "fault: *" spans
+    # ------------------------------------------------------------------
+
+    def _create_fault_bucket_from_span(self, event: Dict[str, Any]) -> None:
+        """Create a fault bucket from a span whose name matches ``fault: *``.
+
+        Deduplication rules:
+        - If an **active** bucket with the same fault name exists, do NOT
+          create a new one — add the event to the existing bucket.
+        - If all previous buckets with the same fault name are **closed**,
+          create a new bucket (with a numeric suffix for uniqueness).
+
+        Ground truth is extracted from the span's metadata if present.
+        """
+        fault_name = self._extract_fault_name_from_span(event)
+        if not fault_name:
+            return
+
+        # Dedup: active bucket with same fault_name → skip creation
+        if fault_name in self.active_faults:
+            self.active_faults[fault_name].events.append(event)
+            logger.info(
+                f"Fault bucket '{fault_name}' already active, "
+                f"adding event to existing bucket."
+            )
+            return
+
+        # Also check active_faults by fault_name (fault_id may differ)
+        for fid, bucket in self.active_faults.items():
+            if bucket.fault_name == fault_name:
+                bucket.events.append(event)
+                logger.info(
+                    f"Fault bucket '{fid}' (name={fault_name}) already "
+                    f"active, adding event to existing bucket."
+                )
+                return
+
+        # Determine unique fault_id when closed bucket(s) exist
+        fault_id = fault_name
+        counter = 1
+        while fault_id in self.closed_faults:
+            counter += 1
+            fault_id = f"{fault_name}_{counter}"
+
+        # Parse metadata attributes
+        metadata = self._extract_metadata_dict(event)
+        attributes = metadata.get("attributes", {})
+
+        target_pod = attributes.get("fault.target_label")
+        namespace = attributes.get("fault.target_namespace")
+        fault_status = attributes.get("fault.status", "").lower()
+
+        # Extract ground truth from metadata
+        ground_truth = self._extract_ground_truth_from_metadata(event)
+
+        # Create new bucket
+        bucket = FaultBucket(
+            fault_id=fault_id,
+            fault_name=fault_name,
+            target_pod=target_pod,
+            namespace=namespace,
+            events=[event],
+            status="active",
+            detected_at=event.get("startTime"),
+            ground_truth=ground_truth,
+            agent_id=self.agent_id,
+            agent_name=self.agent_name,
+            agent_version=self.agent_version,
+            experiment_id=self.experiment_id,
+            run_id=self.run_id,
+        )
+
+        # Enrich with ground truth from injected FAULT_DATA if available
+        self._enrich_bucket_with_ground_truth(bucket)
+
+        self.active_faults[fault_id] = bucket
+        logger.info(
+            f"Fault bucket created: {fault_id} "
+            f"(target={target_pod}, namespace={namespace})"
+        )
+
+        # Close the bucket if the fault status indicates completion
+        if fault_status == "completed":
+            self._close_fault(fault_id, mitigated_at=event.get("endTime"))
 
     # ------------------------------------------------------------------
     # Event batching helpers
@@ -334,10 +502,19 @@ class FaultBucketingPipeline:
         """
         Execute the fault bucketing pipeline.
 
-        All fault detection and mitigation decisions are made by the LLM.
-        Events are processed in chronological batches; the LLM identifies
-        which events represent new fault detections, which confirm
-        mitigations, and which faults each event relates to.
+        Fault buckets are created **deterministically** from spans whose
+        name matches the ``fault: *`` pattern (e.g. ``fault: pod-delete``).
+        No LLM is used for bucket creation.
+
+        Deduplication:
+        - If an active bucket with the same fault name exists, the event
+          is added to it instead of creating a duplicate.
+        - If all previous buckets with that name are closed, a new bucket
+          is created (with a numeric suffix for uniqueness).
+
+        Remaining (non-fault) events are assigned to fault buckets via
+        the LLM classifier, which determines the related fault(s) for
+        each event and identifies fault mitigations.
 
         Returns:
             Dictionary of fault_id → FaultBucket (all buckets, active + closed).
@@ -380,20 +557,41 @@ class FaultBucketingPipeline:
             return {**self.active_faults, **self.closed_faults}
 
         # ----------------------------------------------------------
-        # Process all events via LLM in chronological batches.
-        # The LLM determines fault detection, mitigation, and
-        # event-to-fault assignment — no heuristic rules.
+        # Pass 1: Create fault buckets from "fault: *" spans
+        #         (deterministic — no LLM)
+        # ----------------------------------------------------------
+        remaining_events: List[Dict[str, Any]] = []
+
+        for event in non_fault_data_events:
+            if self._is_fault_name_span(event):
+                self._create_fault_bucket_from_span(event)
+            else:
+                remaining_events.append(event)
+
+        logger.info(
+            f"Deterministic bucketing: {len(self.active_faults)} active, "
+            f"{len(self.closed_faults)} closed fault bucket(s) created "
+            f"from 'fault: *' spans."
+        )
+
+        if not remaining_events:
+            self._write_output()
+            return {**self.active_faults, **self.closed_faults}
+
+        # ----------------------------------------------------------
+        # Pass 2: Assign remaining events to fault buckets via LLM
+        #         classifier in chronological batches.
         # ----------------------------------------------------------
         logger.info(
-            f"Processing {len(non_fault_data_events)} events via LLM "
+            f"Processing {len(remaining_events)} remaining events via LLM "
             f"(batch_size={self.batch_size})"
         )
         batches = self._create_event_batches(
-            non_fault_data_events, self.batch_size
+            remaining_events, self.batch_size
         )
 
         for batch_idx, batch in enumerate(batches):
-            # Provide all known faults (active + closed) as context
+            # Provide all known fault buckets (active + closed) as context
             known_faults = {**self.active_faults, **self.closed_faults}
 
             classifications = await self._classifier.classify_batch(
@@ -413,58 +611,8 @@ class FaultBucketingPipeline:
                     self.unclassified_events.append(event)
                     continue
 
-                # --- Handle new fault detection identified by LLM ---
-                if classification.fault_detected:
-                    fault_id = classification.fault_detected
-                    if (
-                        fault_id not in self.active_faults
-                        and fault_id not in self.closed_faults
-                    ):
-                        # Create a new fault bucket from LLM classification
-                        new_bucket = FaultBucket(
-                            fault_id=fault_id,
-                            fault_name=fault_id,
-                            severity=classification.detected_fault_severity,
-                            target_pod=classification.detected_fault_target_pod,
-                            namespace=classification.detected_fault_namespace,
-                            detection_signals=classification.detected_fault_signals,
-                            events=[event],
-                            status="active",
-                            detected_at=event.get("startTime"),
-                            agent_id=self.agent_id,
-                            agent_name=self.agent_name,
-                            agent_version=self.agent_version,
-                            experiment_id=self.experiment_id,
-                            run_id=self.run_id,
-                        )
-                        self._enrich_bucket_with_ground_truth(new_bucket)
-                        self.active_faults[fault_id] = new_bucket
-                        logger.info(
-                            f"Fault detected (LLM): {fault_id} "
-                            f"(severity={new_bucket.severity}, "
-                            f"pod={new_bucket.target_pod})"
-                        )
-                    else:
-                        # Fault already known — add event to existing bucket
-                        target = (
-                            self.active_faults.get(fault_id)
-                            or self.closed_faults.get(fault_id)
-                        )
-                        if target:
-                            target.events.append(event)
-
-                    # Also assign to other related faults beyond the detected one
-                    for related_id in classification.related_faults:
-                        if related_id != fault_id:
-                            target = (
-                                self.active_faults.get(related_id)
-                                or self.closed_faults.get(related_id)
-                            )
-                            if target:
-                                target.events.append(event)
-                else:
-                    # No new fault detection — place in related fault buckets
-                    self._place_event_in_buckets(event, classification)
+                # --- Assign event to related fault bucket(s) ---
+                self._place_event_in_buckets(event, classification)
 
                 # --- Handle fault mitigation identified by LLM ---
                 if classification.fault_mitigated:
@@ -484,7 +632,7 @@ class FaultBucketingPipeline:
         # ----------------------------------------------------------
         if not self.active_faults and not self.closed_faults:
             logger.info(
-                "No faults identified by LLM. "
+                "No 'fault: *' spans found. "
                 "Treating as single-fault trace (one bucket)."
             )
             single_bucket = FaultBucket(

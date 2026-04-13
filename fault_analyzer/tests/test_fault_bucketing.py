@@ -464,6 +464,65 @@ class TestFaultBucketingPipelineHelpers:
         batches = FaultBucketingPipeline._create_event_batches([], 10)
         assert batches == []
 
+    # --- _is_fault_name_span ---
+
+    def test_is_fault_name_span_true(self):
+        event = {"name": "fault: pod-delete"}
+        assert FaultBucketingPipeline._is_fault_name_span(event) is True
+
+    def test_is_fault_name_span_false(self):
+        event = {"name": "experiment-run"}
+        assert FaultBucketingPipeline._is_fault_name_span(event) is False
+
+    def test_is_fault_name_span_partial_prefix(self):
+        event = {"name": "fault:pod-delete"}  # no space after colon
+        assert FaultBucketingPipeline._is_fault_name_span(event) is False
+
+    def test_is_fault_name_span_missing_name(self):
+        event = {"type": "SPAN"}
+        assert FaultBucketingPipeline._is_fault_name_span(event) is False
+
+    # --- _extract_fault_name_from_span ---
+
+    def test_extract_fault_name(self):
+        event = {"name": "fault: pod-delete"}
+        assert FaultBucketingPipeline._extract_fault_name_from_span(event) == "pod-delete"
+
+    def test_extract_fault_name_with_spaces(self):
+        event = {"name": "fault:  disk-fill "}
+        # does not match — requires "fault: " prefix (space after colon)
+        assert FaultBucketingPipeline._extract_fault_name_from_span(event) is None
+
+    def test_extract_fault_name_empty_after_prefix(self):
+        event = {"name": "fault: "}
+        assert FaultBucketingPipeline._extract_fault_name_from_span(event) is None
+
+    def test_extract_fault_name_no_match(self):
+        event = {"name": "experiment-run"}
+        assert FaultBucketingPipeline._extract_fault_name_from_span(event) is None
+
+    # --- _extract_metadata_dict ---
+
+    def test_extract_metadata_dict_json_string(self):
+        event = {"metadata": '{"attributes": {"fault.name": "pod-delete"}}'}
+        result = FaultBucketingPipeline._extract_metadata_dict(event)
+        assert result == {"attributes": {"fault.name": "pod-delete"}}
+
+    def test_extract_metadata_dict_already_dict(self):
+        event = {"metadata": {"key": "value"}}
+        result = FaultBucketingPipeline._extract_metadata_dict(event)
+        assert result == {"key": "value"}
+
+    def test_extract_metadata_dict_missing(self):
+        event = {"name": "test"}
+        result = FaultBucketingPipeline._extract_metadata_dict(event)
+        assert result == {}
+
+    def test_extract_metadata_dict_invalid_json(self):
+        event = {"metadata": "not json"}
+        result = FaultBucketingPipeline._extract_metadata_dict(event)
+        assert result == {}
+
     # --- _place_event_in_buckets ---
 
     def test_place_event_in_matching_bucket(self):
@@ -512,6 +571,93 @@ class TestFaultBucketingPipelineHelpers:
         pipeline._place_event_in_buckets(event, classification)
 
         assert len(pipeline.closed_faults["f1"].events) == 1
+
+    # --- _create_fault_bucket_from_span ---
+
+    def test_create_fault_bucket_from_span_basic(self):
+        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
+        pipeline.active_faults = {}
+        pipeline.closed_faults = {}
+        pipeline.injected_faults = {}
+        pipeline.agent_id = None
+        pipeline.agent_name = None
+        pipeline.agent_version = None
+        pipeline.experiment_id = None
+        pipeline.run_id = None
+
+        event = {
+            "name": "fault: pod-delete",
+            "startTime": "2025-01-01T10:00:00Z",
+            "endTime": "2025-01-01T10:15:00Z",
+            "metadata": json.dumps({
+                "attributes": {
+                    "fault.target_label": "name=catalogue",
+                    "fault.target_namespace": "sock-shop",
+                    "fault.status": "completed",
+                },
+            }),
+        }
+        pipeline._create_fault_bucket_from_span(event)
+
+        assert "pod-delete" not in pipeline.active_faults  # closed immediately
+        assert "pod-delete" in pipeline.closed_faults
+        bucket = pipeline.closed_faults["pod-delete"]
+        assert bucket.fault_name == "pod-delete"
+        assert bucket.namespace == "sock-shop"
+        assert bucket.status == "closed"
+
+    def test_create_fault_bucket_dedup_active(self):
+        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
+        existing = FaultBucket(
+            fault_id="pod-delete", fault_name="pod-delete", status="active"
+        )
+        pipeline.active_faults = {"pod-delete": existing}
+        pipeline.closed_faults = {}
+        pipeline.injected_faults = {}
+        pipeline.agent_id = None
+        pipeline.agent_name = None
+        pipeline.agent_version = None
+        pipeline.experiment_id = None
+        pipeline.run_id = None
+
+        event = {
+            "name": "fault: pod-delete",
+            "startTime": "2025-01-01T10:00:00Z",
+            "metadata": "{}",
+        }
+        pipeline._create_fault_bucket_from_span(event)
+
+        # Should NOT create a new bucket, just add event to existing
+        assert len(pipeline.active_faults) == 1
+        assert len(pipeline.active_faults["pod-delete"].events) == 1
+
+    def test_create_fault_bucket_new_after_closed(self):
+        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
+        closed = FaultBucket(
+            fault_id="pod-delete", fault_name="pod-delete", status="closed"
+        )
+        pipeline.active_faults = {}
+        pipeline.closed_faults = {"pod-delete": closed}
+        pipeline.injected_faults = {}
+        pipeline.agent_id = None
+        pipeline.agent_name = None
+        pipeline.agent_version = None
+        pipeline.experiment_id = None
+        pipeline.run_id = None
+
+        event = {
+            "name": "fault: pod-delete",
+            "startTime": "2025-01-01T11:00:00Z",
+            "endTime": "2025-01-01T11:15:00Z",
+            "metadata": json.dumps({
+                "attributes": {"fault.status": "completed"},
+            }),
+        }
+        pipeline._create_fault_bucket_from_span(event)
+
+        # New bucket with suffix
+        assert "pod-delete_2" in pipeline.closed_faults
+        assert pipeline.closed_faults["pod-delete_2"].fault_name == "pod-delete"
 
     # --- _close_fault ---
 
