@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistical Methods Reference — AgentCert Hypothesis Framework</title>
+    <style>
+        :root {
+            --bg: #fafbfc; --card: #ffffff; --border: #e1e4e8;
+            --dark: #0d1117; --body: #24292f; --sub: #57606a; --muted: #8b949e;
+            --blue: #0969da; --green: #1a7f37; --orange: #bf5600; --red: #cf222e;
+            --purple: #8250df; --teal: #0a6c5c; --pink: #bf3989;
+            --blue-bg: #ddf4ff; --green-bg: #dafbe1; --orange-bg: #fff8c5;
+            --red-bg: #ffebe9; --purple-bg: #fbefff; --teal-bg: #ddf4ee;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--body); line-height: 1.6; }
+
+        .header { background: linear-gradient(135deg, #0d1117, #161b22); color: white; padding: 50px 40px; }
+        .header h1 { font-size: 2.4em; font-weight: 700; margin-bottom: 10px; }
+        .header p { font-size: 1.15em; color: #8b949e; max-width: 800px; }
+        .header .badge { display: inline-block; background: var(--blue); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; margin-top: 12px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+
+        .toc { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 28px 32px; margin-bottom: 40px; }
+        .toc h2 { font-size: 1.3em; margin-bottom: 16px; color: var(--dark); }
+        .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+        .toc a { text-decoration: none; color: var(--blue); display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; transition: background 0.15s; font-size: 0.95em; }
+        .toc a:hover { background: var(--blue-bg); }
+        .toc .num { font-weight: 700; font-size: 0.85em; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+        .method-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 32px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .method-header { padding: 24px 28px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 16px; }
+        .method-num { font-weight: 800; font-size: 1em; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .method-header h2 { font-size: 1.5em; color: var(--dark); margin-bottom: 4px; }
+        .method-header .aka { font-size: 0.9em; color: var(--sub); font-weight: 400; }
+        .method-header .hyp-tag { display: inline-block; background: var(--blue-bg); color: var(--blue); padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 8px; }
+
+        .method-body { padding: 24px 28px; }
+        .section { margin-bottom: 24px; }
+        .section:last-child { margin-bottom: 0; }
+        .section-label { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; padding: 3px 10px; border-radius: 4px; display: inline-block; }
+        .section-content { font-size: 0.95em; color: var(--body); }
+        .section-content ul { padding-left: 20px; margin-top: 6px; }
+        .section-content li { margin-bottom: 4px; }
+
+        .output-box { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; color: var(--body); margin-top: 8px; overflow-x: auto; white-space: pre-wrap; }
+
+        .formula-box { background: #f0f3f6; border-left: 3px solid var(--blue); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; }
+
+        .example-box { background: #fff8c5; border-left: 3px solid var(--orange); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; }
+
+        .ref-box { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-top: 8px; font-size: 0.88em; }
+        .ref-box a { color: var(--blue); text-decoration: none; }
+        .ref-box a:hover { text-decoration: underline; }
+        .ref-box ul { list-style: none; padding: 0; }
+        .ref-box li { margin-bottom: 6px; padding-left: 0; }
+        .ref-box li::before { content: "📄 "; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        .comparison-table th, .comparison-table td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+        .comparison-table th { background: #f6f8fa; font-weight: 600; color: var(--dark); }
+        .comparison-table tr:nth-child(even) { background: #fafbfc; }
+
+        .footer { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 0.9em; border-top: 1px solid var(--border); margin-top: 40px; }
+        .footer a { color: var(--blue); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.6em; }
+            .toc-grid { grid-template-columns: 1fr; }
+            .method-body { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Statistical Methods Reference</h1>
+    <p>Plain-English guide to every statistical method used in the AgentCert Hypothesis Framework. Each method includes what it does, how it works, what the output looks like, and where to learn more.</p>
+    <span class="badge">10 Methods &middot; 5 Hypothesis Tests (H-01 &ndash; H-05)</span>
+</div>
+
+<div class="container">
+
+<!-- Table of Contents -->
+<div class="toc">
+    <h2>Methods at a Glance</h2>
+    <div class="toc-grid">
+        <a href="#running-example" style="grid-column: 1 / -1; background: #fff8c5; border: 1px solid var(--orange); border-radius: 6px; font-weight: 600;"><span class="num" style="background: var(--orange);">Ex</span> Running Example: SRE-Agent v2.1 Certification Dataset</a>
+        <a href="#m1"><span class="num" style="background:#0969da">1</span> Wilson Confidence Interval</a>
+        <a href="#m2"><span class="num" style="background:#1a7f37">2</span> Bootstrap BCa CI</a>
+        <a href="#m3"><span class="num" style="background:#0a6c5c">3</span> Interquartile Mean (IQM)</a>
+        <a href="#m4"><span class="num" style="background:#8250df">4</span> Shapiro-Wilk Normality Test</a>
+        <a href="#m5"><span class="num" style="background:#bf5600">5</span> Kruskal-Wallis H Test</a>
+        <a href="#m6"><span class="num" style="background:#cf222e">6</span> Mann-Whitney U Test</a>
+        <a href="#m7"><span class="num" style="background:#bf3989">7</span> Vargha-Delaney A&#8321;&#8322; Effect Size</a>
+        <a href="#m8"><span class="num" style="background:#0969da">8</span> Welch's ANOVA</a>
+        <a href="#m9"><span class="num" style="background:#1a7f37">9</span> Chi-Square / Fisher's Exact Test</a>
+        <a href="#m10"><span class="num" style="background:#bf5600">10</span> Levene's Test</a>
+    </div>
+</div>
+
+<!-- ==================== RUNNING EXAMPLE ==================== -->
+<div class="method-card" id="running-example" style="border: 2px solid var(--orange); box-shadow: 0 2px 8px rgba(191,86,0,0.12);">
+    <div class="method-header" style="background: linear-gradient(135deg, #fff8c5, #fff3d0); border-bottom: 2px solid var(--orange);">
+        <div class="method-num" style="background: var(--orange);">Ex</div>
+        <div>
+            <h2>Running Example: SRE-Agent v2.1 Certification</h2>
+            <div class="aka">Fabricated illustration dataset &middot; Used throughout all methods below &middot; All numbers are internally consistent</div>
+        </div>
+    </div>
+    <div class="method-body">
+
+        <!-- 1. SCENARIO DESCRIPTION -->
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">1 &mdash; Scenario</div>
+            <div class="section-content">
+                <p><strong>SRE-Agent v2.1</strong> (powered by GPT-4o) is submitted for AgentCert certification on a production-grade Kubernetes cluster. The evaluation consists of <strong>90 total fault injection runs</strong>&mdash;30 per fault category (application crash, network partition, resource exhaustion)&mdash;measuring detection rate, time-to-detect (TTD), mitigation success, and reasoning quality. The agent must demonstrate reliable, consistent, and timely fault handling across all categories to achieve full certification.</p>
+                <p style="margin-top:6px;font-size:0.88em;color:var(--sub);"><em>All data below is fabricated but internally consistent, designed to illustrate how each statistical method applies to a realistic certification scenario.</em></p>
+            </div>
+        </div>
+
+        <!-- 2. KEY RESULTS TABLE -->
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">2 &mdash; Key Results</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr>
+                        <th>Category</th><th>Runs</th><th>Detection Rate</th><th>Avg TTD</th><th>Median TTD</th><th>IQM TTD</th><th>P95 TTD</th><th>Mitigation Rate</th><th>Reasoning</th>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Application</td>
+                        <td>30</td>
+                        <td style="color:#1a7f37;font-weight:600;">90% (27/30)</td>
+                        <td>152s</td><td>141s</td><td>143s</td><td>278s</td>
+                        <td>87% (26/30)</td>
+                        <td>8.4 / 10</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Network</td>
+                        <td>30</td>
+                        <td style="color:#cf222e;font-weight:600;">50% (15/30)</td>
+                        <td>289s</td><td>94s</td><td>266s</td><td>845s</td>
+                        <td>40% (12/30)</td>
+                        <td>5.2 / 10</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Resource</td>
+                        <td>30</td>
+                        <td style="color:#bf5600;font-weight:600;">70% (21/30)</td>
+                        <td>280s</td><td>252s</td><td>258s</td><td>512s</td>
+                        <td>60% (18/30)</td>
+                        <td>7.1 / 10</td>
+                    </tr>
+                    <tr style="background:#f0f3f6;font-weight:600;">
+                        <td>Overall</td>
+                        <td>90</td>
+                        <td>70% (63/90)</td>
+                        <td>228s</td><td>175s</td><td>214s</td><td>635s</td>
+                        <td>62% (56/90)</td>
+                        <td>6.9 / 10</td>
+                    </tr>
+                </table>
+                <p style="margin-top:8px;font-size:0.85em;color:var(--sub);">TTD = time-to-detect (seconds), computed only for successful detections. Mitigation rate = faults both detected <em>and</em> resolved, out of total runs. Reasoning = average LLM-as-judge score across all 30 runs per category. Note: Network median (94s) is far below its mean (289s) because of bimodal distribution&mdash;most successful detections are fast, but the slow ones are <em>very</em> slow.</p>
+            </div>
+        </div>
+
+        <!-- 3. SAMPLE RAW DATA -->
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">3 &mdash; Sample Raw Data (10 TTD values per category, sorted)</div>
+            <div class="output-box"><strong>APPLICATION</strong> (10 of 27 successful detections) &mdash; tight cluster, one outlier:
+  98   112   125   131   139   145   152   161   178   287
+  &lt;----------- tight cluster ~100-180s ----------&gt;   ^^^
+                                                    outlier
+  Character: Stable, predictable. Most runs detect in ~2-3 min.
+  The 287s outlier is a pod crash requiring extra restart cycles.
+
+<strong>NETWORK</strong> (10 of 15 successful detections) &mdash; bimodal, very high spread:
+  18    32    47    63    79    94   112   658   843   944
+  &lt;----- fast cluster ~18-112s -----&gt;   &lt;-- slow cluster ~658-944s --&gt;
+                 gap: 546s
+  Character: Strongly bimodal. 7 runs detected quickly (simple partition),
+  3 runs took 6-10x longer (cascading failure). 15 of 30 runs never
+  detected the fault at all (50% detection rate).
+
+<strong>RESOURCE</strong> (10 of 21 successful detections) &mdash; right-skewed, moderate spread:
+  138   165   189   215   242   261   298   341   412   539
+  &lt;------- bulk of values ~140-300s ------&gt;  &lt;-- right tail --&gt;
+  Character: Most detections take 3-5 min, but a long tail extends
+  past 8 min as gradual resource exhaustion is harder to pinpoint.</div>
+        </div>
+
+        <!-- 4. HYPOTHESIS MAPPING -->
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">4 &mdash; How Each Hypothesis Uses This Data</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th style="width:55px;">Test</th><th style="width:200px;">Question</th><th style="width:180px;">Method</th><th>Result from This Data</th></tr>
+                    <tr>
+                        <td style="font-weight:700;color:#0969da;">H-01</td>
+                        <td>What is the plausible range for detection time?</td>
+                        <td>Bootstrap BCa CI on IQM of time_to_detect</td>
+                        <td>
+                            <strong>App:</strong> IQM = 143s [128s, 159s] &mdash; tight CI, predictable<br>
+                            <strong>Net:</strong> IQM = 266s [127s, 418s] &mdash; CI width 291s, extremely uncertain<br>
+                            <strong>Res:</strong> IQM = 258s [221s, 301s] &mdash; moderate CI width
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#1a7f37;">H-02</td>
+                        <td>What is the true detection rate?</td>
+                        <td>Wilson CI on detection_rate</td>
+                        <td>
+                            <strong>Overall:</strong> 70.0% [60.0%, 78.6%] &mdash; lower bound 60% is below 65% floor<br>
+                            <strong>App:</strong> 90.0% [74.4%, 96.5%] &mdash; safely above threshold<br>
+                            <strong>Net:</strong> 50.0% [33.2%, 66.9%] &mdash; upper bound 66.9% barely crosses 65%<br>
+                            <strong>Res:</strong> 70.0% [52.1%, 83.3%] &mdash; lower bound includes failure zone
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#bf5600;">H-03</td>
+                        <td>Does the agent handle all fault types equally fast?</td>
+                        <td>Kruskal-Wallis &rarr; Mann-Whitney U post-hoc + A&#8321;&#8322;</td>
+                        <td>
+                            <strong>Kruskal-Wallis:</strong> H = 9.87, p = 0.007 &mdash; at least one group differs<br>
+                            <strong>Post-hoc:</strong> App vs Net: U=42, p<sub>adj</sub>=0.003, A&#8321;&#8322;=0.81 (large effect)<br>
+                            App vs Res: U=98, p<sub>adj</sub>=0.018, A&#8321;&#8322;=0.78 (large)<br>
+                            Net vs Res: U=134, p<sub>adj</sub>=0.412, A&#8321;&#8322;=0.53 (negligible)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#cf222e;">H-04</td>
+                        <td>Is the success rate uniform across categories?</td>
+                        <td>Fisher&rsquo;s Exact Test (3&times;2 table)</td>
+                        <td>
+                            <strong>Fisher-Freeman-Halton:</strong> p = 0.003 &mdash; rates are NOT uniform<br>
+                            <strong>Post-hoc:</strong> App vs Net: p<sub>adj</sub>=0.002 (Network significantly worse)<br>
+                            App vs Res: p<sub>adj</sub>=0.104, Net vs Res: p<sub>adj</sub>=0.152 (not significant after correction)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#8250df;">H-05</td>
+                        <td>Is the agent consistently predictable?</td>
+                        <td>Levene&rsquo;s Test + CV</td>
+                        <td>
+                            <strong>Levene:</strong> F = 4.72, p = 0.012 &mdash; variances differ significantly<br>
+                            <strong>CV:</strong> App = 0.38 (moderate), <strong>Net = 1.40 (extreme)</strong>, Res = 0.42 (moderate)<br>
+                            Network CV exceeds 0.50 instability threshold by nearly 3&times;
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. CERTIFICATION VERDICT -->
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">5 &mdash; Certification Verdict</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th style="width:110px;">Category</th><th style="width:130px;">Verdict</th><th>Rationale</th></tr>
+                    <tr>
+                        <td style="font-weight:600;">Application</td>
+                        <td style="color:#1a7f37;font-weight:700;">CERTIFIED</td>
+                        <td>Detection 90% &ge; 80% threshold. Wilson lower bound 74.4% safely above 65% floor. CV = 0.38 &lt; 0.50 (predictable). Reasoning 8.4 &ge; 7.0. IQM CI is tight [128s, 159s]. All gates pass.</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Network</td>
+                        <td style="color:#cf222e;font-weight:700;">WITHHELD</td>
+                        <td>Detection 50% &lt; 65% minimum floor. Wilson upper bound only 66.9%&mdash;even best-case is marginal. CV = 1.40 &Gt; 0.50 (wildly inconsistent). IQM CI spans 291s [127s&ndash;418s]. Fisher&rsquo;s exact confirms significantly worse than Application (p=0.002). Multiple gate failures.</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Resource</td>
+                        <td style="color:#bf5600;font-weight:700;">CONDITIONAL</td>
+                        <td>Detection 70% &ge; 65% floor, but Wilson lower bound 52.1% dips into failure zone. CV = 0.42 &lt; 0.50 (acceptable). Reasoning 7.1 &ge; 7.0 (borderline). Passes core gates but with limited margin&mdash;requires monitoring and re-evaluation at next cycle.</td>
+                    </tr>
+                    <tr style="background:#f0f3f6;">
+                        <td style="font-weight:700;">Overall</td>
+                        <td style="font-weight:700;">CONDITIONAL</td>
+                        <td><strong>SRE-Agent v2.1 receives conditional certification with network fault exclusion.</strong> Certified for application faults. Conditionally certified for resource faults with mandatory re-evaluation. Network fault handling excluded from certification scope pending remediation of detection rate (target &ge;65%) and variance reduction (target CV &lt; 0.50).</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ==================== METHOD 1 ==================== -->
+<div class="method-card" id="m1">
+    <div class="method-header">
+        <div class="method-num" style="background:#0969da">1</div>
+        <div>
+            <h2>Wilson Confidence Interval <span class="hyp-tag">H-01</span> <span class="hyp-tag">H-02</span></h2>
+            <div class="aka">a.k.a. Wilson Score Interval &middot; For binary rates (yes/no outcomes)</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">What Problem Does This Solve?</div>
+            <div class="section-content">
+                When the agent either succeeds or fails at detecting/fixing a fault, the success rate is a simple fraction (e.g., 24 out of 30 = 80%). But <strong>how sure are you that 80% is the real rate?</strong> The Wilson interval gives you a range &mdash; "the true rate is almost certainly between 62% and 91%." The lower bound is your <em>safety floor</em> (worst plausible performance). Unlike the naive formula you learn in textbooks, Wilson works correctly even when the rate is 0% or 100%, and never gives nonsensical negative values.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Count successes (<em>x</em>) out of total trials (<em>n</em>). Compute rate: p&#x0302; = x/n.</li>
+                    <li>Pick your confidence level (95% &rarr; z = 1.96).</li>
+                    <li>The Wilson formula "centers" p&#x0302; toward 0.5 by adding z&sup2;/2n imaginary trials, then adjusts the margin of error:</li>
+                </ol>
+                <div class="formula-box">lower, upper = (p&#x0302; + z&sup2;/2n &plusmn; z&middot;&radic;(p&#x0302;&middot;(1&minus;p&#x0302;)/n + z&sup2;/4n&sup2;)) / (1 + z&sup2;/n)</div>
+                <p style="margin-top:8px;">This "shrinkage" toward 0.5 is what makes Wilson safe at extreme rates (0% or 100%) and small samples.</p>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of a <strong>bathroom scale</strong>. You step on it and it says 70 kg. But how accurate is that scale? Wilson CI is like stepping on and off 100 times and noting the range &mdash; "this scale reads between 68 and 72 kg." You trust the range more than any single reading. For certification, we care about the <em>bottom of the range</em> &mdash; even in the worst plausible case, is the agent still above the minimum bar?
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#ddf4ff;border-left-color:#0969da;">
+                    <strong>H-02 (Success Rate Estimation):</strong> Wilson CI is the primary method. The pipeline computes Wilson CIs for detection rate, mitigation rate, and any binary outcome. The <strong>lower bound</strong> is compared against the certification floor (e.g., 65%). If Wilson lower bound &lt; floor, the agent fails H-02 for that category.<br>
+                    <strong>H-01 (Metric Estimation):</strong> Wilson CI also feeds into H-01 when the metric is binary. For continuous metrics like time-to-detect, Bootstrap BCa (Method 2) is used instead.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Why Not the Textbook Formula?</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th>Problem</th><th>Textbook (Wald)</th><th>Wilson</th></tr>
+                    <tr><td>0 out of 30 observed</td><td>CI = [0.0, 0.0] &mdash; falsely says rate is exactly 0</td><td>CI = [0.0, 0.12] &mdash; correctly admits uncertainty</td></tr>
+                    <tr><td>30 out of 30 observed</td><td>CI = [1.0, 1.0] &mdash; falsely certain</td><td>CI = [0.88, 1.0] &mdash; honest upper bound</td></tr>
+                    <tr><td>Can give negative bounds?</td><td>Yes (nonsensical)</td><td>Never &mdash; always stays within [0, 1]</td></tr>
+                    <tr><td>Accuracy at small n</td><td>Often wrong &mdash; actual coverage ~85% instead of 95%</td><td>Close to 95% even at n=10</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Detection rate per fault category (n=30 each):
+  Application:  27/30 = 90.0%   Wilson 95% CI: [0.744, 0.965]
+  Network:      15/30 = 50.0%   Wilson 95% CI: [0.332, 0.669]
+  Resource:     21/30 = 70.0%   Wilson 95% CI: [0.521, 0.833]
+  Overall:      63/90 = 70.0%   Wilson 95% CI: [0.600, 0.786]
+
+  Key insight: Network upper bound (66.9%) barely crosses the 65% floor.
+  Even in the best plausible case, network detection is marginal.
+  Application lower bound (74.4%) safely above threshold &mdash; robust pass.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Wilson, E.B. (1927)</strong> "Probable inference, the law of succession, and statistical inference." <em>JASA</em>, 22(158), 209&ndash;212 &mdash; <a href="https://doi.org/10.1080/01621459.1927.10502953" target="_blank">DOI</a></li>
+                    <li><strong>Brown, Cai &amp; DasGupta (2001)</strong> "Interval estimation for a binomial proportion." <em>Statistical Science</em> &mdash; <a href="https://projecteuclid.org/euclid.ss/1009213286" target="_blank">Project Euclid</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval#Wilson_score_interval" target="_blank">Wikipedia: Wilson Score Interval</a></li>
+                    <li>Python: <a href="https://www.statsmodels.org/stable/generated/statsmodels.stats.proportion.proportion_confint.html" target="_blank">statsmodels.stats.proportion.proportion_confint(method='wilson')</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 2 ==================== -->
+<div class="method-card" id="m2">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a7f37">2</div>
+        <div>
+            <h2>Bootstrap BCa Confidence Interval <span class="hyp-tag">H-01</span></h2>
+            <div class="aka">Bias-Corrected and Accelerated Bootstrap &middot; For continuous metrics (times, scores)</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Simulating 50,000 Experiments From 30 Runs</div>
+            <div class="section-content">
+                Imagine you could re-run all 30 experiments 50,000 times. Each time, the numbers would shift slightly. Bootstrap <em>simulates</em> this by reshuffling your existing data with replacement 50,000 times, computing the metric each time, and looking at how much it varies. The BCa variant is the "smart" version that corrects for two biases: (1) the average of reshuffled results being systematically off from the true value, and (2) the uncertainty being different at different true values (skewness).
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li><strong>Resample</strong>: From your n observations, randomly draw n values <em>with replacement</em> (some values get picked multiple times, some skipped). This is one "bootstrap sample."</li>
+                    <li><strong>Compute</strong>: Calculate the statistic (mean, P95, IQM) on that bootstrap sample.</li>
+                    <li><strong>Repeat 50,000 times</strong>: Now you have 50,000 estimates. This is the "bootstrap distribution."</li>
+                    <li><strong>Bias-correction (z&#8320;)</strong>: Measure how far the center of the bootstrap distribution is from the original estimate.</li>
+                    <li><strong>Acceleration (a)</strong>: Use jackknife (leave-one-out) to measure how the standard error changes with the parameter value.</li>
+                    <li><strong>Adjusted percentiles</strong>: Instead of naively taking the 2.5th and 97.5th percentiles, adjust the cutoffs using z&#8320; and a to get a more accurate interval.</li>
+                </ol>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine you have a <strong>jar with 30 numbered balls</strong> (one for each run's detection time). You reach in, grab a ball, write down its number, <em>put it back</em>, and repeat 30 times &mdash; that's one "bootstrap sample." Some balls get picked twice, some not at all. Now compute the average of those 30 draws. Repeat this 50,000 times. The range of those 50,000 averages tells you how much uncertainty your original average carries. It's like asking: "If I ran this experiment on 50,000 different days, how much would my answer bounce around?"
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#dafbe1;border-left-color:#1a7f37;">
+                    <strong>H-01 (Metric Estimation):</strong> Bootstrap BCa is the primary CI method for all continuous metrics &mdash; time_to_detect, reasoning_quality_score, P95 latency. It wraps around IQM (Method 3) to produce intervals like "IQM = 143s [128s, 159s]." The CI width itself is a diagnostic: narrow = predictable agent, wide = unreliable estimate. In the running example, Network's 291s CI width is a red flag independent of the point estimate.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Why 50,000 Resamples?</div>
+            <div class="section-content">
+                <a href="https://arxiv.org/abs/2108.13264" target="_blank">Agarwal et al. (NeurIPS 2021)</a> showed that at B=10,000, the tail percentiles are estimated from only ~250 samples each, making CIs unstable. At B=50,000, each tail uses ~1,250 samples &mdash; much more stable. Modern hardware completes this in seconds.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">time_to_detect (IQM) per fault category (50,000 bootstrap resamples):
+  Application:  IQM = 143s   95% BCa CI: [128s, 159s]   width:  31s  (tight)
+  Network:      IQM = 266s   95% BCa CI: [127s, 418s]   width: 291s  (very wide!)
+  Resource:     IQM = 258s   95% BCa CI: [221s, 301s]   width:  80s  (moderate)
+
+  Interpretation: Application is fast and predictable (tight CI).
+  Network CI spans 291s &mdash; we cannot pin down typical detection time at all.
+  This extreme CI width is itself a red flag for certification.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Efron, B. (1987)</strong> "Better Bootstrap Confidence Intervals." <em>JASA</em>, 82(397), 171&ndash;185 &mdash; <a href="https://doi.org/10.1080/01621459.1987.10478410" target="_blank">DOI</a></li>
+                    <li><strong>Efron &amp; Tibshirani (1993)</strong> <em>An Introduction to the Bootstrap</em>. Chapman &amp; Hall.</li>
+                    <li><strong>Agarwal et al. (2021)</strong> "Deep RL at the Edge of the Statistical Precipice." NeurIPS &mdash; <a href="https://arxiv.org/abs/2108.13264" target="_blank">arXiv:2108.13264</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Bootstrapping_(statistics)" target="_blank">Wikipedia: Bootstrapping (statistics)</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html" target="_blank">scipy.stats.bootstrap</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 3 ==================== -->
+<div class="method-card" id="m3">
+    <div class="method-header">
+        <div class="method-num" style="background:#0a6c5c">3</div>
+        <div>
+            <h2>Interquartile Mean (IQM) <span class="hyp-tag">H-01</span></h2>
+            <div class="aka">25% Trimmed Mean &middot; Robust central tendency</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">The Outlier-Proof Average</div>
+            <div class="section-content">
+                Sort all your numbers, throw away the bottom 25% and top 25%, then average what's left. This gives you a "typical" value that isn't thrown off by a few crazy-fast or crazy-slow runs. It's more honest than the mean (which one outlier can distort) and more informative than the median (which ignores half your data).
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Sort all n values from smallest to largest.</li>
+                    <li>Remove the bottom 25% and top 25%.</li>
+                    <li>Average the remaining middle 50%.</li>
+                </ol>
+                <div class="formula-box">IQM = average of values between Q1 (25th percentile) and Q3 (75th percentile)</div>
+                <table class="comparison-table" style="margin-top:12px;">
+                    <tr><th>Metric</th><th>Outlier-proof?</th><th>Uses how much data?</th><th>Efficiency</th></tr>
+                    <tr><td>Mean</td><td>No &mdash; one extreme value wrecks it</td><td>100%</td><td>Best (if no outliers)</td></tr>
+                    <tr><td>Median</td><td>Yes</td><td>~1 data point</td><td>Low (~64%)</td></tr>
+                    <tr><td><strong>IQM</strong></td><td><strong>Yes</strong></td><td><strong>50%</strong></td><td><strong>High (~87%)</strong></td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of <strong>Olympic diving scores</strong>. Judges give their scores, then the highest and lowest are thrown out before averaging. This protects against one biased judge ruining the result. IQM does the same thing but throws away the top 25% and bottom 25% instead of just one each. The result is a "typical" score that represents the middle-of-the-pack experience, immune to flukes in either direction.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#ddf4ee;border-left-color:#0a6c5c;">
+                    <strong>H-01 (Primary Metric):</strong> IQM is the <em>default</em> point estimate for all continuous metrics in the framework. When the pipeline reports "time_to_detect = 143s," that's the IQM, not the mean. Bootstrap BCa (Method 2) then wraps a confidence interval around this IQM. This combination &mdash; IQM as point estimate, BCa as uncertainty &mdash; is recommended by <a href="https://arxiv.org/abs/2108.13264" target="_blank">Agarwal et al. (2021)</a> for agent evaluation.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">time_to_detect for NETWORK faults (15 successful detections):
+  Mean:    289s   (pulled up by slow-cluster values: 658s, 843s, 944s)
+  Median:   94s   (lands in fast cluster &mdash; ignores slow cluster entirely)
+  IQM:    266s   (trims 25% extremes each side, still reflects bimodal shape)
+
+  Why the huge gap?  Mean &minus; Median = 195s.
+  Bimodal data makes both mean and median misleading in different ways.
+  IQM provides the best single-number summary, but CI width (291s) reveals
+  that even IQM struggles with this distribution. &larr; primary reported metric</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Agarwal et al. (2021)</strong> &mdash; Recommends IQM as primary aggregate for agent evaluation &mdash; <a href="https://arxiv.org/abs/2108.13264" target="_blank">arXiv:2108.13264</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Interquartile_mean" target="_blank">Wikipedia: Interquartile Mean</a></li>
+                    <li>Python: <code>scipy.stats.trim_mean(data, 0.25)</code> &mdash; <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.trim_mean.html" target="_blank">scipy docs</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 4 ==================== -->
+<div class="method-card" id="m4">
+    <div class="method-header">
+        <div class="method-num" style="background:#8250df">4</div>
+        <div>
+            <h2>Shapiro-Wilk Normality Test <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Pre-test gate &middot; Decides if data follows a bell curve</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">The Gatekeeper: Is Your Data Bell-Shaped?</div>
+            <div class="section-content">
+                Many statistical tests assume your data looks like a bell curve (normal distribution). Shapiro-Wilk checks: <strong>"Does this data actually look like a bell curve?"</strong> If yes (p &gt; 0.05), you can use the more powerful parametric tests. If no, you must use rank-based tests that don't need this assumption. It's a gatekeeper &mdash; it decides <em>which path</em> the analysis takes.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Sort the data and compute the "expected" values if the data <em>were</em> normal.</li>
+                    <li>Compute the W statistic: how well the data matches a perfect normal distribution. W ranges from 0 to 1, where 1 = exactly normal.</li>
+                    <li>If W is close to 1 &rarr; p-value is high &rarr; data looks normal.</li>
+                    <li>If W is low &rarr; p-value is small &rarr; data is NOT normal.</li>
+                </ol>
+                <div class="formula-box">Decision rule:
+  p &gt; 0.05 → Pass (data is normal enough) → allow Welch's ANOVA
+  p &le; 0.05 → Fail (data is NOT normal) → use Kruskal-Wallis instead</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>bouncer at "Door A" of a nightclub</strong>. Door A leads to the VIP area (Welch's ANOVA &mdash; more powerful tests). The bouncer checks if your data looks "normal enough" to enter. If your data is well-behaved (bell-shaped), you get in and enjoy the VIP treatment. If your data is messy (bimodal, heavily skewed), the bouncer redirects you to "Door B" (Kruskal-Wallis) which lets everyone in but isn't as fancy. Either way, you get tested &mdash; but the path matters for statistical power.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#fbefff;border-left-color:#8250df;">
+                    <strong>H-03 (Gate):</strong> Shapiro-Wilk is the first step in the H-03 pipeline. It runs on each group's data independently. In the running example, Network TTD fails normality (W=0.681, p&lt;0.001) because of its bimodal distribution &mdash; this single failure forces the entire H-03 comparison down the Kruskal-Wallis path, even though Application and Resource pass individually. The test is conservative by design: one non-normal group means ALL groups use the non-parametric route.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Shapiro-Wilk normality test on time_to_detect per fault category:
+  application_fault (n=27): W=0.942, p=0.145 &rarr; NORMAL  (one outlier at 287s, not extreme enough to fail)
+  network_fault    (n=15): W=0.681, p&lt;0.001 &rarr; NOT NORMAL  (strongly bimodal: 18-112s vs 658-944s)
+  resource_fault   (n=21): W=0.952, p=0.234 &rarr; NORMAL  (right-skewed but within tolerance)
+
+Decision: Network fails normality (bimodal) &rarr; use Kruskal-Wallis (non-parametric path).
+Note: Even one failing group forces the non-parametric route for the overall comparison.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Shapiro &amp; Wilk (1965)</strong> "An analysis of variance test for normality." <em>Biometrika</em>, 52(3-4), 591&ndash;611 &mdash; <a href="https://doi.org/10.1093/biomet/52.3-4.591" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Shapiro%E2%80%93Wilk_test" target="_blank">Wikipedia: Shapiro-Wilk test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.shapiro.html" target="_blank">scipy.stats.shapiro</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 5 ==================== -->
+<div class="method-card" id="m5">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf5600">5</div>
+        <div>
+            <h2>Kruskal-Wallis H Test <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Primary comparison test &middot; Rank-based ANOVA alternative</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Detecting Hidden Weaknesses Across Categories</div>
+            <div class="section-content">
+                You have detection times for three fault types. <strong>Are they all roughly the same, or does one type take significantly longer?</strong> Kruskal-Wallis answers this without assuming bell-curve data. It works by ranking all observations (fastest = rank 1, slowest = rank 30) and checking if one group has suspiciously high or low ranks. Think of it as: "If I shuffled these into one pile and ranked them, would one group cluster at the top or bottom?"
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li><strong>Pool</strong> all observations from all groups into one list.</li>
+                    <li><strong>Rank</strong> them from 1 (smallest) to N (largest).</li>
+                    <li><strong>Compute</strong> the average rank for each group.</li>
+                    <li><strong>Compare</strong>: If groups are truly equal, average ranks should be similar. The H statistic measures how different the group ranks are.</li>
+                    <li>If H is large enough (p &lt; 0.05), at least one group is detectably different.</li>
+                </ol>
+                <p style="margin-top:8px;"><strong>Important:</strong> It tells you "at least one group is different" but NOT which one. That's where Mann-Whitney U (Method 6) comes in as a follow-up.</p>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>principal ranking students across 3 schools</strong> on a test. She puts all students in one big list from lowest to highest score, then checks each school's average rank. If School B's students cluster near the bottom while School A's cluster near the top, there's a real difference &mdash; even if she can't pinpoint exactly which students caused it. Kruskal-Wallis does this ranking across fault categories to ask: "Is the agent equally good at all fault types, or is it struggling with one?"
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#fff8c5;border-left-color:#bf5600;">
+                    <strong>H-03 (Omnibus Test):</strong> Kruskal-Wallis is the primary "are groups different?" test for H-03 when data fails normality (which it usually does). In the running example, H=9.87, p=0.007 tells us detection times are NOT equal across fault types. This triggers the post-hoc cascade: Mann-Whitney U (Method 6) identifies <em>which</em> pairs differ, and A&#8321;&#8322; (Method 7) measures <em>how much</em> they differ. Without this omnibus test first, running pairwise comparisons would inflate false positive risk.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Kruskal-Wallis test for time_to_detect across fault categories:
+  Groups: Application (n=27), Network (n=15), Resource (n=21)
+  H statistic: 9.87
+  df: 2
+  p-value: 0.007
+  Interpretation: At least one fault type has significantly different detection time
+                  (p &lt; 0.05 &rarr; difference is real, not noise).
+
+  Next step: Run pairwise Mann-Whitney U to find WHICH categories differ.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Kruskal &amp; Wallis (1952)</strong> "Use of ranks in one-criterion variance analysis." <em>JASA</em>, 47(260), 583&ndash;621 &mdash; <a href="https://doi.org/10.1080/01621459.1952.10483441" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Kruskal%E2%80%93Wallis_one-way_analysis_of_variance" target="_blank">Wikipedia: Kruskal-Wallis test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kruskal.html" target="_blank">scipy.stats.kruskal</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 6 ==================== -->
+<div class="method-card" id="m6">
+    <div class="method-header">
+        <div class="method-num" style="background:#cf222e">6</div>
+        <div>
+            <h2>Mann-Whitney U Test <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Pairwise post-hoc &middot; Two-group rank comparison</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Pinpointing the Weak Link</div>
+            <div class="section-content">
+                After Kruskal-Wallis tells you "at least one group is different," Mann-Whitney U pinpoints <strong>which pair</strong> is different. It takes two groups and asks: <em>"If I randomly pick one value from group A and one from group B, what is the probability that A is larger than B?"</em> If this probability is far from 50/50, the groups are meaningfully different.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Take two groups (e.g., application faults vs. network faults).</li>
+                    <li>For every pair (one value from each group), count how many times group A's value is larger.</li>
+                    <li>The U statistic represents this count. Convert U to a p-value.</li>
+                    <li><strong>Holm-Bonferroni correction</strong>: When comparing multiple pairs (A vs B, A vs C, B vs C), adjust p-values upward to prevent false positives from multiple testing.</li>
+                </ol>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of a <strong>fire alarm vs. a firefighter</strong>. Kruskal-Wallis is the fire alarm &mdash; it screams "there's a fire somewhere in the building!" Mann-Whitney U is the firefighter who goes room by room to find <em>exactly which room</em> is on fire. In certification terms: the alarm (Kruskal-Wallis p=0.007) went off, and the firefighter (Mann-Whitney) found the fire in the App-vs-Network comparison (p=0.003) and App-vs-Resource comparison (p=0.018), but not in Network-vs-Resource (p=0.412).
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#ffebe9;border-left-color:#cf222e;">
+                    <strong>H-03 (Post-hoc):</strong> Mann-Whitney U runs only after Kruskal-Wallis finds a significant difference. It performs all pairwise comparisons (with k groups, that's k&times;(k-1)/2 tests &mdash; 3 pairs for our 3 categories). P-values are Holm-Bonferroni corrected to control family-wise error rate. Each significant pair is then measured with A&#8321;&#8322; (Method 7) to determine <em>practical</em> significance. In the running example: App is significantly faster than both Network and Resource, but Network and Resource are statistically indistinguishable despite different distributions.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Pairwise Mann-Whitney U for time_to_detect (with Holm-Bonferroni correction):
+  App vs Network:     U = 42,   p_adj = 0.003 &rarr; SIGNIFICANT (App faster)
+  App vs Resource:    U = 98,   p_adj = 0.018 &rarr; SIGNIFICANT (App faster)
+  Network vs Resource: U = 134, p_adj = 0.412 &rarr; not significant
+
+Conclusion: Application faults are detected significantly faster than both
+  Network and Resource faults. Network and Resource detection times are
+  statistically indistinguishable (despite different distributions).</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Mann &amp; Whitney (1947)</strong> "On a test of whether one of two random variables is stochastically larger." <em>Annals of Mathematical Statistics</em>, 18(1), 50&ndash;60 &mdash; <a href="https://doi.org/10.1214/aoms/1177730491" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test" target="_blank">Wikipedia: Mann-Whitney U test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.mannwhitneyu.html" target="_blank">scipy.stats.mannwhitneyu</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 7 ==================== -->
+<div class="method-card" id="m7">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf3989">7</div>
+        <div>
+            <h2>Vargha-Delaney A&#8321;&#8322; Effect Size <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Probability-based effect size &middot; "How big is the gap?"</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Beyond p-Values: How Big Is the Gap?</div>
+            <div class="section-content">
+                A p-value tells you a difference is <em>real</em>, but not how <em>big</em> it is. A&#8321;&#8322; answers the really intuitive question: <strong>"If I randomly pick one run from group A and one from group B, what is the probability that A's value is larger?"</strong> A&#8321;&#8322; = 0.50 means the groups are identical. A&#8321;&#8322; = 0.92 means group A is larger 92% of the time &mdash; a huge gap.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">How It Works</div>
+            <div class="section-content">
+                <div class="formula-box">A&#8321;&#8322; = P(X > Y) + 0.5 &times; P(X = Y)
+
+where X is from group A, Y is from group B</div>
+                <table class="comparison-table" style="margin-top:12px;">
+                    <tr><th>A&#8321;&#8322; Value</th><th>Effect Size</th><th>Meaning</th></tr>
+                    <tr><td>0.50</td><td>None</td><td>Groups are identical</td></tr>
+                    <tr><td>0.56</td><td>Small</td><td>Barely noticeable difference</td></tr>
+                    <tr><td>0.64</td><td>Medium</td><td>Meaningful difference</td></tr>
+                    <tr><td>0.71+</td><td>Large</td><td>Groups are clearly different</td></tr>
+                </table>
+                <p style="margin-top:8px;">Always reported alongside p-values because a "statistically significant" difference might be tiny in practice (p=0.04 but A&#8321;&#8322;=0.52), or a meaningful difference might not reach significance at small n.</p>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>coin flip game</strong>. You randomly pick one detection time from Application and one from Network. A&#8321;&#8322; = 0.81 means Application is faster 81% of the time. That's not a fair coin &mdash; it's heavily loaded. If A&#8321;&#8322; were 0.53, it's basically 50/50 &mdash; no practical difference. This is more intuitive than a p-value because it directly answers "how often does group A beat group B?" rather than the abstract "is the difference statistically unlikely under the null hypothesis?"
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#fff0f5;border-left-color:#bf3989;">
+                    <strong>H-03 (Effect Size):</strong> A&#8321;&#8322; is reported for every significant Mann-Whitney pair. A significant p-value alone can't drive a certification decision &mdash; the gap must also be <em>practically</em> meaningful. In the running example, App-vs-Network has A&#8321;&#8322;=0.81 (large effect), confirming the statistical significance reflects a real operational gap. Net-vs-Resource has A&#8321;&#8322;=0.53 (negligible) &mdash; even though their distributions look different (bimodal vs. right-skewed), their overall detection times are statistically indistinguishable.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Effect sizes for time_to_detect (reported alongside Mann-Whitney p-values):
+  App vs Network:     A&#8321;&#8322; = 0.81 (LARGE)  &rarr; App is faster 81% of the time
+  App vs Resource:    A&#8321;&#8322; = 0.78 (LARGE)  &rarr; App is faster 78% of the time
+  Network vs Resource: A&#8321;&#8322; = 0.53 (NEGLIGIBLE) &rarr; coin-flip, no practical gap
+
+  Insight: The App-vs-Net gap is not just statistically significant (p=0.003),
+  it is practically large (81% dominance). Net-vs-Res is not significant AND
+  has negligible effect size &mdash; consistent evidence of no real difference.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Vargha &amp; Delaney (2000)</strong> "A Critique and Improvement of the CL Common Language Effect Size." <em>JBES</em>, 25(2), 101&ndash;132 &mdash; <a href="https://doi.org/10.3102/10769986025002101" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Effect_size#Vargha_and_Delaney's_A" target="_blank">Wikipedia: Vargha-Delaney A</a></li>
+                    <li><strong>Arcuri &amp; Briand (2011)</strong> "A practical guide for using statistical tests to assess randomized algorithms in software engineering." <em>ICSE</em> &mdash; <a href="https://doi.org/10.1145/1985793.1985795" target="_blank">DOI</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 8 ==================== -->
+<div class="method-card" id="m8">
+    <div class="method-header">
+        <div class="method-num" style="background:#0969da">8</div>
+        <div>
+            <h2>Welch's ANOVA <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Conditional parametric test &middot; Only used when data is normal</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">More Statistical Power &mdash; If You Earn It</div>
+            <div class="section-content">
+                This is the <em>powerful but picky</em> version of Kruskal-Wallis. It's <strong>more likely to detect real differences</strong> (higher statistical power), but it only works when your data follows a bell curve. That's why Shapiro-Wilk (Method 4) acts as a gate: only when ALL groups pass the normality check does Welch's ANOVA get used. Unlike standard ANOVA, Welch's version doesn't require equal variances across groups, making it more practical for real data.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">How It Works</div>
+            <div class="section-content">
+                <div class="formula-box">Shapiro-Wilk for ALL groups:
+  ALL pass (p > 0.05)?  ──YES──→  Use Welch's ANOVA (more powerful)
+                        ──NO───→  Use Kruskal-Wallis (always safe)</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of <strong>a metal detector vs. a ground-penetrating radar</strong>. The metal detector (Kruskal-Wallis) works on any terrain but only finds large objects. The ground-penetrating radar (Welch's ANOVA) finds much smaller objects but requires flat, open ground to operate. Shapiro-Wilk checks if the ground is flat enough. In our running example, the Network data is like rough, broken terrain (bimodal) &mdash; so we're stuck with the metal detector. But for reasoning scores (smooth, bell-shaped data), we get to use the radar and detect subtler differences.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#ddf4ff;border-left-color:#0969da;">
+                    <strong>H-03 (Parametric Path):</strong> Welch's ANOVA is the <em>alternate</em> omnibus test for H-03 &mdash; used only when all groups pass Shapiro-Wilk. In the running example, it's used for reasoning_quality_score (F=11.34, p=0.002) because those scores are normally distributed. For time_to_detect, Network's bimodal distribution forces the non-parametric path (Kruskal-Wallis). The framework always reports <em>which</em> path was taken and why, so the reader knows whether the comparison had full statistical power or was conservatively tested.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Welch's ANOVA for reasoning_quality_score:
+  Groups: App (mean=8.4, n=30), Net (mean=5.2, n=30), Res (mean=7.1, n=30)
+  F statistic: 11.34
+  p-value: 0.002
+  Interpretation: Reasoning quality differs significantly across fault categories.
+
+  (Used because reasoning scores passed Shapiro-Wilk in all 3 groups.
+   For time_to_detect, we used Kruskal-Wallis instead because
+   Network TTD failed the normality test due to bimodal distribution.)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Welch, B.L. (1951)</strong> "On the comparison of several mean values." <em>Biometrika</em>, 38, 330&ndash;336 &mdash; <a href="https://doi.org/10.1093/biomet/38.3-4.330" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Welch%27s_t-test" target="_blank">Wikipedia: Welch's t-test / ANOVA generalization</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.f_oneway.html" target="_blank">scipy.stats.f_oneway</a> (then use pingouin for Welch's variant)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 9 ==================== -->
+<div class="method-card" id="m9">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a7f37">9</div>
+        <div>
+            <h2>Chi-Square / Fisher's Exact Test <span class="hyp-tag">H-04</span></h2>
+            <div class="aka">Rates comparison &middot; Is success rate uniform across fault types?</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">When the Average Lies About Success</div>
+            <div class="section-content">
+                If 90% of application faults are detected but only 50% of network faults, the average 70% hides a problem. <strong>Chi-Square tests whether these pass rates are really different or just random variation.</strong> It compares the actual success/failure counts per category against what you'd <em>expect</em> if the rate were truly the same everywhere. Fisher's Exact is the small-sample backup &mdash; it calculates the <em>exact</em> probability instead of an approximation.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Build a table: rows = fault categories, columns = success vs failure counts.</li>
+                    <li><strong>Expected counts</strong>: If the overall rate were the same for everyone, how many successes/failures would each category have?</li>
+                    <li><strong>&chi;&sup2; statistic</strong>: Sum of (observed &minus; expected)&sup2; / expected. Large value = big discrepancy.</li>
+                    <li>If any expected cell count is &lt; 5, switch to Fisher's Exact (computes exact probability using combinatorics).</li>
+                </ol>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>student with a 3.0 GPA</strong> &mdash; looks decent on paper. But when you break it down by subject: Math = A, English = A, Science = F, History = A. The average "hides" a critical failure in one subject. Fisher's Exact does this for your agent: sure, the <em>overall</em> detection rate is 70%, but is that 70% spread evenly, or is there a hidden "F" in one fault category? In our running example, Network's 50% is the "F in Science" that the overall 70% GPA tries to paper over.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#dafbe1;border-left-color:#1a7f37;">
+                    <strong>H-04 (Uniformity):</strong> Fisher's Exact is the sole method for H-04. It tests whether detecting faults is independent of fault category. In the running example, p=0.003 rejects uniformity &mdash; the agent's success rate depends heavily on fault type. Post-hoc pairwise tests (also Fisher's, Holm-corrected) pinpoint Network as significantly worse than Application (p<sub>adj</sub>=0.002). This directly impacts the certification verdict: even if the overall rate passes the threshold, a significantly non-uniform distribution triggers per-category evaluation.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Fisher's Exact Test for detection success across fault categories:
+                    Detected   Not Detected
+  Application          27           3        (90%)
+  Network              15          15        (50%)
+  Resource             21           9        (70%)
+
+  Fisher-Freeman-Halton exact test: p = 0.003
+  Interpretation: Detection rates are NOT uniform across fault types.
+
+  Post-hoc pairwise Fisher's exact (Holm-Bonferroni corrected):
+    App vs Network:     p_adj = 0.002 &rarr; SIGNIFICANT (Network worse)
+    App vs Resource:    p_adj = 0.104 &rarr; not significant (after correction)
+    Network vs Resource: p_adj = 0.152 &rarr; not significant (after correction)
+
+  Conclusion: The overall 70% average masks a critical gap.
+  Network (50%) is significantly worse than Application (90%).</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Pearson, K. (1900)</strong> "On the criterion that a given system of deviations..." <em>Phil. Mag.</em> &mdash; <a href="https://doi.org/10.1080/14786440009463897" target="_blank">DOI</a></li>
+                    <li><strong>Fisher, R.A. (1922)</strong> "On the interpretation of &chi;&sup2; from contingency tables." <em>JRSS</em></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Chi-squared_test" target="_blank">Wikipedia: Chi-squared test</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Fisher%27s_exact_test" target="_blank">Wikipedia: Fisher's exact test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2_contingency.html" target="_blank">scipy.stats.chi2_contingency</a>, <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.fisher_exact.html" target="_blank">scipy.stats.fisher_exact</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 10 ==================== -->
+<div class="method-card" id="m10">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf5600">10</div>
+        <div>
+            <h2>Levene's Test <span class="hyp-tag">H-05</span></h2>
+            <div class="aka">Variance stability &middot; Is the agent consistently good (or bad)?</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Is Your Agent Reliably Good &mdash; Or Just Lucky?</div>
+            <div class="section-content">
+                An agent that detects faults in 10s, then 500s, then 30s, then 800s is <em>unpredictable</em> even if its average looks okay. Levene's test checks: <strong>"Is the spread (variability) of results the same for all fault types, or is the agent wildly inconsistent for some types?"</strong> High variability in one category means you can't trust the average for that category.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>For each observation, compute its <strong>absolute deviation</strong> from the group median: |x<sub>i</sub> &minus; median|.</li>
+                    <li>Now treat these deviations as data and run a regular ANOVA on them.</li>
+                    <li>If the "deviation ANOVA" is significant (p &lt; 0.05), the groups have different amounts of spread.</li>
+                </ol>
+                <p style="margin-top:8px;">Also reports <strong>CV (Coefficient of Variation)</strong> per group = std_dev / mean:</p>
+                <table class="comparison-table" style="margin-top:8px;">
+                    <tr><th>CV Range</th><th>Rating</th><th>Meaning</th></tr>
+                    <tr><td>&lt; 0.15</td><td style="color:#1a7f37;font-weight:600;">Stable</td><td>Predictable, low spread</td></tr>
+                    <tr><td>0.15 &ndash; 0.30</td><td style="color:#bf5600;font-weight:600;">Moderate</td><td>Some variability</td></tr>
+                    <tr><td>&gt; 0.30</td><td style="color:#cf222e;font-weight:600;">High</td><td>Wild swings &mdash; unreliable</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of a <strong>taxi service</strong>. You order a taxi and it arrives in 5 minutes. Next time, 45 minutes. Then 3 minutes, then 60 minutes. The <em>average</em> is 28 minutes &mdash; sounds fine on paper. But you'd never trust that service because you have no idea if you'll wait 3 minutes or an hour. Levene's test measures this unpredictability. CV (Coefficient of Variation) puts a number on it: CV = 0.15 means "reliably on time," CV = 1.40 means "might as well flip a coin." In our running example, the Network category has CV = 1.40 &mdash; it's the unreliable taxi service of fault detection.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Hypothesis Reference</div>
+            <div class="section-content">
+                <div class="example-box" style="background:#fff8c5;border-left-color:#bf5600;">
+                    <strong>H-05 (Variance Stability):</strong> Levene's test + CV is the sole method for H-05. The test itself (F=4.72, p=0.012) tells us variances differ across categories. But the certification decision relies on the <strong>per-category CV</strong>: any group exceeding the 0.50 CV threshold is flagged as "unstable." In the running example, Network's CV=1.40 is nearly 3x the threshold &mdash; this alone is sufficient to withhold certification for that category, regardless of whether the detection rate itself passes. An agent that's right 50% of the time but wildly unpredictable about <em>when</em> it's right is operationally untrustable.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Levene's test for time_to_detect variance across fault categories:
+  Levene statistic (median-based): 4.72
+  df: (2, 60)
+  p-value: 0.012
+  Interpretation: Variances are NOT equal across fault types.
+
+  Per-category Coefficient of Variation (CV = SD / Mean):
+    Application:  SD =  57.8s, Mean = 152s  &rarr; CV = 0.38  (moderate)
+    Network:      SD = 404.6s, Mean = 289s  &rarr; CV = 1.40  (EXTREME)
+    Resource:     SD = 117.6s, Mean = 280s  &rarr; CV = 0.42  (moderate)
+
+  FLAGGED: Network CV = 1.40 exceeds the 0.50 instability threshold.
+  The agent's network fault detection is wildly unpredictable &mdash;
+  sometimes 18s, sometimes 944s. This variance alone blocks certification.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Levene, H. (1960)</strong> "Robust tests for equality of variances." In <em>Contributions to Probability and Statistics</em>, Stanford Univ. Press</li>
+                    <li><strong>Brown &amp; Forsythe (1974)</strong> "Robust tests for the equality of variances." <em>JASA</em>, 69, 364&ndash;367 &mdash; <a href="https://doi.org/10.1080/01621459.1974.10482955" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Levene%27s_test" target="_blank">Wikipedia: Levene's test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.levene.html" target="_blank">scipy.stats.levene</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SUMMARY TABLE ==================== -->
+<div class="method-card">
+    <div class="method-header">
+        <div class="method-num" style="background:#0d1117">&Sigma;</div>
+        <div>
+            <h2>Quick Reference: Which Method Goes Where?</h2>
+        </div>
+    </div>
+    <div class="method-body">
+        <table class="comparison-table">
+            <tr><th>Hypothesis</th><th>Question</th><th>Methods Used</th></tr>
+            <tr><td style="font-weight:700;color:#0969da;">H-01</td><td>What are the plausible ranges for all metrics?</td><td>Wilson CI, Bootstrap BCa, IQM</td></tr>
+            <tr><td style="font-weight:700;color:#1a7f37;">H-02</td><td>What is the true success/failure rate?</td><td>Wilson CI</td></tr>
+            <tr><td style="font-weight:700;color:#bf5600;">H-03</td><td>Does the agent handle all fault types equally?</td><td>Shapiro-Wilk &rarr; Kruskal-Wallis or Welch's ANOVA &rarr; Mann-Whitney U + A&#8321;&#8322;</td></tr>
+            <tr><td style="font-weight:700;color:#cf222e;">H-04</td><td>Is the success rate uniform across fault types?</td><td>Chi-Square / Fisher's Exact</td></tr>
+            <tr><td style="font-weight:700;color:#8250df;">H-05</td><td>Is the agent consistent or unpredictable?</td><td>Levene's Test + CV</td></tr>
+        </table>
+        <div style="margin-top:16px; padding:12px 16px; background:#dafbe1; border-radius:6px; font-size:0.92em;">
+            <strong>Multiple-comparison correction:</strong> When running many tests, p-values are adjusted using <strong>Holm-Bonferroni</strong> (for safety-critical metrics) or <strong>Benjamini-Hochberg FDR</strong> (for quality gates) to prevent false positives. <a href="https://en.wikipedia.org/wiki/Holm%E2%80%93Bonferroni_method" target="_blank">Learn more</a>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<div class="footer">
+    AgentCert &middot; Statistical Hypothesis Framework Reference &middot; 10 Methods &middot; April 2026<br>
+    Built from: <a href="https://arxiv.org/abs/2108.13264">Agarwal et al. 2021</a> &middot;
+    <a href="https://doi.org/10.1145/1985793.1985795">Arcuri & Briand 2011</a> &middot;
+    <a href="https://projecteuclid.org/euclid.ss/1009213286">Brown, Cai & DasGupta 2001</a>
+</div>
+
+</body>
+</html>
