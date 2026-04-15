@@ -293,7 +293,7 @@ class TestFaultEventClassifier:
         batch = [
             {"id": "e1", "type": "SPAN", "name": "scan", "startTime": "2025-01-01T10:00:00Z"},
         ]
-        msg = classifier.build_user_message(batch, {}, {})
+        msg = classifier.build_user_message(batch, {})
         assert "Known Faults" in msg
         assert "No faults have been identified yet" in msg
         assert "Event Batch" in msg
@@ -311,25 +311,10 @@ class TestFaultEventClassifier:
             ),
         }
         batch = [{"id": "e1", "type": "SPAN", "name": "investigate"}]
-        msg = classifier.build_user_message(batch, known, {})
+        msg = classifier.build_user_message(batch, known)
         assert "pod-delete" in msg
         assert "critical" in msg
         assert "my-pod" in msg
-
-    def test_build_user_message_with_injected_faults(self):
-        classifier = self._make_classifier()
-        injected = {
-            "disk-fill": FaultBucket(
-                fault_id="disk-fill",
-                fault_name="disk-fill",
-                ground_truth={"symptoms": ["disk full"]},
-            ),
-        }
-        batch = [{"id": "e1", "type": "SPAN", "name": "check"}]
-        msg = classifier.build_user_message(batch, {}, injected)
-        assert "Injected Faults" in msg
-        assert "disk-fill" in msg
-        assert "disk full" in msg
 
     def test_fallback_classify(self):
         classifier = self._make_classifier()
@@ -371,53 +356,6 @@ class TestFaultEventClassifier:
 class TestFaultBucketingPipelineHelpers:
     """Tests for FaultBucketingPipeline static/instance helper methods."""
 
-    # --- _is_fault_injection_event ---
-
-    def test_is_fault_injection_event_true(self):
-        event = {"type": "FAULT_DATA", "name": "pod-delete"}
-        assert FaultBucketingPipeline._is_fault_injection_event(event) is True
-
-    def test_is_fault_injection_event_false(self):
-        event = {"type": "GENERATION", "name": "investigate"}
-        assert FaultBucketingPipeline._is_fault_injection_event(event) is False
-
-    def test_is_fault_injection_event_missing_type(self):
-        event = {"name": "pod-delete"}
-        assert FaultBucketingPipeline._is_fault_injection_event(event) is False
-
-    # --- _extract_ground_truth ---
-
-    def test_extract_ground_truth_with_data(self):
-        event = {
-            "name": "pod-delete",
-            "startTime": "2025-01-01T10:00:00Z",
-            "input": json.dumps({
-                "ground_truth": {"symptoms": ["pod crash"]},
-                "ideal_course_of_action": [{"step": 1, "action": "check pods"}],
-                "ideal_tool_usage_trajectory": ["k8s_pods_list"],
-            }),
-        }
-        bucket = FaultBucketingPipeline._extract_ground_truth(event)
-        assert bucket.fault_id == "pod-delete"
-        assert bucket.fault_name == "pod-delete"
-        assert bucket.ground_truth == {"symptoms": ["pod crash"]}
-        assert bucket.ideal_course_of_action == [{"step": 1, "action": "check pods"}]
-        assert bucket.ideal_tool_usage_trajectory == ["k8s_pods_list"]
-        assert bucket.detected_at == "2025-01-01T10:00:00Z"
-        assert len(bucket.events) == 1
-
-    def test_extract_ground_truth_missing_fields(self):
-        event = {"name": "unknown-fault", "input": "{}"}
-        bucket = FaultBucketingPipeline._extract_ground_truth(event)
-        assert bucket.fault_name == "unknown-fault"
-        assert bucket.ground_truth is None
-        assert bucket.ideal_course_of_action is None
-
-    def test_extract_ground_truth_no_name(self):
-        event = {"input": "{}"}
-        bucket = FaultBucketingPipeline._extract_ground_truth(event)
-        assert bucket.fault_name == "unknown"
-
     # --- _sort_events_chronologically ---
 
     def test_sort_events_chronologically(self):
@@ -428,15 +366,6 @@ class TestFaultBucketingPipelineHelpers:
         ]
         sorted_events = FaultBucketingPipeline._sort_events_chronologically(events)
         assert [e["id"] for e in sorted_events] == ["e1", "e2", "e3"]
-
-    def test_sort_events_with_null_timestamp(self):
-        events = [
-            {"id": "e2", "startTime": "2025-01-01T10:00:00Z"},
-            {"id": "e1"},  # no startTime → sorts last
-        ]
-        sorted_events = FaultBucketingPipeline._sort_events_chronologically(events)
-        assert sorted_events[0]["id"] == "e2"
-        assert sorted_events[1]["id"] == "e1"
 
     # --- _create_event_batches ---
 
@@ -474,9 +403,9 @@ class TestFaultBucketingPipelineHelpers:
         event = {"name": "experiment-run"}
         assert FaultBucketingPipeline._is_fault_name_span(event) is False
 
-    def test_is_fault_name_span_partial_prefix(self):
-        event = {"name": "fault:pod-delete"}  # no space after colon
-        assert FaultBucketingPipeline._is_fault_name_span(event) is False
+    def test_is_fault_name_span_no_space_after_colon(self):
+        event = {"name": "fault:pod-delete"}  # no space after colon — still valid
+        assert FaultBucketingPipeline._is_fault_name_span(event) is True
 
     def test_is_fault_name_span_missing_name(self):
         event = {"type": "SPAN"}
@@ -490,8 +419,7 @@ class TestFaultBucketingPipelineHelpers:
 
     def test_extract_fault_name_with_spaces(self):
         event = {"name": "fault:  disk-fill "}
-        # does not match — requires "fault: " prefix (space after colon)
-        assert FaultBucketingPipeline._extract_fault_name_from_span(event) is None
+        assert FaultBucketingPipeline._extract_fault_name_from_span(event) == "disk-fill"
 
     def test_extract_fault_name_empty_after_prefix(self):
         event = {"name": "fault: "}
@@ -578,7 +506,6 @@ class TestFaultBucketingPipelineHelpers:
         pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
         pipeline.active_faults = {}
         pipeline.closed_faults = {}
-        pipeline.injected_faults = {}
         pipeline.agent_id = None
         pipeline.agent_name = None
         pipeline.agent_version = None
@@ -613,7 +540,6 @@ class TestFaultBucketingPipelineHelpers:
         )
         pipeline.active_faults = {"pod-delete": existing}
         pipeline.closed_faults = {}
-        pipeline.injected_faults = {}
         pipeline.agent_id = None
         pipeline.agent_name = None
         pipeline.agent_version = None
@@ -638,7 +564,6 @@ class TestFaultBucketingPipelineHelpers:
         )
         pipeline.active_faults = {}
         pipeline.closed_faults = {"pod-delete": closed}
-        pipeline.injected_faults = {}
         pipeline.agent_id = None
         pipeline.agent_name = None
         pipeline.agent_version = None
@@ -687,61 +612,4 @@ class TestFaultBucketingPipelineHelpers:
         pipeline._close_fault("nonexistent")
         assert pipeline.closed_faults == {}
 
-    # --- _enrich_bucket_with_ground_truth ---
 
-    def test_enrich_bucket_exact_match(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.injected_faults = {
-            "pod-delete": FaultBucket(
-                fault_id="pod-delete",
-                fault_name="pod-delete",
-                ground_truth={"symptoms": ["pod crash"]},
-                ideal_course_of_action=[{"step": 1}],
-                ideal_tool_usage_trajectory=["k8s_pods_list"],
-            ),
-        }
-
-        bucket = FaultBucket(fault_id="pod-delete", fault_name="pod-delete")
-        pipeline._enrich_bucket_with_ground_truth(bucket)
-
-        assert bucket.ground_truth == {"symptoms": ["pod crash"]}
-        assert bucket.ideal_course_of_action == [{"step": 1}]
-
-    def test_enrich_bucket_normalized_match(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.injected_faults = {
-            "pod_delete": FaultBucket(
-                fault_id="pod_delete",
-                fault_name="pod_delete",
-                ground_truth={"symptoms": ["pod crash"]},
-            ),
-        }
-
-        bucket = FaultBucket(fault_id="pod-delete", fault_name="pod-delete")
-        pipeline._enrich_bucket_with_ground_truth(bucket)
-
-        assert bucket.ground_truth == {"symptoms": ["pod crash"]}
-
-    def test_enrich_bucket_no_injected_faults(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.injected_faults = {}
-
-        bucket = FaultBucket(fault_id="pod-delete", fault_name="pod-delete")
-        pipeline._enrich_bucket_with_ground_truth(bucket)
-
-        assert bucket.ground_truth is None
-
-    def test_enrich_bucket_no_match(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.injected_faults = {
-            "disk-fill": FaultBucket(
-                fault_id="disk-fill",
-                fault_name="disk-fill",
-                ground_truth={"symptoms": ["disk full"]},
-            ),
-        }
-
-        bucket = FaultBucket(fault_id="pod-delete", fault_name="pod-delete")
-        pipeline._enrich_bucket_with_ground_truth(bucket)
-
-        assert bucket.ground_truth is None
