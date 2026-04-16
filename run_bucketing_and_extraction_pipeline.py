@@ -35,46 +35,6 @@ from metrics_extractor import (
 )
 
 
-def _build_fault_config_from_bucket(bucket_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert a fault bucket's metadata into the fault_configuration format
-    expected by TraceMetricsExtractor.
-
-    The metric extractor reads fields like ``fault_id``, ``fault_name``,
-    ``injection_timestamp``, ``ground_truth``, and ``fault_configuration``
-    from the fault config JSON.  This function maps the bucket output
-    structure to that schema.
-    """
-    ground_truth = bucket_data.get("ground_truth") or {}
-    ideal_course = bucket_data.get("ideal_course_of_action")
-    ideal_trajectory = bucket_data.get("ideal_tool_usage_trajectory")
-
-    # Merge ideal_course_of_action and ideal_tool_usage_trajectory into
-    # the ground_truth dict so the extractor can pick them up.
-    if ideal_course is not None:
-        ground_truth["ideal_course_of_action"] = ideal_course
-    if ideal_trajectory is not None:
-        ground_truth["ideal_tool_usage_trajectory"] = ideal_trajectory
-
-    return {
-        "fault_id": bucket_data.get("fault_id", "unknown"),
-        "fault_name": bucket_data.get("fault_name", "unknown"),
-        "fault_category": bucket_data.get("severity", "unknown"),
-        "experiment_id": bucket_data.get("experiment_id"),
-        "run_id": bucket_data.get("run_id"),
-        "injection_timestamp": bucket_data.get("injection_timestamp") or bucket_data.get("detected_at"),
-        "fault_configuration": {
-            "target_service": bucket_data.get("target_pod", ""),
-            "target_namespace": bucket_data.get("namespace", ""),
-        },
-        "ground_truth": ground_truth,
-        "agent": {
-            "agent_id": bucket_data.get("agent_id"),
-            "agent_name": bucket_data.get("agent_name"),
-            "agent_version": bucket_data.get("agent_version"),
-        },
-    }
-
-
 async def run_pipeline(
     trace_file: str,
     output_dir: str,
@@ -150,23 +110,18 @@ async def run_pipeline(
             logger.warning(f"Bucket '{fault_id}' has no events, skipping.")
             continue
 
-        # Write the events to a temporary trace file for the extractor
+        # Write the full bucket JSON (metadata + events) for the extractor.
+        # The extractor will auto-detect the bucket format and extract both
+        # metadata and events from it.
         run_id = bucket_dict.get("run_id", "")
         safe_name = f"{fault_id}_{run_id}".replace("/", "_").replace(" ", "_") if run_id else fault_id.replace("/", "_").replace(" ", "_")
         trace_tmp = metrics_dir / f"{safe_name}_trace.json"
         with open(trace_tmp, "w", encoding="utf-8") as f:
-            json.dump(events, f, indent=2, default=str)
+            json.dump(bucket_dict, f, indent=2, default=str)
 
-        # Build a fault_configuration JSON from bucket metadata
-        fault_cfg = _build_fault_config_from_bucket(bucket_dict)
-        fault_cfg_tmp = metrics_dir / f"{safe_name}_fault_config.json"
-        with open(fault_cfg_tmp, "w", encoding="utf-8") as f:
-            json.dump(fault_cfg, f, indent=2, default=str)
-
-        # Run metric extraction
+        # Run metric extraction — bucket metadata is read from the trace file
         extractor = TraceMetricsExtractor(
             config=config,
-            fault_config_path=str(fault_cfg_tmp),
         )
         try:
             extraction_result: ExtractionResult = (

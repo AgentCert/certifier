@@ -87,7 +87,6 @@ class FaultEventClassifier:
         self,
         batch: List[Dict[str, Any]],
         known_faults: Dict[str, FaultBucket],
-        injected_faults: Dict[str, FaultBucket],
     ) -> str:
         """Build the user message for the LLM classifier."""
 
@@ -101,15 +100,6 @@ class FaultEventClassifier:
                 "target_pod": bucket.target_pod,
                 "namespace": bucket.namespace,
                 "detection_signals": bucket.detection_signals,
-            })
-
-        # Injected faults context (ground truth from chaos engineering)
-        injected_context = []
-        for fid, bucket in injected_faults.items():
-            injected_context.append({
-                "fault_id": fid,
-                "fault_name": bucket.fault_name,
-                "ground_truth": bucket.ground_truth,
             })
 
         # Compact event representation for the batch
@@ -133,14 +123,6 @@ class FaultEventClassifier:
         else:
             message += "No faults have been identified yet. Look for fault detection events in this batch.\n\n"
 
-        if injected_context:
-            message += (
-                "## Injected Faults (Ground Truth)\n\n"
-                f"```json\n{json.dumps(injected_context, indent=2)}\n```\n\n"
-                "These faults were injected by the chaos engineering platform. "
-                "The agent should detect and remediate them during its investigation.\n\n"
-            )
-
         message += (
             "## Event Batch\n\n"
             f"```json\n{json.dumps(events_for_llm, indent=2)}\n```\n\n"
@@ -154,7 +136,6 @@ class FaultEventClassifier:
         self,
         batch: List[Dict[str, Any]],
         known_faults: Dict[str, FaultBucket],
-        injected_faults: Dict[str, FaultBucket],
     ) -> List[EventClassification]:
         """Send a batch of events to the LLM for classification.
 
@@ -163,7 +144,7 @@ class FaultEventClassifier:
         try:
             client = self._get_llm_client()
             user_message = self.build_user_message(
-                batch, known_faults, injected_faults
+                batch, known_faults
             )
 
             result, usage = await client.with_structured_output(
