@@ -463,12 +463,6 @@ class TestTraceMetricsExtractor:
         with pytest.raises(FileNotFoundError):
             extractor.load_trace_file("/nonexistent/path/trace.json")
 
-    def test_bucket_metadata_not_needed_separately(self):
-        """Bucket metadata is now read directly from the trace bucket file."""
-        extractor = TraceMetricsExtractor.__new__(TraceMetricsExtractor)
-        extractor.bucket_metadata = None
-        assert extractor.bucket_metadata is None
-
     def test_create_default_quantitative(self):
         result = TraceMetricsExtractor._create_default_quantitative(10)
         assert result.trajectory_steps == 10
