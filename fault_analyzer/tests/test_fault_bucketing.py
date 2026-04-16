@@ -367,6 +367,17 @@ class TestFaultBucketingPipelineHelpers:
         sorted_events = FaultBucketingPipeline._sort_events_chronologically(events)
         assert [e["id"] for e in sorted_events] == ["e1", "e2", "e3"]
 
+    def test_sort_events_missing_start_time_sorts_last(self):
+        events = [
+            {"id": "e2", "startTime": "2025-01-01T11:00:00Z"},
+            {"id": "e_none"},  # no startTime at all
+            {"id": "e1", "startTime": "2025-01-01T10:00:00Z"},
+            {"id": "e_null", "startTime": None},  # explicit None
+        ]
+        sorted_events = FaultBucketingPipeline._sort_events_chronologically(events)
+        assert [e["id"] for e in sorted_events[:2]] == ["e1", "e2"]
+        assert {e["id"] for e in sorted_events[2:]} == {"e_none", "e_null"}
+
     # --- _create_event_batches ---
 
     def test_create_event_batches(self):

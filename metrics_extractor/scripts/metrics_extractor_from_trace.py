@@ -242,6 +242,15 @@ class TraceMetricsExtractor:
 
         if isinstance(data, dict) and "events" in data:
             # Fault bucket format: extract metadata and return events
+            events = data["events"]
+            if not isinstance(events, list):
+                raise ValueError(
+                    f"Expected 'events' to be a list, got {type(events).__name__}"
+                )
+            if events and not all(isinstance(e, dict) for e in events):
+                raise ValueError(
+                    "Expected all items in 'events' to be dicts (span objects)"
+                )
             if self.bucket_metadata is None:
                 self.bucket_metadata = {
                     k: v for k, v in data.items() if k != "events"
@@ -251,7 +260,7 @@ class TraceMetricsExtractor:
                     f"fault_id={self.bucket_metadata.get('fault_id')}, "
                     f"fault_name={self.bucket_metadata.get('fault_name')}"
                 )
-            return data["events"]
+            return events
         elif isinstance(data, list):
             return data
         else:
@@ -826,8 +835,10 @@ Create a comprehensive qualitative assessment by combining the narrative observa
 
         Uses batch processing to handle large traces without truncation.
         Tracks and returns token usage from all LLM calls.
-        When a fault configuration is loaded, ground truth context is injected into
-        LLM prompts and fault config fields override trace-extracted values.
+        When bucket metadata is available (either provided at init or extracted from
+        a bucket-format trace file), ground truth context is injected into LLM prompts
+        and bucket metadata fields are used for timestamp baselines and ground-truth
+        comparison.
         """
         self.token_usage = TokenUsage()
 
