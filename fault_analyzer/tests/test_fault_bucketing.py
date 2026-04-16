@@ -526,12 +526,17 @@ class TestFaultBucketingPipelineHelpers:
         }
         pipeline._create_fault_bucket_from_span(event)
 
-        assert "pod-delete" not in pipeline.active_faults  # closed immediately
-        assert "pod-delete" in pipeline.closed_faults
-        bucket = pipeline.closed_faults["pod-delete"]
+        # Bucket stays active — only the classifier should close it
+        assert "pod-delete" in pipeline.active_faults
+        assert "pod-delete" not in pipeline.closed_faults
+        bucket = pipeline.active_faults["pod-delete"]
         assert bucket.fault_name == "pod-delete"
         assert bucket.namespace == "sock-shop"
-        assert bucket.status == "closed"
+        assert bucket.status == "active"
+        # Injection span must NOT be included in events
+        assert bucket.events == []
+        assert bucket.mitigated_at is None
+        assert bucket.injection_timestamp == "2025-01-01T10:00:00Z"
 
     def test_create_fault_bucket_dedup_active(self):
         pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
@@ -553,9 +558,9 @@ class TestFaultBucketingPipelineHelpers:
         }
         pipeline._create_fault_bucket_from_span(event)
 
-        # Should NOT create a new bucket, just add event to existing
+        # Should NOT create a new bucket and should NOT append injection span
         assert len(pipeline.active_faults) == 1
-        assert len(pipeline.active_faults["pod-delete"].events) == 1
+        assert len(pipeline.active_faults["pod-delete"].events) == 0
 
     def test_create_fault_bucket_new_after_closed(self):
         pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
@@ -580,9 +585,12 @@ class TestFaultBucketingPipelineHelpers:
         }
         pipeline._create_fault_bucket_from_span(event)
 
-        # New bucket with suffix
-        assert "pod-delete_2" in pipeline.closed_faults
-        assert pipeline.closed_faults["pod-delete_2"].fault_name == "pod-delete"
+        # New bucket with suffix, stays active with no events
+        assert "pod-delete_2" in pipeline.active_faults
+        bucket = pipeline.active_faults["pod-delete_2"]
+        assert bucket.fault_name == "pod-delete"
+        assert bucket.events == []
+        assert bucket.mitigated_at is None
 
     # --- _close_fault ---
 

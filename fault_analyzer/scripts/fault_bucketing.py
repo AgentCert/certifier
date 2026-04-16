@@ -306,22 +306,22 @@ class FaultBucketingPipeline:
         if not fault_name:
             return
 
-        # Dedup: active bucket with same fault_name → skip creation
+        # Dedup: active bucket with same fault_name → skip creation.
+        # Do NOT append the injection span to events — it is only used
+        # for metadata extraction, not as an agent event.
         if fault_name in self.active_faults:
-            self.active_faults[fault_name].events.append(event)
             logger.info(
                 f"Fault bucket '{fault_name}' already active, "
-                f"adding event to existing bucket."
+                f"skipping duplicate injection span."
             )
             return
 
         # Also check active_faults by fault_name (fault_id may differ)
         for fid, bucket in self.active_faults.items():
             if bucket.fault_name == fault_name:
-                bucket.events.append(event)
                 logger.info(
                     f"Fault bucket '{fid}' (name={fault_name}) already "
-                    f"active, adding event to existing bucket."
+                    f"active, skipping duplicate injection span."
                 )
                 return
 
@@ -343,13 +343,16 @@ class FaultBucketingPipeline:
         # Extract ground truth from metadata
         ground_truth = self._extract_ground_truth_from_metadata(event)
 
-        # Create new bucket
+        # Create new bucket.  The injection span is NOT included in
+        # events — it is used only for metadata.  The bucket stays
+        # active; only the LLM classifier should close it when a real
+        # mitigation event is identified.
         bucket = FaultBucket(
             fault_id=fault_id,
             fault_name=fault_name,
             target_pod=target_pod,
             namespace=namespace,
-            events=[event],
+            events=[],
             status="active",
             injection_timestamp=event.get("startTime"),
             ground_truth=ground_truth,
@@ -365,10 +368,6 @@ class FaultBucketingPipeline:
             f"Fault bucket created: {fault_id} "
             f"(target={target_pod}, namespace={namespace})"
         )
-
-        # Close the bucket if the fault status indicates completion
-        if fault_status == "completed":
-            self._close_fault(fault_id, mitigated_at=event.get("endTime"))
 
     # ------------------------------------------------------------------
     # Event batching helpers

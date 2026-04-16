@@ -179,34 +179,36 @@ class TestQuantitativeAggregator:
     def test_parse_timestamp_invalid(self):
         assert QuantitativeAggregator._parse_timestamp("not-a-date") is None
 
-    def test_extract_from_fault_config_empty(self):
-        result = QuantitativeAggregator.extract_from_fault_config(None)
+    def test_extract_from_bucket_metadata_empty(self):
+        result = QuantitativeAggregator.extract_from_bucket_metadata(None)
         assert result == {}
 
-    def test_extract_from_fault_config_full(self):
-        config = {
-            "agent": {"agent_name": "TestAgent", "agent_id": "agent-1"},
+    def test_extract_from_bucket_metadata_full(self):
+        bucket = {
+            "agent_name": "TestAgent",
+            "agent_id": "agent-1",
             "injection_timestamp": "2025-01-15T10:00:00Z",
             "fault_name": "pod-delete",
-            "fault_category": "compute",
-            "fault_configuration": {
-                "target_service": "my-pod",
-                "target_namespace": "default",
-            },
+            "severity": "compute",
+            "target_pod": "my-pod",
+            "namespace": "default",
+            "detected_at": "2025-01-15T10:30:00Z",
+            "mitigated_at": "2025-01-15T10:35:00Z",
         }
-        result = QuantitativeAggregator.extract_from_fault_config(config)
+        result = QuantitativeAggregator.extract_from_bucket_metadata(bucket)
         assert result["agent_name"] == "TestAgent"
         assert result["agent_id"] == "agent-1"
         assert result["fault_injection_time"] == "2025-01-15T10:00:00Z"
         assert result["injected_fault_name"] == "pod-delete"
-        assert result["detected_fault_type"] == "pod-delete"
         assert result["injected_fault_category"] == "compute"
         assert result["fault_target_service"] == "my-pod"
         assert result["fault_namespace"] == "default"
+        assert result["bucket_detected_at"] == "2025-01-15T10:30:00Z"
+        assert result["bucket_mitigated_at"] == "2025-01-15T10:35:00Z"
 
-    def test_extract_from_fault_config_partial(self):
-        config = {"fault_name": "disk-fill"}
-        result = QuantitativeAggregator.extract_from_fault_config(config)
+    def test_extract_from_bucket_metadata_partial(self):
+        bucket = {"fault_name": "disk-fill"}
+        result = QuantitativeAggregator.extract_from_bucket_metadata(bucket)
         assert result["injected_fault_name"] == "disk-fill"
         assert "agent_name" not in result
 
@@ -243,7 +245,9 @@ class TestQuantitativeAggregator:
             partial_metrics=[{}],
             total_spans=5,
             span_times=span_times,
-            fault_config={"injection_timestamp": "2025-01-15T10:25:00Z"},
+            bucket_metadata={
+                "injection_timestamp": "2025-01-15T10:25:00Z",
+            },
         )
         assert result["agent_fault_detection_time"] == "2025-01-15T10:30:00Z"
         assert result["time_to_detect"] == 300.0  # 5 minutes
@@ -420,6 +424,7 @@ class TestTraceMetricsExtractor:
 
     def test_load_trace_file(self):
         extractor = TraceMetricsExtractor.__new__(TraceMetricsExtractor)
+        extractor.bucket_metadata = None
         spans = [{"id": "s1", "startTime": "2025-01-15T10:00:00Z"}]
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False
@@ -430,30 +435,39 @@ class TestTraceMetricsExtractor:
         assert len(loaded) == 1
         assert loaded[0]["id"] == "s1"
 
+    def test_load_trace_file_bucket_format(self):
+        extractor = TraceMetricsExtractor.__new__(TraceMetricsExtractor)
+        extractor.bucket_metadata = None
+        bucket = {
+            "fault_id": "disk-fill",
+            "fault_name": "disk-fill",
+            "injection_timestamp": "2025-01-15T10:00:00Z",
+            "detected_at": "2025-01-15T10:30:00Z",
+            "events": [{"id": "s1", "startTime": "2025-01-15T10:05:00Z"}],
+        }
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as f:
+            json.dump(bucket, f)
+            f.flush()
+            loaded = extractor.load_trace_file(f.name)
+        assert len(loaded) == 1
+        assert loaded[0]["id"] == "s1"
+        assert extractor.bucket_metadata is not None
+        assert extractor.bucket_metadata["fault_id"] == "disk-fill"
+        assert extractor.bucket_metadata["injection_timestamp"] == "2025-01-15T10:00:00Z"
+        assert "events" not in extractor.bucket_metadata
+
     def test_load_trace_file_not_found(self):
         extractor = TraceMetricsExtractor.__new__(TraceMetricsExtractor)
         with pytest.raises(FileNotFoundError):
             extractor.load_trace_file("/nonexistent/path/trace.json")
 
-    def test_load_fault_config_not_found(self):
-        result = TraceMetricsExtractor._load_fault_config("/nonexistent/path.json")
-        assert result is None
-
-    def test_load_fault_config_valid(self):
-        config = {
-            "fault_id": "f1",
-            "fault_name": "pod-delete",
-            "injection_timestamp": "2025-01-15T10:00:00Z",
-        }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
-            json.dump(config, f)
-            f.flush()
-            result = TraceMetricsExtractor._load_fault_config(f.name)
-        assert result is not None
-        assert result["fault_id"] == "f1"
-        assert result["fault_name"] == "pod-delete"
+    def test_bucket_metadata_not_needed_separately(self):
+        """Bucket metadata is now read directly from the trace bucket file."""
+        extractor = TraceMetricsExtractor.__new__(TraceMetricsExtractor)
+        extractor.bucket_metadata = None
+        assert extractor.bucket_metadata is None
 
     def test_create_default_quantitative(self):
         result = TraceMetricsExtractor._create_default_quantitative(10)

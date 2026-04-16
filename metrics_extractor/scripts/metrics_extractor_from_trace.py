@@ -5,7 +5,7 @@ Uses LLM to interpret trace data generically - works with traces having similar 
 but different value terminologies.
 
 Uses batch processing to handle large traces without truncation.
-Integrates fault_configuration.json for ground-truth comparison and timestamp baselines.
+Integrates fault bucket metadata for ground-truth comparison and timestamp baselines.
 """
 
 import asyncio
@@ -81,7 +81,7 @@ class TraceMetricsExtractor:
     and extract meaningful metrics.
 
     Uses batch processing to handle large traces without content truncation.
-    Integrates fault_configuration.json for ground-truth comparison.
+    Integrates fault bucket metadata for ground-truth comparison.
     """
 
     BATCH_SIZE = MODULE_CONFIG.get("extractor", {}).get("batch_size", 15)
@@ -89,7 +89,7 @@ class TraceMetricsExtractor:
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        fault_config_path: Optional[str] = None,
+        bucket_metadata: Optional[Dict[str, Any]] = None,
     ):
         if config:
             self.config = config
@@ -100,41 +100,23 @@ class TraceMetricsExtractor:
         self.llm_client = None
         self.token_usage = TokenUsage()
         self.mongodb_client: Optional[Any] = None
-        self.fault_config: Optional[Dict[str, Any]] = None
+        self.bucket_metadata: Optional[Dict[str, Any]] = bucket_metadata
         self.quant_aggregator = QuantitativeAggregator()
         self.qual_aggregator = QualitativeAggregator()
-        if fault_config_path:
-            self.fault_config = self._load_fault_config(fault_config_path)
-
-    @staticmethod
-    def _load_fault_config(fault_config_path: str) -> Optional[Dict[str, Any]]:
-        """Load and parse the fault configuration JSON file."""
-        path = Path(fault_config_path)
-        if not path.exists():
-            logger.warning(
-                f"Fault configuration file not found: {fault_config_path}. "
-                "Proceeding without ground truth context."
-            )
-            return None
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            logger.info(
-                f"Loaded fault configuration: fault_id={config.get('fault_id')}, "
-                f"fault_name={config.get('fault_name')}"
-            )
-            return config
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning(
-                f"Failed to parse fault configuration file: {e}. "
-                "Proceeding without ground truth context."
-            )
-            return None
 
     def _get_ground_truth(self) -> Optional[Dict[str, Any]]:
-        if self.fault_config:
-            return self.fault_config.get("ground_truth")
-        return None
+        if not self.bucket_metadata:
+            return None
+        ground_truth = self.bucket_metadata.get("ground_truth") or {}
+        # Merge top-level ideal_course_of_action / ideal_tool_usage_trajectory
+        # into ground_truth so prompts can access them.
+        ideal_course = self.bucket_metadata.get("ideal_course_of_action")
+        ideal_trajectory = self.bucket_metadata.get("ideal_tool_usage_trajectory")
+        if ideal_course is not None:
+            ground_truth["ideal_course_of_action"] = ideal_course
+        if ideal_trajectory is not None:
+            ground_truth["ideal_tool_usage_trajectory"] = ideal_trajectory
+        return ground_truth if ground_truth else None
 
     def _build_quantitative_batch_prompt(
         self, batch_number: int, total_batches: int
@@ -151,11 +133,11 @@ class TraceMetricsExtractor:
         else:
             gt_instructions = PROMPTS["ground_truth_without_config"]
 
-        fault_config_context = ""
-        if self.fault_config:
-            injection_ts = self.fault_config.get("injection_timestamp")
-            fault_name = self.fault_config.get("fault_name")
-            context_parts = ["## Fault Configuration Context (from fault_configuration.json)"]
+        bucket_context = ""
+        if self.bucket_metadata:
+            injection_ts = self.bucket_metadata.get("injection_timestamp")
+            fault_name = self.bucket_metadata.get("fault_name")
+            context_parts = ["## Fault Bucket Context"]
             if injection_ts:
                 context_parts.append(
                     f"- **Fault injection timestamp**: {injection_ts} — use this as the authoritative fault_injection_time if the trace does not contain an explicit experiment_start timestamp."
@@ -164,14 +146,13 @@ class TraceMetricsExtractor:
                 context_parts.append(
                     f"- **Fault name/type**: {fault_name}"
                 )
-            fault_config_section = self.fault_config.get("fault_configuration", {})
-            target_ns = fault_config_section.get("target_namespace")
-            target_svc = fault_config_section.get("target_service")
+            target_ns = self.bucket_metadata.get("namespace")
+            target_svc = self.bucket_metadata.get("target_pod")
             if target_ns:
                 context_parts.append(f"- **Target namespace**: {target_ns}")
             if target_svc:
                 context_parts.append(f"- **Target service**: {target_svc}")
-            fault_config_context = "\n".join(context_parts)
+            bucket_context = "\n".join(context_parts)
 
         prompt = PROMPTS["quantitative_batch_extraction"].replace(
             "{{batch_number}}", str(batch_number)
@@ -179,7 +160,7 @@ class TraceMetricsExtractor:
 
         return prompt.format(
             ground_truth_instructions=gt_instructions,
-            fault_config_context=fault_config_context,
+            fault_config_context=bucket_context,
         )
 
     def _build_qualitative_batch_prompt(
@@ -244,13 +225,40 @@ class TraceMetricsExtractor:
             self.mongodb_client = None
 
     def load_trace_file(self, file_path: str) -> List[Dict[str, Any]]:
-        """Load and parse trace JSON file."""
+        """Load and parse trace JSON file.
+
+        Supports two formats:
+        1. Fault bucket JSON — a dict with top-level metadata fields and an
+           ``events`` array.  Bucket metadata is automatically loaded into
+           ``self.bucket_metadata`` if not already set.
+        2. Plain list of span dicts (legacy format).
+        """
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"Trace file not found: {file_path}")
 
         with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+
+        if isinstance(data, dict) and "events" in data:
+            # Fault bucket format: extract metadata and return events
+            if self.bucket_metadata is None:
+                self.bucket_metadata = {
+                    k: v for k, v in data.items() if k != "events"
+                }
+                logger.info(
+                    f"Loaded bucket metadata from trace file: "
+                    f"fault_id={self.bucket_metadata.get('fault_id')}, "
+                    f"fault_name={self.bucket_metadata.get('fault_name')}"
+                )
+            return data["events"]
+        elif isinstance(data, list):
+            return data
+        else:
+            raise ValueError(
+                f"Unsupported trace file format: expected a list of spans "
+                f"or a dict with an 'events' key."
+            )
 
     def _create_batches(
         self, spans: List[Dict[str, Any]]
@@ -288,10 +296,13 @@ class TraceMetricsExtractor:
 
         span_summaries = []
         span_start_times: Dict[str, str] = {}
+        span_end_times: Dict[str, str] = {}
         for span in sorted_spans:
             span_id = span.get("id", "")
             start_time = span.get("startTime", "")
+            end_time = span.get("endTime", "")
             span_start_times[span_id] = start_time
+            span_end_times[span_id] = end_time
 
             metadata_raw = span.get("metadata", "")
             try:
@@ -372,11 +383,17 @@ class TraceMetricsExtractor:
                     f"Detection span ID '{detection_id}' not found in trace spans"
                 )
 
-            if mitigation_id and mitigation_id in span_start_times:
-                times["agent_fault_mitigation_time"] = span_start_times[mitigation_id]
+            if mitigation_id and mitigation_id in span_end_times and span_end_times[mitigation_id]:
+                times["agent_fault_mitigation_time"] = span_end_times[mitigation_id]
                 logger.info(
                     f"LLM identified mitigation span: {mitigation_id} "
-                    f"at {span_start_times[mitigation_id]}"
+                    f"endTime={span_end_times[mitigation_id]}"
+                )
+            elif mitigation_id and mitigation_id in span_start_times:
+                times["agent_fault_mitigation_time"] = span_start_times[mitigation_id]
+                logger.warning(
+                    f"Mitigation span '{mitigation_id}' has no endTime, "
+                    f"falling back to startTime={span_start_times[mitigation_id]}"
                 )
             elif mitigation_id:
                 logger.warning(
@@ -388,6 +405,158 @@ class TraceMetricsExtractor:
         except Exception as e:
             logger.error(f"Error identifying detection/mitigation spans: {e}")
             return {}
+
+    async def _validate_bucket_timestamps_with_llm(
+        self,
+        spans: List[Dict[str, Any]],
+    ) -> Dict[str, Optional[str]]:
+        """Validate bucket detected_at / mitigated_at by checking whether
+        the events at those timestamps actually contain detection or
+        mitigation content.
+
+        For detection: finds events whose ``startTime`` matches
+        ``bucket_metadata['detected_at']`` and asks the LLM whether
+        those events represent a fault detection.
+
+        For mitigation: finds events whose ``endTime`` matches
+        ``bucket_metadata['mitigated_at']`` and asks the LLM whether
+        those events represent a fault mitigation/remediation.
+
+        Returns:
+            Dict with ``'agent_fault_detection_time'`` and/or
+            ``'agent_fault_mitigation_time'`` set to the validated
+            timestamp string, or ``None`` if validation failed.
+        """
+        if not self.bucket_metadata:
+            return {}
+
+        self._init_llm_client()
+
+        detected_at = self.bucket_metadata.get("detected_at")
+        mitigated_at = self.bucket_metadata.get("mitigated_at")
+        result: Dict[str, Optional[str]] = {}
+
+        # --- Detection validation ---
+        if detected_at:
+            matching = QuantitativeAggregator.find_events_by_timestamp(
+                detected_at, spans, "startTime"
+            )
+            if matching:
+                prepared = [self._prepare_span_for_llm(e) for e in matching]
+                user_msg = (
+                    f"The following trace event(s) have startTime={detected_at}.\n"
+                    f"Do any of these events represent the agent DETECTING or "
+                    f"CONFIRMING a fault/anomaly?\n\n"
+                    f"Events:\n```json\n{json.dumps(prepared, indent=2)}\n```\n\n"
+                    f'Return a JSON object: {{"is_detection_event": true/false, '
+                    f'"reason": "brief explanation"}}'
+                )
+                try:
+                    llm_resp, token_usage = await self.llm_client.call_llm(
+                        model_name="extraction_model",
+                        messages=user_msg,
+                        max_tokens=300,
+                        system_prompt=(
+                            "You are an expert IT-Ops analyst. Determine whether "
+                            "the given trace event(s) represent the agent detecting "
+                            "or confirming a fault. Respond ONLY with the requested "
+                            "JSON object."
+                        ),
+                    )
+                    self.token_usage.add(token_usage)
+                    if isinstance(llm_resp, str):
+                        try:
+                            llm_resp = json.loads(llm_resp)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    if isinstance(llm_resp, dict) and llm_resp.get("is_detection_event"):
+                        result["agent_fault_detection_time"] = detected_at
+                        logger.info(
+                            "Bucket detected_at (%s) validated by LLM as a "
+                            "detection event: %s",
+                            detected_at,
+                            llm_resp.get("reason", ""),
+                        )
+                    else:
+                        result["agent_fault_detection_time"] = None
+                        reason = llm_resp.get("reason", "") if isinstance(llm_resp, dict) else ""
+                        logger.warning(
+                            "Bucket detected_at (%s) rejected by LLM — matching "
+                            "event(s) do not represent a detection event: %s",
+                            detected_at,
+                            reason,
+                        )
+                except Exception as e:
+                    logger.error("LLM detection validation failed: %s", e)
+                    result["agent_fault_detection_time"] = None
+            else:
+                logger.warning(
+                    "Bucket detected_at (%s) has no matching event startTime.",
+                    detected_at,
+                )
+                result["agent_fault_detection_time"] = None
+
+        # --- Mitigation validation ---
+        if mitigated_at:
+            matching = QuantitativeAggregator.find_events_by_timestamp(
+                mitigated_at, spans, "endTime"
+            )
+            if matching:
+                prepared = [self._prepare_span_for_llm(e) for e in matching]
+                user_msg = (
+                    f"The following trace event(s) have endTime={mitigated_at}.\n"
+                    f"Do any of these events represent the agent completing a "
+                    f"MITIGATION, REMEDIATION, or RECOVERY action?\n\n"
+                    f"Events:\n```json\n{json.dumps(prepared, indent=2)}\n```\n\n"
+                    f'Return a JSON object: {{"is_mitigation_event": true/false, '
+                    f'"reason": "brief explanation"}}'
+                )
+                try:
+                    llm_resp, token_usage = await self.llm_client.call_llm(
+                        model_name="extraction_model",
+                        messages=user_msg,
+                        max_tokens=300,
+                        system_prompt=(
+                            "You are an expert IT-Ops analyst. Determine whether "
+                            "the given trace event(s) represent the agent completing "
+                            "a mitigation, remediation, or recovery action. Respond "
+                            "ONLY with the requested JSON object."
+                        ),
+                    )
+                    self.token_usage.add(token_usage)
+                    if isinstance(llm_resp, str):
+                        try:
+                            llm_resp = json.loads(llm_resp)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    if isinstance(llm_resp, dict) and llm_resp.get("is_mitigation_event"):
+                        result["agent_fault_mitigation_time"] = mitigated_at
+                        logger.info(
+                            "Bucket mitigated_at (%s) validated by LLM as a "
+                            "mitigation event: %s",
+                            mitigated_at,
+                            llm_resp.get("reason", ""),
+                        )
+                    else:
+                        result["agent_fault_mitigation_time"] = None
+                        reason = llm_resp.get("reason", "") if isinstance(llm_resp, dict) else ""
+                        logger.warning(
+                            "Bucket mitigated_at (%s) rejected by LLM — matching "
+                            "event(s) do not represent a mitigation event: %s",
+                            mitigated_at,
+                            reason,
+                        )
+                except Exception as e:
+                    logger.error("LLM mitigation validation failed: %s", e)
+                    result["agent_fault_mitigation_time"] = None
+            else:
+                logger.warning(
+                    "Bucket mitigated_at (%s) has no matching event endTime.",
+                    mitigated_at,
+                )
+                result["agent_fault_mitigation_time"] = None
+
+        return result
 
     async def _extract_batch_quantitative(
         self,
@@ -439,9 +608,16 @@ Extract all quantitative metrics from this batch as a JSON object. Parse every s
         logger.info("Identifying detection and mitigation spans using LLM...")
         span_times = await self._identify_detection_mitigation_spans(spans)
 
+        # Step 0.5: Validate bucket timestamps against event content using LLM
+        validated_bucket_timestamps: Optional[Dict[str, Optional[str]]] = None
+        if self.bucket_metadata:
+            logger.info("Validating bucket timestamps against event content using LLM...")
+            validated_bucket_timestamps = await self._validate_bucket_timestamps_with_llm(spans)
+
         # Step 1: Aggregate all numeric fields in code
         code_aggregated = self.quant_aggregator.aggregate(
-            partial_metrics, total_spans, span_times, self.fault_config
+            partial_metrics, total_spans, span_times, self.bucket_metadata,
+            validated_bucket_timestamps,
         )
 
         # Step 2: Use LLM only for text field consolidation
@@ -659,15 +835,15 @@ Create a comprehensive qualitative assessment by combining the narrative observa
         spans = self.load_trace_file(file_path)
         logger.info(f"Loaded {len(spans)} spans")
 
-        if self.fault_config:
+        if self.bucket_metadata:
             logger.info(
-                f"Using fault configuration: fault_id={self.fault_config.get('fault_id')}, "
-                f"fault_name={self.fault_config.get('fault_name')}, "
-                f"injection_timestamp={self.fault_config.get('injection_timestamp')}"
+                f"Using bucket metadata: fault_id={self.bucket_metadata.get('fault_id')}, "
+                f"fault_name={self.bucket_metadata.get('fault_name')}, "
+                f"injection_timestamp={self.bucket_metadata.get('injection_timestamp')}"
             )
         else:
             logger.info(
-                "No fault configuration loaded. Proceeding without ground truth context."
+                "No bucket metadata loaded. Proceeding without ground truth context."
             )
 
         logger.info("Extracting quantitative metrics using batched LLM processing...")
@@ -688,12 +864,12 @@ Create a comprehensive qualitative assessment by combining the narrative observa
                 "total_spans": len(spans),
                 "extraction_token_usage": self.token_usage.to_dict(),
             }
-            if self.fault_config:
-                metadata["fault_config"] = {
-                    "fault_id": self.fault_config.get("fault_id"),
-                    "fault_name": self.fault_config.get("fault_name"),
-                    "fault_category": self.fault_config.get("fault_category"),
-                    "injection_timestamp": self.fault_config.get("injection_timestamp"),
+            if self.bucket_metadata:
+                metadata["bucket_metadata"] = {
+                    "fault_id": self.bucket_metadata.get("fault_id"),
+                    "fault_name": self.bucket_metadata.get("fault_name"),
+                    "severity": self.bucket_metadata.get("severity"),
+                    "injection_timestamp": self.bucket_metadata.get("injection_timestamp"),
                 }
             try:
                 mongodb_document_id = self.store_metrics_to_mongodb(
@@ -721,49 +897,51 @@ Create a comprehensive qualitative assessment by combining the narrative observa
 async def extract_metrics_from_trace_async(
     trace_file_path: str,
     config: Optional[Dict[str, Any]] = None,
-    fault_config_path: Optional[str] = None,
+    bucket_metadata: Optional[Dict[str, Any]] = None,
     store_to_mongodb: bool = False,
 ) -> ExtractionResult:
     """
     Async convenience function to extract metrics from a trace file using LLM.
 
     Args:
-        trace_file_path: Path to the Langfuse trace JSON file
-        config: Optional config dictionary
-        fault_config_path: Optional path to fault_configuration.json for ground truth
-        store_to_mongodb: If True, store extracted metrics to MongoDB
+        trace_file_path: Path to the trace bucket JSON file (or plain span list).
+        config: Optional config dictionary.
+        bucket_metadata: Optional bucket metadata dict. If the trace file is a
+            bucket JSON with an ``events`` key, metadata is extracted automatically.
+        store_to_mongodb: If True, store extracted metrics to MongoDB.
 
     Returns:
-        ExtractionResult containing quantitative, qualitative metrics and token usage
+        ExtractionResult containing quantitative, qualitative metrics and token usage.
     """
-    extractor = TraceMetricsExtractor(config, fault_config_path=fault_config_path)
+    extractor = TraceMetricsExtractor(config, bucket_metadata=bucket_metadata)
     return await extractor.extract_metrics_async(trace_file_path, store_to_mongodb)
 
 
 def extract_metrics_from_trace(
     trace_file_path: str,
     config: Optional[Dict[str, Any]] = None,
-    fault_config_path: Optional[str] = None,
+    bucket_metadata: Optional[Dict[str, Any]] = None,
     store_to_mongodb: bool = False,
 ) -> ExtractionResult:
     """
     Convenience function to extract metrics from a trace file using LLM.
 
     Args:
-        trace_file_path: Path to the Langfuse trace JSON file
-        config: Optional config dictionary
-        fault_config_path: Optional path to fault_configuration.json for ground truth
-        store_to_mongodb: If True, store extracted metrics to MongoDB
+        trace_file_path: Path to the trace bucket JSON file (or plain span list).
+        config: Optional config dictionary.
+        bucket_metadata: Optional bucket metadata dict. If the trace file is a
+            bucket JSON with an ``events`` key, metadata is extracted automatically.
+        store_to_mongodb: If True, store extracted metrics to MongoDB.
 
     Returns:
-        ExtractionResult containing quantitative, qualitative metrics and token usage
+        ExtractionResult containing quantitative, qualitative metrics and token usage.
     """
-    extractor = TraceMetricsExtractor(config, fault_config_path=fault_config_path)
+    extractor = TraceMetricsExtractor(config, bucket_metadata=bucket_metadata)
     return extractor.extract_metrics(trace_file_path, store_to_mongodb)
 
 
-def main(file_path: str, store=True, fault_config_path=None):
-    result = extract_metrics_from_trace(file_path, store_to_mongodb=store, fault_config_path=fault_config_path)
+def main(file_path: str, store=True):
+    result = extract_metrics_from_trace(file_path, store_to_mongodb=store)
 
     print("\n=== Quantitative Metrics ===")
     print(result.quantitative.model_dump_json(indent=2))
@@ -785,24 +963,19 @@ if __name__ == "__main__":
     import os
 
     parser = argparse.ArgumentParser(
-        description="Generate OTEL-compliant mock traces for ITOps agent fault scenarios"
+        description="Extract metrics from fault bucket trace files"
     )
     parser.add_argument(
         "--trace-file-name",
         type=str,
-        help="Name of the trace file",
+        help="Name of the trace bucket file",
         default=None,
     )
     parser.add_argument(
         "--trace-directory",
         type=str,
-        help="Directory containing trace files",
+        help="Directory containing trace bucket files",
         default=None,
-    )
-    parser.add_argument(
-        "--fault-config-path",
-        type=str,
-        help="Path to fault_configuration.json for ground truth",
     )
     parser.add_argument(
         "--store",
@@ -814,24 +987,23 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print(
-            "Usage: python metrics_extractor_from_trace.py <trace_file_path> "
-            "[--fault-config <fault_config.json>] [--store]"
+            "Usage: python metrics_extractor_from_trace.py "
+            "--trace-file-name <trace_bucket.json> [--store]"
         )
         sys.exit(1)
 
     trace_path = args.trace_file_name or None
     trace_dir = args.trace_directory or None
     store_flag = args.store or False
-    fault_config_path = args.fault_config_path or None
 
     try:
         if trace_path:
-            main(trace_path, store=store_flag, fault_config_path=fault_config_path)
+            main(trace_path, store=store_flag)
         elif trace_dir:
             for file_name in os.listdir(trace_dir):
                 file_path = os.path.join(trace_dir, file_name)
                 if os.path.isfile(file_path):
-                    main(file_path, store=store_flag, fault_config_path=fault_config_path)
+                    main(file_path, store=store_flag)
         else:
             print("Error: No trace file or directory specified")
             sys.exit(1)
