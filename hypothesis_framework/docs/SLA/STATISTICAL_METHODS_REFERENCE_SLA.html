@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLA-Aware Statistical Methods Reference — AgentCert</title>
+    <style>
+        :root {
+            --bg: #fafbfc; --card: #ffffff; --border: #e1e4e8;
+            --dark: #0d1117; --body: #24292f; --sub: #57606a; --muted: #8b949e;
+            --purple: #7c3aed; --green: #1a7f37; --orange: #bf5600; --red: #cf222e;
+            --blue: #0969da; --teal: #0a6c5c; --pink: #bf3989; --indigo: #4f46e5;
+            --purple-bg: #f5f3ff; --green-bg: #dafbe1; --orange-bg: #fff8c5;
+            --red-bg: #ffebe9; --blue-bg: #ddf4ff; --teal-bg: #ddf4ee;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--body); line-height: 1.6; }
+
+        .header { background: linear-gradient(135deg, #1a0a2e, #2d1b69, #7c3aed); color: white; padding: 50px 40px; }
+        .header h1 { font-size: 2.4em; font-weight: 700; margin-bottom: 10px; }
+        .header p { font-size: 1.15em; color: #c4b5fd; max-width: 800px; }
+        .header .badge { display: inline-block; background: var(--purple); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; margin-top: 12px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+
+        .toc { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 28px 32px; margin-bottom: 40px; }
+        .toc h2 { font-size: 1.3em; margin-bottom: 16px; color: var(--dark); }
+        .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+        .toc a { text-decoration: none; color: var(--purple); display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; transition: background 0.15s; font-size: 0.95em; }
+        .toc a:hover { background: var(--purple-bg); }
+        .toc .num { font-weight: 700; font-size: 0.85em; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+        .method-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 32px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .method-header { padding: 24px 28px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 16px; }
+        .method-num { font-weight: 800; font-size: 1em; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .method-header h2 { font-size: 1.5em; color: var(--dark); margin-bottom: 4px; }
+        .method-header .aka { font-size: 0.9em; color: var(--sub); font-weight: 400; }
+        .method-header .hyp-tag { display: inline-block; background: var(--purple-bg); color: var(--purple); padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 8px; }
+        .method-header .new-tag { display: inline-block; background: #f5f3ff; color: #7c3aed; padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 4px; border: 1px solid #7c3aed; }
+
+        .method-body { padding: 24px 28px; }
+        .section { margin-bottom: 24px; }
+        .section:last-child { margin-bottom: 0; }
+        .section-label { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; padding: 3px 10px; border-radius: 4px; display: inline-block; }
+        .section-content { font-size: 0.95em; color: var(--body); }
+        .section-content ul { padding-left: 20px; margin-top: 6px; }
+        .section-content li { margin-bottom: 4px; }
+
+        .output-box { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; color: var(--body); margin-top: 8px; overflow-x: auto; white-space: pre-wrap; }
+        .formula-box { background: #f0f3f6; border-left: 3px solid var(--purple); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; }
+        .example-box { background: #fff8c5; border-left: 3px solid var(--orange); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; }
+        .ref-box { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-top: 8px; font-size: 0.88em; }
+        .ref-box a { color: var(--purple); text-decoration: none; }
+        .ref-box a:hover { text-decoration: underline; }
+        .ref-box ul { list-style: none; padding: 0; }
+        .ref-box li { margin-bottom: 6px; padding-left: 0; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        .comparison-table th, .comparison-table td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+        .comparison-table th { background: #1a0a2e; color: white; font-weight: 600; }
+        .comparison-table tr:nth-child(even) { background: #fafbfc; }
+
+        .sla-pass{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#dcfce7;color:#15803d}
+        .sla-cond{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#fef9c3;color:#a16207}
+        .sla-fail{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#fee2e2;color:#dc2626}
+
+        .footer { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 0.9em; border-top: 1px solid var(--border); margin-top: 40px; }
+        .footer a { color: var(--purple); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.6em; }
+            .toc-grid { grid-template-columns: 1fr; }
+            .method-body { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>SLA-Aware Statistical Methods Reference</h1>
+    <p>Plain-English guide to every statistical method used in the SLA-Aware Hypothesis Framework. Covers 6 new SLA-specific methods plus the 10 retained methods from the No-SLA framework.</p>
+    <span class="badge">16 Methods &middot; 8 Hypothesis Tests (H-SLA-01 &ndash; H-SLA-08) &middot; Per-Fault SLA Thresholds</span>
+</div>
+
+<div class="container">
+
+<!-- Table of Contents -->
+<div class="toc">
+    <h2>SLA-Specific Methods at a Glance</h2>
+    <div class="toc-grid">
+        <a href="#running-example" style="grid-column: 1 / -1; background: #f5f3ff; border: 1px solid var(--purple); border-radius: 6px; font-weight: 600;"><span class="num" style="background: var(--purple);">Ex</span> Running Example: SRE-Agent v2.1 with Per-Fault SLAs</a>
+        <a href="#m1"><span class="num" style="background:#7c3aed">1</span> One-Sample Wilcoxon Signed-Rank Test (SLA Threshold)</a>
+        <a href="#m2"><span class="num" style="background:#1a7f37">2</span> Exact Binomial Test (SLA Breach Rate)</a>
+        <a href="#m3"><span class="num" style="background:#4f46e5">3</span> TOST — Two One-Sided Tests (Equivalence)</a>
+        <a href="#m4"><span class="num" style="background:#cf222e">4</span> Conditional Value-at-Risk / CVaR (Tail Risk)</a>
+        <a href="#m5"><span class="num" style="background:#0a6c5c">5</span> Kaplan-Meier Survival Analysis</a>
+        <a href="#m6"><span class="num" style="background:#bf5600">6</span> CUSUM Control Chart (Drift Detection)</a>
+    </div>
+    <p style="margin-top:16px; font-size:0.88em; color:var(--sub);">The 10 methods from the No-SLA framework (Wilson CI, Bootstrap BCa, IQM, Shapiro-Wilk, Kruskal-Wallis, Mann-Whitney U, A&#8321;&#8322;, Welch's ANOVA, Fisher's Exact, Levene's Test) remain available as supplementary analysis. See the <a href="../STATISTICAL_METHODS_REFERENCE.html" style="color:var(--purple)">No-SLA Methods Reference</a> for those details.</p>
+</div>
+
+<!-- ==================== RUNNING EXAMPLE ==================== -->
+<div class="method-card" id="running-example" style="border: 2px solid var(--purple); box-shadow: 0 2px 8px rgba(124,58,237,0.12);">
+    <div class="method-header" style="background: linear-gradient(135deg, #f5f3ff, #ede9fe); border-bottom: 2px solid var(--purple);">
+        <div class="method-num" style="background: var(--purple);">Ex</div>
+        <div>
+            <h2>Running Example: SRE-Agent v2.1 with Per-Fault SLAs</h2>
+            <div class="aka">Same agent as No-SLA example &middot; Now with defined SLA thresholds per fault category</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">1 &mdash; SLA Definitions</div>
+            <div class="section-content">
+                <p>The certification authority has defined <strong>per-fault-category SLAs</strong> reflecting operational requirements. Application faults (simpler, faster to detect) have tighter SLAs than resource faults (gradual onset, harder to pinpoint).</p>
+                <table class="comparison-table">
+                    <tr><th>Category</th><th>TTD SLA</th><th>Detection Rate SLA</th><th>Max Breach Rate</th><th>Reasoning SLA</th></tr>
+                    <tr><td style="font-weight:600">Application</td><td>&le; 180s</td><td>&ge; 90%</td><td>&le; 5%</td><td>&ge; 7.0</td></tr>
+                    <tr><td style="font-weight:600">Network</td><td>&le; 300s</td><td>&ge; 80%</td><td>&le; 10%</td><td>&ge; 6.0</td></tr>
+                    <tr><td style="font-weight:600">Resource</td><td>&le; 600s</td><td>&ge; 75%</td><td>&le; 10%</td><td>&ge; 6.5</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">2 &mdash; Observed Performance vs SLA</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr>
+                        <th>Category</th><th>IQM TTD</th><th>TTD SLA</th><th>Margin</th>
+                        <th>Det. Rate</th><th>Rate SLA</th><th>Margin</th><th>SLA Verdict</th>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600">Application</td>
+                        <td>143s</td><td>180s</td><td style="color:#1a7f37">+37s</td>
+                        <td>90%</td><td>90%</td><td style="color:#bf5600">+0%</td>
+                        <td><span class="sla-cond">CONDITIONAL</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600">Network</td>
+                        <td>266s</td><td>300s</td><td style="color:#bf5600">+34s</td>
+                        <td>50%</td><td>80%</td><td style="color:#cf222e">-30%</td>
+                        <td><span class="sla-fail">FAIL</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600">Resource</td>
+                        <td>258s</td><td>600s</td><td style="color:#1a7f37">+342s</td>
+                        <td>70%</td><td>75%</td><td style="color:#cf222e">-5%</td>
+                        <td><span class="sla-cond">CONDITIONAL</span></td>
+                    </tr>
+                </table>
+                <p style="margin-top:8px;font-size:0.85em;color:var(--sub);">Margin = SLA threshold - observed value (positive = within SLA, negative = violation). Network fails detection rate SLA by 30 percentage points. Application is exactly at the boundary. Resource narrowly misses detection rate SLA.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">3 &mdash; How Each SLA Hypothesis Uses This Data</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th style="width:75px;">Test</th><th style="width:200px;">Question</th><th>Result from This Data</th></tr>
+                    <tr>
+                        <td style="font-weight:700;color:#7c3aed;">H-SLA-01</td>
+                        <td>Does IQM reliably meet SLA?</td>
+                        <td><strong>App:</strong> CI [128s, 159s] &lt; SLA 180s <span class="sla-pass">PASS</span> | <strong>Net:</strong> CI [127s, 418s] spans SLA 300s <span class="sla-fail">FAIL</span> | <strong>Res:</strong> CI [221s, 301s] &lt; SLA 600s <span class="sla-pass">PASS</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#1a7f37;">H-SLA-02</td>
+                        <td>Is breach rate within budget?</td>
+                        <td><strong>App:</strong> 2/30 breaches (6.7%) vs max 5% <span class="sla-cond">CONDITIONAL</span> | <strong>Net:</strong> 12/30 (40%) vs max 10% <span class="sla-fail">FAIL</span> | <strong>Res:</strong> 1/30 (3.3%) vs max 10% <span class="sla-pass">PASS</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#4f46e5;">H-SLA-03</td>
+                        <td>Provably within SLA bounds?</td>
+                        <td><strong>App:</strong> TOST max(p)=0.008 <span class="sla-pass">PROVEN</span> | <strong>Net:</strong> TOST max(p)=0.312 <span class="sla-cond">INCONCLUSIVE</span> | <strong>Res:</strong> TOST max(p)=0.001 <span class="sla-pass">PROVEN</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#cf222e;">H-SLA-04</td>
+                        <td>How bad are violations?</td>
+                        <td><strong>Net:</strong> CVaR&#8325;&#8309;=891s, overshoot=545s (182% of SLA) <span class="sla-fail">SEVERE</span> | <strong>App:</strong> 1 violation, overshoot=107s (59%) <span class="sla-cond">MODERATE</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#0a6c5c;">H-SLA-06</td>
+                        <td>What % complete before SLA deadline?</td>
+                        <td><strong>App:</strong> 93% before 180s <span class="sla-pass">PASS</span> | <strong>Net:</strong> 40% before 300s <span class="sla-fail">FAIL</span> | <strong>Res:</strong> 97% before 600s <span class="sla-pass">PASS</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#bf5600;">H-SLA-07</td>
+                        <td>Drifting toward SLA violation?</td>
+                        <td><strong>App:</strong> CUSUM stable, CV=0.38 <span class="sla-pass">STABLE</span> | <strong>Net:</strong> EWMA trending down, CV=1.40 <span class="sla-cond">DRIFTING</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 1: WILCOXON ONE-SAMPLE ==================== -->
+<div class="method-card" id="m1">
+    <div class="method-header">
+        <div class="method-num" style="background:#7c3aed">1</div>
+        <div>
+            <h2>One-Sample Wilcoxon Signed-Rank Test <span class="hyp-tag">H-SLA-01</span></h2>
+            <div class="aka">SLA threshold test &middot; Non-parametric one-sample test against a fixed value</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">What Problem Does This Solve?</div>
+            <div class="section-content">
+                You have 30 detection times and an SLA that says "time_to_detect must be &le; 300s." <strong>Is the agent reliably below 300s, or did it just get lucky this time?</strong> The one-sample Wilcoxon test formally tests whether the median of your data is significantly below the SLA threshold. Unlike a t-test, it doesn't assume bell-curve data — critical because agent response times are typically right-skewed with heavy tails.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Subtract the SLA threshold from each observation: d<sub>i</sub> = x<sub>i</sub> - SLA</li>
+                    <li>If the agent meets SLA, most d<sub>i</sub> values should be <em>negative</em> (below threshold)</li>
+                    <li>Rank the absolute values |d<sub>i</sub>|, then assign + or - signs based on direction</li>
+                    <li>Sum the positive ranks (W+) and negative ranks (W-). Under H&#8320;, they should be balanced</li>
+                    <li>If W- dominates (most values are below SLA), p-value is small &rarr; reject H&#8320;</li>
+                </ol>
+                <div class="formula-box">H&#8320;: median(TTD) &ge; SLA_threshold (agent does NOT meet SLA)
+H&#8336;: median(TTD) &lt; SLA_threshold (agent meets SLA)
+
+Decision: If p &lt; 0.05, reject H&#8320; &mdash; evidence that the agent reliably performs within SLA.</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>pizza delivery guarantee: "30 minutes or it's free."</strong> You order pizza 30 times and record how long each delivery takes. The Wilcoxon test asks: "Is the median delivery time genuinely below 30 minutes, or did a few fast deliveries mask a generally slow service?" It looks at <em>how far</em> each delivery was from the 30-minute mark and weighs fast deliveries against slow ones. If most deliveries are comfortably under 30 minutes, the test says "yes, this pizza place reliably meets its SLA."
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">Why Not a t-Test?</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th>Issue</th><th>One-Sample t-Test</th><th>One-Sample Wilcoxon</th></tr>
+                    <tr><td>Assumes normal data?</td><td>Yes &mdash; invalid with skewed/bimodal TTD</td><td>No &mdash; uses ranks, works with any distribution</td></tr>
+                    <tr><td>Outlier sensitivity</td><td>One 900s run pulls mean up, inflates test</td><td>Rank-based &mdash; a 900s run has the same rank as a 500s run</td></tr>
+                    <tr><td>Power at n=30</td><td>Higher IF data is truly normal (rare for agents)</td><td>~95% of t-test power; safer default</td></tr>
+                    <tr><td>Tests what?</td><td>Mean vs threshold</td><td>Median vs threshold (more representative for skewed data)</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">One-sample Wilcoxon signed-rank test for TTD vs SLA threshold:
+
+  APPLICATION (n=27, SLA=180s):
+    Median TTD: 141s &mdash; SLA margin: +39s
+    W statistic: 42, p-value: 0.001 (one-sided)
+    Result: REJECT H&#8320; &mdash; Agent reliably meets 180s SLA.  <span style="color:#1a7f37;font-weight:bold">PASS</span>
+
+  NETWORK (n=15, SLA=300s):
+    Median TTD: 94s &mdash; SLA margin: +206s (misleading! bimodal)
+    W statistic: 38, p-value: 0.42 (one-sided)
+    Result: FAIL TO REJECT H&#8320; &mdash; Cannot confirm SLA compliance.  <span style="color:#cf222e;font-weight:bold">FAIL</span>
+    Note: Low n (only 15 detections out of 30 runs) + extreme variance
+    undermine the test. The 15 undetected faults are not included in
+    the TTD test but ARE captured by H-SLA-02 (breach rate).
+
+  RESOURCE (n=21, SLA=600s):
+    Median TTD: 252s &mdash; SLA margin: +348s
+    W statistic: 12, p-value: 0.001 (one-sided)
+    Result: REJECT H&#8320; &mdash; Agent reliably meets 600s SLA.  <span style="color:#1a7f37;font-weight:bold">PASS</span></div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#f5f3ff;color:#7c3aed;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Wilcoxon, F. (1945)</strong> "Individual comparisons by ranking methods." <em>Biometrics Bulletin</em>, 1(6), 80&ndash;83 &mdash; <a href="https://doi.org/10.2307/3001968" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test" target="_blank">Wikipedia: Wilcoxon signed-rank test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html" target="_blank">scipy.stats.wilcoxon(data - threshold, alternative='less')</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 2: EXACT BINOMIAL ==================== -->
+<div class="method-card" id="m2">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a7f37">2</div>
+        <div>
+            <h2>Exact Binomial Test <span class="hyp-tag">H-SLA-02</span></h2>
+            <div class="aka">SLA breach rate test &middot; Exact probability for binary compliance</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">When Every Violation Counts</div>
+            <div class="section-content">
+                Your SLA says "no more than 10% of runs should violate the TTD threshold." You observe 3 violations out of 30 runs (10%). <strong>Is this within budget, or is the true violation rate actually higher?</strong> The exact binomial test computes the <em>exact</em> probability of observing this many violations (or fewer) if the true rate equals the SLA limit. The Clopper-Pearson CI gives you the worst-case upper bound on the breach rate.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Count violations: x = number of runs where metric exceeds SLA threshold</li>
+                    <li>Total trials: n = total runs</li>
+                    <li>Test H&#8320;: breach_rate &ge; max_allowed vs H&#8336;: breach_rate &lt; max_allowed</li>
+                    <li>Compute exact p-value using binomial distribution: P(X &le; x | p = max_allowed)</li>
+                    <li>Clopper-Pearson CI: exact 95% bounds on the true breach rate</li>
+                </ol>
+                <div class="formula-box">Exact Binomial Test:
+  p-value = P(X &le; x | n, p = max_allowed_breach_rate)
+  If p &lt; 0.05: evidence that breach rate is within SLA budget
+
+Clopper-Pearson 95% CI:
+  [B(&#945;/2; x, n-x+1), B(1-&#945;/2; x+1, n-x)]
+  where B is the Beta distribution quantile function</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>factory quality control</strong>. The contract says "no more than 2% of widgets can be defective." You inspect 100 widgets and find 1 defective one (1%). But does that <em>prove</em> the defect rate is below 2%? The exact binomial test computes: "If the true defect rate were exactly 2%, what's the chance of seeing 1 or fewer defects in 100 inspections?" If that probability is high (not surprising), you can't be confident the rate is below 2%. The Clopper-Pearson CI tells you: "The true defect rate is between 0.03% and 5.4%" &mdash; the upper bound exceeding 2% means you can't certify at n=100.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Critical Sample Size Insight</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th>SLA Max Breach Rate</th><th>Observed Breaches to Pass</th><th>Min n Needed</th><th>Practical Implication</th></tr>
+                    <tr><td>10%</td><td>&le;1 out of 30</td><td>30</td><td>Achievable with standard certification</td></tr>
+                    <tr><td>5%</td><td>0 out of 30</td><td>59</td><td>Must observe zero breaches at n=30 (very hard)</td></tr>
+                    <tr><td>1%</td><td>0 out of 100</td><td>299</td><td>Extremely expensive to certify</td></tr>
+                </table>
+                <p style="margin-top:8px;font-size:0.88em;color:var(--sub);">This table explains why tight SLAs (&le;5% breach) require either larger sample sizes or accepting wider CIs. At n=30 with 0 breaches, the Clopper-Pearson upper bound is still 11.6%.</p>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Exact Binomial Test for SLA breach rate:
+
+  APPLICATION (SLA: TTD &le; 180s, max breach rate: 5%):
+    Breaches: 2/30 (6.7%)  &mdash;  Clopper-Pearson 95% CI: [0.8%, 22.1%]
+    Binomial test p-value: 0.63 (cannot reject H&#8320;)
+    Result: CI upper bound (22.1%) far exceeds 5% SLA.  <span style="color:#bf5600;font-weight:bold">CONDITIONAL</span>
+    Note: Even 2 breaches at n=30 can't prove &le;5% rate. Need n&ge;59 with 0 breaches.
+
+  NETWORK (SLA: TTD &le; 300s, max breach rate: 10%):
+    Breaches: 12/30 (40.0%)  &mdash;  Clopper-Pearson 95% CI: [22.5%, 59.4%]
+    Binomial test p-value: 0.999 (strongly fail to reject)
+    Result: Even CI lower bound (22.5%) exceeds 10% SLA.  <span style="color:#cf222e;font-weight:bold">FAIL</span>
+
+  RESOURCE (SLA: TTD &le; 600s, max breach rate: 10%):
+    Breaches: 1/30 (3.3%)  &mdash;  Clopper-Pearson 95% CI: [0.1%, 17.2%]
+    Binomial test p-value: 0.18 (cannot reject at &#945;=0.05)
+    Result: CI contains SLA limit (10%). Marginal.  <span style="color:#bf5600;font-weight:bold">CONDITIONAL</span></div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Clopper, C.J. &amp; Pearson, E.S. (1934)</strong> "The use of confidence or fiducial limits." <em>Biometrika</em>, 26(4), 404&ndash;413 &mdash; <a href="https://doi.org/10.2307/2331986" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Binomial_test" target="_blank">Wikipedia: Binomial test</a></li>
+                    <li>Python: <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.binomtest.html" target="_blank">scipy.stats.binomtest(x, n, p=target, alternative='less')</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 3: TOST ==================== -->
+<div class="method-card" id="m3">
+    <div class="method-header">
+        <div class="method-num" style="background:#4f46e5">3</div>
+        <div>
+            <h2>TOST — Two One-Sided Tests <span class="hyp-tag">H-SLA-03</span> <span class="new-tag">NEW</span></h2>
+            <div class="aka">Equivalence testing &middot; Proving performance is WITHIN bounds</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">The Gold Standard for SLA Certification</div>
+            <div class="section-content">
+                Standard hypothesis tests can only prove "the agent is <em>different</em> from the SLA." But for certification, you want to prove the <strong>opposite: "the agent is <em>within</em> the SLA bounds."</strong> This reversal is called <strong>equivalence testing</strong>, and TOST is the FDA-approved method for it (used in drug bioequivalence trials). In our context: instead of failing to disprove compliance, we <em>actively prove</em> it.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Define the <strong>equivalence bounds</strong>: [0, SLA_threshold] for "less is better" metrics like TTD</li>
+                    <li><strong>Test 1 (Lower bound):</strong> H&#8320;: &mu; &le; 0 vs H&#8336;: &mu; &gt; 0 &mdash; "Is performance above zero?" (trivially passes for times)</li>
+                    <li><strong>Test 2 (Upper bound):</strong> H&#8320;: &mu; &ge; SLA vs H&#8336;: &mu; &lt; SLA &mdash; "Is performance below the SLA threshold?"</li>
+                    <li><strong>Both must reject at &alpha;=0.05</strong> for equivalence to be declared</li>
+                    <li>The TOST p-value = max(p1, p2) — both tests must pass</li>
+                </ol>
+                <div class="formula-box">TOST Decision:
+  p_max = max(p_lower, p_upper)
+
+  p_max &lt; 0.05  &rarr;  PROVEN WITHIN SLA bounds (strong claim)
+  p_max &ge; 0.05  &rarr;  INCONCLUSIVE (cannot prove compliance)
+
+Key: "Inconclusive" &ne; "Failing" — it means we lack statistical power
+to make the claim, possibly due to small n or high variance.</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine <strong>proving a drug is equivalent to an existing medication</strong>. The FDA doesn't accept "we failed to find a difference" — that could just mean the study was too small. Instead, TOST requires you to <em>actively prove</em> the drug's effect is within an acceptable range. Two guards check both ends: Guard 1 confirms "it's at least this effective" and Guard 2 confirms "it's not more than this effective." <strong>Both guards must give the OK.</strong> For SLA: Guard 1 says "the agent does respond" (trivial) and Guard 2 says "the response is within the SLA deadline" (the real test).
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Why This Is Stronger Than CI Comparison</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th>Approach</th><th>Claim</th><th>Strength</th></tr>
+                    <tr><td>CI upper &lt; SLA</td><td>"CI doesn't cross SLA"</td><td>Informal — no formal p-value for the claim</td></tr>
+                    <tr><td>Wilcoxon p &lt; 0.05</td><td>"Median is below SLA"</td><td>Tests median, not mean/IQM; one-sided only</td></tr>
+                    <tr><td><strong>TOST p_max &lt; 0.05</strong></td><td><strong>"Performance is provably within [0, SLA]"</strong></td><td><strong>Formal equivalence proof with power analysis</strong></td></tr>
+                </table>
+                <p style="margin-top:8px;">TOST also enables <strong>power analysis</strong>: given the observed variance, how many runs do we need to prove equivalence? This drives sample size recommendations.</p>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">TOST Equivalence Test for TTD within SLA bounds:
+
+  APPLICATION (bounds: [0s, 180s], n=27):
+    Test 1 (lower): t=12.4, p=0.001  &rarr;  median > 0s  (trivially passes)
+    Test 2 (upper): t=-2.8, p=0.008  &rarr;  median < 180s  (SLA met!)
+    TOST p_max = 0.008
+    Result: <span style="color:#1a7f37;font-weight:bold">PROVEN WITHIN SLA BOUNDS</span>
+    Power: 92% at current n &mdash; adequate sample size
+
+  NETWORK (bounds: [0s, 300s], n=15):
+    Test 1 (lower): t=5.1, p=0.001  &rarr;  median > 0s  (passes)
+    Test 2 (upper): t=-0.5, p=0.312  &rarr;  CANNOT prove median < 300s
+    TOST p_max = 0.312
+    Result: <span style="color:#bf5600;font-weight:bold">INCONCLUSIVE</span>
+    Power: 23% at current n &mdash; would need n&ge;85 to prove equivalence
+    Note: High variance (CV=1.40) destroys statistical power
+
+  RESOURCE (bounds: [0s, 600s], n=21):
+    Test 1 (lower): t=9.8, p=0.001  &rarr;  median > 0s  (passes)
+    Test 2 (upper): t=-8.2, p=0.001  &rarr;  median < 600s  (SLA easily met!)
+    TOST p_max = 0.001
+    Result: <span style="color:#1a7f37;font-weight:bold">PROVEN WITHIN SLA BOUNDS</span>
+    Power: 99% at current n &mdash; generous SLA threshold helps</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Schuirmann, D.J. (1987)</strong> "A comparison of the two one-sided tests procedure." <em>J. Pharmacokinetics and Biopharmaceutics</em>, 15(6), 657&ndash;680</li>
+                    <li><strong>Lakens, D. (2017)</strong> "Equivalence Tests: A Practical Primer." <em>Social Psychological and Personality Science</em>, 8(4), 355&ndash;362 &mdash; <a href="https://doi.org/10.1177/1948550617697177" target="_blank">DOI</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/Equivalence_test" target="_blank">Wikipedia: Equivalence test</a></li>
+                    <li>Python: <a href="https://www.statsmodels.org/stable/generated/statsmodels.stats.weightstats.ttost_ind.html" target="_blank">statsmodels.stats.weightstats.ttost_ind</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 4: CVaR ==================== -->
+<div class="method-card" id="m4">
+    <div class="method-header">
+        <div class="method-num" style="background:#cf222e">4</div>
+        <div>
+            <h2>Conditional Value-at-Risk (CVaR) <span class="hyp-tag">H-SLA-04</span> <span class="new-tag">NEW</span></h2>
+            <div class="aka">Expected Shortfall &middot; Tail risk measurement &middot; "How bad is bad?"</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">When SLA Violations Happen, How Bad Are They?</div>
+            <div class="section-content">
+                Meeting SLA 90% of the time sounds good, but if the 10% violations are <em>catastrophic</em> (30-minute detection delays), that's a different story than if they're minor (32 seconds over the 300s limit). <strong>CVaR measures the average severity of the worst outcomes.</strong> It answers: "When things go wrong, how wrong do they go?" This is critical for incident response planning and SLA penalty estimation.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Identify the <strong>Value-at-Risk (VaR)</strong> at level &alpha; — the &alpha;-th percentile of outcomes (e.g., P95 = the 95th percentile)</li>
+                    <li><strong>CVaR</strong> = average of all values <em>worse</em> than VaR. For TTD: average of the slowest 5% of detections</li>
+                    <li><strong>Expected overshoot</strong> = E[X - SLA | X > SLA] — when SLA is violated, by how much on average?</li>
+                    <li><strong>Overshoot ratio</strong> = expected overshoot / SLA threshold — how many times worse than the limit?</li>
+                </ol>
+                <div class="formula-box">CVaR&#8320;.&#8325;&#8309; = E[X | X > P95]  =  average of the worst 5%
+
+Expected Overshoot = E[X - SLA | X > SLA]
+                   = mean of (violation amount) for all violations
+
+Overshoot Ratio = Expected Overshoot / SLA_threshold
+                = how many "SLA units" the typical violation is</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of <strong>car insurance claims</strong>. The insurance company knows 5% of drivers will have an accident. But they need to know: <em>when accidents happen, how expensive are they?</em> CVaR answers this. If the average accident costs $5,000, that's manageable. If the average accident costs $500,000, the company needs very different reserves. For SLA: knowing that 10% of detections violate the 300s SLA is one thing. Knowing that those violations average 891s (nearly 3x the SLA) is a completely different risk profile.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Tail Risk Analysis (CVaR / Expected Overshoot):
+
+  NETWORK (SLA: TTD &le; 300s):
+    Violations: 12/30 (40% breach rate)
+    VaR&#8320;.&#8325;&#8309; (P95): 944s
+    CVaR&#8320;.&#8325;&#8309;: 891s  (average of worst 5%)
+    Expected overshoot: E[X-300 | X>300] = 545s
+    Overshoot ratio: 545/300 = 1.82  (violations are 182% over SLA)
+    Max observed violation: 944s (3.1x SLA)
+    Severity: <span style="color:#cf222e;font-weight:bold">SEVERE</span> &mdash; violations are nearly 2x the SLA limit on average
+
+  APPLICATION (SLA: TTD &le; 180s):
+    Violations: 2/30 (6.7% breach rate)
+    VaR&#8320;.&#8325;&#8309; (P95): 278s
+    CVaR&#8320;.&#8325;&#8309;: 283s
+    Expected overshoot: E[X-180 | X>180] = 107s
+    Overshoot ratio: 107/180 = 0.59
+    Severity: <span style="color:#bf5600;font-weight:bold">MODERATE</span> &mdash; violations are 59% over SLA
+
+  RESOURCE (SLA: TTD &le; 600s):
+    Violations: 0/30 (0% breach rate)
+    No violations to analyze.
+    Severity: <span style="color:#1a7f37;font-weight:bold">N/A (no breaches)</span></div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Rockafellar, R.T. &amp; Uryasev, S. (2000)</strong> "Optimization of conditional value-at-risk." <em>Journal of Risk</em>, 2(3), 21&ndash;42 &mdash; <a href="https://doi.org/10.21314/JOR.2000.038" target="_blank">DOI</a></li>
+                    <li><strong>Artzner, P. et al. (1999)</strong> "Coherent measures of risk." <em>Mathematical Finance</em>, 9(3), 203&ndash;228</li>
+                    <li><a href="https://en.wikipedia.org/wiki/Expected_shortfall" target="_blank">Wikipedia: Expected Shortfall / CVaR</a></li>
+                    <li>Python: <code>np.mean(data[data > np.percentile(data, 95)])</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 5: KAPLAN-MEIER ==================== -->
+<div class="method-card" id="m5">
+    <div class="method-header">
+        <div class="method-num" style="background:#0a6c5c">5</div>
+        <div>
+            <h2>Kaplan-Meier Survival Analysis <span class="hyp-tag">H-SLA-06</span> <span class="new-tag">NEW</span></h2>
+            <div class="aka">Time-to-event analysis &middot; SLA compliance over time &middot; Handles censored data</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">The Clock Is Ticking: How Many Runs Beat the SLA Deadline?</div>
+            <div class="section-content">
+                Kaplan-Meier answers: <strong>"At any given time t, what fraction of runs have NOT yet detected the fault?"</strong> This creates a "survival curve" — the probability of still waiting at time t. At the SLA threshold time, this curve gives you the breach probability directly. Crucially, it properly handles <strong>censored data</strong> — runs where the fault was never detected (the agent gave up or timed out). Simple breach counting treats these as "infinite TTD," but Kaplan-Meier models them correctly.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>List all event times (TTD values) and mark each as <strong>event</strong> (detected) or <strong>censored</strong> (never detected, timed out)</li>
+                    <li>At each event time t<sub>i</sub>, compute S(t) = S(t-1) &times; (1 - d<sub>i</sub>/n<sub>i</sub>) where d<sub>i</sub> = detections at t<sub>i</sub>, n<sub>i</sub> = runs still "at risk"</li>
+                    <li>The survival curve S(t) starts at 1.0 (all runs undetected) and decreases as detections occur</li>
+                    <li>At SLA threshold: S(SLA) = fraction of runs STILL undetected = <strong>breach probability</strong></li>
+                    <li>Compliance at SLA = 1 - S(SLA) = fraction that detected within SLA deadline</li>
+                </ol>
+                <div class="formula-box">At the SLA threshold:
+  S(SLA_threshold) = P(TTD > SLA) = breach probability
+  1 - S(SLA_threshold) = P(TTD &le; SLA) = compliance rate
+
+Log-rank test: Compares survival curves across fault categories
+  H&#8320;: Survival functions are identical across categories
+  H&#8336;: At least one category has a different survival pattern</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine tracking <strong>how long customers wait in a phone queue</strong>. Some hang up before being answered (censored — you know they waited <em>at least</em> X minutes, but not how long they <em>would have</em> waited). Kaplan-Meier handles this gracefully: it doesn't assume hang-ups would have been answered in 1 more minute or 1 hour — it honestly says "we don't know" and adjusts the curve accordingly. For fault detection: the 15 out of 30 network runs where the agent never detected the fault are "hang-ups" — Kaplan-Meier includes them in the survival estimate without pretending they would have detected at some specific time.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">Kaplan-Meier Survival Analysis at SLA Thresholds:
+
+  APPLICATION (n=30, events=27, censored=3, SLA=180s):
+    S(180s) = 0.07  &rarr;  93% detected within SLA deadline
+    Median survival time: 141s (50% detected by this point)
+    Compliance: <span style="color:#1a7f37;font-weight:bold">93% &ge; 90% SLA target &rarr; PASS</span>
+
+  NETWORK (n=30, events=15, censored=15, SLA=300s):
+    S(300s) = 0.60  &rarr;  Only 40% detected within SLA deadline
+    Median survival time: &infin; (never reaches 50% &mdash; half of runs are censored)
+    Compliance: <span style="color:#cf222e;font-weight:bold">40% &lt; 80% SLA target &rarr; FAIL</span>
+    Note: 15 right-censored runs (never detected) drive S(300s) up.
+    Without survival analysis, these would be awkwardly handled.
+
+  RESOURCE (n=30, events=21, censored=9, SLA=600s):
+    S(600s) = 0.03  &rarr;  97% detected within SLA deadline
+    Median survival time: 252s
+    Compliance: <span style="color:#1a7f37;font-weight:bold">97% &ge; 75% SLA target &rarr; PASS</span>
+
+  Log-rank test across categories: &chi;&sup2;=24.3, p&lt;0.001
+    Survival curves differ significantly. Network has a fundamentally
+    different detection time distribution (heavy censoring + bimodal).</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Kaplan, E.L. &amp; Meier, P. (1958)</strong> "Nonparametric estimation from incomplete observations." <em>JASA</em>, 53(282), 457&ndash;481 &mdash; <a href="https://doi.org/10.1080/01621459.1958.10501452" target="_blank">DOI</a></li>
+                    <li><strong>Mantel, N. (1966)</strong> "Evaluation of survival data." <em>Cancer Chemotherapy Reports</em>, 50(3), 163&ndash;170</li>
+                    <li><a href="https://en.wikipedia.org/wiki/Kaplan%E2%80%93Meier_estimator" target="_blank">Wikipedia: Kaplan-Meier estimator</a></li>
+                    <li>Python: <a href="https://lifelines.readthedocs.io/" target="_blank">lifelines.KaplanMeierFitter</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 6: CUSUM ==================== -->
+<div class="method-card" id="m6">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf5600">6</div>
+        <div>
+            <h2>CUSUM Control Chart <span class="hyp-tag">H-SLA-07</span> <span class="new-tag">NEW</span></h2>
+            <div class="aka">Cumulative Sum &middot; Sequential drift detection &middot; SLA margin monitoring</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Catching SLA Drift Before It Becomes a Violation</div>
+            <div class="section-content">
+                An agent might meet SLA today but be slowly getting worse. <strong>CUSUM tracks the cumulative deviation from the SLA target</strong> — if the agent is consistently a few seconds slower than expected, the cumulative sum grows until it crosses a threshold, triggering an alert. It's like tracking your bank balance: individual small overdrafts might not alarm you, but the cumulative trend downward signals a problem.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>For each run i, compute the <strong>SLA margin</strong>: m<sub>i</sub> = SLA_threshold - observed_value<sub>i</sub></li>
+                    <li>Positive margin = within SLA, negative margin = violation</li>
+                    <li><strong>CUSUM</strong>: S<sub>t</sub> = max(0, S<sub>t-1</sub> + (x<sub>t</sub> - k)) where k = acceptable slack</li>
+                    <li>If S<sub>t</sub> exceeds decision boundary h, signal a <strong>drift alarm</strong></li>
+                    <li>Also track EWMA (Exponentially Weighted Moving Average) for smoother trend detection</li>
+                </ol>
+                <div class="formula-box">CUSUM (upper):  S<sub>t</sub><sup>+</sup> = max(0, S<sub>t-1</sub><sup>+</sup> + (x<sub>t</sub> - &mu;&#8320; - k))
+  Signal: S<sub>t</sub><sup>+</sup> > h  &rarr;  upward shift detected (getting slower)
+
+EWMA:  Z<sub>t</sub> = &lambda; &middot; x<sub>t</sub> + (1 - &lambda;) &middot; Z<sub>t-1</sub>
+  &lambda; = 0.2 (smoothing factor), Z&#8320; = SLA_threshold
+  Signal: Z<sub>t</sub> approaches or crosses SLA threshold
+
+Combined decision:
+  CUSUM in bounds AND EWMA margin > 0  &rarr;  STABLE
+  CUSUM approaching OR EWMA declining   &rarr;  DRIFTING
+  CUSUM exceeded OR EWMA past SLA       &rarr;  ALERT</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of a <strong>river level monitor near a dam</strong>. The water level might be fine right now, but CUSUM tracks the <em>cumulative</em> trend. If each day the river is 1 cm higher than expected, by day 30 the cumulative excess is 30 cm — even though no single day was alarming. CUSUM catches this creeping rise before the river overflows. For SLA: if each successive run is 5 seconds slower than the SLA midpoint, CUSUM detects the trend long before individual runs actually violate the SLA threshold. This gives you time to retrain or reconfigure the agent before customers are affected.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Output Example <span style="font-weight:400;font-size:0.9em;color:var(--sub);">(from Running Example)</span></div>
+            <div class="output-box">CUSUM / EWMA Drift Detection for TTD SLA Margin:
+
+  APPLICATION (SLA=180s, target margin = 37s):
+    CUSUM S_30 = 2.4 (within h=5.0 boundary)
+    EWMA Z_30 = 145s (well below SLA=180s, margin=+35s)
+    CV = 0.38 (moderate)
+    Trend: Stable, no drift detected
+    Status: <span style="color:#1a7f37;font-weight:bold">STABLE</span>
+
+  NETWORK (SLA=300s, target margin = 34s):
+    CUSUM S_30 = 8.2 (EXCEEDED h=5.0 boundary at run #18!)
+    EWMA Z_30 = 312s (above SLA=300s, margin=-12s)
+    CV = 1.40 (extreme)
+    Trend: Upward drift detected at run #18. EWMA crossed SLA at run #22.
+    Status: <span style="color:#cf222e;font-weight:bold">ALERT</span> &mdash; Performance degrading over time
+
+  RESOURCE (SLA=600s, target margin = 342s):
+    CUSUM S_30 = 0.8 (well within h=5.0 boundary)
+    EWMA Z_30 = 262s (well below SLA=600s, margin=+338s)
+    CV = 0.42 (moderate)
+    Trend: Stable with generous SLA headroom
+    Status: <span style="color:#1a7f37;font-weight:bold">STABLE</span></div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Page, E.S. (1954)</strong> "Continuous inspection schemes." <em>Biometrika</em>, 41(1-2), 100&ndash;115 &mdash; <a href="https://doi.org/10.2307/2333009" target="_blank">DOI</a></li>
+                    <li><strong>Roberts, S.W. (1959)</strong> "Control chart tests based on geometric moving averages." <em>Technometrics</em>, 1(3), 239&ndash;250</li>
+                    <li><a href="https://en.wikipedia.org/wiki/CUSUM" target="_blank">Wikipedia: CUSUM</a></li>
+                    <li><a href="https://en.wikipedia.org/wiki/EWMA_chart" target="_blank">Wikipedia: EWMA chart</a></li>
+                    <li>Python: Custom implementation or <a href="https://www.statsmodels.org/stable/generated/statsmodels.tsa.holtwinters.ExponentialSmoothing.html" target="_blank">statsmodels ExponentialSmoothing</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SUMMARY TABLE ==================== -->
+<div class="method-card">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a0a2e">&Sigma;</div>
+        <div>
+            <h2>Quick Reference: SLA Methods Summary</h2>
+        </div>
+    </div>
+    <div class="method-body">
+        <table class="comparison-table">
+            <tr><th>Hypothesis</th><th>Question</th><th>New Method</th><th>From No-SLA</th></tr>
+            <tr><td style="font-weight:700;color:#7c3aed;">H-SLA-01</td><td>Does typical performance meet SLA?</td><td>One-sample Wilcoxon signed-rank</td><td>Bootstrap CI, IQM (retained)</td></tr>
+            <tr><td style="font-weight:700;color:#1a7f37;">H-SLA-02</td><td>Is breach rate within budget?</td><td>Exact binomial test, Clopper-Pearson CI</td><td>Wilson CI (retained)</td></tr>
+            <tr><td style="font-weight:700;color:#4f46e5;">H-SLA-03</td><td>Provably within SLA bounds?</td><td>TOST (Two One-Sided Tests)</td><td>&mdash; (new concept)</td></tr>
+            <tr><td style="font-weight:700;color:#cf222e;">H-SLA-04</td><td>How severe are violations?</td><td>CVaR, Expected Overshoot</td><td>&mdash; (new concept)</td></tr>
+            <tr><td style="font-weight:700;color:#bf5600;">H-SLA-05</td><td>Each fault passes own SLA?</td><td>Per-fault testing + BH-FDR</td><td>Fisher's Exact (replaced)</td></tr>
+            <tr><td style="font-weight:700;color:#0a6c5c;">H-SLA-06</td><td>Time-dependent SLA compliance?</td><td>Kaplan-Meier + Log-rank</td><td>&mdash; (new concept)</td></tr>
+            <tr><td style="font-weight:700;color:#bf5600;">H-SLA-07</td><td>SLA compliance drifting?</td><td>CUSUM + EWMA</td><td>Levene's + CV (extended)</td></tr>
+            <tr><td style="font-weight:700;color:#0969da;">H-SLA-08</td><td>Overall SLA posture?</td><td>Error budget model</td><td>&mdash; (new concept)</td></tr>
+        </table>
+        <div style="margin-top:16px; padding:12px 16px; background:#f5f3ff; border-radius:6px; font-size:0.92em; border-left:3px solid #7c3aed;">
+            <strong>Multiple-comparison correction:</strong> When testing k fault types against their individual SLAs (H-SLA-05), apply <strong>Benjamini-Hochberg FDR</strong> correction to control false discovery rate. For safety-critical SLAs (detection rate), use <strong>Holm-Bonferroni</strong> instead.
+        </div>
+    </div>
+</div>
+
+</div>
+
+<div class="footer">
+    AgentCert &middot; SLA-Aware Statistical Methods Reference &middot; 16 Methods (6 new + 10 retained) &middot; April 2026<br>
+    New methods: <a href="https://doi.org/10.1177/1948550617697177">Lakens 2017 (TOST)</a> &middot;
+    <a href="https://doi.org/10.21314/JOR.2000.038">Rockafellar & Uryasev 2000 (CVaR)</a> &middot;
+    Kaplan & Meier 1958 &middot; Page 1954 (CUSUM)<br>
+    Retained: <a href="../STATISTICAL_METHODS_REFERENCE.html">See No-SLA Methods Reference</a> for Wilson CI, Bootstrap BCa, IQM, Shapiro-Wilk, Kruskal-Wallis, Mann-Whitney U, A&#8321;&#8322;, Welch's ANOVA, Fisher's Exact, Levene's Test
+</div>
+
+</body>
+</html>

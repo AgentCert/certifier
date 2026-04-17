@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistical Methods Reference — AgentCert Hypothesis Framework</title>
+    <style>
+        :root {
+            --bg: #fafbfc; --card: #ffffff; --border: #e1e4e8;
+            --dark: #0d1117; --body: #24292f; --sub: #57606a; --muted: #8b949e;
+            --blue: #0969da; --green: #1a7f37; --orange: #bf5600; --red: #cf222e;
+            --purple: #8250df; --teal: #0a6c5c; --pink: #bf3989; --indigo: #4f46e5;
+            --blue-bg: #ddf4ff; --green-bg: #dafbe1; --orange-bg: #fff8c5;
+            --red-bg: #ffebe9; --purple-bg: #fbefff; --teal-bg: #ddf4ee;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--body); line-height: 1.6; }
+
+        .header { background: linear-gradient(135deg, #0d1117, #161b22); color: white; padding: 50px 40px; }
+        .header h1 { font-size: 2.4em; font-weight: 700; margin-bottom: 10px; }
+        .header p { font-size: 1.15em; color: #8b949e; max-width: 800px; }
+        .header .badge { display: inline-block; background: var(--blue); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; margin-top: 12px; margin-right: 6px; }
+        .header .badge-sla { display: inline-block; background: var(--purple); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; margin-top: 12px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+
+        .toc { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 28px 32px; margin-bottom: 40px; }
+        .toc h2 { font-size: 1.3em; margin-bottom: 16px; color: var(--dark); }
+        .toc h3 { font-size: 1.05em; margin: 18px 0 10px; color: var(--sub); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+        .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+        .toc a { text-decoration: none; color: var(--blue); display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; transition: background 0.15s; font-size: 0.95em; }
+        .toc a:hover { background: var(--blue-bg); }
+        .toc a.sla-link { color: var(--purple); }
+        .toc a.sla-link:hover { background: var(--purple-bg); }
+        .toc .num { font-weight: 700; font-size: 0.85em; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+        .method-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 32px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .method-header { padding: 24px 28px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 16px; }
+        .method-num { font-weight: 800; font-size: 1em; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .method-header h2 { font-size: 1.5em; color: var(--dark); margin-bottom: 4px; }
+        .method-header .aka { font-size: 0.9em; color: var(--sub); font-weight: 400; }
+        .method-header .hyp-tag { display: inline-block; background: var(--blue-bg); color: var(--blue); padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 8px; }
+        .method-header .hyp-tag-sla { display: inline-block; background: var(--purple-bg); color: var(--purple); padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 8px; }
+        .method-header .mode-tag { display: inline-block; background: #f5f3ff; color: #7c3aed; padding: 2px 10px; border-radius: 12px; font-size: 0.78em; font-weight: 600; margin-left: 4px; border: 1px solid #7c3aed; }
+
+        .method-body { padding: 24px 28px; }
+        .section { margin-bottom: 24px; }
+        .section:last-child { margin-bottom: 0; }
+        .section-label { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; padding: 3px 10px; border-radius: 4px; display: inline-block; }
+        .section-content { font-size: 0.95em; color: var(--body); }
+        .section-content ul { padding-left: 20px; margin-top: 6px; }
+        .section-content li { margin-bottom: 4px; }
+
+        .output-box { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; color: var(--body); margin-top: 8px; overflow-x: auto; white-space: pre-wrap; }
+
+        .formula-box { background: #f0f3f6; border-left: 3px solid var(--blue); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; }
+        .formula-box-sla { background: #f0f3f6; border-left: 3px solid var(--purple); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; }
+
+        .example-box { background: #fff8c5; border-left: 3px solid var(--orange); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 8px; }
+
+        .ref-box { background: #f6f8fa; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-top: 8px; font-size: 0.88em; }
+        .ref-box a { color: var(--blue); text-decoration: none; }
+        .ref-box a:hover { text-decoration: underline; }
+        .ref-box ul { list-style: none; padding: 0; }
+        .ref-box li { margin-bottom: 6px; padding-left: 0; }
+        .ref-box li::before { content: "\1F4C4 "; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        .comparison-table th, .comparison-table td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+        .comparison-table th { background: #f6f8fa; font-weight: 600; color: var(--dark); }
+        .comparison-table tr:nth-child(even) { background: #fafbfc; }
+
+        .sla-pass{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#dcfce7;color:#15803d}
+        .sla-cond{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#fef9c3;color:#a16207}
+        .sla-fail{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#fee2e2;color:#dc2626}
+
+        .divider { border: none; border-top: 2px solid var(--purple); margin: 50px 0 40px; position: relative; }
+        .divider::after { content: "SLA-AWARE METHODS"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--bg); padding: 0 16px; font-size: 0.8em; font-weight: 700; color: var(--purple); letter-spacing: 0.1em; }
+
+        .footer { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 0.9em; border-top: 1px solid var(--border); margin-top: 40px; }
+        .footer a { color: var(--blue); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.6em; }
+            .toc-grid { grid-template-columns: 1fr; }
+            .method-body { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Statistical Methods Reference</h1>
+    <p>Plain-English guide to every statistical method used in the AgentCert Hypothesis Framework. Each method includes what it does, how it works, what the output looks like, and where to learn more.</p>
+    <span class="badge">16 Methods &middot; 9 Hypothesis Tests (H-01 &ndash; H-09)</span>
+    <span class="badge-sla">No-SLA + SLA Modes</span>
+</div>
+
+<div class="container">
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+<div class="toc">
+    <h2>Methods at a Glance</h2>
+    <div class="toc-grid" style="margin-bottom:12px;">
+        <a href="#running-example" style="grid-column: 1 / -1; background: #fff8c5; border: 1px solid var(--orange); border-radius: 6px; font-weight: 600;"><span class="num" style="background: var(--orange);">Ex</span> Running Example: SRE-Agent v2.1 Certification Dataset</a>
+    </div>
+
+    <h3>Core Methods (Both Modes)</h3>
+    <div class="toc-grid">
+        <a href="#m1"><span class="num" style="background:#0969da">1</span> Wilson Confidence Interval</a>
+        <a href="#m2"><span class="num" style="background:#1a7f37">2</span> Bootstrap BCa CI</a>
+        <a href="#m3"><span class="num" style="background:#0a6c5c">3</span> Interquartile Mean (IQM)</a>
+        <a href="#m4"><span class="num" style="background:#8250df">4</span> Shapiro-Wilk Normality Test</a>
+        <a href="#m5"><span class="num" style="background:#bf5600">5</span> Kruskal-Wallis H Test</a>
+        <a href="#m6"><span class="num" style="background:#cf222e">6</span> Mann-Whitney U Test</a>
+        <a href="#m7"><span class="num" style="background:#bf3989">7</span> Vargha-Delaney A&#8321;&#8322; Effect Size</a>
+        <a href="#m8"><span class="num" style="background:#0969da">8</span> Welch's ANOVA</a>
+        <a href="#m9"><span class="num" style="background:#1a7f37">9</span> Chi-Square / Fisher's Exact Test</a>
+        <a href="#m10"><span class="num" style="background:#bf5600">10</span> Levene's Test + CV</a>
+    </div>
+
+    <h3>SLA-Aware Methods</h3>
+    <div class="toc-grid">
+        <a href="#m11" class="sla-link"><span class="num" style="background:#7c3aed">11</span> Wilcoxon Signed-Rank (One-Sample) &mdash; SLA</a>
+        <a href="#m12" class="sla-link"><span class="num" style="background:#1a7f37">12</span> Exact Binomial Test &mdash; SLA</a>
+        <a href="#m13" class="sla-link"><span class="num" style="background:#4f46e5">13</span> TOST (Two One-Sided Tests) &mdash; SLA</a>
+        <a href="#m14" class="sla-link"><span class="num" style="background:#cf222e">14</span> CVaR (Conditional Value-at-Risk) &mdash; Both*</a>
+        <a href="#m15" class="sla-link"><span class="num" style="background:#0a6c5c">15</span> Kaplan-Meier Survival Estimator &mdash; SLA</a>
+        <a href="#m16" class="sla-link"><span class="num" style="background:#bf5600">16</span> CUSUM / EWMA Control Charts &mdash; Both*</a>
+    </div>
+    <p style="margin-top:12px; font-size:0.85em; color:var(--sub);">* Methods 14 and 16 provide informational analysis even without SLAs.</p>
+</div>
+
+<!-- ==================== RUNNING EXAMPLE ==================== -->
+<div class="method-card" id="running-example" style="border: 2px solid var(--orange); box-shadow: 0 2px 8px rgba(191,86,0,0.12);">
+    <div class="method-header" style="background: linear-gradient(135deg, #fff8c5, #fff3d0); border-bottom: 2px solid var(--orange);">
+        <div class="method-num" style="background: var(--orange);">Ex</div>
+        <div>
+            <h2>Running Example: SRE-Agent v2.1 Certification</h2>
+            <div class="aka">Fabricated illustration dataset &middot; Used throughout all methods below &middot; All numbers are internally consistent</div>
+        </div>
+    </div>
+    <div class="method-body">
+
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">1 &mdash; Scenario</div>
+            <div class="section-content">
+                <p><strong>SRE-Agent v2.1</strong> (powered by GPT-4o) is submitted for AgentCert certification on a production-grade Kubernetes cluster. The evaluation consists of <strong>90 total fault injection runs</strong>&mdash;30 per fault category (application crash, network partition, resource exhaustion)&mdash;measuring detection rate, time-to-detect (TTD), mitigation success, and reasoning quality.</p>
+                <p style="margin-top:6px;"><strong>SLA Thresholds (when defined):</strong> time_to_detect &le; 300s, time_to_mitigate &le; 600s, fault_detection_success_rate &ge; 95%, Max breach rate: &le; 5%</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">2 &mdash; Key Results</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr>
+                        <th>Category</th><th>Runs</th><th>Detection Rate</th><th>Avg TTD</th><th>Median TTD</th><th>IQM TTD</th><th>P95 TTD</th><th>Mitigation Rate</th><th>Reasoning</th>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Application</td>
+                        <td>30</td>
+                        <td style="color:#1a7f37;font-weight:600;">90% (27/30)</td>
+                        <td>152s</td><td>141s</td><td>143s</td><td>278s</td>
+                        <td>87% (26/30)</td>
+                        <td>8.4 / 10</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Network</td>
+                        <td>30</td>
+                        <td style="color:#cf222e;font-weight:600;">50% (15/30)</td>
+                        <td>289s</td><td>94s</td><td>266s</td><td>845s</td>
+                        <td>40% (12/30)</td>
+                        <td>5.2 / 10</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Resource</td>
+                        <td>30</td>
+                        <td style="color:#bf5600;font-weight:600;">70% (21/30)</td>
+                        <td>280s</td><td>252s</td><td>258s</td><td>512s</td>
+                        <td>60% (18/30)</td>
+                        <td>7.1 / 10</td>
+                    </tr>
+                    <tr style="background:#f0f3f6;font-weight:600;">
+                        <td>Overall</td>
+                        <td>90</td>
+                        <td>70% (63/90)</td>
+                        <td>228s</td><td>175s</td><td>214s</td><td>635s</td>
+                        <td>62% (56/90)</td>
+                        <td>6.9 / 10</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">3 &mdash; Sample Raw Data (10 TTD values per category, sorted)</div>
+            <div class="output-box"><strong>APPLICATION</strong> (10 of 27 successful detections) &mdash; tight cluster, one outlier:
+  98   112   125   131   139   145   152   161   178   287
+  Character: Stable, predictable. Most runs detect in ~2-3 min.
+
+<strong>NETWORK</strong> (10 of 15 successful detections) &mdash; bimodal, very high spread:
+  18    32    47    63    79    94   112   658   843   944
+  Character: Strongly bimodal. 7 fast, 3 very slow. 15/30 never detected.
+
+<strong>RESOURCE</strong> (10 of 21 successful detections) &mdash; right-skewed, moderate spread:
+  138   165   189   215   242   261   298   341   412   539
+  Character: Most 3-5 min, long tail extends past 8 min.</div>
+        </div>
+
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">4 &mdash; How Each Hypothesis Uses This Data</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th style="width:55px;">Test</th><th style="width:200px;">Question</th><th style="width:180px;">Method</th><th>Result</th></tr>
+                    <tr>
+                        <td style="font-weight:700;color:#0969da;">H-01</td>
+                        <td>Plausible range for detection time?</td>
+                        <td>Bootstrap BCa CI on IQM</td>
+                        <td>App: IQM=143s [128s,159s] tight. Net: IQM=266s [127s,418s] very wide. Res: IQM=258s [221s,301s] moderate</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#1a7f37;">H-02</td>
+                        <td>True detection rate?</td>
+                        <td>Wilson CI</td>
+                        <td>Overall: 70.0% [60.0%,78.6%]. Net: 50.0% [33.2%,66.9%] &mdash; marginal</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#bf5600;">H-03</td>
+                        <td>All fault types equally fast?</td>
+                        <td>Kruskal-Wallis + Mann-Whitney + A12</td>
+                        <td>KW: H=9.87, p=0.007. App vs Net: A12=0.81 (large)</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#cf222e;">H-04</td>
+                        <td>Success rate uniform?</td>
+                        <td>Fisher's Exact</td>
+                        <td>p=0.003 &mdash; NOT uniform. Net significantly worse</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:700;color:#8250df;">H-05</td>
+                        <td>Consistently predictable?</td>
+                        <td>Levene's + CV</td>
+                        <td>Net CV=1.40 (extreme). App CV=0.38 (moderate)</td>
+                    </tr>
+                    <tr style="background:#f5f3ff;">
+                        <td style="font-weight:700;color:#7c3aed;">H-06</td>
+                        <td>Meets 300s SLA?</td>
+                        <td>Wilcoxon + Bootstrap vs SLA + TOST + Kaplan-Meier</td>
+                        <td>App: <span class="sla-pass">PASS</span> (CI upper 159s &lt; 300s). Net: <span class="sla-fail">FAIL</span> (CI upper 418s &gt; 300s)</td>
+                    </tr>
+                    <tr style="background:#f5f3ff;">
+                        <td style="font-weight:700;color:#7c3aed;">H-07</td>
+                        <td>Breach rate &lt; 5%?</td>
+                        <td>Exact Binomial</td>
+                        <td>App: 1/30 breaches, p=0.51 &mdash; <span class="sla-cond">INCONCLUSIVE</span>. Net: 8/30 &mdash; <span class="sla-fail">FAIL</span></td>
+                    </tr>
+                    <tr style="background:#f5f3ff;">
+                        <td style="font-weight:700;color:#7c3aed;">H-08</td>
+                        <td>How bad are worst cases?</td>
+                        <td>CVaR&#8329;&#8325;</td>
+                        <td>Net CVaR&#8329;&#8325;=891s (catastrophic tail). App CVaR&#8329;&#8325;=287s (mild)</td>
+                    </tr>
+                    <tr style="background:#f5f3ff;">
+                        <td style="font-weight:700;color:#7c3aed;">H-09</td>
+                        <td>Stable over time?</td>
+                        <td>CUSUM + EWMA</td>
+                        <td>All categories: STABLE (no drift detected)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">5 &mdash; Certification Verdict</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th style="width:110px;">Category</th><th style="width:130px;">Verdict</th><th>Rationale</th></tr>
+                    <tr>
+                        <td style="font-weight:600;">Application</td>
+                        <td style="color:#1a7f37;font-weight:700;">CERTIFIED</td>
+                        <td>Detection 90% &ge; 80% threshold. Wilson lower bound 74.4% safely above 65% floor. CV = 0.38 &lt; 0.50. Reasoning 8.4 &ge; 7.0. IQM CI tight [128s, 159s]. All gates pass.</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Network</td>
+                        <td style="color:#cf222e;font-weight:700;">WITHHELD</td>
+                        <td>Detection 50% &lt; 65% floor. CV = 1.40 &gt; 0.50 (wildly inconsistent). IQM CI spans 291s. CVaR&#8329;&#8325;=891s (catastrophic). Multiple gate failures.</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Resource</td>
+                        <td style="color:#bf5600;font-weight:700;">CONDITIONAL</td>
+                        <td>Detection 70% &ge; 65% floor, but Wilson lower bound 52.1% dips into failure zone. CV = 0.42 &lt; 0.50. Reasoning 7.1 &ge; 7.0 (borderline). Requires re-evaluation.</td>
+                    </tr>
+                    <tr style="background:#f0f3f6;">
+                        <td style="font-weight:700;">Overall</td>
+                        <td style="font-weight:700;">CONDITIONAL</td>
+                        <td><strong>SRE-Agent v2.1 receives conditional certification with network fault exclusion.</strong> Certified for application faults. Conditionally certified for resource faults. Network excluded pending remediation.</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ==================== METHOD 1: WILSON CI ==================== -->
+<div class="method-card" id="m1">
+    <div class="method-header">
+        <div class="method-num" style="background:#0969da">1</div>
+        <div>
+            <h2>Wilson Confidence Interval <span class="hyp-tag">H-01</span> <span class="hyp-tag">H-02</span></h2>
+            <div class="aka">a.k.a. Wilson Score Interval &middot; For binary rates (yes/no outcomes)</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">What Problem Does This Solve?</div>
+            <div class="section-content">
+                When the agent either succeeds or fails at detecting/fixing a fault, the success rate is a simple fraction (e.g., 24 out of 30 = 80%). But <strong>how sure are you that 80% is the real rate?</strong> The Wilson interval gives you a range &mdash; "the true rate is almost certainly between 62% and 91%." The lower bound is your <em>safety floor</em>.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of a <strong>bathroom scale</strong>. You step on it and it says 70 kg. But how accurate is that scale? Wilson CI is like stepping on and off 100 times and noting the range &mdash; "this scale reads between 68 and 72 kg." For certification, we care about the <em>bottom of the range</em>.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Why Not the Textbook Formula?</div>
+            <div class="section-content">
+                <table class="comparison-table">
+                    <tr><th>Problem</th><th>Textbook (Wald)</th><th>Wilson</th></tr>
+                    <tr><td>0 out of 30 observed</td><td>CI = [0.0, 0.0] &mdash; falsely exact</td><td>CI = [0.0, 0.12] &mdash; correctly uncertain</td></tr>
+                    <tr><td>30 out of 30 observed</td><td>CI = [1.0, 1.0] &mdash; falsely certain</td><td>CI = [0.88, 1.0] &mdash; honest</td></tr>
+                    <tr><td>Can give negative bounds?</td><td>Yes</td><td>Never</td></tr>
+                    <tr><td>Accuracy at small n</td><td>~85% actual coverage</td><td>Close to 95% even at n=10</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Output Example</div>
+            <div class="output-box">Detection rate per fault category (n=30 each):
+  Application:  27/30 = 90.0%   Wilson 95% CI: [0.744, 0.965]
+  Network:      15/30 = 50.0%   Wilson 95% CI: [0.332, 0.669]
+  Resource:     21/30 = 70.0%   Wilson 95% CI: [0.521, 0.833]</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Wilson, E.B. (1927)</strong> "Probable inference." <em>JASA</em>, 22(158), 209&ndash;212</li>
+                    <li><strong>Brown, Cai &amp; DasGupta (2001)</strong> "Interval estimation for a binomial proportion." <em>Statistical Science</em></li>
+                    <li>Python: <code>statsmodels.stats.proportion.proportion_confint(method='wilson')</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 2: BOOTSTRAP BCa ==================== -->
+<div class="method-card" id="m2">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a7f37">2</div>
+        <div>
+            <h2>Bootstrap BCa Confidence Interval <span class="hyp-tag">H-01</span></h2>
+            <div class="aka">Bias-Corrected and Accelerated Bootstrap &middot; For continuous metrics (times, scores)</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Simulating 10,000 Experiments From 30 Runs</div>
+            <div class="section-content">
+                Bootstrap <em>simulates</em> re-running all experiments by reshuffling existing data with replacement 10,000 times, computing the metric each time, and looking at how much it varies. BCa corrects for bias and skewness.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>jar with 30 numbered balls</strong>. Grab a ball, write its number, put it back, repeat 30 times. Average those 30 draws. Do this 10,000 times. The range of those 10,000 averages shows how much uncertainty your original average carries.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Output Example</div>
+            <div class="output-box">time_to_detect (IQM) per fault category (10,000 bootstrap resamples):
+  Application:  IQM = 143s   95% BCa CI: [128s, 159s]   width:  31s  (tight)
+  Network:      IQM = 266s   95% BCa CI: [127s, 418s]   width: 291s  (very wide!)
+  Resource:     IQM = 258s   95% BCa CI: [221s, 301s]   width:  80s  (moderate)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Efron, B. (1987)</strong> "Better Bootstrap Confidence Intervals." <em>JASA</em>, 82(397)</li>
+                    <li><strong>Agarwal et al. (2021)</strong> "Deep RL at the Edge of the Statistical Precipice." NeurIPS &mdash; <a href="https://arxiv.org/abs/2108.13264" target="_blank">arXiv</a></li>
+                    <li>Python: <code>scipy.stats.bootstrap</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 3: IQM ==================== -->
+<div class="method-card" id="m3">
+    <div class="method-header">
+        <div class="method-num" style="background:#0a6c5c">3</div>
+        <div>
+            <h2>Interquartile Mean (IQM) <span class="hyp-tag">H-01</span></h2>
+            <div class="aka">25% Trimmed Mean &middot; Robust central tendency</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">The Outlier-Proof Average</div>
+            <div class="section-content">
+                Sort all numbers, throw away bottom 25% and top 25%, average what's left.
+                <table class="comparison-table" style="margin-top:12px;">
+                    <tr><th>Metric</th><th>Outlier-proof?</th><th>Uses how much data?</th><th>Efficiency</th></tr>
+                    <tr><td>Mean</td><td>No</td><td>100%</td><td>Best (if no outliers)</td></tr>
+                    <tr><td>Median</td><td>Yes</td><td>~1 data point</td><td>Low (~64%)</td></tr>
+                    <tr><td><strong>IQM</strong></td><td><strong>Yes</strong></td><td><strong>50%</strong></td><td><strong>High (~87%)</strong></td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of <strong>Olympic diving scores</strong> &mdash; highest and lowest thrown out before averaging. IQM throws away top 25% and bottom 25%.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Agarwal et al. (2021)</strong> &mdash; <a href="https://arxiv.org/abs/2108.13264" target="_blank">arXiv:2108.13264</a></li>
+                    <li>Python: <code>scipy.stats.trim_mean(data, 0.25)</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 4: SHAPIRO-WILK ==================== -->
+<div class="method-card" id="m4">
+    <div class="method-header">
+        <div class="method-num" style="background:#8250df">4</div>
+        <div>
+            <h2>Shapiro-Wilk Normality Test <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Pre-test gate &middot; Decides if data follows a bell curve</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">The Gatekeeper</div>
+            <div class="section-content">
+                Many tests assume bell-curve data. Shapiro-Wilk checks if that's true. If yes &rarr; Welch's ANOVA. If no &rarr; Kruskal-Wallis.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Bouncer at a nightclub.</strong> Door A (Welch's ANOVA) is VIP &mdash; more powerful but requires "normal" data. If your data is messy, bouncer sends you to Door B (Kruskal-Wallis) which lets everyone in.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">Output Example</div>
+            <div class="output-box">Shapiro-Wilk on time_to_detect per category:
+  application_fault (n=27): W=0.942, p=0.145 --> NORMAL
+  network_fault    (n=15): W=0.681, p&lt;0.001 --> NOT NORMAL (bimodal)
+  resource_fault   (n=21): W=0.952, p=0.234 --> NORMAL
+
+Decision: Network fails --> use Kruskal-Wallis for all.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#8250df;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Shapiro &amp; Wilk (1965)</strong> <em>Biometrika</em>, 52(3-4)</li>
+                    <li>Python: <code>scipy.stats.shapiro</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 5: KRUSKAL-WALLIS ==================== -->
+<div class="method-card" id="m5">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf5600">5</div>
+        <div>
+            <h2>Kruskal-Wallis H Test <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Primary comparison &middot; Rank-based ANOVA alternative</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Detecting Hidden Weaknesses</div>
+            <div class="section-content">
+                Ranks all observations across groups and checks if one group clusters suspiciously high or low. Tells you "at least one group is different" but NOT which one.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Principal ranking students across 3 schools.</strong> All students in one list, check each school's average rank. If School B clusters at the bottom, there's a real difference.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Output Example</div>
+            <div class="output-box">Kruskal-Wallis for time_to_detect:
+  H statistic: 9.87, df: 2, p-value: 0.007
+  --> At least one fault type has significantly different detection time.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Kruskal &amp; Wallis (1952)</strong> <em>JASA</em>, 47(260)</li>
+                    <li>Python: <code>scipy.stats.kruskal</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 6: MANN-WHITNEY U ==================== -->
+<div class="method-card" id="m6">
+    <div class="method-header">
+        <div class="method-num" style="background:#cf222e">6</div>
+        <div>
+            <h2>Mann-Whitney U Test <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Pairwise post-hoc &middot; Two-group rank comparison</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Pinpointing the Weak Link</div>
+            <div class="section-content">
+                After Kruskal-Wallis says "something differs," Mann-Whitney finds <em>which pair</em>. P-values are Holm-Bonferroni corrected.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Fire alarm vs firefighter.</strong> Kruskal-Wallis = alarm ("fire somewhere!"). Mann-Whitney = firefighter finding which room.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Output Example</div>
+            <div class="output-box">Pairwise Mann-Whitney U (Holm-Bonferroni corrected):
+  App vs Network:     U=42,  p_adj=0.003 --> SIGNIFICANT
+  App vs Resource:    U=98,  p_adj=0.018 --> SIGNIFICANT
+  Network vs Resource: U=134, p_adj=0.412 --> not significant</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Mann &amp; Whitney (1947)</strong> <em>Annals of Mathematical Statistics</em>, 18(1)</li>
+                    <li>Python: <code>scipy.stats.mannwhitneyu</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 7: A12 ==================== -->
+<div class="method-card" id="m7">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf3989">7</div>
+        <div>
+            <h2>Vargha-Delaney A&#8321;&#8322; Effect Size <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">"How big is the gap?"</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Beyond p-Values</div>
+            <div class="section-content">
+                A12 answers: "If I randomly pick one run from each group, what's the probability group A is larger?" A12=0.50 means identical. A12=0.92 means group A larger 92% of the time.
+                <table class="comparison-table" style="margin-top:12px;">
+                    <tr><th>A&#8321;&#8322; Value</th><th>Effect Size</th></tr>
+                    <tr><td>0.50</td><td>None</td></tr>
+                    <tr><td>0.56</td><td>Small</td></tr>
+                    <tr><td>0.64</td><td>Medium</td></tr>
+                    <tr><td>0.71+</td><td>Large</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Coin flip game.</strong> Pick one detection time from each group. A12=0.81 means Application is faster 81% of the time. That's a loaded coin.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Output Example</div>
+            <div class="output-box">Effect sizes for time_to_detect:
+  App vs Network:      A12 = 0.81 (LARGE)
+  App vs Resource:     A12 = 0.78 (LARGE)
+  Network vs Resource: A12 = 0.53 (NEGLIGIBLE)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff0f5;color:#bf3989;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Vargha &amp; Delaney (2000)</strong> <em>JBES</em>, 25(2)</li>
+                    <li><strong>Arcuri &amp; Briand (2011)</strong> <em>ICSE</em></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 8: WELCH'S ANOVA ==================== -->
+<div class="method-card" id="m8">
+    <div class="method-header">
+        <div class="method-num" style="background:#0969da">8</div>
+        <div>
+            <h2>Welch's ANOVA <span class="hyp-tag">H-03</span></h2>
+            <div class="aka">Conditional parametric test &middot; Only when data is normal</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">More Power &mdash; If You Earn It</div>
+            <div class="section-content">
+                More powerful than Kruskal-Wallis but requires bell-curve data. Used only when all groups pass Shapiro-Wilk.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Metal detector vs ground-penetrating radar.</strong> Radar (Welch's) finds smaller objects but needs flat ground. Metal detector (KW) works on any terrain.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ff;color:#0969da;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Welch, B.L. (1951)</strong> <em>Biometrika</em>, 38</li>
+                    <li>Python: <code>scipy.stats.f_oneway</code> (with pingouin for Welch variant)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 9: FISHER'S EXACT ==================== -->
+<div class="method-card" id="m9">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a7f37">9</div>
+        <div>
+            <h2>Chi-Square / Fisher's Exact Test <span class="hyp-tag">H-04</span></h2>
+            <div class="aka">Is success rate uniform across fault types?</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">When the Average Lies</div>
+            <div class="section-content">
+                90% app + 50% network + 70% resource = 70% overall. Fisher's Exact checks if these rates are really different.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Student with 3.0 GPA</strong> &mdash; Math=A, English=A, Science=F, History=A. Average hides the F.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Output Example</div>
+            <div class="output-box">Fisher's Exact Test for detection success:
+                    Detected   Not Detected
+  Application          27           3        (90%)
+  Network              15          15        (50%)
+  Resource             21           9        (70%)
+
+  Fisher-Freeman-Halton: p = 0.003 --> NOT uniform</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Fisher, R.A. (1922)</strong> <em>JRSS</em></li>
+                    <li>Python: <code>scipy.stats.fisher_exact</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 10: LEVENE'S TEST ==================== -->
+<div class="method-card" id="m10">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf5600">10</div>
+        <div>
+            <h2>Levene's Test + CV <span class="hyp-tag">H-05</span></h2>
+            <div class="aka">Variance stability &middot; Is the agent reliably good or just lucky?</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Unpredictable = Untrustable</div>
+            <div class="section-content">
+                CV = std_dev / mean. Thresholds: &lt;0.15 stable, 0.15&ndash;0.30 moderate, &gt;0.30 unreliable.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    <strong>Taxi service.</strong> Arrives in 5 min, then 45 min, then 3 min, then 60 min. Average 28 min sounds fine, but you'd never trust it. CV=1.40 means "flip a coin."
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Output Example</div>
+            <div class="output-box">Per-category CV:
+  Application:  CV = 0.38 (moderate)
+  Network:      CV = 1.40 (EXTREME)
+  Resource:     CV = 0.42 (moderate)
+
+Levene's test: F=4.72, p=0.012 --> variances NOT equal</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Levene, H. (1960)</strong> <em>Contributions to Probability and Statistics</em></li>
+                    <li>Python: <code>scipy.stats.levene</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SLA DIVIDER ==================== -->
+<hr class="divider">
+
+<!-- ==================== METHOD 11: WILCOXON ONE-SAMPLE ==================== -->
+<div class="method-card" id="m11">
+    <div class="method-header">
+        <div class="method-num" style="background:#7c3aed">11</div>
+        <div>
+            <h2>Wilcoxon Signed-Rank Test (One-Sample) <span class="hyp-tag-sla">H-06</span> <span class="mode-tag">SLA</span></h2>
+            <div class="aka">SLA threshold compliance &middot; Non-parametric one-sample test</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#7c3aed;">Does the Agent Beat the SLA?</div>
+            <div class="section-content">
+                Tests whether the median of a distribution is below a specified SLA threshold. Non-parametric &mdash; no normality assumption needed, which matters because agent response times are typically right-skewed with heavy tails.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#7c3aed;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>For each observation, compute: difference = observation - SLA_threshold</li>
+                    <li>Rank the absolute differences, assign signs</li>
+                    <li>Sum the positive and negative ranks separately</li>
+                    <li>If the negative ranks dominate (observations mostly below SLA), reject H&#8320;</li>
+                </ol>
+                <div class="formula-box-sla">H&#8320;: median(TTD) &ge; SLA_threshold (agent does NOT meet SLA)
+H&#8336;: median(TTD) &lt; SLA_threshold (agent meets SLA)
+Decision: If p &lt; 0.05, agent's typical performance is within SLA.</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#7c3aed;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>speed limit test</strong>. You record the agent's detection time 30 times and compare each to the 300s speed limit. The Wilcoxon test asks: "Are these times systematically below the limit, or just sometimes?" If most differences are negative (below SLA) and substantially so, we conclude the agent reliably meets the SLA.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#7c3aed;">Output Example</div>
+            <div class="output-box">Wilcoxon one-sample test for time_to_detect (SLA: &le;300s):
+  Application: median=141s, W=42, p=0.001 --> <span style="color:#1a7f37;font-weight:bold">PASS</span> (well below SLA)
+  Network:     median=94s,  W=38, p=0.312 --> INCONCLUSIVE (bimodal distribution)
+  Resource:    median=252s, W=85, p=0.023 --> <span style="color:#1a7f37;font-weight:bold">PASS</span> (below SLA, but closer to boundary)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fbefff;color:#7c3aed;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Wilcoxon, F. (1945)</strong> "Individual comparisons by ranking methods." <em>Biometrics Bulletin</em>, 1(6), 80&ndash;83</li>
+                    <li>Python: <code>scipy.stats.wilcoxon(data - threshold, alternative='less')</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 12: EXACT BINOMIAL ==================== -->
+<div class="method-card" id="m12">
+    <div class="method-header">
+        <div class="method-num" style="background:#1a7f37">12</div>
+        <div>
+            <h2>Exact Binomial Test <span class="hyp-tag-sla">H-07</span> <span class="mode-tag">SLA</span></h2>
+            <div class="aka">SLA breach rate estimation &middot; Exact probability for rare events</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Is the Breach Rate Acceptable?</div>
+            <div class="section-content">
+                Given x SLA breaches out of n trials, tests whether the true breach rate is below the target. Uses exact combinatorial probability &mdash; no approximation, no assumptions.
+                <p style="margin-top:8px;"><strong>Key Insight:</strong> At n=30, proving breach_rate &le; 5% requires 0 observed breaches. Even 1/30 = 3.3% observed gives CI upper bound of ~16.7%, which doesn't exclude 5%.</p>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine testing a <strong>fire extinguisher</strong> 30 times. It fails once (3.3% failure rate). Can you guarantee the true failure rate is below 5%? The binomial test says: "With only 30 tests, that one failure creates enough uncertainty that we can't be sure."
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Output Example</div>
+            <div class="output-box">SLA breach analysis (TTD > 300s):
+  Application: 1/30 breaches (3.3%)
+    Clopper-Pearson CI: [0.001, 0.167]
+    Binomial test (target 5%): p=0.51 --> <span style="color:#bf5600;font-weight:bold">INCONCLUSIVE</span>
+
+  Network: 8/30 breaches (26.7%)
+    Clopper-Pearson CI: [0.129, 0.446]
+    Binomial test (target 5%): p=0.999 --> <span style="color:#cf222e;font-weight:bold">FAIL</span> (clearly exceeds target)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#dafbe1;color:#1a7f37;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Clopper, C.J. &amp; Pearson, E.S. (1934)</strong> "The use of confidence or fiducial limits." <em>Biometrika</em>, 26(4)</li>
+                    <li>Python: <code>scipy.stats.binomtest(x, n, p=target, alternative='less')</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 13: TOST ==================== -->
+<div class="method-card" id="m13">
+    <div class="method-header">
+        <div class="method-num" style="background:#4f46e5">13</div>
+        <div>
+            <h2>TOST (Two One-Sided Tests) <span class="hyp-tag-sla">H-06</span> <span class="mode-tag">SLA</span></h2>
+            <div class="aka">Equivalence testing &middot; Proving performance is WITHIN bounds</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Proving You're Good Enough (Not Just "Not Bad")</div>
+            <div class="section-content">
+                Standard tests prove "different from threshold." TOST proves the <strong>opposite: "performance is demonstrably <em>within</em> acceptable bounds."</strong> Used in pharmaceutical bioequivalence &mdash; now applied to SLA compliance.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">How It Works</div>
+            <div class="section-content">
+                <ol>
+                    <li>Define equivalence bounds: [SLA_lower, SLA_upper] (e.g., [0, 300s])</li>
+                    <li>Run TWO one-sided tests:
+                        <ul>
+                            <li>Test 1: H&#8320;: &mu; &le; lower_bound vs H&#8336;: &mu; &gt; lower_bound</li>
+                            <li>Test 2: H&#8320;: &mu; &ge; upper_bound vs H&#8336;: &mu; &lt; upper_bound</li>
+                        </ul>
+                    </li>
+                    <li>If BOTH reject: metric is provably within bounds</li>
+                </ol>
+                <div class="formula-box-sla">TOST p_max = max(p_lower, p_upper)
+  p_max &lt; 0.05  &rarr;  PROVEN WITHIN SLA bounds
+  p_max &ge; 0.05  &rarr;  INCONCLUSIVE</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of <strong>bioequivalence testing</strong> for generic drugs. The FDA doesn't ask "is this drug different?" &mdash; they ask "is this drug within 80-125% of the original?" TOST answers the same for SLAs: "Can we prove the agent is within the acceptable zone?"
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Output Example</div>
+            <div class="output-box">TOST for time_to_detect (equivalence bounds: [0, 300s]):
+  Application: Test 1 p&lt;0.001, Test 2 p=0.001 --> <span style="color:#1a7f37;font-weight:bold">EQUIVALENT</span> (within bounds)
+  Network:     Test 1 p&lt;0.001, Test 2 p=0.218 --> NOT EQUIVALENT (fails upper bound)
+  Resource:    Test 1 p&lt;0.001, Test 2 p=0.032 --> <span style="color:#1a7f37;font-weight:bold">EQUIVALENT</span> (borderline)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Note: One-Sided Metrics</div>
+            <div class="section-content">
+                For metrics with natural bounds like TTD &isin; [0, SLA] (where negative values are impossible), the lower-bound test (H&#8320;: &mu; &le; 0, H&#8336;: &mu; &gt; 0) is <strong>trivially true</strong> &mdash; any positive measurement rejects it. This reduces TOST to a single one-sided t-test against the upper bound, making it the parametric complement of Wilcoxon (Method 11). TOST remains valuable for its <strong>formal power analysis</strong> (computing required sample size) and for two-sided metrics where both bounds are non-trivial.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#eef2ff;color:#4f46e5;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Schuirmann, D.J. (1987)</strong> "A comparison of the two one-sided tests procedure and the power approach." <em>J. Pharmacokinetics and Biopharmaceutics</em>, 15(6)</li>
+                    <li><strong>Lakens, D. (2017)</strong> "Equivalence tests." <em>Social Psychological and Personality Science</em>, 8(4) &mdash; <a href="https://doi.org/10.1177/1948550617697177" target="_blank">DOI</a></li>
+                    <li>Python: <code>statsmodels.stats.weightstats.ttost_ind()</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 14: CVaR ==================== -->
+<div class="method-card" id="m14">
+    <div class="method-header">
+        <div class="method-num" style="background:#cf222e">14</div>
+        <div>
+            <h2>CVaR (Conditional Value-at-Risk) <span class="hyp-tag-sla">H-08</span> <span class="mode-tag">Both*</span></h2>
+            <div class="aka">Expected Shortfall &middot; "How bad are the worst cases?"</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">When P95 Lies</div>
+            <div class="section-content">
+                P95 tells you the 95th percentile &mdash; a single threshold. CVaR&#8329;&#8325; tells you the <strong>average of everything beyond P95</strong> &mdash; the severity of tail events. An agent with P95=290s but CVaR&#8329;&#8325;=850s has catastrophic hidden risk.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">How It Works</div>
+            <div class="section-content">
+                <div class="formula-box-sla">CVaR&#8329;&#8325; = average of worst 5% of outcomes
+Expected overshoot = average(value - SLA_threshold) for values exceeding SLA</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>flood insurance assessment</strong>. P95 tells you "the worst flood in 20 years reaches 5 feet." CVaR&#8329;&#8325; tells you "when floods exceed 5 feet, they average 12 feet." The first number makes you buy insurance; the second determines how much damage you'll actually face.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Output Example</div>
+            <div class="output-box">Tail risk analysis for time_to_detect:
+  Application: P95=278s, CVaR&#8329;&#8325;=287s (mild tail)
+  Network:     P95=845s, CVaR&#8329;&#8325;=891s (catastrophic -- worst 5% avg nearly 15 min!)
+  Resource:    P95=512s, CVaR&#8329;&#8325;=539s (moderate tail)
+
+  With SLA (&le;300s):
+    Application: overshoot when >300s: mean=0s (no breaches beyond 300s in sample)
+    Network:     overshoot when >300s: mean=462s (breaches avg 762s -- 2.5x SLA!)
+    Resource:    overshoot when >300s: mean=134s (breaches modest, avg 434s)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ffebe9;color:#cf222e;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Rockafellar, R.T. &amp; Uryasev, S. (2000)</strong> "Optimization of conditional value-at-risk." <em>Journal of Risk</em>, 2(3) &mdash; <a href="https://doi.org/10.21314/JOR.2000.038" target="_blank">DOI</a></li>
+                    <li><strong>Artzner, P. et al. (1999)</strong> "Coherent measures of risk." <em>Mathematical Finance</em>, 9(3)</li>
+                    <li>Python: <code>np.mean(sorted_data[int(0.95 * len(data)):])</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 15: KAPLAN-MEIER ==================== -->
+<div class="method-card" id="m15">
+    <div class="method-header">
+        <div class="method-num" style="background:#0a6c5c">15</div>
+        <div>
+            <h2>Kaplan-Meier Survival Estimator <span class="hyp-tag-sla">H-06</span> <span class="mode-tag">SLA</span></h2>
+            <div class="aka">Time-dependent SLA compliance &middot; Survival analysis</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">What Fraction Are Still "Failing" at Time t?</div>
+            <div class="section-content">
+                Models the probability S(t) = P(TTD &gt; t) &mdash; the survival function. At the SLA threshold time, S(SLA) gives the expected breach probability. Handles <strong>censored data</strong> &mdash; runs where detection never occurred within the timeout window.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Think of a <strong>race timer</strong>. You're tracking how many runners have finished at each minute mark. At the 5-minute mark (SLA), how many are still running? Kaplan-Meier handles the tricky case where some runners <em>dropped out</em> (timed out) &mdash; we don't know if they would have finished eventually.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Output Example</div>
+            <div class="output-box">Kaplan-Meier at SLA threshold (300s):
+  Application: S(300) = 0.03 (97% detected within SLA time -- excellent)
+  Network:     S(300) = 0.73 (only 27% detected within SLA -- most still undetected!)
+  Resource:    S(300) = 0.24 (76% detected within SLA -- acceptable)
+
+  Note: 15 of 30 network runs are right-censored (never detected within 1200s timeout).
+  Kaplan-Meier properly accounts for this, unlike simple rate calculations.</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">When to Use</div>
+            <div class="section-content">
+                Kaplan-Meier is <strong>supplementary</strong> in H-06 &mdash; only run it when right-censored observations exist (runs where the fault was never detected within the timeout window). Without censored data, simple success rate calculations (H-02) and Wilcoxon (Method 11) are sufficient. Its unique value is properly modeling the &ldquo;we don&rsquo;t know when/if detection would have happened&rdquo; cases that inflate simple rate estimates.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#ddf4ee;color:#0a6c5c;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Kaplan, E.L. &amp; Meier, P. (1958)</strong> "Nonparametric estimation from incomplete observations." <em>JASA</em>, 53(282)</li>
+                    <li>Python: <code>lifelines.KaplanMeierFitter</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== METHOD 16: CUSUM / EWMA ==================== -->
+<div class="method-card" id="m16">
+    <div class="method-header">
+        <div class="method-num" style="background:#bf5600">16</div>
+        <div>
+            <h2>CUSUM / EWMA Control Charts <span class="hyp-tag-sla">H-09</span> <span class="mode-tag">Both*</span></h2>
+            <div class="aka">Drift detection &middot; Is performance degrading over time?</div>
+        </div>
+    </div>
+    <div class="method-body">
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">The Early Warning System</div>
+            <div class="section-content">
+                CUSUM tracks cumulative deviations from a target. If deviations consistently go one direction, the cumulative sum grows and eventually crosses an alarm threshold &mdash; signaling drift <em>before</em> actual SLA breach.
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">How It Works</div>
+            <div class="section-content">
+                <div class="formula-box-sla">CUSUM: S_t = max(0, S_{t-1} + (x_t - target) - k)
+  k = allowable slack, h = alarm threshold
+  target = SLA threshold (SLA mode) or IQM baseline (no-SLA mode)
+
+EWMA: Z_t = lambda * x_t + (1 - lambda) * Z_{t-1}
+  lambda = 0.2 (smoothing factor)
+  Signal: Z_t approaches or crosses SLA threshold</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">In Simple Terms</div>
+            <div class="section-content">
+                <div class="example-box">
+                    Imagine a <strong>thermostat</strong> tracking room temperature. CUSUM keeps a running tally of how much the temperature deviates from target each hour. Small random fluctuations cancel out, but if the heater is slowly dying, the deviations accumulate &mdash; and the tally crosses your alarm threshold. You catch the problem <em>before</em> the room gets cold.
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Output Example</div>
+            <div class="output-box">CUSUM for time_to_detect (target=IQM):
+  Application: S_30 = 2.1 (threshold h=15) --> STABLE
+  Network:     S_30 = 12.8 (threshold h=15) --> WARNING (approaching alarm)
+  Resource:    S_30 = 4.5 (threshold h=15) --> STABLE
+
+EWMA (lambda=0.2):
+  Application: trend = -1.2s/run --> IMPROVING
+  Network:     trend = +8.4s/run --> DEGRADING
+  Resource:    trend = +0.3s/run --> FLAT
+
+Change point detection (PELT, BIC penalty):
+  Network: potential change point at run #18 (performance degraded after run 18)</div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Sources</div>
+            <div class="ref-box">
+                <ul>
+                    <li><strong>Page, E.S. (1954)</strong> "Continuous inspection schemes." <em>Biometrika</em>, 41(1-2) &mdash; <a href="https://doi.org/10.2307/2333009" target="_blank">DOI</a></li>
+                    <li><strong>Roberts, S.W. (1959)</strong> "Control chart tests based on geometric moving averages." <em>Technometrics</em></li>
+                    <li>Python: CUSUM manual implementation; EWMA via <code>pandas.DataFrame.ewm()</code></li>
+                </ul>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-label" style="background:#fff8c5;color:#bf5600;">Power Caveat</div>
+            <div class="section-content">
+                CUSUM and EWMA are designed for <strong>continuous monitoring</strong> with large observation sequences (n &gt;&gt; 100). At the certification floor of n=30, these methods provide useful <strong>trend signals</strong> but have limited statistical power to detect small or moderate drift. At small n, interpret drift verdicts as directional indicators rather than definitive conclusions. For high-stakes drift claims, collect additional runs or apply sequential monitoring across multiple certification windows.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SUMMARY TABLE ==================== -->
+<div class="method-card">
+    <div class="method-header">
+        <div class="method-num" style="background:#0d1117">&Sigma;</div>
+        <div>
+            <h2>Quick Reference: Which Method Goes Where?</h2>
+        </div>
+    </div>
+    <div class="method-body">
+        <table class="comparison-table">
+            <tr><th>Hypothesis</th><th>Question</th><th>Methods Used</th><th>Mode</th></tr>
+            <tr><td style="font-weight:700;color:#0969da;">H-01</td><td>Plausible ranges for all metrics?</td><td>Wilson CI, Bootstrap BCa, IQM</td><td>Both</td></tr>
+            <tr><td style="font-weight:700;color:#1a7f37;">H-02</td><td>True success/failure rate?</td><td>Wilson CI</td><td>Both</td></tr>
+            <tr><td style="font-weight:700;color:#bf5600;">H-03</td><td>All fault types handled equally?</td><td>Shapiro-Wilk &rarr; KW or Welch's &rarr; Mann-Whitney + A&#8321;&#8322;</td><td>Both</td></tr>
+            <tr><td style="font-weight:700;color:#cf222e;">H-04</td><td>Success rate uniform?</td><td>Chi-Square / Fisher's Exact</td><td>Both</td></tr>
+            <tr><td style="font-weight:700;color:#8250df;">H-05</td><td>Consistent or unpredictable?</td><td>Levene's Test + CV</td><td>Both</td></tr>
+            <tr style="background:#f5f3ff;"><td style="font-weight:700;color:#7c3aed;">H-06</td><td>Meets SLA threshold?</td><td>Wilcoxon Signed-Rank, Bootstrap CI vs SLA, TOST, Kaplan-Meier</td><td>SLA</td></tr>
+            <tr style="background:#f5f3ff;"><td style="font-weight:700;color:#7c3aed;">H-07</td><td>Breach rate acceptable?</td><td>Exact Binomial, Wilson CI on breaches</td><td>SLA</td></tr>
+            <tr style="background:#f5f3ff;"><td style="font-weight:700;color:#7c3aed;">H-08</td><td>How bad are worst cases?</td><td>CVaR&#8329;&#8325;, Expected Overshoot, Bootstrap CI on CVaR</td><td>Both*</td></tr>
+            <tr style="background:#f5f3ff;"><td style="font-weight:700;color:#7c3aed;">H-09</td><td>Stable or drifting?</td><td>CUSUM, EWMA, Change Point Detection</td><td>Both*</td></tr>
+        </table>
+        <div style="margin-top:16px; padding:12px 16px; background:#dafbe1; border-radius:6px; font-size:0.92em;">
+            <strong>Multiple-comparison correction:</strong> <strong>Holm-Bonferroni</strong> for safety-critical metrics, <strong>Benjamini-Hochberg FDR</strong> for quality gates.
+        </div>
+        <div style="margin-top:8px; padding:12px 16px; background:#f5f3ff; border-radius:6px; font-size:0.92em; border-left:3px solid #7c3aed;">
+            <strong>*Both modes:</strong> Methods 14 (CVaR) and 16 (CUSUM/EWMA) provide informational analysis even without SLAs. In No-SLA mode, they use IQM as baseline target; in SLA mode, they use the SLA threshold.
+        </div>
+    </div>
+</div>
+
+</div>
+
+<div class="footer">
+    AgentCert &middot; Statistical Methods Reference &middot; 16 Methods &middot; 9 Hypotheses &middot; April 2026<br>
+    Built from: <a href="https://arxiv.org/abs/2108.13264">Agarwal et al. 2021</a> &middot;
+    <a href="https://doi.org/10.1145/1985793.1985795">Arcuri &amp; Briand 2011</a> &middot;
+    <a href="https://doi.org/10.2307/3001968">Wilcoxon 1945</a> &middot;
+    <a href="https://doi.org/10.21314/JOR.2000.038">Rockafellar &amp; Uryasev 2000</a> &middot;
+    <a href="https://doi.org/10.2307/2333009">Page 1954</a>
+</div>
+
+</body>
+</html>
