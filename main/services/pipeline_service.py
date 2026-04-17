@@ -115,6 +115,7 @@ class BucketPipelineService:
         output_dir: str,
         batch_size: int,
         store_to_mongodb: bool,
+        agent_id: str = "",
         config: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """Run fault bucketing then per-bucket metric extraction (Phase 0+1).
@@ -124,6 +125,8 @@ class BucketPipelineService:
             output_dir:       Root directory for all outputs (buckets + metrics).
             batch_size:       Number of trace events per LLM classification batch.
             store_to_mongodb: When True, persist extracted metrics to MongoDB.
+            agent_id:         Stamped into every fault_config and metrics document
+                              so the aggregation phase can filter by agent.
             config:           App config dict; loaded from ``configs/configs.json``
                               if not provided.
 
@@ -196,6 +199,9 @@ class BucketPipelineService:
 
             # Assemble and persist the fault config that accompanies the trace
             fault_cfg = _build_fault_config_from_bucket(bucket_dict)
+            # Stamp agent_id from the request so the aggregation phase can filter by it
+            if agent_id:
+                fault_cfg.setdefault("agent", {})["agent_id"] = agent_id
             fault_cfg_tmp = metrics_dir / f"{safe_name}_fault_config.json"
             with open(fault_cfg_tmp, "w", encoding="utf-8") as f:
                 json.dump(fault_cfg, f, indent=2, default=str)
@@ -218,6 +224,7 @@ class BucketPipelineService:
                 "fault_id": fault_id,
                 "run_id": run_id,
                 "fault_name": bucket.fault_name,
+                "agent_id": agent_id or None,
                 "quantitative": extraction_result.quantitative.model_dump(mode="json"),
                 "qualitative": extraction_result.qualitative.model_dump(mode="json"),
                 "token_usage": extraction_result.token_usage.to_dict(),
@@ -317,6 +324,12 @@ class CertPipelineService:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
+        # Subdirectories matching the standard hierarchy
+        agg_dir = output_path / "aggregation"
+        agg_dir.mkdir(parents=True, exist_ok=True)
+        cert_dir = output_path / "cert-builder"
+        cert_dir.mkdir(parents=True, exist_ok=True)
+
         # LLM client is used by the aggregator's Council and cert builder's narrative sections
         llm_client = AzureLLMClient(config=config) if AzureLLMClient else None
 
@@ -335,7 +348,7 @@ class CertPipelineService:
                     "Ensure per-run metrics have been generated first."
                 )
                 return {}
-
+  #
             logger.info(f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'")
 
             categories = query_service.get_all_fault_categories(agent_id=agent_id)
@@ -359,7 +372,7 @@ class CertPipelineService:
                 store_results=False,
             )
 
-            scorecard_path = output_path / f"aggregated_scorecard_output_{agent_id}.json"
+            scorecard_path = agg_dir / "aggregation.json"
             _save_json(aggregated_scorecard, scorecard_path)
             logger.info(f"Aggregated scorecard written to {scorecard_path}")
 
@@ -369,7 +382,7 @@ class CertPipelineService:
             logger.info("STEP 2: Certification")
             logger.info("=" * 60)
 
-            report_path = output_path / f"certification_report_{agent_id}.json"
+            report_path = cert_dir / "certification.json"
 
             cert_pipeline = CertificationPipeline(
                 input_path=scorecard_path,

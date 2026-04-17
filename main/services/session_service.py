@@ -121,14 +121,15 @@ class SessionService:
         return await self._col.find_one({"task_id": task_id}, {"_id": 0})
 
     async def find_active_task(
-        self, experiment_id: str, run_id: str
+        self, agent_id: str, experiment_id: str, run_id: str
     ) -> Optional[dict]:
-        """Return the first PENDING or RUNNING task for *(experiment_id, run_id)*, or ``None``.
+        """Return the first PENDING or RUNNING task for *(agent_id, experiment_id, run_id)*, or ``None``.
 
         Used by the router to reject duplicate submissions before task creation.
         """
         return await self._col.find_one(
             {
+                "agent_id": agent_id,
                 "experiment_id": experiment_id,
                 "run_id": run_id,
                 "status": {"$in": ["PENDING", "RUNNING"]},

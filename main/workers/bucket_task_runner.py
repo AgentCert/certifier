@@ -12,17 +12,17 @@ from main.services.session_service import SessionService
 from main.services.trace_service import TraceIngestionError, TraceService
 
 
-def _resolve_run_dir(workspace_dir: Path, experiment_id: str, run_id: str) -> Path:
-    """Return ``workspace/{experiment_id}/{run_id}/``, creating it if needed.
+def _resolve_run_dir(workspace_dir: Path, agent_id: str, experiment_id: str, run_id: str) -> Path:
+    """Return ``workspace/{agent_id}/{experiment_id}/fault-bucketing/{run_id}/``, creating it if needed.
 
     Validates each path segment against directory-traversal characters so that
     user-supplied IDs cannot escape the workspace root, even if the Pydantic
     validators were somehow bypassed upstream.
     """
-    for segment in (experiment_id, run_id):
+    for segment in (agent_id, experiment_id, run_id):
         if "/" in segment or "\\" in segment or ".." in segment:
             raise ValueError(f"Illegal path segment: {segment!r}")
-    path = workspace_dir / experiment_id / run_id
+    path = workspace_dir / agent_id / experiment_id / "fault-bucketing" / run_id
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -54,7 +54,7 @@ async def run_task(
     # Download / copy the raw trace to the per-run workspace directory
     try:
         run_dir = _resolve_run_dir(
-            settings.workspace_dir, request.experiment_id, request.run_id
+            settings.workspace_dir, request.agent_id, request.experiment_id, request.run_id
         )
         trace_path, total_observations = await trace_svc.acquire_trace(
             request.trace_source, run_dir / "traces"
@@ -88,6 +88,7 @@ async def run_task(
                 batch_size=request.llm_batch_size,
                 # Write extracted metrics to MongoDB only when storage includes it
                 store_to_mongodb=(storage_type in ("mongodb", "hybrid")),
+                agent_id=request.agent_id,
                 config=app_config,
             )
             elapsed = time.monotonic() - start

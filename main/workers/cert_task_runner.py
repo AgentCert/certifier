@@ -15,8 +15,8 @@ from main.services.pipeline_service import CertPipelineService
 from main.services.session_service import CertSessionService
 
 
-def resolve_cert_output_dir(cert_workspace_dir: Path, agent_id: str, experiment_id: str) -> Path:
-    """Return ``workspace/cert/{agent_id}/{experiment_id}/``, creating it if needed.
+def resolve_cert_output_dir(workspace_dir: Path, agent_id: str, experiment_id: str) -> Path:
+    """Return ``workspace/{agent_id}/{experiment_id}/``, creating it if needed.
 
     Validates both segments against directory-traversal characters to prevent
     user-supplied IDs from escaping the workspace root.
@@ -24,7 +24,7 @@ def resolve_cert_output_dir(cert_workspace_dir: Path, agent_id: str, experiment_
     for segment in (agent_id, experiment_id):
         if "/" in segment or "\\" in segment or ".." in segment:
             raise ValueError(f"Path segment contains illegal characters: {segment!r}")
-    path = cert_workspace_dir / agent_id / experiment_id
+    path = workspace_dir / agent_id / experiment_id
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -68,8 +68,6 @@ async def _write_certification_metadata(
     One document per successful certification; the ``certification_id`` UUID
     links this record to the per-category rows in aggregated_category_metadata.
     """
-    scorecard_filename = f"aggregated_scorecard_output_{agent_id}.json"
-    report_filename = f"certification_report_{agent_id}.json"
     await cert_meta_col.insert_one({
         "certification_id": certification_id,
         "cert_task_id": cert_task_id,
@@ -80,8 +78,8 @@ async def _write_certification_metadata(
         "status": "success",
         "created_at": datetime.now(timezone.utc),
         "storage_paths": {
-            "aggregated_scorecard": str(cert_output_dir / scorecard_filename),
-            "certification_report": str(cert_output_dir / report_filename),
+            "aggregated_scorecard": str(cert_output_dir / "aggregation" / "aggregation.json"),
+            "certification_report": str(cert_output_dir / "cert-builder" / "certification.json"),
             "summary": str(cert_output_dir / "pipeline_summary.json"),
         },
         "summary": {
@@ -107,7 +105,7 @@ async def _write_aggregated_category_metadata(
     each ``fault_category_scorecards`` entry into its own document, keyed by
     ``(certification_id, fault_category)`` (enforced unique by DB index).
     """
-    scorecard_path = cert_output_dir / f"aggregated_scorecard_output_{agent_id}.json"
+    scorecard_path = cert_output_dir / "aggregation" / "aggregation.json"
     # Read the scorecard from disk in a thread to avoid blocking the event loop
     aggregated_scorecard = await asyncio.to_thread(_read_json, scorecard_path)
     now = datetime.now(timezone.utc)
@@ -156,7 +154,7 @@ async def run_cert_task(
     # ── Resolve output directory ───────────────────────────────────────────────
     try:
         cert_output_dir = resolve_cert_output_dir(
-            settings.cert_workspace_dir, request.agent_id, request.experiment_id
+            settings.workspace_dir, request.agent_id, request.experiment_id
         )
     except ValueError as exc:
         await cert_session_svc.set_failed(
@@ -235,16 +233,14 @@ async def run_cert_task(
         return
 
     # ── Complete ───────────────────────────────────────────────────────────────
-    scorecard_filename = f"aggregated_scorecard_output_{request.agent_id}.json"
-    report_filename = f"certification_report_{request.agent_id}.json"
     task_result = {
         "total_documents": summary.get("total_documents", 0),
         "total_fault_categories": summary.get("total_fault_categories", 0),
         "fault_categories": summary.get("fault_categories", []),
         "certification_id": certification_id,
         "storage_paths": {
-            "aggregated_scorecard": str(cert_output_dir / scorecard_filename),
-            "certification_report": str(cert_output_dir / report_filename),
+            "aggregated_scorecard": str(cert_output_dir / "aggregation" / "aggregation.json"),
+            "certification_report": str(cert_output_dir / "cert-builder" / "certification.json"),
             "summary": str(cert_output_dir / "pipeline_summary.json"),
         },
         "processing_time_seconds": round(elapsed, 1),

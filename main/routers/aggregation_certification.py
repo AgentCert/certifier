@@ -140,7 +140,7 @@ async def submit_aggregation_certification(
     if not body.storage_config.metrics_dir:
         settings = request.app.state.settings
         body.storage_config.metrics_dir = str(
-            settings.workspace_dir / body.experiment_id
+            settings.workspace_dir / body.agent_id / body.experiment_id / "fault-bucketing"
         )
 
     # 2. Metrics pre-flight: directory existence + agent_id match

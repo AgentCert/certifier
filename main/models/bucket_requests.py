@@ -50,7 +50,7 @@ class BucketingExtractionRequest(BaseModel):
     llm_batch_size: int = Field(default=5, ge=1, le=50)
     storage_config: StorageConfig = Field(default_factory=StorageConfig)
 
-    @field_validator("experiment_id", "run_id")
+    @field_validator("agent_id", "experiment_id", "run_id")
     @classmethod
     def no_path_separators(cls, v: str) -> str:
         """Prevent directory-traversal attacks via user-supplied IDs."""

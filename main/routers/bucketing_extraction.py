@@ -49,7 +49,7 @@ async def submit_bucketing_extraction(
         HTTP 409: If a task for this ``(experiment_id, run_id)`` is already active.
     """
     # Reject duplicate active submissions for the same (experiment_id, run_id) workspace path
-    existing = await session_svc.find_active_task(body.experiment_id, body.run_id)
+    existing = await session_svc.find_active_task(body.agent_id, body.experiment_id, body.run_id)
     if existing:
         raise HTTPException(
             status_code=409,
@@ -58,7 +58,7 @@ async def submit_bucketing_extraction(
                 "error_code": "TASK_ALREADY_ACTIVE",
                 "message": (
                     f"A pipeline task is already {existing['status']} "
-                    f"for {body.experiment_id}/{body.run_id}"
+                    f"for {body.agent_id}/{body.experiment_id}/{body.run_id}"
                 ),
                 "details": {
                     "task_id": existing["task_id"],
