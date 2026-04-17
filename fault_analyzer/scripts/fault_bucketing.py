@@ -24,7 +24,7 @@ import argparse
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -263,7 +263,7 @@ class FaultBucketingPipeline:
 
         def _sort_key(event: Dict[str, Any]):
             ts = parse_iso_timestamp(event.get("startTime"))
-            return ts if ts else datetime.max.replace(tzinfo=timezone.utc)
+            return ts if ts else datetime.max.replace(tzinfo=None)
 
         return sorted(events, key=_sort_key)
 
@@ -294,15 +294,11 @@ class FaultBucketingPipeline:
     def _create_fault_bucket_from_span(self, event: Dict[str, Any]) -> None:
         """Create a fault bucket from a span whose name matches ``fault: *``.
 
-        Injection spans are used only for metadata extraction (timestamps,
-        ground truth, target info) and are **not** appended to the bucket's
-        events list.
-
         Deduplication rules:
-        - If an **active** bucket with the same fault name exists, the
-          duplicate injection span is silently skipped.
+        - If an **active** bucket with the same fault name exists, do NOT
+          create a new one — add the event to the existing bucket.
         - If all previous buckets with the same fault name are **closed**,
-          a new bucket is created (with a numeric suffix for uniqueness).
+          create a new bucket (with a numeric suffix for uniqueness).
 
         Ground truth is extracted from the span's metadata if present.
         """
