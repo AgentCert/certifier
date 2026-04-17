@@ -398,6 +398,6 @@ certifier/
 
 | Document | Description |
 |---|---|
-| [Phase 0+1 — Bucketing & Extraction](docs/pipeline_bucketing_extraction.md) | End-to-end flow, trace sources, worker stages, error reference |
-| [Phase 2+3 — Aggregation & Certification](docs/pipeline_aggregation_certification.md) | Aggregation design, LLM Council, metadata fan-out, MongoDB collections |
-| [API Layer — Full Reference](docs/main.md) | All endpoints, request models, state machine, concurrency model |
+| [API Reference](docs/api.md) | All endpoints, request/response schemas, error codes, usage examples |
+| [Architecture](docs/architecture.md) | Full system design — pipeline phases, request flows, concurrency model, design decisions |
+| [MongoDB Storage](docs/mongodb-storage.md) | All 5 collections, full schemas, indexes, and per-API write flows |
