@@ -24,7 +24,7 @@ import argparse
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -111,8 +111,8 @@ class FaultBucketingPipeline:
         # Pipeline state
         self.active_faults: Dict[str, FaultBucket] = {}
         self.closed_faults: Dict[str, FaultBucket] = {}
-        self.injected_faults: Dict[str, FaultBucket] = {}  # from FAULT_DATA
         self.unclassified_events: List[Dict[str, Any]] = []
+        self.other_detected_faults: List[Dict[str, Any]] = []
 
         # Agent metadata extracted from early trace events (before first fault span)
         self.agent_id: Optional[str] = None
@@ -165,16 +165,22 @@ class FaultBucketingPipeline:
                     continue
                 parsed = safe_parse_python_literal(raw)
                 if isinstance(parsed, dict):
-                    if not self.agent_id and parsed.get("agent_id"):
-                        self.agent_id = parsed["agent_id"]
-                    if not self.agent_name and parsed.get("agent_name"):
-                        self.agent_name = parsed["agent_name"]
-                    if not self.agent_version and parsed.get("agent_version"):
-                        self.agent_version = parsed["agent_version"]
-                    if not self.experiment_id and parsed.get("experiment_id"):
-                        self.experiment_id = parsed["experiment_id"]
-                    if not self.run_id and parsed.get("run_id"):
-                        self.run_id = parsed["run_id"]
+                    # Check both top-level and nested "attributes" dict
+                    search_dicts = [parsed]
+                    if isinstance(parsed.get("attributes"), dict):
+                        search_dicts.append(parsed["attributes"])
+
+                    for d in search_dicts:
+                        if not self.agent_id:
+                            self.agent_id = d.get("agent_id") or d.get("agentid")
+                        if not self.agent_name:
+                            self.agent_name = d.get("agent_name")
+                        if not self.agent_version:
+                            self.agent_version = d.get("agent_version")
+                        if not self.experiment_id:
+                            self.experiment_id = d.get("experiment_id") or d.get("experiment.id")
+                        if not self.run_id:
+                            self.run_id = d.get("run_id") or d.get("experiment.run_id")
 
             # Stop early if all fields are populated
             if self._all_agent_metadata_found():
@@ -195,7 +201,11 @@ class FaultBucketingPipeline:
     def _is_fault_name_span(event: Dict[str, Any]) -> bool:
         """Return True if the event's name matches the ``fault: *`` pattern."""
         name = event.get("name", "")
-        return isinstance(name, str) and name.startswith("fault: ")
+        if not isinstance(name, str):
+            return False
+        if name.startswith("fault:"):
+            return bool(name[len("fault:"):].strip())
+        return False
 
     @staticmethod
     def _extract_fault_name_from_span(event: Dict[str, Any]) -> Optional[str]:
@@ -204,8 +214,8 @@ class FaultBucketingPipeline:
         E.g. ``fault: pod-delete`` → ``pod-delete``.
         """
         name = event.get("name", "")
-        if isinstance(name, str) and name.startswith("fault: "):
-            fault_name = name[len("fault: "):].strip()
+        if isinstance(name, str) and name.startswith("fault:"):
+            fault_name = name[len("fault:"):].strip()
             return fault_name if fault_name else None
         return None
 
@@ -253,59 +263,9 @@ class FaultBucketingPipeline:
 
         def _sort_key(event: Dict[str, Any]):
             ts = parse_iso_timestamp(event.get("startTime"))
-            return ts if ts else datetime.max.replace(tzinfo=None)
+            return ts if ts else datetime.max.replace(tzinfo=timezone.utc)
 
         return sorted(events, key=_sort_key)
-
-    # ------------------------------------------------------------------
-    # FAULT_DATA identification and ground-truth extraction
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _is_fault_injection_event(event: Dict[str, Any]) -> bool:
-        """Return True if the event represents an injected fault (ground truth).
-
-        These events have ``type == "FAULT_DATA"`` and are emitted by the
-        Fault Pod via the OTEL Collector at experiment start.
-        """
-        return event.get("type") == "FAULT_DATA"
-
-    @staticmethod
-    def _extract_ground_truth(event: Dict[str, Any]) -> FaultBucket:
-        """Parses a FAULT_DATA event's input field to extract ground_truth,
-        ideal_course_of_action, and ideal_tool_usage_trajectory, returning a FaultBucket.
-
-        Parses the ``input`` field (Python literal or JSON) to extract:
-          - ground_truth (fault_description_goal_remediation, etc.)
-          - ideal_course_of_action
-          - ideal_tool_usage_trajectory
-
-        The fault name is taken from the event's ``name`` field.
-        """
-        fault_name = event.get("name", "unknown")
-        input_data = safe_parse_python_literal(event.get("input", "{}"))
-
-        ground_truth: Optional[Dict[str, Any]] = None
-        ideal_course: Optional[List[Any]] = None
-        ideal_trajectory: Optional[List[Any]] = None
-
-        if isinstance(input_data, dict):
-            ground_truth = input_data.get("ground_truth")
-            ideal_course = input_data.get("ideal_course_of_action")
-            ideal_trajectory = input_data.get("ideal_tool_usage_trajectory")
-
-        fault_id = fault_name
-
-        return FaultBucket(
-            fault_id=fault_id,
-            fault_name=fault_name,
-            events=[event],
-            status="active",
-            detected_at=event.get("startTime"),
-            ground_truth=ground_truth,
-            ideal_course_of_action=ideal_course,
-            ideal_tool_usage_trajectory=ideal_trajectory,
-        )
 
     # ------------------------------------------------------------------
     # Ground-truth extraction from fault span metadata
@@ -328,48 +288,21 @@ class FaultBucketingPipeline:
         return gt if isinstance(gt, dict) else None
 
     # ------------------------------------------------------------------
-    # Ground-truth enrichment
-    # ------------------------------------------------------------------
-
-    def _enrich_bucket_with_ground_truth(self, bucket: FaultBucket) -> None:
-        """Match a detected-fault bucket to an injected FAULT_DATA bucket
-        and carry over ground_truth, ideal_course_of_action, and
-        ideal_tool_usage_trajectory.
-
-        Matching is done by comparing the detected fault_name against
-        injected fault names using substring / normalized comparison
-        (e.g. "pod-delete" matches "pod_delete").
-        """
-        if not self.injected_faults:
-            return
-
-        detected_name = bucket.fault_name.lower().replace("-", "_")
-
-        for _fid, injected in self.injected_faults.items():
-            injected_name = injected.fault_name.lower().replace("-", "_")
-            if detected_name == injected_name or detected_name in injected_name or injected_name in detected_name:
-                bucket.ground_truth = injected.ground_truth
-                bucket.ideal_course_of_action = injected.ideal_course_of_action
-                bucket.ideal_tool_usage_trajectory = injected.ideal_tool_usage_trajectory
-                bucket.injection_timestamp = injected.detected_at
-                logger.info(
-                    f"Enriched bucket '{bucket.fault_id}' with ground truth "
-                    f"from injected fault '{injected.fault_name}'"
-                )
-                return
-
-    # ------------------------------------------------------------------
     # Deterministic fault bucket creation from "fault: *" spans
     # ------------------------------------------------------------------
 
     def _create_fault_bucket_from_span(self, event: Dict[str, Any]) -> None:
         """Create a fault bucket from a span whose name matches ``fault: *``.
 
+        Injection spans are used only for metadata extraction (timestamps,
+        ground truth, target info) and are **not** appended to the bucket's
+        events list.
+
         Deduplication rules:
-        - If an **active** bucket with the same fault name exists, do NOT
-          create a new one — add the event to the existing bucket.
+        - If an **active** bucket with the same fault name exists, the
+          duplicate injection span is silently skipped.
         - If all previous buckets with the same fault name are **closed**,
-          create a new bucket (with a numeric suffix for uniqueness).
+          a new bucket is created (with a numeric suffix for uniqueness).
 
         Ground truth is extracted from the span's metadata if present.
         """
@@ -377,22 +310,22 @@ class FaultBucketingPipeline:
         if not fault_name:
             return
 
-        # Dedup: active bucket with same fault_name → skip creation
+        # Dedup: active bucket with same fault_name → skip creation.
+        # Do NOT append the injection span to events — it is only used
+        # for metadata extraction, not as an agent event.
         if fault_name in self.active_faults:
-            self.active_faults[fault_name].events.append(event)
             logger.info(
                 f"Fault bucket '{fault_name}' already active, "
-                f"adding event to existing bucket."
+                f"skipping duplicate injection span."
             )
             return
 
         # Also check active_faults by fault_name (fault_id may differ)
         for fid, bucket in self.active_faults.items():
             if bucket.fault_name == fault_name:
-                bucket.events.append(event)
                 logger.info(
                     f"Fault bucket '{fid}' (name={fault_name}) already "
-                    f"active, adding event to existing bucket."
+                    f"active, skipping duplicate injection span."
                 )
                 return
 
@@ -414,15 +347,18 @@ class FaultBucketingPipeline:
         # Extract ground truth from metadata
         ground_truth = self._extract_ground_truth_from_metadata(event)
 
-        # Create new bucket
+        # Create new bucket.  The injection span is NOT included in
+        # events — it is used only for metadata.  The bucket stays
+        # active; only the LLM classifier should close it when a real
+        # mitigation event is identified.
         bucket = FaultBucket(
             fault_id=fault_id,
             fault_name=fault_name,
             target_pod=target_pod,
             namespace=namespace,
-            events=[event],
+            events=[],
             status="active",
-            detected_at=event.get("startTime"),
+            injection_timestamp=event.get("startTime"),
             ground_truth=ground_truth,
             agent_id=self.agent_id,
             agent_name=self.agent_name,
@@ -431,18 +367,11 @@ class FaultBucketingPipeline:
             run_id=self.run_id,
         )
 
-        # Enrich with ground truth from injected FAULT_DATA if available
-        self._enrich_bucket_with_ground_truth(bucket)
-
         self.active_faults[fault_id] = bucket
         logger.info(
             f"Fault bucket created: {fault_id} "
             f"(target={target_pod}, namespace={namespace})"
         )
-
-        # Close the bucket if the fault status indicates completion
-        if fault_status == "completed":
-            self._close_fault(fault_id, mitigated_at=event.get("endTime"))
 
     # ------------------------------------------------------------------
     # Event batching helpers
@@ -477,6 +406,82 @@ class FaultBucketingPipeline:
 
         if not placed:
             self.unclassified_events.append(event)
+
+    # ------------------------------------------------------------------
+    # Record fault detection / localization
+    # ------------------------------------------------------------------
+
+    def _record_fault_detection(
+        self,
+        classification: EventClassification,
+        detection_ts: Optional[str] = None,
+    ) -> None:
+        """Update a fault bucket with detection metadata from the LLM classifier.
+
+        When the classifier identifies an event as the agent's first
+        recognition of a fault, this method records the detection
+        timestamp and associated metadata (severity, target pod,
+        namespace, signals) on the matching bucket.
+
+        If the detected fault matches an existing bucket (by fault name
+        or ID), the bucket is updated only if it hasn't already been
+        marked as detected by the agent.  If no matching bucket exists,
+        the detection is recorded in ``self.other_detected_faults`` for
+        output as a separate JSON file.
+        """
+        detected_name = classification.fault_detected
+        if not detected_name:
+            return
+
+        all_buckets = {**self.active_faults, **self.closed_faults}
+
+        # Try to find a matching bucket by fault_id or fault_name
+        target_bucket: Optional[FaultBucket] = None
+        target_key: Optional[str] = None
+
+        if detected_name in all_buckets:
+            target_bucket = all_buckets[detected_name]
+            target_key = detected_name
+        else:
+            for fid, bucket in all_buckets.items():
+                if bucket.fault_name == detected_name:
+                    target_bucket = bucket
+                    target_key = fid
+                    break
+
+        if target_bucket is not None:
+            # Only update detection metadata if not already recorded
+            if target_bucket.detected_at is None or target_bucket.detected_at == target_bucket.injection_timestamp:
+                target_bucket.detected_at = detection_ts
+            if classification.detected_fault_severity and not target_bucket.severity:
+                target_bucket.severity = classification.detected_fault_severity
+            if classification.detected_fault_target_pod and not target_bucket.target_pod:
+                target_bucket.target_pod = classification.detected_fault_target_pod
+            if classification.detected_fault_namespace and not target_bucket.namespace:
+                target_bucket.namespace = classification.detected_fault_namespace
+            if classification.detected_fault_signals and not target_bucket.detection_signals:
+                target_bucket.detection_signals = classification.detected_fault_signals
+            logger.info(
+                f"Fault detection recorded for bucket '{target_key}' "
+                f"at {detection_ts}"
+            )
+        else:
+            # New fault discovered by the agent that doesn't match any
+            # existing bucket — record it separately without creating
+            # a full fault bucket.
+            self.other_detected_faults.append({
+                "fault_name": detected_name,
+                "detected_at": detection_ts,
+                "severity": classification.detected_fault_severity,
+                "target_pod": classification.detected_fault_target_pod,
+                "namespace": classification.detected_fault_namespace,
+                "detection_signals": classification.detected_fault_signals or [],
+                "event_id": classification.event_id,
+            })
+            logger.info(
+                f"Other fault detected by agent (no matching bucket): "
+                f"'{detected_name}' at {detection_ts}"
+            )
 
     # ------------------------------------------------------------------
     # Close a fault bucket
@@ -529,40 +534,12 @@ class FaultBucketingPipeline:
         self._extract_agent_metadata(sorted_events)
 
         # ----------------------------------------------------------
-        # Pass 0: Extract FAULT_DATA events (injected fault ground truth)
-        # ----------------------------------------------------------
-        non_fault_data_events: List[Dict[str, Any]] = []
-
-        for event in sorted_events:
-            if self._is_fault_injection_event(event):
-                bucket = self._extract_ground_truth(event)
-                bucket.agent_id = self.agent_id
-                bucket.agent_name = self.agent_name
-                bucket.agent_version = self.agent_version
-                bucket.experiment_id = self.experiment_id
-                bucket.run_id = self.run_id
-                if bucket.fault_id in self.injected_faults:
-                    self.injected_faults[bucket.fault_id].events.append(event)
-                else:
-                    self.injected_faults[bucket.fault_id] = bucket
-                    logger.info(
-                        f"Fault injected (FAULT_DATA): {bucket.fault_id} "
-                        f"(ground_truth={bucket.ground_truth is not None})"
-                    )
-            else:
-                non_fault_data_events.append(event)
-
-        if not non_fault_data_events:
-            self._write_output()
-            return {**self.active_faults, **self.closed_faults}
-
-        # ----------------------------------------------------------
         # Pass 1: Create fault buckets from "fault: *" spans
         #         (deterministic — no LLM)
         # ----------------------------------------------------------
         remaining_events: List[Dict[str, Any]] = []
 
-        for event in non_fault_data_events:
+        for event in sorted_events:
             if self._is_fault_name_span(event):
                 self._create_fault_bucket_from_span(event)
             else:
@@ -595,7 +572,7 @@ class FaultBucketingPipeline:
             known_faults = {**self.active_faults, **self.closed_faults}
 
             classifications = await self._classifier.classify_batch(
-                batch, known_faults, self.injected_faults
+                batch, known_faults
             )
 
             # Build a map of event_id → classification
@@ -611,6 +588,15 @@ class FaultBucketingPipeline:
                     self.unclassified_events.append(event)
                     continue
 
+                # --- Handle fault detection/localization identified by LLM ---
+                if classification.fault_detected:
+                    detection_ts = (
+                        event.get("startTime") or event.get("endTime")
+                    )
+                    self._record_fault_detection(
+                        classification, detection_ts
+                    )
+
                 # --- Assign event to related fault bucket(s) ---
                 self._place_event_in_buckets(event, classification)
 
@@ -618,7 +604,7 @@ class FaultBucketingPipeline:
                 if classification.fault_mitigated:
                     mid = classification.fault_mitigated
                     mitigation_ts = (
-                        event.get("startTime") or event.get("endTime")
+                        event.get("endTime") or event.get("startTime")
                     )
                     self._close_fault(mid, mitigated_at=mitigation_ts)
 
@@ -638,16 +624,16 @@ class FaultBucketingPipeline:
             single_bucket = FaultBucket(
                 fault_id="single_fault",
                 fault_name="unknown",
-                events=non_fault_data_events,
+                events=sorted_events,
                 status="closed",
                 detected_at=(
-                    non_fault_data_events[0].get("startTime")
-                    if non_fault_data_events
+                    sorted_events[0].get("startTime")
+                    if sorted_events
                     else None
                 ),
                 mitigated_at=(
-                    non_fault_data_events[-1].get("endTime")
-                    if non_fault_data_events
+                    sorted_events[-1].get("endTime")
+                    if sorted_events
                     else None
                 ),
                 agent_id=self.agent_id,
@@ -666,8 +652,7 @@ class FaultBucketingPipeline:
         # Log summary
         total_events = sum(len(b.events) for b in all_buckets.values())
         logger.info(
-            f"Bucketing complete: {len(self.injected_faults)} injected faults, "
-            f"{len(all_buckets)} buckets, "
+            f"Bucketing complete: {len(all_buckets)} buckets, "
             f"{total_events} events assigned, "
             f"{len(self.unclassified_events)} unclassified, "
             f"LLM tokens used: {self.total_input_tokens + self.total_output_tokens}"
@@ -727,6 +712,17 @@ class FaultBucketingPipeline:
                 f"({len(bucket.events)} events)"
             )
 
+        # Write other detected faults (agent-discovered faults with no matching bucket)
+        if self.other_detected_faults:
+            other_faults_filename = f"{short_stem}_other_detected_faults.json"
+            other_faults_path = self.output_dir / other_faults_filename
+            with open(other_faults_path, "w", encoding="utf-8") as f:
+                json.dump(self.other_detected_faults, f, indent=2, default=str)
+            logger.info(
+                f"Wrote other detected faults: {other_faults_filename} "
+                f"({len(self.other_detected_faults)} faults)"
+            )
+
         # Write unclassified events if any
         if self.unclassified_events:
             unclassified_filename = f"{short_stem}_unclassified.json"
@@ -741,32 +737,20 @@ class FaultBucketingPipeline:
         # Write manifest
         manifest_filename = f"{short_stem}_bucketing_manifest.json"
         manifest_path = self.output_dir / manifest_filename
-        # Summarize injected faults (ground truth from FAULT_DATA)
-        injected_faults_summary = [
-            {
-                "fault_id": fid,
-                "fault_name": fb.fault_name,
-                "ground_truth": fb.ground_truth,
-                "ideal_course_of_action": fb.ideal_course_of_action,
-                "ideal_tool_usage_trajectory": fb.ideal_tool_usage_trajectory,
-            }
-            for fid, fb in self.injected_faults.items()
-        ]
 
         manifest = {
             "trace_file": self.trace_file_path.name,
-            "total_injected_faults": len(self.injected_faults),
             "total_faults": len(all_buckets),
             "total_events_assigned": sum(
                 len(b.events) for b in all_buckets.values()
             ),
+            "other_detected_faults_count": len(self.other_detected_faults),
             "unclassified_event_count": len(self.unclassified_events),
             "llm_tokens_used": {
                 "input_tokens": self.total_input_tokens,
                 "output_tokens": self.total_output_tokens,
                 "total_tokens": self.total_input_tokens + self.total_output_tokens,
             },
-            "injected_faults": injected_faults_summary,
             "buckets": manifest_entries,
         }
 
