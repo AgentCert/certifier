@@ -51,9 +51,9 @@ quantitative_batch_extraction: |
      - experiment_id: Experiment ID or agent_id from `input` → `agent_id` or `experiment_id`
 
   2. **Time Metrics** (extract raw ISO timestamps as strings, do NOT compute durations):
-     - fault_injection_time: Timestamp of the fault injection event. Look for spans with type "FAULT_DATA" and `metadata` → `action` = "fault_injection", or spans with action "fault_detected" and method "experiment_start". Use the span's `startTime` or `metadata` → `timestamp`. This represents when the fault was injected by the system. If no such span exists, set to null — the value may be provided externally via fault configuration.
+     - fault_injection_time: Timestamp of the fault injection event. Look for spans with action "fault_detected" and method "experiment_start". Use the span's `startTime` or `metadata` → `timestamp`. This represents when the fault was injected by the system. If no such span exists, set to null — the value may be provided by the fault bucket metadata.
      - agent_fault_detection_time: Earliest `detected_at` or `startTime` from spans with `metadata` → `action` = "fault_detected". These are spans where the agent confirmed the fault exists.
-     - agent_fault_mitigation_time: `detected_at` or `startTime` from spans with action "remediate" or recovery-related actions
+     - agent_fault_mitigation_time: `detected_at` or `endTime` from spans with action "remediate" or recovery-related actions
      - time_to_detect: Only extract if explicitly stated as a pre-computed value (e.g., "TTD: 5.2s" or "time_to_detect: X")
      - time_to_mitigate: Only extract if explicitly stated as a pre-computed value in the trace (e.g., "TTM: 81.3s" or "recovery_time_seconds: X")
 
@@ -219,8 +219,6 @@ span_identification: |
   You are an expert IT Operations analyst. Given a chronologically ordered list of trace spans from an autonomous IT-Ops agent run, identify two key moments:
 
   1. **First Detection Span**: The span where the agent FIRST conclusively detected or identified the fault/anomaly. This is the moment the agent recognized something was wrong — not preliminary environment scans or data gathering, but the point where the agent confirmed a fault exists. Look for spans with action "fault_detected" — these record when the agent confirmed a fault.
-
-     Do NOT select spans with type "FAULT_DATA" or action "fault_injection" — those are system injection events, not agent detections.
 
   2. **Final Mitigation Span**: The span where the agent completed the FINAL remediation or mitigation action that resolved the fault. This is the last remediation/recovery action before the situation was resolved. If the agent performed multiple remediation cycles, use the LAST successful remediation span.
 

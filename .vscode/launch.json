@@ -35,14 +35,14 @@
             "name": "Run fault bucketing (scripts)",
             "type": "debugpy",
             "request": "launch",
-            "module": "fault_bucketing.scripts.fault_bucketing",
+            "module": "fault_analyzer.scripts.fault_bucketing",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trace-file", "${workspaceFolder}/data/langfuse_minio_traces/multi_fault/multi_fault_trace.json",
-                "--output-dir", "${workspaceFolder}/data/reports/buckets",
-                "--batch-size", "10"
+                "--trace-file", "${workspaceFolder}/data/traces_sorted.json",
+                "--output-dir", "${workspaceFolder}/data/new_reports",
+                "--batch-size", "15"
             ]
         },
         {
@@ -54,8 +54,7 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trace-file-name", "${workspaceFolder}/data/reports/buckets/multi_fault_trace_bucket_disk-fill.json",
-                "--fault-config-path", "${workspaceFolder}/data/fault_configs/disk_fill_fault_configuration.json"
+                "--trace-file-name", "${workspaceFolder}/data/new_reports/traces_sorted_bucket_disk-fill.json",
             ]
         },
         {
@@ -67,8 +66,8 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trace-file", "${workspaceFolder}/data/langfuse_minio_traces/multi_fault/trace-multi_fault_614837e8-3f89-49dc-886e-304f545c02c9.json",
-                "--output-dir", "${workspaceFolder}/data/reports",
+                "--trace-file", "${workspaceFolder}/data/traces_sorted.json",
+                "--output-dir", "${workspaceFolder}/data/new_reports",
                 "--store"
             ]
         },

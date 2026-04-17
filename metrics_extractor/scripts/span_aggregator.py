@@ -4,6 +4,7 @@ All mathematical operations (sums, averages, ratios) are performed here
 instead of relying on LLM for computation accuracy.
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -38,49 +39,79 @@ class QuantitativeAggregator:
             return None
 
     @staticmethod
-    def extract_from_fault_config(fault_config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """Extract quantitative fields directly from fault_configuration.json.
+    def extract_from_bucket_metadata(bucket_metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract quantitative fields directly from the fault bucket metadata.
+
+        The bucket metadata comes from the trace bucket JSON file produced
+        by the fault bucketing pipeline.  It contains top-level keys such as
+        ``injection_timestamp``, ``detected_at``, ``mitigated_at``,
+        ``fault_name``, ``namespace``, ``target_pod``, etc.
 
         Returns deterministic field values without LLM dependency.
         """
-        if not fault_config:
+        if not bucket_metadata:
             return {}
 
         result: Dict[str, Any] = {}
 
-        agent_section = fault_config.get("agent", {})
-        if agent_section.get("agent_name"):
-            result["agent_name"] = agent_section["agent_name"]
-        if agent_section.get("agent_id"):
-            result["agent_id"] = agent_section["agent_id"]
-        if agent_section.get("agent_version"):
-            result["agent_version"] = agent_section["agent_version"]
+        if bucket_metadata.get("agent_name"):
+            result["agent_name"] = bucket_metadata["agent_name"]
+        if bucket_metadata.get("agent_id"):
+            result["agent_id"] = bucket_metadata["agent_id"]
+        if bucket_metadata.get("agent_version"):
+            result["agent_version"] = bucket_metadata["agent_version"]
 
-        if fault_config.get("experiment_id"):
-            result["experiment_id"] = fault_config["experiment_id"]
-        if fault_config.get("run_id"):
-            result["run_id"] = fault_config["run_id"]
-        if fault_config.get("injection_timestamp"):
-            result["fault_injection_time"] = fault_config["injection_timestamp"]
-        if fault_config.get("fault_name"):
-            result["injected_fault_name"] = fault_config["fault_name"]
-        if fault_config.get("fault_category"):
-            result["injected_fault_category"] = fault_config["fault_category"]
+        if bucket_metadata.get("experiment_id"):
+            result["experiment_id"] = bucket_metadata["experiment_id"]
+        if bucket_metadata.get("run_id"):
+            result["run_id"] = bucket_metadata["run_id"]
+        if bucket_metadata.get("injection_timestamp"):
+            result["fault_injection_time"] = bucket_metadata["injection_timestamp"]
+        if bucket_metadata.get("fault_name"):
+            result["injected_fault_name"] = bucket_metadata["fault_name"]
+        if bucket_metadata.get("severity"):
+            result["injected_fault_category"] = bucket_metadata["severity"]
+        if bucket_metadata.get("target_pod"):
+            result["fault_target_service"] = bucket_metadata["target_pod"]
+        if bucket_metadata.get("namespace"):
+            result["fault_namespace"] = bucket_metadata["namespace"]
 
-        fault_cfg_section = fault_config.get("fault_configuration", {})
-        if fault_cfg_section.get("target_service"):
-            result["fault_target_service"] = fault_cfg_section["target_service"]
-        if fault_cfg_section.get("target_namespace"):
-            result["fault_namespace"] = fault_cfg_section["target_namespace"]
+        # Bucket-level detection and mitigation timestamps
+        if bucket_metadata.get("detected_at"):
+            result["bucket_detected_at"] = bucket_metadata["detected_at"]
+        if bucket_metadata.get("mitigated_at"):
+            result["bucket_mitigated_at"] = bucket_metadata["mitigated_at"]
 
         return result
+
+    @staticmethod
+    def find_events_by_timestamp(
+        timestamp: str,
+        events: List[Dict[str, Any]],
+        time_field: str,
+    ) -> List[Dict[str, Any]]:
+        """Return all events whose *time_field* matches *timestamp*.
+
+        Args:
+            timestamp: The timestamp string to look for.
+            events: The list of trace event / span dicts.
+            time_field: The event key to compare against
+                        (``'startTime'`` or ``'endTime'``).
+
+        Returns:
+            List of matching event dicts (may be empty).
+        """
+        if not timestamp or not events:
+            return []
+        return [e for e in events if e.get(time_field) == timestamp]
 
     def aggregate(
         self,
         partial_metrics: List[Dict[str, Any]],
         total_spans: int,
         span_times: Optional[Dict[str, Optional[str]]],
-        fault_config: Optional[Dict[str, Any]] = None,
+        bucket_metadata: Optional[Dict[str, Any]] = None,
+        validated_bucket_timestamps: Optional[Dict[str, Optional[str]]] = None,
     ) -> Dict[str, Any]:
         """
         Aggregate all numeric quantitative fields in code. No LLM math.
@@ -89,22 +120,70 @@ class QuantitativeAggregator:
             partial_metrics: List of partial metrics dicts from each batch.
             total_spans: Total number of spans in the trace.
             span_times: Detection/mitigation timestamps identified by LLM from spans.
-            fault_config: Optional fault configuration for deterministic fields.
+            bucket_metadata: Optional bucket metadata for deterministic fields.
+            validated_bucket_timestamps: Optional dict with pre-validated bucket
+                timestamps. Keys are ``'agent_fault_detection_time'`` and
+                ``'agent_fault_mitigation_time'``. A value of ``None`` means
+                the bucket timestamp failed LLM content validation.
 
         Returns:
             Dict with all aggregated quantitative values.
         """
         aggregated: Dict[str, Any] = {}
 
-        # Extract fields directly from fault configuration (deterministic)
-        fault_config_fields = self.extract_from_fault_config(fault_config)
-        aggregated.update(fault_config_fields)
+        # Extract fields directly from bucket metadata (deterministic)
+        bucket_fields = self.extract_from_bucket_metadata(bucket_metadata)
+        aggregated.update(bucket_fields)
 
-        # Apply LLM-identified detection/mitigation span timestamps
-        if span_times:
-            for key, val in span_times.items():
-                if val is not None:
-                    aggregated[key] = val
+        # Resolve detection/mitigation timestamps:
+        # Use LLM-validated bucket timestamps as primary.  If bucket
+        # timestamps were not validated (absent or failed content check),
+        # fall back to LLM-identified span timestamps from the trace.
+        bucket_detected = aggregated.pop("bucket_detected_at", None)
+        bucket_mitigated = aggregated.pop("bucket_mitigated_at", None)
+        llm_detected = (span_times or {}).get("agent_fault_detection_time")
+        llm_mitigated = (span_times or {}).get("agent_fault_mitigation_time")
+
+        validated = validated_bucket_timestamps or {}
+        validated_detected = validated.get("agent_fault_detection_time")
+        validated_mitigated = validated.get("agent_fault_mitigation_time")
+
+        if validated_detected:
+            aggregated["agent_fault_detection_time"] = validated_detected
+            logger.info(
+                "Using LLM-validated bucket detected_at: %s",
+                validated_detected,
+            )
+        elif bucket_detected and not validated_bucket_timestamps:
+            # No validation was performed (no events passed) — use bucket as-is
+            aggregated["agent_fault_detection_time"] = bucket_detected
+        elif llm_detected:
+            aggregated["agent_fault_detection_time"] = llm_detected
+            if bucket_detected:
+                logger.warning(
+                    "Bucket detected_at (%s) failed content validation. "
+                    "Falling back to LLM-identified detection time (%s).",
+                    bucket_detected,
+                    llm_detected,
+                )
+
+        if validated_mitigated:
+            aggregated["agent_fault_mitigation_time"] = validated_mitigated
+            logger.info(
+                "Using LLM-validated bucket mitigated_at: %s",
+                validated_mitigated,
+            )
+        elif bucket_mitigated and not validated_bucket_timestamps:
+            aggregated["agent_fault_mitigation_time"] = bucket_mitigated
+        elif llm_mitigated:
+            aggregated["agent_fault_mitigation_time"] = llm_mitigated
+            if bucket_mitigated:
+                logger.warning(
+                    "Bucket mitigated_at (%s) failed content validation. "
+                    "Falling back to LLM-identified mitigation time (%s).",
+                    bucket_mitigated,
+                    llm_mitigated,
+                )
 
         # First non-null text/timestamp selections from LLM batch output (fallback)
         first_non_null_fields = ["experiment_id", "run_id"]
