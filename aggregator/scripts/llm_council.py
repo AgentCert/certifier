@@ -82,7 +82,7 @@ class LLMCouncil:
         elif config.get("council_members"):
             self.council_members = list(config["council_members"])
         else:
-            fallback = model_name or config.get("model_name", "extraction_model")
+            fallback = model_name or config.get("model_name", "gpt-4o")
             self.council_members = [fallback] * self.council_size
 
         # Meta-judge / scorecard synthesis model

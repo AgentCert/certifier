@@ -51,7 +51,7 @@ Module-specific settings are in `config/fault_bucketing_config.json`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `classifier.model_name` | `"extraction_model"` | Azure OpenAI model tier to use |
+| `classifier.model_name` | `"gpt-4o"` | Azure OpenAI model tier to use |
 | `classifier.temperature` | `0.1` | LLM sampling temperature |
 | `classifier.max_tokens` | `4000` | Maximum tokens per LLM response |
 | `classifier.fallback_confidence` | `0.3` | Confidence score for fallback classifications |
