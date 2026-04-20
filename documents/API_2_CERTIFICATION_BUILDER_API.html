@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certification Builder API - API 2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1a73e8;
+            border-bottom: 3px solid #1a73e8;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #1a73e8;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid #1a73e8;
+            padding-left: 10px;
+        }
+
+        h3 {
+            color: #34a853;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .api-info {
+            background: #f0f7ff;
+            border-left: 4px solid #1a73e8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .endpoint {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #1a73e8;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .parameter {
+            background: #f9f9f9;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #34a853;
+            border-radius: 3px;
+        }
+
+        .success {
+            background: #e6f7f3;
+            border-left-color: #34a853;
+        }
+
+        .error {
+            background: #fce4e4;
+            border-left-color: #d32f2f;
+        }
+
+        .step {
+            background: #f0f7ff;
+            border: 1px solid #1a73e8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .step-title {
+            color: #1a73e8;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .note {
+            background: #fff9e6;
+            border-left: 4px solid #ffb300;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .storage-structure {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Certification Builder API</h1>
+        <p><strong>API 2: POST /api/v1/aggregation-certification</strong></p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Overview</h2>
+        <p>This API aggregates metrics from multiple runs, calculates certification scores, and generates certification documents (JSON, HTML, PDF).</p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>API Endpoint</h2>
+        <div class="endpoint">POST /api/v1/aggregation-certification</div>
+
+        <h3>Purpose</h3>
+        <p>Aggregate extracted metrics across multiple runs for an agent-experiment combination, generate certification scores, and render certification reports.</p>
+
+        <h2>Request</h2>
+        <pre><code>{
+  "agent_id": "agent_v2_4_1",
+  "agent_name": "Agent V2.4.1",
+  "experiment_id": "exp_001",
+  "certification_run_id": "cert_run_001",
+  "runs_per_fault": 30,
+  "storage_config": {
+    "type": "blob_storage | mongodb | hybrid",
+    "container_name": "cert-artifacts"
+  }
+}</code></pre>
+
+        <h3>Parameters</h3>
+        <div class="parameter">
+            <code>agent_id</code> (required): Agent identifier
+        </div>
+        <div class="parameter">
+            <code>agent_name</code> (required): Human-readable agent name for certification scorecard
+        </div>
+        <div class="parameter">
+            <code>experiment_id</code> (required): Experiment identifier
+        </div>
+        <div class="parameter">
+            <code>certification_run_id</code> (optional): Certification run identifier
+        </div>
+        <div class="parameter">
+            <code>runs_per_fault</code> (optional): Expected runs per fault (default: 30)
+        </div>
+        <div class="parameter">
+            <code>storage_config.type</code> (required): <code>blob_storage</code> | <code>mongodb</code> | <code>hybrid</code>
+        </div>
+        <div class="parameter">
+            <code>storage_config.container_name</code> (required): Azure blob container or MongoDB database name
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong>
+            <ul>
+                <li>API automatically fetches all per-run metric documents for the agent_id-experiment_id combination</li>
+                <li>Storage credentials loaded from application config/KeyVault at startup</li>
+                <li>For MongoDB: uses experiment_id to filter metrics; for blob storage: uses container_name</li>
+            </ul>
+        </div>
+
+        <h2>Response (Success - 200)</h2>
+        <pre><code>{
+  "status": "success",
+  "data": {
+    "agent_id": "agent_v2_4_1",
+    "agent_name": "Agent V2.4.1",
+    "certification_run_id": "cert_run_001",
+    "total_documents": 30,
+    "total_fault_categories": 3,
+    "fault_categories": ["critical", "high", "medium"],
+    "storage_paths": {
+      "aggregated_scorecard": "cert-artifacts/agent_v2_4_1/exp_001/aggregated_scorecard.json",
+      "certification_report": "cert-artifacts/agent_v2_4_1/exp_001/certification_report.json",
+      "html_report": "cert-artifacts/agent_v2_4_1/exp_001/certification_report.html",
+      "pdf_report": "cert-artifacts/agent_v2_4_1/exp_001/certification_report.pdf",
+      "logs": "cert-artifacts/agent_v2_4_1/exp_001/pipeline.log"
+    }
+  }
+}</code></pre>
+
+        <h2>Response (Error - 400/500)</h2>
+        <pre><code>{
+  "status": "error",
+  "error_code": "INVALID_REQUEST | METRICS_NOT_FOUND | AGGREGATION_FAILED | CERT_GENERATION_FAILED | RENDERING_ERROR | STORAGE_ERROR",
+  "message": "Human-readable error message",
+  "details": {
+    "failed_stage": "metrics_fetch | aggregation | certification_building | rendering | storage | mongodb_storage",
+    "error": "..."
+  }
+}</code></pre>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Processing Steps</h2>
+
+        <div class="step">
+            <div class="step-title">Step 1: Validate Input</div>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Validate: agent_id, agent_name, experiment_id provided; storage_config valid</li>
+                <li>Note: certification_run_id and runs_per_fault are optional metadata</li>
+                <li>Output: Validated inputs</li>
+                <li>Logs: "Input validation passed"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 2: Fetch All Extracted Metrics</div>
+            <p><strong>Input:</strong> agent_id, experiment_id, storage_config</p>
+            <p><strong>Process:</strong></p>
+            <p><em>If storage_type = mongodb:</em></p>
+            <pre><code>db.ExtractionMetadata.find({
+  agent_id: "agent_v2_4_1",
+  experiment_id: "exp_001"
+})</code></pre>
+            <p><em>If storage_type = blob_storage | hybrid:</em></p>
+            <ul>
+                <li>Discover metrics.json files in: <code>{container}/{agent_id}/{experiment_id}/</code></li>
+                <li>Load and parse each file</li>
+            </ul>
+            <p><strong>Output:</strong> List[PerRunMetrics]</p>
+            <p><strong>Logs:</strong> "Queried metrics", "Found {m} metric documents"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 3: Aggregation</div>
+            <p><strong>Input:</strong></p>
+            <ul>
+                <li><code>agent_id</code>, <code>agent_name</code>, <code>experiment_id</code>, <code>certification_run_id</code>, <code>runs_per_fault</code></li>
+                <li>Per-run metric documents from Step 2</li>
+            </ul>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Get distinct fault_categories from documents</li>
+                <li>For each fault_category:
+                    <ul>
+                        <li>Group documents by fault_category</li>
+                        <li>Compute numeric aggregates: mean, median, std_dev, p95, min, max</li>
+                        <li>Compute derived rates: detection success, mitigation success, compliance rates</li>
+                        <li>Compute boolean aggregates: PII detection, hallucination detection rates</li>
+                        <li><strong>LLM Council:</strong> Synthesize textual summaries (rai_check, security, recommendations)</li>
+                        <li>Assemble fault_category scorecard</li>
+                    </ul>
+                </li>
+            </ul>
+            <p><strong>Output:</strong> Dict[fault_category → AggregatedMetrics]</p>
+            <p><strong>Logs:</strong> "Aggregated metrics for {n} fault categories"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 4: Build Certification JSON</div>
+            <p><strong>Input:</strong> Aggregated fault-category scorecards from Step 3</p>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Apply certification logic to aggregated metrics, calculate scores and levels</li>
+                <li>Generate certification JSON with agent_id, experiment_id, timestamp, and other metadata</li>
+            </ul>
+            <p><strong>Output:</strong> CertificationJSON (see sample: <code>certifier/cert_builder/data/output/certification_report.json</code>)</p>
+            <p><strong>Logs:</strong> "Certification built"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 5: Render Certification Reports</div>
+            <p><strong>Input:</strong> CertificationJSON</p>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Render HTML report from template</li>
+                <li>Render PDF from HTML</li>
+            </ul>
+            <p><strong>Output:</strong></p>
+            <ul>
+                <li>certification_report.html</li>
+                <li>certification_report.pdf</li>
+            </ul>
+            <p><strong>Logs:</strong> "Rendered reports"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 6: Store Artifacts to Blob Storage</div>
+            <ul>
+                <li>Store: aggregated_scorecard.json → <code>{container}/{agent_id}/{experiment_id}/aggregated_scorecard.json</code></li>
+                <li>Store: certification_report.json → <code>{container}/{agent_id}/{experiment_id}/certification_report.json</code></li>
+                <li>Store: certification_report.html → <code>{container}/{agent_id}/{experiment_id}/certification_report.html</code></li>
+                <li>Store: certification_report.pdf → <code>{container}/{agent_id}/{experiment_id}/certification_report.pdf</code></li>
+                <li>Store: pipeline.log → <code>{container}/{agent_id}/{experiment_id}/pipeline.log</code></li>
+                <li>Logs: "Stored artifacts"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 7: Store Metadata to MongoDB</div>
+            <p><em>(if storage_config.type = mongodb | hybrid)</em></p>
+            <ul>
+                <li>Create CertificationMetadata document with storage_paths, summary, processing_time</li>
+                <li>Create AggregatedCategoryMetadata documents (one per fault_category) with numeric and derived metrics</li>
+                <li>Logs: "Stored certification metadata"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 8: Return Response</div>
+            <ul>
+                <li>Collect artifact paths</li>
+                <li>Return certification_id and storage_paths</li>
+                <li>Return HTTP 200</li>
+            </ul>
+        </div>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>MongoDB Schema</h2>
+
+        <h3>Collection: CertificationMetadata</h3>
+        <p>Stores metadata for each certification run.</p>
+        <pre><code>{
+  "_id": "ObjectId",
+  "certification_id": "uuid",
+  "agent_id": "agent_v2_4_1",
+  "agent_name": "Agent V2.4.1",
+  "experiment_id": "exp_001",
+  "certification_run_id": "cert_run_001",
+  "status": "success | failed",
+  "created_at": "2026-04-03T11:00:00Z",
+  "storage_paths": {
+    "aggregated_scorecard": "cert-artifacts/agent_v2_4_1/exp_001/aggregated_scorecard.json",
+    "certification_report": "cert-artifacts/agent_v2_4_1/exp_001/certification_report.json",
+    "html_report": "cert-artifacts/agent_v2_4_1/exp_001/certification_report.html",
+    "pdf_report": "cert-artifacts/agent_v2_4_1/exp_001/certification_report.pdf",
+    "logs": "cert-artifacts/agent_v2_4_1/exp_001/pipeline.log"
+  },
+  "summary": {
+    "total_documents": 30,
+    "total_fault_categories": 3,
+    "fault_categories": ["critical", "high", "medium"]
+  },
+  "processing_time_seconds": 23.45,
+  "error_message": null
+}</code></pre>
+
+        <h4>Indexes:</h4>
+        <ul>
+            <li><code>{certification_id: 1}</code> (unique)</li>
+            <li><code>{agent_id: 1, experiment_id: 1}</code> (compound)</li>
+            <li><code>{agent_id: 1, created_at: -1}</code> (for history)</li>
+            <li><code>{certification_run_id: 1}</code> (if present)</li>
+        </ul>
+
+        <h3>Collection: AggregatedCategoryMetadata</h3>
+        <p>Stores aggregated metrics per fault category.</p>
+        <pre><code>{
+  "_id": "ObjectId",
+  "fault_category": "critical",
+  "certification_id": "uuid",
+  "agent_id": "agent_v2_4_1",
+  "experiment_id": "exp_001",
+  "total_runs": 10,
+  "faults_tested": ["disk-fill", "cpu-spike"],
+  "numeric_metrics": {
+    "trajectory_steps": {
+      "mean": 35.3,
+      "std_dev": 2.1,
+      "min": 33,
+      "max": 38,
+      "p50": 35.0,
+      "p95": 38.5
+    },
+    "input_tokens": {
+      "mean": 4250,
+      "std_dev": 150,
+      "min": 4100,
+      "max": 4400
+    }
+  },
+  "derived_metrics": {
+    "fault_detection_success_rate": 0.95,
+    "fault_mitigation_success_rate": 0.90,
+    "rai_compliance_rate": 1.0,
+    "security_compliance_rate": 0.95
+  },
+  "created_at": "2026-04-03T11:00:00Z"
+}</code></pre>
+
+        <h4>Indexes:</h4>
+        <ul>
+            <li><code>{certification_id: 1, fault_category: 1}</code> (compound)</li>
+            <li><code>{agent_id: 1, experiment_id: 1}</code> (compound)</li>
+            <li><code>{created_at: -1}</code> (for sorting)</li>
+        </ul>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Error Codes</h2>
+        <table>
+            <tr>
+                <th>Code</th>
+                <th>HTTP</th>
+                <th>Cause</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td>INVALID_REQUEST</td>
+                <td>400</td>
+                <td>Missing required fields or invalid format</td>
+                <td>Validate request body</td>
+            </tr>
+            <tr>
+                <td>METRICS_NOT_FOUND</td>
+                <td>404</td>
+                <td>No metrics found for agent_id-experiment_id</td>
+                <td>Ensure fault-profiling ran first for this agent/experiment</td>
+            </tr>
+            <tr>
+                <td>AGGREGATION_FAILED</td>
+                <td>500</td>
+                <td>Statistical aggregation failed</td>
+                <td>Check metrics data quality</td>
+            </tr>
+            <tr>
+                <td>CERT_GENERATION_FAILED</td>
+                <td>500</td>
+                <td>Certification JSON generation failed</td>
+                <td>Review aggregated metrics</td>
+            </tr>
+            <tr>
+                <td>RENDERING_ERROR</td>
+                <td>500</td>
+                <td>HTML/PDF rendering failed</td>
+                <td>Check template availability</td>
+            </tr>
+            <tr>
+                <td>STORAGE_ERROR</td>
+                <td>500</td>
+                <td>Blob storage operation failed</td>
+                <td>Check storage credentials</td>
+            </tr>
+            <tr>
+                <td>MONGODB_ERROR</td>
+                <td>500</td>
+                <td>MongoDB operation failed</td>
+                <td>Check MongoDB connection</td>
+            </tr>
+        </table>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Storage Structure</h2>
+        <div class="storage-structure">{container_name}/{agent_id}/{experiment_id}/
+├── aggregated_scorecard.json
+├── certification_report.json
+├── certification_report.html
+├── certification_report.pdf
+└── pipeline.log</div>
+    </div>
+</body>
+</html>
