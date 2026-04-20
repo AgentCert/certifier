@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trace Validation Guide — AgentCert</title>
+    <style>
+        :root {
+            --red: #e74c3c;
+            --orange: #f39c12;
+            --green: #27ae60;
+            --blue: #2980b9;
+            --dark: #2c3e50;
+            --light-bg: #f8f9fa;
+            --border: #dee2e6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; background: #f0f2f5; line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, var(--dark), #34495e); color: white; padding: 30px 40px; border-radius: 12px; margin-bottom: 24px; }
+        header h1 { font-size: 1.8rem; margin-bottom: 6px; }
+        header .subtitle { opacity: 0.85; font-size: 0.95rem; }
+        section { background: white; border-radius: 10px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        section h2 { font-size: 1.3rem; color: var(--dark); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--light-bg); }
+        section h3 { font-size: 1.05rem; color: #555; margin: 18px 0 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9rem; }
+        th { background: var(--light-bg); padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); }
+        td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        tr:hover { background: #f8f9fa; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; }
+        .badge-red { background: #fde8e8; color: var(--red); }
+        .badge-orange { background: #fef3e2; color: #d68910; }
+        .badge-green { background: #e8f8f0; color: var(--green); }
+        .badge-blue { background: #e8f0fe; color: var(--blue); }
+        code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
+        .check { border-left: 4px solid; border-radius: 4px; padding: 14px 18px; margin: 12px 0; }
+        .check-critical { border-color: var(--red); background: #fef5f5; }
+        .check-high { border-color: var(--orange); background: #fefaf0; }
+        .check-medium { border-color: var(--blue); background: #f0f5fe; }
+        .check-info { border-color: var(--green); background: #f0fef5; }
+        .check strong { display: block; margin-bottom: 4px; }
+        .check ul { margin: 8px 0 0 20px; }
+        .check ul li { margin-bottom: 4px; }
+        .toc { columns: 2; column-gap: 24px; list-style: none; padding: 0; }
+        .toc li { break-inside: avoid; margin-bottom: 6px; }
+        .toc a { text-decoration: none; color: var(--blue); }
+        .toc a:hover { text-decoration: underline; }
+        .trace-flow { background: var(--light-bg); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 0.85rem; line-height: 2; margin: 12px 0; overflow-x: auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<header>
+    <h1>Trace Validation Guide</h1>
+    <div class="subtitle">How to validate an AgentCert experiment trace &mdash; checks, red flags, and expected structure</div>
+</header>
+
+<!-- TABLE OF CONTENTS -->
+<section>
+    <h2>Contents</h2>
+    <ol class="toc">
+        <li><a href="#s1">1. Expected Trace Structure</a></li>
+        <li><a href="#s2">2. Anchor Presence (IDs &amp; Metadata)</a></li>
+        <li><a href="#s3">3. Context Leakage to Agent</a></li>
+        <li><a href="#s4">4. MCP Information Leakage</a></li>
+        <li><a href="#s5">5. MCP Data Relevance</a></li>
+        <li><a href="#s6">6. Span Completeness &amp; Ordering</a></li>
+        <li><a href="#s7">7. Ground Truth Integrity</a></li>
+        <li><a href="#s8">8. Agent Issue Detection Ability</a></li>
+    </ol>
+</section>
+
+<!-- EXPECTED TRACE STRUCTURE -->
+<section id="s1">
+    <h2>1. Expected Trace Structure</h2>
+    <p>A valid AgentCert experiment trace contains these spans in the following order:</p>
+    <div class="trace-flow">
+        <strong>experiment-run</strong> &nbsp;(name: <code>experiment-run</code>, depth 0)
+        &nbsp;&rarr;&nbsp; top-level span with experiment metadata, resiliency score, fault counts<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong>experiment-triggered</strong> &nbsp;(depth 1, child)
+        &nbsp;&rarr;&nbsp; marks the experiment trigger event<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong>agent_onboarding</strong> &nbsp;(depth 0 or 1)
+        &nbsp;&rarr;&nbsp; agent metadata: agent_id, agent_name, agent_version, capabilities, tools<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong>fault: &lt;name&gt;</strong> &nbsp;(name: <code>fault: *</code>, depth 1) &times; N
+        &nbsp;&rarr;&nbsp; one per injected fault, carries ground truth and fault attributes<br><br>
+        <em>&hellip; remaining spans (agent scans, LLM calls, MCP tool calls) in any order &hellip;</em>
+    </div>
+
+    <h3>How fault injection spans are identified</h3>
+    <p>Fault injection spans are identified by the <strong>name</strong> field matching the pattern <code>fault: *</code> (e.g. <code>fault: pod-delete</code>, <code>fault: pod-network-loss</code>, <code>fault: disk-fill</code>). The span <code>type</code> is <code>SPAN</code>. The fault bucketing pipeline uses this naming convention to deterministically create per-fault buckets.</p>
+
+    <h3>Typical agent scan spans (after fault injections)</h3>
+    <p>These can appear in any order after the setup spans. Common span names include:</p>
+    <table>
+        <thead><tr><th>Span Name</th><th>Type</th><th>Purpose</th></tr></thead>
+        <tbody>
+            <tr><td><code>tool_selection</code></td><td>GENERATION</td><td>LLM picks the data source (e.g. kubernetes or prometheus)</td></tr>
+            <tr><td><code>Received Proxy Server Request</code></td><td>GENERATION</td><td>LiteLLM proxy forwarding the LLM call</td></tr>
+            <tr><td><code>llm_analysis</code></td><td>child SPAN</td><td>LLM analysis step tagged inside a proxy request</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- CHECK 1: ANCHOR PRESENCE -->
+<section id="s2">
+    <h2>2. Anchor Presence (IDs &amp; Metadata)</h2>
+    <p>Every span in the trace should carry identifying anchors so events can be correlated back to the correct experiment run.</p>
+
+    <div class="check check-critical">
+        <strong>Check 2.1 &mdash; experiment_id &amp; run_id on every span</strong>
+        <ul>
+            <li>Both <code>experiment_id</code> (or <code>experiment.id</code>) and <code>run_id</code> (or <code>experiment.run_id</code> / <code>experiment_run_id</code>) should ideally be present in every span's metadata or attributes.</li>
+            <li>Verify these values are consistent across all spans in the trace &mdash; a single experiment run produces one unique pair.</li>
+            <li>On <code>experiment-run</code> and <code>fault: *</code> spans, look in <code>metadata.attributes</code>.</li>
+            <li>On GENERATION spans (agent scans), look in <code>metadata.requester_metadata</code>.</li>
+            <li>If any span is missing these IDs, it cannot be reliably attributed to the experiment and downstream bucketing may fail.</li>
+        </ul>
+    </div>
+
+    <div class="check check-critical">
+        <strong>Check 2.2 &mdash; agent_id in onboarding span</strong>
+        <ul>
+            <li>The <code>agent_onboarding</code> span must contain <code>agent_id</code>, <code>agent_name</code>, and <code>agent_version</code> in its input or metadata.</li>
+            <li>The <code>experiment-run</code> span should also carry <code>agent_name</code> and <code>agentid</code> in its attributes.</li>
+            <li>These values propagate into every <code>FaultBucket</code> created by the bucketing pipeline.</li>
+        </ul>
+    </div>
+
+    <h3>Where to find anchors</h3>
+    <table>
+        <thead><tr><th>Anchor</th><th>Expected Location</th><th>Example</th></tr></thead>
+        <tbody>
+            <tr><td><code>experiment.id</code></td><td><code>metadata.attributes</code> on experiment-run and fault: * spans</td><td><code>51e86769-25d1-405a-880c-d0ee8c098f21</code></td></tr>
+            <tr><td><code>experiment.run_id</code></td><td><code>metadata.attributes</code> on experiment-run and fault: * spans</td><td><code>23538846-4b52-471f-903c-acf75b2cf09c</code></td></tr>
+            <tr><td><code>experiment_id</code></td><td><code>requester_metadata</code> on GENERATION spans</td><td><code>51e86769-25d1-405a-880c-d0ee8c098f21</code></td></tr>
+            <tr><td><code>experiment_run_id</code></td><td><code>requester_metadata</code> on GENERATION spans</td><td><code>23538846-4b52-471f-903c-acf75b2cf09c</code></td></tr>
+            <tr><td><code>agent_id</code> / <code>agentid</code></td><td><code>agent_onboarding</code> input/metadata; <code>experiment-run</code> attributes</td><td><code>flash-agent-v001-ae1242af</code></td></tr>
+            <tr><td><code>scan_id</code></td><td><code>requester_metadata</code> on GENERATION spans</td><td><code>flash-agent-sock-shop-20260411T163016</code></td></tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- CHECK 2: CONTEXT LEAKAGE -->
+<section id="s3">
+    <h2>3. Context Leakage to Agent</h2>
+    <p>The agent under test must <strong>not</strong> have visibility into the experiment setup, fault configurations, ground truth, or injection timing. Any such leakage invalidates the experiment.</p>
+
+    <div class="check check-critical">
+        <strong>Check 3.1 &mdash; Fault injection span data is invisible to the agent</strong>
+        <ul>
+            <li>The <code>fault: *</code> spans carry ground truth, fault attributes (<code>fault.target_label</code>, <code>fault.verdict</code>, <code>fault.probe_success_pct</code>, etc.), ideal course of action, and SLA definitions.</li>
+            <li>None of this data must appear in the input to any agent-facing LLM call (the <code>input</code> field of <code>tool_selection</code> or <code>llm_analysis</code> GENERATION spans).</li>
+            <li>The agent should only see symptoms (e.g. pod status, events, logs) &mdash; never the fault definition or experiment design.</li>
+        </ul>
+    </div>
+
+    <div class="check check-critical">
+        <strong>Check 3.2 &mdash; Ground truth not leaked in LLM prompts</strong>
+        <ul>
+            <li>Search all GENERATION span inputs for keywords: <code>ground_truth</code>, <code>ideal_course_of_action</code>, <code>ideal_tool_usage_trajectory</code>, <code>remediation</code>, <code>detection_signals</code>, <code>symptoms</code>.</li>
+            <li>If any of these appear in agent-facing prompts, the experiment is compromised.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 3.3 &mdash; Experiment metadata not in agent prompts</strong>
+        <ul>
+            <li>The <code>experiment-run</code> span carries fields like <code>experiment.total_faults</code>, <code>experiment.faults_passed</code>, <code>experiment.resiliency_score</code>, and the fault list from onboarding.</li>
+            <li>These must not appear in the agent's LLM input &mdash; the agent should not know how many faults were injected, their names, or expected outcomes ahead of time.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 3.4 &mdash; No temporal hints about injection windows</strong>
+        <ul>
+            <li>The agent should not receive fault injection timestamps (<code>fault.started_at</code>, <code>fault.finished_at</code>) or span start/end times from the <code>fault: *</code> spans.</li>
+            <li>Verify no agent-facing data passes injection timing information.</li>
+        </ul>
+    </div>
+</section>
+
+<!-- CHECK 3: MCP INFORMATION LEAKAGE -->
+<section id="s4">
+    <h2>4. MCP Information Leakage</h2>
+    <p>The MCP tool is the agent's interface to the cluster. It must only return observable operational data &mdash; not experiment internals.</p>
+
+    <div class="check check-critical">
+        <strong>Check 4.1 &mdash; MCP does not return experiment orchestration details</strong>
+        <ul>
+            <li>Inspect the data returned by MCP tool calls (visible in the <code>input</code> field of the subsequent <code>llm_analysis</code> GENERATION span).</li>
+            <li>MCP responses should <strong>not</strong> include fault parameters such as target labels, chaos duration, probe definitions, or fault verdict from the experiment framework.</li>
+        </ul>
+    </div>
+
+    <div class="check check-critical">
+        <strong>Check 4.2 &mdash; MCP does not expose ground truth or expected outcomes</strong>
+        <ul>
+            <li>Verify the MCP data does not contain expected probe success criteria, remediation steps, or pre-configured pass/fail thresholds that would reveal the experiment design.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 4.3 &mdash; MCP does not leak fault injection pod/container activity</strong>
+        <ul>
+            <li>Chaos runner pods, helper pods, and experiment executor containers should be filtered from the data returned to the agent, or at minimum not confused with application workloads.</li>
+        </ul>
+    </div>
+</section>
+
+<!-- CHECK 4: MCP DATA RELEVANCE -->
+<section id="s5">
+    <h2>5. MCP Data Relevance</h2>
+    <p>While MCP should not leak experiment internals, it <strong>must</strong> provide sufficient operational data for the agent to detect faults through symptoms.</p>
+
+    <div class="check check-critical">
+        <strong>Check 5.1 &mdash; MCP returns adequate data for analysis</strong>
+        <ul>
+            <li>Inspect the data passed to the <code>llm_analysis</code> prompt. It should include relevant operational signals: pod statuses, restart counts, event summaries, and resource states.</li>
+            <li>Verify that during active fault injection, the MCP data reflects the actual degraded state of affected pods/services.</li>
+            <li>If the data consistently shows "everything healthy" while faults are active, the MCP is not surfacing the right information.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 5.2 &mdash; Key data fields are populated</strong>
+        <ul>
+            <li>Check for presence and non-emptiness of key MCP data keys (visible in <code>requester_metadata.mcp_data_keys</code>): pod listings, events, resource metrics.</li>
+            <li>Verify <code>pods_by_status</code> accurately reflects the cluster state at scan time.</li>
+            <li>Verify <code>events_warning</code> count is non-zero during fault windows when warnings are expected.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 5.3 &mdash; MCP errors are absent or justified</strong>
+        <ul>
+            <li>Check the <code>mcp_errors</code> field in <code>requester_metadata</code>. It should be <code>null</code> or empty for successful scans.</li>
+            <li>Persistent MCP errors indicate the agent is not getting any useful data for analysis.</li>
+        </ul>
+    </div>
+</section>
+
+<!-- CHECK 6: SPAN COMPLETENESS & ORDERING -->
+<section id="s6">
+    <h2>6. Span Completeness &amp; Ordering</h2>
+
+    <div class="check check-critical">
+        <strong>Check 6.1 &mdash; All expected span types are present</strong>
+        <ul>
+            <li>Verify the trace contains:
+                <ol style="margin:6px 0 0 16px;">
+                    <li>One <code>experiment-run</code> span</li>
+                    <li>One <code>agent_onboarding</code> span</li>
+                    <li>The expected number of <code>fault: *</code> spans (should match <code>experiment.total_faults</code> from the experiment-run span)</li>
+                </ol>
+            </li>
+        </ul>
+    </div>
+
+    <div class="check check-critical">
+        <strong>Check 6.2 &mdash; Correct ordering of setup spans</strong>
+        <ul>
+            <li><code>experiment-run</code> must come first (earliest <code>startTime</code> among depth-0 spans).</li>
+            <li><code>agent_onboarding</code> must come after <code>experiment-run</code> and before <code>fault: *</code> spans.</li>
+            <li><code>fault: *</code> spans must come after <code>agent_onboarding</code>.</li>
+            <li>Spans after the fault injections (agent scans, LLM calls) can appear in any order.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 6.3 &mdash; Valid timestamps</strong>
+        <ul>
+            <li>All <code>startTime</code> values must be valid ISO-8601 timestamps.</li>
+            <li><code>endTime</code> &ge; <code>startTime</code> for every span.</li>
+        </ul>
+    </div>
+</section>
+
+<!-- CHECK 7: GROUND TRUTH INTEGRITY -->
+<section id="s7">
+    <h2>7. Ground Truth Integrity</h2>
+
+    <div class="check check-critical">
+        <strong>Check 7.1 &mdash; Every fault: * span carries ground truth</strong>
+        <ul>
+            <li>Each <code>fault: *</code> span must have a <code>ground_truth</code> object in its metadata containing:
+                <code>fault_description_goal_remediation</code> (with <code>symptoms</code>, <code>goal</code>, <code>remediation</code>),
+                <code>ideal_course_of_action</code>, <code>ideal_tool_usage_trajectory</code>, and <code>sla</code>.
+            </li>
+            <li>Missing ground truth means the downstream metrics extraction pipeline has nothing to evaluate against.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 7.2 &mdash; Fault attributes are complete</strong>
+        <ul>
+            <li>Each <code>fault: *</code> span should have these attributes populated in <code>metadata.attributes</code>:
+                <code>fault.name</code>, <code>fault.target_namespace</code>, <code>fault.target_label</code>, <code>fault.target_kind</code>,
+                <code>fault.verdict</code>, <code>fault.probe_success_pct</code>, <code>fault.status</code>,
+                <code>fault.started_at</code>, <code>fault.finished_at</code>.
+            </li>
+        </ul>
+    </div>
+
+    <div class="check check-medium">
+        <strong>Check 7.3 &mdash; Fault name consistency</strong>
+        <ul>
+            <li>The fault name extracted from the span name (<code>fault: pod-delete</code> &rarr; <code>pod-delete</code>) must match the <code>fault.name</code> attribute inside the span's metadata.</li>
+        </ul>
+    </div>
+</section>
+
+<!-- AGENT ISSUE DETECTION -->
+<section id="s8">
+    <h2>8. Agent Issue Detection Ability</h2>
+    <p>Evaluate whether the agent's LLM analysis correctly identifies issues from the data it receives.</p>
+
+    <div class="check check-critical">
+        <strong>Check 8.1 &mdash; Agent detects application-level impact</strong>
+        <ul>
+            <li>For each injected fault, check whether the agent's <code>llm_analysis</code> output identifies the <strong>affected service or pod</strong> &mdash; not just engine names or generic status.</li>
+            <li>The agent should correlate symptoms (pod status, restart count, error events) to specific application degradation.</li>
+            <li>If every fault shows <code>"insufficient data"</code> for impact, the agent is failing at correlation.</li>
+        </ul>
+    </div>
+
+    <div class="check check-critical">
+        <strong>Check 8.2 &mdash; Agent correctly identifies fault targets</strong>
+        <ul>
+            <li>The <code>target_app</code> field in the agent's structured analysis output should match the actual fault target.</li>
+            <li>A <code>null</code> target across all faults indicates the agent cannot determine what was affected.</li>
+        </ul>
+    </div>
+
+    <div class="check check-high">
+        <strong>Check 8.3 &mdash; Health score reflects actual system state</strong>
+        <ul>
+            <li>Compare the agent's reported <code>overall_health_score</code> against the known fault state at that time.</li>
+            <li>A high health score during a period when all probes report 0% success is a major discrepancy.</li>
+        </ul>
+    </div>
+
+    <div class="check check-medium">
+        <strong>Check 8.4 &mdash; Agent detects fault recovery</strong>
+        <ul>
+            <li>After a fault window ends, verify whether the agent recognizes the system returning to normal.</li>
+            <li>Persistent <code>"insufficient data"</code> in recovery fields indicates no recovery detection.</li>
+        </ul>
+    </div>
+</section>
+
+<footer style="text-align:center; padding:20px; color:#999; font-size:0.8rem;">
+    AgentCert &bull; Trace Validation Guide &bull; April 2026
+</footer>
+
+</div>
+</body>
+</html>

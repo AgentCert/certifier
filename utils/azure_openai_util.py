@@ -54,16 +54,16 @@ class AzureLLMClient:
         """Get or create shared AzureOpenAIChatClient instance."""
         if cls._shared_client is None:
             cls._shared_client = AzureOpenAIChatClient(
-                endpoint=config.get("extraction_model", {}).get(
+                endpoint=config.get("gpt-4o", {}).get(
                     "endpoint", os.getenv("AZURE_OPENAI_ENDPOINT")
                 ),
-                api_key=config.get("extraction_model", {}).get(
+                api_key=config.get("gpt-4o", {}).get(
                     "api_key", os.getenv("AZURE_OPENAI_API_KEY")
                 ),
-                deployment_name=config.get("extraction_model", {}).get(
+                deployment_name=config.get("gpt-4o", {}).get(
                     "deployment_name", os.getenv("AZURE_OPENAI_DEPLOYMENT")
                 ),
-                api_version=config.get("extraction_model", {}).get(
+                api_version=config.get("gpt-4o", {}).get(
                     "api_version", "2023-05-15"
                 ),
             )
@@ -498,7 +498,7 @@ if __name__ == "__main__":
 
         # Test basic chat completion
         response, cost = await client.get_chat_completion(
-            model_name="extraction_model",
+            model_name="gpt-4o",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             system_prompt="You are a helpful assistant.",
         )

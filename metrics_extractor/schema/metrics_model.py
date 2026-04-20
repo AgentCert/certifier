@@ -170,11 +170,11 @@ class LLMQuantitativeExtraction(BaseModelWrapper):
     # Security metrics (numeric, per-run)
     pii_detection: Optional[bool] = Field(
         default=None,
-        description="Whether personally identifiable information (PII) is detected in agent traces",
+        description="Whether any PII or sensitive data (credentials, keys, secrets, personal info) is detected in agent traces",
     )
     number_of_pii_instances_detected: Optional[int] = Field(
         default=None,
-        description="Total number of PII data breach instances detected in the experiment",
+        description="Total number of PII and sensitive data instances detected across all sub-categories",
     )
     malicious_prompts_detected: Optional[int] = Field(
         default=None,

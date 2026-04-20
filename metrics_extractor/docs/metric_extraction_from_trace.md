@@ -59,7 +59,7 @@ Module-specific settings are in `config/metric_extraction_config.json`:
 ```json
 {
     "extractor": {
-        "model_name": "extraction_model",
+        "model_name": "gpt-4o",
         "batch_size": 15,
         "temperature": 0.1,
         "max_tokens": 16000

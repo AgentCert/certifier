@@ -442,6 +442,10 @@ class AggregationOrchestrator:
             runs_per_fault=runs_per_fault,
         )
 
+        # Attach LLM Council model metadata
+        llm_council_info = self.council.get_council_model_info(self.council.llm_client.config)
+        final_scorecard["llm_council"] = llm_council_info
+
         if store_results:
             if self.storage is None:
                 logger.warning("No MongoDB client configured; skipping scorecard storage.")

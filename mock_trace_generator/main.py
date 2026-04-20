@@ -102,7 +102,7 @@ async def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="extraction_model",
+        default="gpt-4o",
         help="Model key from configs.json to use (default: extraction_model)",
     )
     parser.add_argument(

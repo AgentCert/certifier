@@ -358,7 +358,7 @@ class TraceMetricsExtractor:
 
         try:
             result, token_usage = await self.llm_client.call_llm(
-                model_name="extraction_model",
+                model_name="gpt-4o",
                 messages=user_message,
                 max_tokens=500,
                 system_prompt=PROMPTS["span_identification"],
@@ -462,7 +462,7 @@ class TraceMetricsExtractor:
                 )
                 try:
                     llm_resp, token_usage = await self.llm_client.call_llm(
-                        model_name="extraction_model",
+                        model_name="gpt-4o",
                         messages=user_msg,
                         max_tokens=300,
                         system_prompt=(
@@ -522,7 +522,7 @@ class TraceMetricsExtractor:
                 )
                 try:
                     llm_resp, token_usage = await self.llm_client.call_llm(
-                        model_name="extraction_model",
+                        model_name="gpt-4o",
                         messages=user_msg,
                         max_tokens=300,
                         system_prompt=(
@@ -591,7 +591,7 @@ Extract all quantitative metrics from this batch as a JSON object. Parse every s
 
         try:
             result, token_usage = await self.llm_client.call_llm(
-                model_name="extraction_model",
+                model_name="gpt-4o",
                 messages=user_message,
                 max_tokens=3000,
                 system_prompt=prompt,
@@ -643,7 +643,7 @@ Total spans in trace: {total_spans}"""
 
         try:
             result, token_usage = await self.llm_client.with_structured_output(
-                model_name="extraction_model",
+                model_name="gpt-4o",
                 messages=user_message,
                 output_format=LLMQuantitativeExtraction,
                 max_tokens=1500,
@@ -713,7 +713,7 @@ Extract any qualitative observations you can make from this batch."""
 
         try:
             result, token_usage = await self.llm_client.call_llm(
-                model_name="extraction_model",
+                model_name="gpt-4o",
                 messages=user_message,
                 max_tokens=10000,
                 system_prompt=prompt,
@@ -752,7 +752,7 @@ Create a comprehensive qualitative assessment by combining the narrative observa
 
         try:
             result, token_usage = await self.llm_client.with_structured_output(
-                model_name="extraction_model",
+                model_name="gpt-4o",
                 messages=user_message,
                 output_format=LLMQualitativeExtraction,
                 max_tokens=10000,

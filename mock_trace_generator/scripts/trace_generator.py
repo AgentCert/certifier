@@ -63,7 +63,7 @@ class MultiFaultTraceGenerator:
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        model_name: str = "extraction_model",
+        model_name: str = "gpt-4o",
         agent_metadata: Optional[Dict[str, Any]] = None,
     ):
         self.llm_client = llm_client
