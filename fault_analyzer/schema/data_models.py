@@ -104,6 +104,7 @@ class FaultBucket:
     mitigated_at: Optional[str] = None
     injection_timestamp: Optional[str] = None
     ground_truth: Optional[Dict[str, Any]] = None
+    sla: Optional[Dict[str, Any]] = None
     ideal_course_of_action: Optional[List[Any]] = None
     ideal_tool_usage_trajectory: Optional[List[Any]] = None
     agent_id: Optional[str] = None
@@ -126,6 +127,7 @@ class FaultBucket:
             "mitigated_at": self.mitigated_at,
             "injection_timestamp": self.injection_timestamp,
             "ground_truth": self.ground_truth,
+            "sla": self.sla,
             "ideal_course_of_action": self.ideal_course_of_action,
             "ideal_tool_usage_trajectory": self.ideal_tool_usage_trajectory,
             "agent_id": self.agent_id,

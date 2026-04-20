@@ -274,15 +274,27 @@ class FaultBucketingPipeline:
     def _extract_ground_truth_from_metadata(
         self, event: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
-        """Extract ground truth from a fault span's metadata.
+        """Extract ground truth from a fault span's metadata or input.
 
-        Looks for a ``ground_truth`` key in the top-level metadata dict
-        or inside the ``attributes`` sub-dict.
+        Looks for a ``ground_truth`` key in the following locations:
+          1. Top-level metadata dict
+          2. Metadata ``attributes`` sub-dict
+          3. The event's ``input`` field (parsed)
         """
         metadata = self._extract_metadata_dict(event)
         gt = metadata.get("ground_truth")
         if gt is None:
             gt = metadata.get("attributes", {}).get("ground_truth")
+
+        # Also check the input field (fault injection events may carry
+        # ground truth there)
+        if gt is None:
+            raw_input = event.get("input")
+            if raw_input:
+                parsed_input = safe_parse_python_literal(raw_input)
+                if isinstance(parsed_input, dict):
+                    gt = parsed_input.get("ground_truth")
+
         if isinstance(gt, str):
             gt = safe_parse_python_literal(gt)
         return gt if isinstance(gt, dict) else None
@@ -340,8 +352,18 @@ class FaultBucketingPipeline:
         namespace = attributes.get("fault.target_namespace")
         fault_status = attributes.get("fault.status", "").lower()
 
-        # Extract ground truth from metadata
+        # Extract ground truth from metadata or input
         ground_truth = self._extract_ground_truth_from_metadata(event)
+
+        # Extract SLA, ideal course of action, and ideal tool usage
+        # trajectory from within the ground truth dict
+        sla = None
+        ideal_course_of_action = None
+        ideal_tool_usage_trajectory = None
+        if ground_truth:
+            sla = ground_truth.get("sla")
+            ideal_course_of_action = ground_truth.get("ideal_course_of_action")
+            ideal_tool_usage_trajectory = ground_truth.get("ideal_tool_usage_trajectory")
 
         # Create new bucket.  The injection span is NOT included in
         # events — it is used only for metadata.  The bucket stays
@@ -356,6 +378,9 @@ class FaultBucketingPipeline:
             status="active",
             injection_timestamp=event.get("startTime"),
             ground_truth=ground_truth,
+            sla=sla,
+            ideal_course_of_action=ideal_course_of_action,
+            ideal_tool_usage_trajectory=ideal_tool_usage_trajectory,
             agent_id=self.agent_id,
             agent_name=self.agent_name,
             agent_version=self.agent_version,
@@ -655,7 +680,53 @@ class FaultBucketingPipeline:
         )
 
         self._write_output()
+        self._write_ground_truth()
         return all_buckets
+
+    # ------------------------------------------------------------------
+    # Ground truth writer
+    # ------------------------------------------------------------------
+
+    def _write_ground_truth(self) -> None:
+        """Write per-fault ground truth files into a ``ground_truth`` subfolder.
+
+        One file per fault per experiment.  If a file already exists for
+        the same fault + experiment combination it is overwritten.
+
+        Filename pattern: ``<experiment_id>_<fault_name>_ground_truth.json``
+        (falls back to ``unknown_experiment`` when experiment_id is absent).
+        """
+        all_buckets = {**self.active_faults, **self.closed_faults}
+
+        # Only proceed if at least one bucket has ground truth
+        if not any(b.ground_truth for b in all_buckets.values()):
+            return
+
+        gt_dir = self.output_dir.parent / "ground_truth"
+        gt_dir.mkdir(parents=True, exist_ok=True)
+
+        for fault_id, bucket in all_buckets.items():
+            if not bucket.ground_truth:
+                continue
+
+            safe_fault = bucket.fault_name.replace("/", "_").replace(" ", "_")
+            exp_id = bucket.experiment_id or self.experiment_id or "unknown_experiment"
+            safe_exp = str(exp_id).replace("/", "_").replace(" ", "_")
+
+            gt_filename = f"{safe_exp}_{safe_fault}_ground_truth.json"
+            gt_path = gt_dir / gt_filename
+
+            gt_output = {
+                "fault_id": fault_id,
+                "fault_name": bucket.fault_name,
+                "experiment_id": exp_id,
+                "ground_truth": bucket.ground_truth,
+            }
+
+            with open(gt_path, "w", encoding="utf-8") as f:
+                json.dump(gt_output, f, indent=2, default=str)
+
+            logger.info(f"Wrote ground truth: {gt_filename}")
 
     # ------------------------------------------------------------------
     # Output writer
@@ -695,6 +766,7 @@ class FaultBucketingPipeline:
                 "detected_at": bucket.detected_at,
                 "mitigated_at": bucket.mitigated_at,
                 "ground_truth": bucket.ground_truth,
+                "sla": bucket.sla,
                 "ideal_course_of_action": bucket.ideal_course_of_action,
                 "ideal_tool_usage_trajectory": bucket.ideal_tool_usage_trajectory,
                 "agent_id": bucket.agent_id,
