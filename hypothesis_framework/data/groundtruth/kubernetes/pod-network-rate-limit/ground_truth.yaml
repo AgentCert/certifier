@@ -1,0 +1,237 @@
+---
+# Ground Truth for pod-network-rate-limit fault
+# Used by the metrics extraction pipeline to evaluate agent behaviour.
+# This file is never exposed to the agent under test.
+
+ground_truth:
+
+  fault_description_goal_remediation:
+    symptoms:
+      - "Severely degraded throughput and slow responses from target pods"
+      - "HTTP request timeouts on large payloads due to bandwidth throttling"
+      - "Increased latency on data-heavy API calls to affected pods"
+      - "Application logs showing read/write timeouts and slow stream errors"
+      - "Health check failures from load balancers or service mesh due to response delays"
+      - "Prometheus metrics showing spike in request duration and drop in throughput"
+
+    goal: >
+      Inject network bandwidth rate limiting on target pods to validate
+      application resilience to constrained network throughput, timeout
+      handling, and degraded transfer speeds.
+
+    remediation: >
+      Identify pods with throttled bandwidth. Inspect pod network
+      configuration and container states. Delete affected pods to
+      restore unrestricted network throughput. Verify deployment
+      health and confirm bandwidth recovers after chaos ends.
+
+  ideal_course_of_action:
+    - step: 1
+      action: "List cluster events"
+      detail: >
+        List Kubernetes events across all namespaces to detect
+        timeout warnings, pod failures, or unhealthy endpoints
+        triggered by the network rate limit injection.
+
+    - step: 2
+      action: "List pods in affected namespace"
+      detail: >
+        List all pods in the target namespace to identify pods in
+        degraded, Error, or CrashLoopBackOff state due to bandwidth
+        throttling.
+
+    - step: 3
+      action: "Get affected pod details"
+      detail: >
+        Retrieve the full spec and status of the affected pod to
+        inspect container states, restart counts, and network
+        configuration.
+
+    - step: 4
+      action: "Get pod logs"
+      detail: >
+        Retrieve logs from the affected pod to identify throughput-
+        related errors such as read timeouts, slow stream warnings,
+        and transfer failures.
+
+    - step: 5
+      action: "Exec into pod to check network throughput"
+      detail: >
+        Execute network diagnostic commands inside the pod to
+        confirm bandwidth is throttled on the network interface.
+
+    - step: 6
+      action: "Check pod resource consumption"
+      detail: >
+        Check CPU and memory usage of pods in the target namespace
+        to rule out resource pressure as the cause of slowness.
+
+    - step: 7
+      action: "Check node-level network stats"
+      detail: >
+        Get node stats summary to inspect network usage at the node
+        level and identify abnormal throughput patterns.
+
+    - step: 8
+      action: "Query Prometheus for network throughput metrics"
+      detail: >
+        Execute a PromQL query for network throughput metrics to
+        quantify bandwidth reduction during the chaos window.
+
+    - step: 9
+      action: "Query Prometheus for request duration"
+      detail: >
+        Execute a PromQL query for HTTP request duration to measure
+        application-level latency impact of rate limiting.
+
+    - step: 10
+      action: "Delete affected pods"
+      detail: >
+        Delete pods stuck in error or degraded state so the
+        controller recreates them with unrestricted bandwidth.
+
+    - step: 11
+      action: "Verify deployment health"
+      detail: >
+        Get the deployment resource to confirm desired replicas are
+        running and the rollout is healthy after remediation.
+
+    - step: 12
+      action: "Scale deployment if needed"
+      detail: >
+        Scale the deployment to ensure sufficient healthy replicas
+        are available to handle traffic after recovery.
+
+    - step: 13
+      action: "Validate network throughput restored"
+      detail: >
+        Exec into a pod and run throughput checks to confirm
+        bandwidth rate limiting has ceased.
+
+    - step: 14
+      action: "Confirm application recovery via Prometheus"
+      detail: >
+        Query Prometheus for request duration and throughput to
+        verify the application has fully recovered.
+
+  ideal_tool_usage_trajectory:
+    # Diagnosis steps
+    - step: 1
+      tool: "Events: List"
+      command: "Events: List"
+      purpose: "Detect timeout warnings, pod failures, and unhealthy endpoint events"
+      tool_available: true
+
+    - step: 2
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=<target-namespace>"
+      purpose: "Identify pods in degraded or error state due to bandwidth throttling"
+      tool_available: true
+
+    - step: 3
+      tool: "Pods: Get"
+      command: "Pods: Get name=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Inspect container states, restart counts, and network configuration of the affected pod"
+      tool_available: true
+
+    - step: 4
+      tool: "Pods: Log"
+      command: "Pods: Log name=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Retrieve application logs to find read timeouts, slow stream errors, and transfer failures"
+      tool_available: true
+
+    - step: 5
+      tool: "Pods: Exec"
+      command: "Pods: Exec name=<affected-pod-name> namespace=<target-namespace> command='curl -s -w %{time_total} -o /dev/null <target-service-url> && ping -c 4 <target-service>'"
+      purpose: "Verify bandwidth throttling and measure response time from inside the affected pod"
+      tool_available: true
+
+    - step: 6
+      tool: "Pods: Top"
+      command: "Pods: Top namespace=<target-namespace>"
+      purpose: "Check resource consumption of affected pods to rule out resource pressure"
+      tool_available: true
+
+    - step: 7
+      tool: "Node: Stats Summary"
+      command: "Node: Stats Summary name=<node-name>"
+      purpose: "Inspect node-level network stats to identify abnormal throughput patterns"
+      tool_available: true
+
+    - step: 8
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query=sum(rate(container_network_transmit_bytes_total{namespace='<target-namespace>'}[5m])) by (pod)"
+      purpose: "Quantify network throughput reduction during chaos injection window"
+      tool_available: true
+
+    - step: 9
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query=histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{namespace='<target-namespace>'}[5m])) by (le))"
+      purpose: "Measure p99 request duration to assess application-level impact of rate limiting"
+      tool_available: true
+
+    # Remediation steps
+    - step: 10
+      tool: "Pods: Delete"
+      command: "Pods: Delete name=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Delete error-state pods so the controller recreates them with unrestricted bandwidth"
+      tool_available: true
+
+    - step: 11
+      tool: "Resources: Get"
+      command: "Resources: Get apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace>"
+      purpose: "Verify deployment health and confirm all replicas are running after remediation"
+      tool_available: true
+
+    - step: 12
+      tool: "Resources: Scale"
+      command: "Resources: Scale apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace> scale=<desired-replicas>"
+      purpose: "Scale deployment to ensure sufficient healthy replicas after bandwidth recovery"
+      tool_available: true
+
+    - step: 13
+      tool: "Pods: Exec"
+      command: "Pods: Exec name=<pod-name> namespace=<target-namespace> command='curl -s -w %{time_total} -o /dev/null <target-service-url>'"
+      purpose: "Validate network throughput has recovered after chaos injection ends"
+      tool_available: true
+
+    - step: 14
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query=histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{namespace='<target-namespace>'}[5m])) by (le))"
+      purpose: "Confirm application recovery by verifying request duration has returned to baseline"
+      tool_available: true
+
+    # Remediation steps without available tools
+    - step: 15
+      tool: "Network: Remove TC Rules"
+      command: "Network: Remove TC Rules pod=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Remove tc (traffic control) qdisc rules injected by the chaos engine to restore unrestricted bandwidth"
+      tool_available: false
+
+    - step: 16
+      tool: "Network: Validate Bandwidth"
+      command: "Network: Validate Bandwidth pod=<pod-name> namespace=<target-namespace> expected_bps=<baseline-bps>"
+      purpose: "Run a bandwidth test to confirm throughput matches pre-chaos baseline"
+      tool_available: false
+
+    - step: 17
+      tool: "ChaosEngine: Delete"
+      command: "ChaosEngine: Delete name=<chaosengine-name> namespace=<target-namespace>"
+      purpose: "Delete the ChaosEngine resource to stop the fault injection and trigger automatic cleanup"
+      tool_available: false
+
+  sla:
+    time_to_detect:
+      description: "Max time from fault injection to first correct symptom identification"
+      threshold: 180
+      unit: "seconds"
+
+    time_to_mitigate:
+      description: "Max time from fault injection to successful remediation"
+      threshold: 360
+      unit: "seconds"
+
+    max_tool_calls:
+      description: "Max total tool invocations allowed (including retries)"
+      threshold: 26
+      unit: "count"

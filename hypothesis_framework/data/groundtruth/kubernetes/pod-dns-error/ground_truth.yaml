@@ -1,0 +1,215 @@
+---
+# Ground Truth for pod-dns-error fault
+# Used by the metrics extraction pipeline to evaluate agent behaviour.
+# This file is never exposed to the agent under test.
+
+ground_truth:
+
+  fault_description_goal_remediation:
+    symptoms:
+      - "DNS resolution failures (NXDOMAIN, SERVFAIL) in target pod containers"
+      - "Application errors due to unresolved hostnames (e.g., connection timeouts, name resolution failures)"
+      - "HTTP 5xx errors for services relying on DNS-based discovery"
+      - "Warning events related to DNS lookup failures on target pods"
+      - "Increased latency or failures in service-to-service communication"
+      - "CoreDNS or kube-dns error logs showing query failures for targeted hostnames"
+
+    goal: >
+      Inject DNS errors into target pod containers to validate application
+      resilience to DNS failures, retry logic, and fallback mechanisms.
+
+    remediation: >
+      Identify pods experiencing DNS failures. Verify CoreDNS health and
+      configuration. Check pod DNS policy and resolv.conf. Delete affected
+      pods to restore clean DNS state. Confirm service-to-service
+      communication resumes after chaos window ends.
+
+  ideal_course_of_action:
+    - step: 1
+      action: "List cluster events"
+      detail: >
+        List Kubernetes events across all namespaces to detect DNS-related
+        warnings, pod failures, or unhealthy endpoint events triggered by
+        the DNS error injection.
+
+    - step: 2
+      action: "List pods in affected namespace"
+      detail: >
+        List all pods in the target namespace to identify pods in Error,
+        CrashLoopBackOff, or degraded state due to DNS resolution failures.
+
+    - step: 3
+      action: "Get affected pod details"
+      detail: >
+        Retrieve the full spec and status of the affected pod to inspect
+        DNS policy, dnsConfig, container states, and restart counts.
+
+    - step: 4
+      action: "Get pod logs"
+      detail: >
+        Retrieve logs from the affected pod to identify DNS resolution
+        errors (e.g., lookup failures, connection refused, NXDOMAIN).
+
+    - step: 5
+      action: "Exec into pod to check DNS resolution"
+      detail: >
+        Execute 'cat /etc/resolv.conf' and 'nslookup <target-hostname>'
+        inside the pod to confirm DNS configuration and verify resolution
+        failures for targeted hostnames.
+
+    - step: 6
+      action: "Check CoreDNS pod health"
+      detail: >
+        List pods in the kube-system namespace to verify CoreDNS pods are
+        running and healthy, ruling out cluster-wide DNS infrastructure issues.
+
+    - step: 7
+      action: "Get CoreDNS logs"
+      detail: >
+        Retrieve CoreDNS pod logs to check for upstream DNS errors or query
+        failures that correlate with the chaos injection window.
+
+    - step: 8
+      action: "Check pod resource consumption"
+      detail: >
+        Check CPU and memory usage of pods in the target namespace to
+        correlate DNS failures with any resource pressure.
+
+    - step: 9
+      action: "Query Prometheus for DNS error metrics"
+      detail: >
+        Execute a PromQL query for CoreDNS metrics (e.g., coredns_dns_responses_total
+        with rcode=SERVFAIL) to quantify DNS error rate during chaos window.
+
+    - step: 10
+      action: "Delete affected pods"
+      detail: >
+        Delete pods stuck in error state so the controller recreates them
+        with clean DNS configuration after chaos injection ends.
+
+    - step: 11
+      action: "Verify deployment health"
+      detail: >
+        Get the deployment resource to confirm desired replicas are running
+        and the rollout is healthy after remediation.
+
+    - step: 12
+      action: "Restart CoreDNS if needed"
+      detail: >
+        Perform a rollout restart of CoreDNS deployment if cluster-wide DNS
+        is still impaired after the chaos window ends.
+
+    - step: 13
+      action: "Validate DNS resolution restored"
+      detail: >
+        Exec into a pod and run nslookup to confirm DNS resolution has
+        recovered for previously failing hostnames.
+
+    - step: 14
+      action: "Confirm application recovery via Prometheus"
+      detail: >
+        Query Prometheus for HTTP error rates to verify that the application
+        has fully recovered and service-to-service calls are succeeding.
+
+  ideal_tool_usage_trajectory:
+    # Diagnosis steps
+    - step: 1
+      tool: "Events: List"
+      command: "Events: List"
+      purpose: "Detect DNS-related warnings, pod failures, and unhealthy endpoint events"
+      tool_available: true
+
+    - step: 2
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=<target-namespace>"
+      purpose: "Identify pods in Error or CrashLoopBackOff state due to DNS failures"
+      tool_available: true
+
+    - step: 3
+      tool: "Pods: Get"
+      command: "Pods: Get name=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Inspect pod DNS policy, dnsConfig, container states, and restart counts"
+      tool_available: true
+
+    - step: 4
+      tool: "Pods: Log"
+      command: "Pods: Log name=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Retrieve application logs to find DNS resolution errors and connection failures"
+      tool_available: true
+
+    - step: 5
+      tool: "Pods: Exec"
+      command: "Pods: Exec name=<affected-pod-name> namespace=<target-namespace> command='cat /etc/resolv.conf && nslookup <target-hostname>'"
+      purpose: "Verify DNS configuration and confirm resolution failures for targeted hostnames"
+      tool_available: true
+
+    - step: 6
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=kube-system"
+      purpose: "Check CoreDNS pod health and running status in kube-system namespace"
+      tool_available: true
+
+    - step: 7
+      tool: "Pods: Log"
+      command: "Pods: Log name=<coredns-pod-name> namespace=kube-system"
+      purpose: "Retrieve CoreDNS logs to check for upstream DNS errors during chaos window"
+      tool_available: true
+
+    - step: 8
+      tool: "Pods: Top"
+      command: "Pods: Top namespace=<target-namespace>"
+      purpose: "Check resource consumption of affected pods to rule out resource pressure"
+      tool_available: true
+
+    - step: 9
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query=sum(rate(coredns_dns_responses_total{rcode='SERVFAIL'}[5m]))"
+      purpose: "Quantify DNS error rate from CoreDNS metrics during chaos injection window"
+      tool_available: true
+
+    # Remediation steps
+    - step: 10
+      tool: "Pods: Delete"
+      command: "Pods: Delete name=<affected-pod-name> namespace=<target-namespace>"
+      purpose: "Delete error-state pods so the controller recreates them with clean DNS state"
+      tool_available: true
+
+    - step: 11
+      tool: "Resources: Get"
+      command: "Resources: Get apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace>"
+      purpose: "Verify deployment health and confirm all replicas are running after remediation"
+      tool_available: true
+
+    - step: 12
+      tool: "Deployment: Rollout Restart"
+      command: "Deployment: Rollout Restart apiVersion=apps/v1 kind=Deployment name=coredns namespace=kube-system"
+      purpose: "Restart CoreDNS deployment if cluster-wide DNS remains impaired"
+      tool_available: false
+
+    - step: 13
+      tool: "Pods: Exec"
+      command: "Pods: Exec name=<pod-name> namespace=<target-namespace> command='nslookup <target-hostname>'"
+      purpose: "Validate DNS resolution has recovered for previously failing hostnames"
+      tool_available: true
+
+    - step: 14
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query=rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m])"
+      purpose: "Confirm application recovery by verifying HTTP 5xx error rate has returned to zero"
+      tool_available: true
+
+  sla:
+    time_to_detect:
+      description: "Max time from fault injection to first correct symptom identification"
+      threshold: 60
+      unit: "seconds"
+
+    time_to_mitigate:
+      description: "Max time from fault injection to successful remediation"
+      threshold: 180
+      unit: "seconds"
+
+    max_tool_calls:
+      description: "Max total tool invocations allowed (including retries)"
+      threshold: 21
+      unit: "count"

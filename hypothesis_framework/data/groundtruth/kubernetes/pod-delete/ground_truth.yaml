@@ -1,0 +1,151 @@
+fault: pod-delete
+version: 0.1.0
+description: Deletes a pod belonging to a deployment/statefulset/daemonset
+
+ground_truth:
+  fault_description_goal_remediation:
+    symptoms:
+      - "Target pod enters Terminating state unexpectedly"
+      - "HTTP 5xx errors or connection refused on application endpoints"
+      - "Kubernetes warning events: pod deletion, container restart"
+      - "Replica count drops below desired state in deployment"
+      - "Increased pod restart count observed via metrics or pod status"
+
+    goal: >
+      Inject forced/graceful pod deletion on random replicas to validate
+      deployment sanity, replica availability, and application recovery workflows.
+
+    remediation: >
+      Verify deployment replica count is restored. Confirm replacement pods are
+      running and healthy. Check application endpoints return successful responses.
+      Roll back or scale up deployment if pods fail to recover.
+
+  ideal_course_of_action:
+    - step: 1
+      action: "List all namespaces"
+      detail: "Enumerate cluster namespaces to identify where the target application is deployed."
+
+    - step: 2
+      action: "List pods in target namespace"
+      detail: "List all pods in the application namespace to identify target pods and their current status."
+
+    - step: 3
+      action: "Get target pod details"
+      detail: "Retrieve detailed spec and status of the target pod to confirm its owner (deployment/statefulset/daemonset) and current health."
+
+    - step: 4
+      action: "Check Kubernetes events"
+      detail: "List cluster events filtered to the target namespace to detect pod deletion warnings, restarts, or scheduling failures."
+
+    - step: 5
+      action: "Inspect pod logs"
+      detail: "Fetch logs from the affected pod (or its previous instance) to identify errors or crash signatures."
+
+    - step: 6
+      action: "Check resource consumption"
+      detail: "Review CPU and memory usage of pods in the namespace to detect resource pressure contributing to instability."
+
+    - step: 7
+      action: "Get parent deployment details"
+      detail: "Retrieve the owning deployment/statefulset to verify desired vs available replica count and rollout status."
+
+    - step: 8
+      action: "Scale up deployment if needed"
+      detail: "If replicas remain below desired count, scale the deployment to restore availability."
+
+    - step: 9
+      action: "Verify pod recovery"
+      detail: "Re-list pods in the namespace to confirm replacement pods are Running and Ready."
+
+    - step: 10
+      action: "Validate application health"
+      detail: "Execute a health-check command inside a running pod or query Prometheus metrics to confirm the application is serving traffic normally."
+
+  ideal_tool_usage_trajectory:
+    - step: 1
+      tool: "Namespaces: List"
+      command: "Namespaces: List"
+      purpose: "Identify all namespaces to locate the target application namespace."
+      tool_available: true
+
+    - step: 2
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=<target-namespace>"
+      purpose: "List pods in the target namespace to find affected pods and their states."
+      tool_available: true
+
+    - step: 3
+      tool: "Pods: Get"
+      command: "Pods: Get namespace=<target-namespace> name=<pod-name>"
+      purpose: "Get detailed status and spec of the target pod to assess impact."
+      tool_available: true
+
+    - step: 4
+      tool: "Events: List"
+      command: "Events: List"
+      purpose: "List Kubernetes events to detect pod deletion, restart, and scheduling warnings."
+      tool_available: true
+
+    - step: 5
+      tool: "Pods: Log"
+      command: "Pods: Log namespace=<target-namespace> name=<pod-name>"
+      purpose: "Retrieve pod logs to identify application errors caused by the fault."
+      tool_available: true
+
+    - step: 6
+      tool: "Pods: Top"
+      command: "Pods: Top namespace=<target-namespace>"
+      purpose: "Check CPU and memory consumption of pods to detect resource-related issues."
+      tool_available: true
+
+    - step: 7
+      tool: "Resources: Get"
+      command: "Resources: Get apiVersion=apps/v1 kind=Deployment namespace=<target-namespace> name=<deployment-name>"
+      purpose: "Retrieve deployment details to verify replica count and rollout status."
+      tool_available: true
+
+    - step: 8
+      tool: "Resources: Scale"
+      command: "Resources: Scale apiVersion=apps/v1 kind=Deployment namespace=<target-namespace> name=<deployment-name> scale=<desired-replicas>"
+      purpose: "Scale up deployment to restore desired replica count if recovery has not occurred."
+      tool_available: true
+
+    - step: 9
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=<target-namespace>"
+      purpose: "Verify replacement pods are Running and Ready after remediation."
+      tool_available: true
+
+    - step: 10
+      tool: "Pods: Exec"
+      command: "Pods: Exec namespace=<target-namespace> name=<pod-name> command='curl -s http://localhost:<port>/health'"
+      purpose: "Run an in-pod health check to confirm the application is serving traffic."
+      tool_available: true
+
+    - step: 11
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query='up{namespace=\"<target-namespace>\",pod=~\"<app-label>.*\"}'"
+      purpose: "Query Prometheus to validate application availability metrics post-recovery."
+      tool_available: true
+
+    - step: 12
+      tool: "Rollback Deployment"
+      command: "Rollback Deployment namespace=<target-namespace> name=<deployment-name>"
+      purpose: "Roll back the deployment to a previous stable revision if pods fail to recover."
+      tool_available: false
+
+  sla:
+    time_to_detect:
+      description: "Max time from fault injection to first correct symptom identification"
+      threshold: 60
+      unit: "seconds"
+
+    time_to_mitigate:
+      description: "Max time from fault injection to successful remediation"
+      threshold: 120
+      unit: "seconds"
+
+    max_tool_calls:
+      description: "Max total tool invocations allowed (including retries)"
+      threshold: 18
+      unit: "count"
