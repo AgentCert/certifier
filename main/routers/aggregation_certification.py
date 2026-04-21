@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 
 from main.models.cert_requests import AggregationCertificationRequest
 from main.models.cert_responses import CertTaskAcceptedResponse
@@ -220,23 +220,24 @@ async def submit_aggregation_certification(
 
     return CertTaskAcceptedResponse(
         cert_task_id=cert_task_id,
-        poll_url=f"/api/v1/cert-tasks/{cert_task_id}",
+        poll_url=f"/api/v1/cert-tasks?experiment_id={body.experiment_id}",
     )
 
 
-@router.get("/cert-tasks/{cert_task_id}")
+@router.get("/cert-tasks")
 async def get_cert_task_status(
-    cert_task_id: str,
+    experiment_id: str = Query(..., description="Experiment ID supplied at submission"),
     cert_session_svc: CertSessionService = Depends(_cert_session_svc),
 ):
-    task = await cert_session_svc.get_task(cert_task_id)
+    """Poll the status of the most-recent aggregation-certification task for an experiment."""
+    task = await cert_session_svc.get_task_by_experiment(experiment_id)
     if task is None:
         raise HTTPException(
             status_code=404,
             detail={
                 "status": "error",
                 "error_code": "TASK_NOT_FOUND",
-                "message": f"No certification task found with id {cert_task_id}",
+                "message": f"No certification task found for experiment_id={experiment_id}",
             },
         )
     return task

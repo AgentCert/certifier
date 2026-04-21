@@ -123,9 +123,8 @@ async def lifespan(app: FastAPI):
     app.state.semaphore = asyncio.Semaphore(settings.max_concurrent_tasks)
     app.state.cert_semaphore = asyncio.Semaphore(settings.max_concurrent_cert_tasks)
 
-    # 8. Ensure workspace directories exist before any request arrives
+    # 8. Ensure workspace directory exists before any request arrives
     settings.workspace_dir.mkdir(parents=True, exist_ok=True)
-    settings.cert_workspace_dir.mkdir(parents=True, exist_ok=True)
 
     yield
 

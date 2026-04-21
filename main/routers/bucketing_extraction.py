@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 
 from main.models.bucket_requests import BucketingExtractionRequest
 from main.models.bucket_responses import TaskAcceptedResponse
@@ -94,24 +94,25 @@ async def submit_bucketing_extraction(
 
     return TaskAcceptedResponse(
         task_id=task_id,
-        poll_url=f"/api/v1/tasks/{task_id}",
+        poll_url=f"/api/v1/tasks?experiment_id={body.experiment_id}&experiment_run_id={body.run_id}",
     )
 
 
-@router.get("/tasks/{task_id}")
+@router.get("/tasks")
 async def get_task_status(
-    task_id: str,
+    experiment_id: str = Query(..., description="Experiment ID supplied at submission"),
+    experiment_run_id: str = Query(..., description="Run ID supplied at submission"),
     session_svc: SessionService = Depends(_session_svc),
 ):
-    """Poll the status of a bucketing-extraction task by its UUID."""
-    task = await session_svc.get_task(task_id)
+    """Poll the status of the most-recent bucketing-extraction task for an experiment run."""
+    task = await session_svc.get_task_by_run(experiment_id, experiment_run_id)
     if task is None:
         raise HTTPException(
             status_code=404,
             detail={
                 "status": "error",
                 "error_code": "TASK_NOT_FOUND",
-                "message": f"No task found with id {task_id}",
+                "message": f"No task found for experiment_id={experiment_id} experiment_run_id={experiment_run_id}",
             },
         )
     return task
