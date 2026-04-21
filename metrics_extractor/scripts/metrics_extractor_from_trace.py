@@ -813,6 +813,7 @@ Create a comprehensive qualitative assessment by combining the narrative observa
         return LLMQuantitativeExtraction(
             trajectory_steps=total_spans,
             fault_detected="Unknown - extraction failed",
+            detection_success=0,
             input_tokens=0,
             output_tokens=0,
             tool_calls=[],

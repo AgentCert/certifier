@@ -138,6 +138,10 @@ class LLMQuantitativeExtraction(BaseModelWrapper):
     fault_detected: str = Field(
         default="Unknown", description="Type of fault detected by the agent"
     )
+    detection_success: Optional[int] = Field(
+        default=None,
+        description="Binary indicator of whether the agent detected the fault",
+    )
     trajectory_steps: int = Field(
         default=0, description="Number of steps in the agent trajectory"
     )
