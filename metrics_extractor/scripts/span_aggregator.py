@@ -139,6 +139,13 @@ class QuantitativeAggregator:
         # Use LLM-validated bucket timestamps as primary.  If bucket
         # timestamps were not validated (absent or failed content check),
         # fall back to LLM-identified span timestamps from the trace.
+
+        # Compute binary detection_success metric based on detected_at
+        if bucket_metadata and bucket_metadata.get("detected_at"):
+            aggregated["detection_success"] = 1
+        else:
+            aggregated["detection_success"] = 0
+            
         bucket_detected = aggregated.pop("bucket_detected_at", None)
         bucket_mitigated = aggregated.pop("bucket_mitigated_at", None)
         llm_detected = (span_times or {}).get("agent_fault_detection_time")
