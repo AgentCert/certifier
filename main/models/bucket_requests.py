@@ -14,15 +14,16 @@ class FileTraceSource(BaseModel):
 
 
 class LangfuseTraceSource(BaseModel):
-    """Trace sourced by fetching observations directly from a Langfuse instance."""
+    """Trace sourced by fetching observations directly from a Langfuse instance.
+
+    Traces are identified by matching the request's ``experiment_id`` and
+    ``run_id`` against trace metadata keys of the same name in Langfuse.
+    Langfuse credentials (LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY)
+    are loaded from environment variables at application launch.
+    """
     type: Literal["langfuse"]
-    base_url: str
-    public_key: str
-    # secret_key is stripped from the persisted request snapshot (see bucketing_extraction.py)
-    secret_key: str
-    from_timestamp: str          # ISO-8601 string; the fetch returns traces after this point
-    page_size: int = Field(default=100, ge=1, le=500)
-    max_pages: int = Field(default=20, ge=1, le=100)
+    page_size: int = Field(default=50, ge=1, le=500)
+    max_pages: int = Field(default=10, ge=1, le=100)
     include_observations: bool = True
 
 

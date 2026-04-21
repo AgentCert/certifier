@@ -70,12 +70,6 @@ async def submit_bucketing_extraction(
 
     task_id = str(uuid.uuid4())
 
-    # Strip the Langfuse secret_key before persisting the request snapshot to MongoDB;
-    # we never want credentials stored at rest in the task collection.
-    snapshot = body.model_dump()
-    if snapshot.get("trace_source", {}).get("type") == "langfuse":
-        snapshot["trace_source"].pop("secret_key", None)
-
     # Persist the task document BEFORE dispatching the background worker so that
     # the poll endpoint can return the task immediately after this response is sent.
     await session_svc.create_task(
@@ -83,7 +77,7 @@ async def submit_bucketing_extraction(
         agent_id=body.agent_id,
         experiment_id=body.experiment_id,
         run_id=body.run_id,
-        request_snapshot=snapshot,
+        request_snapshot=body.model_dump(),
     )
 
     background_tasks.add_task(
