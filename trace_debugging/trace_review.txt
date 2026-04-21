@@ -1,0 +1,23 @@
+1. **Agent Metadata Key Mismatch**: Trace populates `agent.id` and `agent.name` (with dots), but extraction code expects `agent_id` and `agent_name` (with underscores). For non-fault events, these fields exist but are null.
+   - Impact: agent_id never extracted → agent-level metrics null
+   - Fix: Update trace generation to use underscore format 
+
+2. **LLM Input Contains Injected Fault Context**: Generation spans with "llm-analysis" in name carry `input` fields containing pre-defined faults and generic fault information, making LLM analysis biased.
+   - Impact: LLM may make assumptions rather than observing actual trace evidence
+   - Fix: Remove or minimize fault metadata from LLM input; let agent discover evidence naturally
+
+3. **Tool Selection Input/Output Duplication**: Tool-selection spans have identical `input` and `output` fields across ALL events, suggesting static/templated data rather than dynamic agent reasoning.
+   - Impact: Cannot distinguish between different tool decisions or reasoning steps
+   - Fix: Ensure each tool selection generates unique input/output reflecting actual decision logic
+
+4. **Missing Ground Truth**: Ground truth data not present in trace (expected in fault span metadata or as top-level field).
+   - Impact: Cannot validate agent's ideal course of action or tool usage against expectations
+   - Fix: Generate or inject ground truth during trace creation; verify fault span metadata
+
+5. **Tool Selection Bias**: Agent consistently selects Kubernetes tool over Prometheus despite both being available.
+   - Impact: Tool selection metrics skewed; cannot assess Prometheus probe effectiveness
+   - Fix: Verify tool selection logic; ensure Prometheus tool is recommended/selected when relevant to fault diagnosis
+
+6. **Token Count Extraction Failure**: Agent's GENERATION spans lack explicit `input_tokens` and `output_tokens` fields, making token metrics unextractable.
+   - Impact: Quantitative metrics report `input_tokens: 0`, `output_tokens: 0` despite agent consuming LLM resources
+   - Fix: Populate GENERATION span output/metadata with LLM token counts (input_tokens, output_tokens) from API response
