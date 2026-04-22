@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentCert KT — Day 1: Foundation and Repository Orientation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0f4c81;
+            --primary-dark: #0b365c;
+            --primary-deeper: #072744;
+            --accent: #2f7d6b;
+            --accent-soft: #e8f4f1;
+            --surface: #ffffff;
+            --surface-soft: #f4f7fb;
+            --border: #d7e0ea;
+            --text: #1f2a37;
+            --muted: #5b6777;
+            --warning: #c07a12;
+            --warning-soft: #fff7e8;
+            --danger: #c0392b;
+            --danger-soft: #fdecea;
+            --success: #27ae60;
+            --success-soft: #e8f8f0;
+        }
+
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* ── Slide Container ── */
+        .slide-deck {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: none;
+            flex-direction: column;
+            padding: 48px 64px;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #edf3f9 0%, #f7f9fc 40%, #eef2f7 100%);
+        }
+
+        .slide.active { display: flex; }
+
+        /* ── Navigation ── */
+        .nav-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 52px;
+            background: var(--primary-deeper);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            z-index: 100;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        }
+
+        .nav-bar button {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.18);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-bar button:hover { background: rgba(255,255,255,0.22); }
+
+        .nav-bar .slide-counter {
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .nav-bar .slide-title-bar {
+            color: rgba(255,255,255,0.55);
+            font-size: 13px;
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ── Slide: Title ── */
+        .slide-title-page {
+            background: linear-gradient(135deg, var(--primary-deeper) 0%, var(--primary) 60%, #1a6fa0 100%) !important;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .slide-title-page .eyebrow {
+            display: inline-block;
+            font-size: 13px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 8px 18px;
+            border-radius: 999px;
+            margin-bottom: 24px;
+        }
+
+        .slide-title-page h1 {
+            font-size: 52px;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 16px;
+        }
+
+        .slide-title-page .subtitle {
+            font-size: 22px;
+            color: rgba(255,255,255,0.8);
+            max-width: 700px;
+            margin-bottom: 36px;
+        }
+
+        .slide-title-page .meta-row {
+            display: flex;
+            gap: 32px;
+            font-size: 15px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .slide-title-page .meta-row strong { color: rgba(255,255,255,0.85); }
+
+        /* ── Section Title Slides ── */
+        .slide-section {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary)) !important;
+            color: #fff;
+            justify-content: center;
+            padding-left: 100px;
+        }
+
+        .slide-section .section-num {
+            font-size: 80px;
+            font-weight: 900;
+            opacity: 0.15;
+            line-height: 1;
+            margin-bottom: -20px;
+        }
+
+        .slide-section h2 {
+            font-size: 44px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .slide-section p {
+            font-size: 20px;
+            color: rgba(255,255,255,0.75);
+            max-width: 600px;
+        }
+
+        /* ── Content Slides ── */
+        .slide h2 {
+            color: var(--primary);
+            font-size: 30px;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .slide .slide-subtitle {
+            color: var(--muted);
+            font-size: 16px;
+            margin-bottom: 28px;
+        }
+
+        .slide h3 {
+            color: var(--primary);
+            font-size: 20px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .slide h4 {
+            color: var(--accent);
+            font-size: 16px;
+            font-weight: 700;
+            margin: 16px 0 8px;
+        }
+
+        /* ── Cards Grid ── */
+        .cards-grid {
+            display: grid;
+            gap: 18px;
+        }
+
+        .cards-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .cards-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .cards-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 6px 20px rgba(15,76,129,0.06);
+        }
+
+        .card.accent-left { border-left: 5px solid var(--primary); }
+        .card.accent-left-green { border-left: 5px solid var(--accent); }
+        .card.accent-left-orange { border-left: 5px solid var(--warning); }
+        .card.accent-left-red { border-left: 5px solid var(--danger); }
+
+        .card h3 { font-size: 17px; margin-bottom: 10px; color: var(--primary); }
+
+        .card ul, .card ol { margin-left: 18px; }
+        .card li { margin-bottom: 6px; font-size: 15px; line-height: 1.5; color: var(--text); }
+
+        .card code {
+            background: #eef3f8;
+            padding: 2px 7px;
+            border-radius: 5px;
+            font-family: "Cascadia Code", "Courier New", monospace;
+            font-size: 13px;
+            color: var(--primary-dark);
+        }
+
+        .card p { font-size: 15px; line-height: 1.6; }
+
+        /* ── Metric Cards ── */
+        .metric-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(15,76,129,0.05);
+        }
+
+        .metric-card .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .metric-card .value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .metric-card .value.accent { color: var(--accent); }
+
+        /* ── Flow Diagram ── */
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .flow-step {
+            background: var(--surface);
+            border: 2px solid var(--primary);
+            border-radius: 14px;
+            padding: 16px 22px;
+            text-align: center;
+            min-width: 160px;
+        }
+
+        .flow-step .step-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .flow-step .step-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .flow-step .step-detail {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .flow-arrow {
+            font-size: 22px;
+            color: var(--primary);
+            padding: 0 8px;
+            font-weight: 700;
+        }
+
+        /* ── Table ── */
+        .info-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            font-size: 14px;
+            background: var(--surface);
+        }
+
+        .info-table th {
+            background: var(--primary);
+            color: #fff;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-table tr:last-child td { border-bottom: none; }
+        .info-table tr:nth-child(even) td { background: var(--surface-soft); }
+
+        .info-table code {
+            background: #eef3f8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "Cascadia Code", "Courier New", monospace;
+            font-size: 13px;
+        }
+
+        /* ── Callout ── */
+        .callout {
+            border-left: 5px solid var(--warning);
+            background: var(--warning-soft);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin: 16px 0;
+        }
+
+        .callout.info { border-left-color: var(--primary); background: #eef3fa; }
+        .callout.success { border-left-color: var(--accent); background: var(--accent-soft); }
+        .callout.danger { border-left-color: var(--danger); background: var(--danger-soft); }
+
+        .callout p { font-size: 15px; }
+        .callout strong { color: var(--primary-dark); }
+
+        /* ── Tag/Pill ── */
+        .pill {
+            display: inline-block;
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid rgba(47,125,107,0.18);
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .pill.blue { background: #eaf1fb; color: var(--primary); border-color: rgba(15,76,129,0.18); }
+
+        /* ── Code Block ── */
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 12px;
+            padding: 20px 24px;
+            font-family: "Cascadia Code", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .code-block .comment { color: #6b8299; }
+        .code-block .keyword { color: #7dd3fc; }
+        .code-block .string { color: #86efac; }
+        .code-block .highlight { color: #fbbf24; }
+
+        /* ── Tree ── */
+        .tree {
+            font-family: "Cascadia Code", "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+
+        .tree .folder { color: var(--primary); font-weight: 700; }
+        .tree .file { color: var(--text); }
+        .tree .desc { color: var(--muted); font-size: 13px; }
+
+        /* ── Timeline ── */
+        .timeline-horizontal {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            margin: 20px 0;
+        }
+
+        .tl-node {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .tl-node::before {
+            content: "";
+            position: absolute;
+            top: 18px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .tl-node:first-child::before { left: 50%; }
+        .tl-node:last-child::before { right: 50%; }
+
+        .tl-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            border: 3px solid var(--surface);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .tl-dot.active { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+        .tl-label {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .tl-desc {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* ── Slide TOC ── */
+        .toc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .toc-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toc-item:hover { border-color: var(--primary); box-shadow: 0 4px 12px rgba(15,76,129,0.08); }
+
+        .toc-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .toc-text { font-size: 15px; font-weight: 600; color: var(--text); }
+
+        /* ── Flex layout helpers ── */
+        .flex-row { display: flex; gap: 20px; }
+        .flex-1 { flex: 1; }
+        .flex-grow { flex-grow: 1; }
+        .mt-auto { margin-top: auto; }
+        .mb-16 { margin-bottom: 16px; }
+        .mb-24 { margin-bottom: 24px; }
+        .mb-8 { margin-bottom: 8px; }
+        .text-center { text-align: center; }
+
+        /* ── Progress Bar ── */
+        .progress-bar-container {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: rgba(15,76,129,0.1);
+            z-index: 200;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--primary));
+            transition: width 0.3s ease;
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* ── Print ── */
+        @media print {
+            body { overflow: visible; }
+            .slide { display: flex !important; position: relative; page-break-after: always; height: auto; min-height: 100vh; }
+            .nav-bar, .progress-bar-container { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div>
+
+<div class="slide-deck" id="slideDeck">
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 1 — TITLE
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-title-page active" data-title="Title">
+        <div class="eyebrow">AgentCert Knowledge Transfer</div>
+        <h1>Day 1: Foundation &amp;<br>Repository Orientation</h1>
+        <p class="subtitle">Build a mental model of the project, its purpose, documentation landscape, and end-to-end pipeline before diving into code internals.</p>
+        <div class="meta-row">
+            <span><strong>Date:</strong> April 13, 2026</span>
+            <span><strong>Duration:</strong> ~2 hours</span>
+            <span><strong>Audience:</strong> New Resource Onboarding</span>
+            <span><strong>Session:</strong> 1 of 5</span>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 2 — WEEK OVERVIEW
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="KT Week Overview">
+        <h2>KT Week at a Glance</h2>
+        <p class="slide-subtitle">Five-day onboarding sequence following the data lifecycle, with reverse KT the following week.</p>
+
+        <div class="timeline-horizontal mb-24">
+            <div class="tl-node">
+                <div class="tl-dot active">1</div>
+                <div class="tl-label">Apr 13</div>
+                <div class="tl-desc">Foundation &amp;<br>Orientation</div>
+            </div>
+            <div class="tl-node">
+                <div class="tl-dot">2</div>
+                <div class="tl-label">Apr 14</div>
+                <div class="tl-desc">Fault<br>Bucketing</div>
+            </div>
+            <div class="tl-node">
+                <div class="tl-dot">3</div>
+                <div class="tl-label">Apr 15</div>
+                <div class="tl-desc">Metrics<br>Extraction</div>
+            </div>
+            <div class="tl-node">
+                <div class="tl-dot">4</div>
+                <div class="tl-label">Apr 16</div>
+                <div class="tl-desc">Aggregation &amp;<br>Certification</div>
+            </div>
+            <div class="tl-node">
+                <div class="tl-dot">5</div>
+                <div class="tl-label">Apr 17</div>
+                <div class="tl-desc">Operations &amp;<br>Readiness</div>
+            </div>
+            <div class="tl-node">
+                <div class="tl-dot" style="background:var(--accent);box-shadow:0 0 0 2px var(--accent)">R</div>
+                <div class="tl-label" style="color:var(--accent)">Apr 20</div>
+                <div class="tl-desc">Reverse KT</div>
+            </div>
+        </div>
+
+        <div class="metric-cards">
+            <div class="metric-card">
+                <div class="label">KT Window</div>
+                <div class="value">5 Days</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Knowledge Chunks</div>
+                <div class="value">6</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Core Modules</div>
+                <div class="value">4 + Utils</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Reverse KT</div>
+                <div class="value accent">Next Week</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 3 — TODAY'S AGENDA
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Today's Agenda">
+        <h2>Today's Agenda</h2>
+        <p class="slide-subtitle">Day 1 covers the foundational context needed before any code deep-dive.</p>
+
+        <div class="toc-grid mb-24">
+            <div class="toc-item"><div class="toc-num">1</div><div class="toc-text">What is AgentCert? Problem &amp; Business Outcome</div></div>
+            <div class="toc-item"><div class="toc-num">2</div><div class="toc-text">End-to-End Pipeline Overview</div></div>
+            <div class="toc-item"><div class="toc-num">3</div><div class="toc-text">Repository Structure &amp; Module Map</div></div>
+            <div class="toc-item"><div class="toc-num">4</div><div class="toc-text">Module Responsibilities Deep-Dive</div></div>
+            <div class="toc-item"><div class="toc-num">5</div><div class="toc-text">Documentation Landscape</div></div>
+            <div class="toc-item"><div class="toc-num">6</div><div class="toc-text">API Endpoints Overview</div></div>
+            <div class="toc-item"><div class="toc-num">7</div><div class="toc-text">Key Design Principles</div></div>
+            <div class="toc-item"><div class="toc-num">8</div><div class="toc-text">Technology Stack &amp; Dependencies</div></div>
+            <div class="toc-item"><div class="toc-num">9</div><div class="toc-text">Shared Utilities &amp; Configuration</div></div>
+            <div class="toc-item"><div class="toc-num">10</div><div class="toc-text">Session Format &amp; Expected Outcomes</div></div>
+        </div>
+
+        <div class="callout info">
+            <p><strong>Recommended Format:</strong> 30 min concept overview, 45 min repo walkthrough, 30 min artifact walkthrough, 15 min Q&amp;A.</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 4 — SECTION: WHAT IS AGENTCERT
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: What is AgentCert?">
+        <div class="section-num">01</div>
+        <h2>What is AgentCert?</h2>
+        <p>Understanding the problem, purpose, and expected business outcomes.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 5 — PROBLEM STATEMENT
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Problem Statement">
+        <h2>The Problem We're Solving</h2>
+        <p class="slide-subtitle">Why AgentCert exists and what gap it fills.</p>
+
+        <div class="cards-grid cols-2 mb-24">
+            <div class="card accent-left-red">
+                <h3>The Challenge</h3>
+                <ul>
+                    <li>Autonomous IT-Ops agents are making real-time decisions in production environments</li>
+                    <li>No standardized way to evaluate whether these agents are reliable, safe, and effective</li>
+                    <li>Agents may hallucinate, take collateral actions, miss faults, or violate safety policies</li>
+                    <li>Stakeholders need confidence before deploying agents in critical infrastructure</li>
+                </ul>
+            </div>
+            <div class="card accent-left-green">
+                <h3>The Solution: AgentCert</h3>
+                <ul>
+                    <li>A rigorous <strong>certification framework</strong> for evaluating IT-Ops agents</li>
+                    <li>Uses simulated <strong>fault-injection experiments</strong> with known ground truth</li>
+                    <li>Extracts <strong>quantitative + qualitative metrics</strong> per fault run</li>
+                    <li>Aggregates across multiple runs for <strong>statistical confidence</strong></li>
+                    <li>Generates a professional <strong>certification report</strong> with a verdict</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="callout success">
+            <p><strong>Business Outcome:</strong> A certified agent means the organization has evidence-backed confidence that the agent detects faults reliably, mitigates them safely, and complies with responsible AI and security standards.</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 6 — CERTIFICATION CATEGORIES
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Certification Categories">
+        <h2>What AgentCert Evaluates</h2>
+        <p class="slide-subtitle">Five certification categories that determine the agent's verdict.</p>
+
+        <div class="cards-grid cols-3 mb-16">
+            <div class="card accent-left">
+                <h3>Detection &amp; Response</h3>
+                <ul>
+                    <li>Time to Detect (TTD)</li>
+                    <li>Detection Accuracy</li>
+                    <li>Mean Time to Mitigate</li>
+                    <li>Resolution Success Rate</li>
+                    <li>Number of Steps</li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <h3>Accuracy &amp; Efficiency</h3>
+                <ul>
+                    <li>Root Cause Accuracy</li>
+                    <li>Tool Selection Accuracy</li>
+                    <li>Token Usage &amp; Costs</li>
+                    <li>API Calls Efficiency</li>
+                    <li>Execution Time</li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <h3>Reasoning &amp; Quality</h3>
+                <ul>
+                    <li>Reasoning Quality Score</li>
+                    <li>Plan Adherence</li>
+                    <li>Hallucination Score</li>
+                    <li>Exploration vs Exploitation</li>
+                    <li>Confidence Calibration</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="cards-grid cols-2">
+            <div class="card accent-left-orange">
+                <h3>Safety &amp; Compliance</h3>
+                <ul>
+                    <li>PII Detection</li>
+                    <li>RAI Compliance</li>
+                    <li>Security Compliance Status</li>
+                    <li>Malicious Prompt Detection</li>
+                    <li>Collateral Damage Assessment</li>
+                </ul>
+            </div>
+            <div class="card accent-left-orange">
+                <h3>Resource Utilization</h3>
+                <ul>
+                    <li>Token Usage (Input/Output)</li>
+                    <li>LLM Cost Tracking</li>
+                    <li>Rollback Actions</li>
+                    <li>Content Safety</li>
+                    <li>Sustainability Metrics</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 7 — SECTION: END-TO-END PIPELINE
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: End-to-End Pipeline">
+        <div class="section-num">02</div>
+        <h2>End-to-End Pipeline</h2>
+        <p>How data flows from raw Langfuse trace to final certification report.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 8 — PIPELINE OVERVIEW
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Pipeline Overview">
+        <h2>The AgentCert Pipeline</h2>
+        <p class="slide-subtitle">Four major stages transform raw agent traces into a certification verdict.</p>
+
+        <div class="flow-diagram mb-24">
+            <div class="flow-step">
+                <div class="step-label">Phase 1a</div>
+                <div class="step-title">Fault Bucketing</div>
+                <div class="step-detail">Split multi-fault trace into per-fault buckets</div>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <div class="step-label">Phase 1b</div>
+                <div class="step-title">Metrics Extraction</div>
+                <div class="step-detail">Extract quant + qual metrics per bucket</div>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <div class="step-label">Phase 2</div>
+                <div class="step-title">Aggregation</div>
+                <div class="step-detail">Aggregate ~30 runs into scorecards</div>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <div class="step-label">Phase 3</div>
+                <div class="step-title">Certification</div>
+                <div class="step-detail">Generate report with verdict</div>
+            </div>
+        </div>
+
+        <div class="cards-grid cols-2">
+            <div class="card">
+                <h3>Pipeline Runner 1</h3>
+                <p><code>run_bucketing_and_extraction_pipeline.py</code></p>
+                <ul style="margin-top:10px">
+                    <li>Takes a raw Langfuse trace JSON</li>
+                    <li>Runs fault bucketing (LLM classification)</li>
+                    <li>Runs metrics extraction per bucket</li>
+                    <li>Outputs per-run <code>*_metrics.json</code> files</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Pipeline Runner 2</h3>
+                <p><code>run_aggregation_and_certification_pipeline.py</code></p>
+                <ul style="margin-top:10px">
+                    <li>Takes a directory of <code>*_metrics.json</code> files</li>
+                    <li>Runs aggregation (numeric + LLM Council)</li>
+                    <li>Runs certification report builder</li>
+                    <li>Outputs final certification report (JSON/HTML/PDF)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 9 — PIPELINE DATA FLOW
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Data Flow Diagram">
+        <h2>Data Flow: Trace to Certification</h2>
+        <p class="slide-subtitle">Each stage produces specific artifacts that feed the next stage.</p>
+
+        <div class="code-block" style="font-size:14px; line-height:1.9;">
+<span class="highlight">Raw Langfuse Trace (JSON)</span>
+    |
+    v
+<span class="keyword">[Phase 1a] Fault Bucketing</span>              <span class="comment"># fault_analyzer/</span>
+    |  Splits multi-fault trace into per-fault event buckets
+    |  Output: per-fault bucket JSONs + manifest.json
+    v
+<span class="keyword">[Phase 1b] Metrics Extraction</span>           <span class="comment"># metrics_extractor/</span>
+    |  LLM extracts per-batch metrics, code aggregates numerics
+    |  Output: per-run *_metrics.json (quant + qual + tokens)
+    v
+<span class="keyword">[Phase 2] Aggregation</span>                   <span class="comment"># aggregator/</span>
+    |  ~30 runs per fault -> statistical aggregation
+    |  Numeric: code (mean, median, p95, std_dev)
+    |  Textual: LLM Council (k judges + meta-judge)
+    |  Output: aggregated_scorecard.json
+    v
+<span class="keyword">[Phase 3] Certification Builder</span>         <span class="comment"># cert_builder/</span>
+    |  Ingestion -> Computation -> Narratives -> Assembly
+    |  Output: certification_report.json (12-section report)
+    v
+<span class="highlight">Final Verdict: Certified / Not Certified</span></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 10 — SECTION: REPOSITORY STRUCTURE
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Repository Structure">
+        <div class="section-num">03</div>
+        <h2>Repository Structure</h2>
+        <p>How the codebase is organized and what each major folder does.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 11 — REPO TREE
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Repository Tree">
+        <h2>Repository Structure</h2>
+        <p class="slide-subtitle">Top-level folder layout with responsibilities.</p>
+
+        <div class="flex-row">
+            <div class="flex-1">
+                <div class="tree">
+<span class="folder">certifier/</span>
+├── <span class="folder">AgentCert.wiki/</span>         <span class="desc"># Methodology documentation</span>
+├── <span class="folder">fault_analyzer/</span>         <span class="desc"># Phase 1a: Fault bucketing</span>
+├── <span class="folder">metrics_extractor/</span>      <span class="desc"># Phase 1b: Metrics extraction</span>
+├── <span class="folder">aggregator/</span>             <span class="desc"># Phase 2: Multi-run aggregation</span>
+├── <span class="folder">cert_builder/</span>           <span class="desc"># Phase 3: Report generation</span>
+├── <span class="folder">utils/</span>                  <span class="desc"># Shared utilities</span>
+├── <span class="folder">configs/</span>                <span class="desc"># Global configuration</span>
+├── <span class="folder">data/</span>                   <span class="desc"># Traces, reports, samples</span>
+├── <span class="folder">main/</span>                   <span class="desc"># API docs &amp; entry points</span>
+├── <span class="folder">mock_trace_generator/</span>   <span class="desc"># Test trace generation</span>
+├── <span class="folder">documents/</span>              <span class="desc"># KT &amp; planning docs</span>
+├── <span class="file">api-spec.md</span>              <span class="desc"># REST API specification</span>
+├── <span class="file">run_bucketing_and_extraction_pipeline.py</span>
+├── <span class="file">run_aggregation_and_certification_pipeline.py</span>
+└── <span class="file">requirements.txt</span>         <span class="desc"># Python dependencies</span>
+                </div>
+            </div>
+            <div class="flex-1">
+                <div class="card accent-left mb-16">
+                    <h3>Core Pipeline Modules</h3>
+                    <p>Each follows the same internal structure:</p>
+                    <div class="tree" style="margin-top:10px; font-size:13px; padding:14px;">
+<span class="folder">module/</span>
+├── <span class="folder">config/</span>   <span class="desc"># Module-specific config</span>
+├── <span class="folder">docs/</span>     <span class="desc"># Module documentation</span>
+├── <span class="folder">prompt/</span>   <span class="desc"># LLM prompt templates</span>
+├── <span class="folder">schema/</span>   <span class="desc"># Pydantic data models</span>
+├── <span class="folder">scripts/</span>  <span class="desc"># Main logic</span>
+└── <span class="folder">tests/</span>    <span class="desc"># Unit tests</span>
+                    </div>
+                </div>
+                <div class="callout info">
+                    <p><strong>Key Insight:</strong> The repository mirrors the pipeline flow. Modules are ordered by data lifecycle, not alphabetically.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 12 — SECTION: MODULE RESPONSIBILITIES
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Module Deep-Dive">
+        <div class="section-num">04</div>
+        <h2>Module Responsibilities</h2>
+        <p>What each major module does and the artifacts it produces.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 13 — FAULT ANALYZER
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="fault_analyzer/ Module">
+        <h2>Module: <code>fault_analyzer/</code></h2>
+        <p class="slide-subtitle">Phase 1a — Splits multi-fault Langfuse traces into per-fault event buckets.</p>
+
+        <div class="cards-grid cols-2 mb-16">
+            <div class="card">
+                <h3>What It Does</h3>
+                <ol>
+                    <li>Loads raw Langfuse trace, sorts events chronologically</li>
+                    <li>Extracts <code>FAULT_DATA</code> (injected ground truth)</li>
+                    <li>Batches events (default batch size: 10)</li>
+                    <li>Sends batches to LLM for fault classification</li>
+                    <li>Creates per-fault buckets with lifecycle phases (detection, investigation, remediation, verification)</li>
+                    <li>Enriches buckets with ground truth metadata</li>
+                    <li>Writes per-fault JSON + manifest</li>
+                </ol>
+            </div>
+            <div class="card">
+                <h3>Key Components</h3>
+                <table class="info-table" style="margin-top:8px">
+                    <tr><th>Component</th><th>Purpose</th></tr>
+                    <tr><td><code>FaultBucketingPipeline</code></td><td>Main orchestrator class</td></tr>
+                    <tr><td><code>FaultEventClassifier</code></td><td>LLM-based batch classifier</td></tr>
+                    <tr><td><code>FaultBucket</code></td><td>Container for fault lifecycle events</td></tr>
+                    <tr><td><code>fault_bucketing_config.json</code></td><td>Model, temperature, batch settings</td></tr>
+                    <tr><td><code>prompt.yml</code></td><td>LLM system prompt template</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="callout">
+            <p><strong>Input:</strong> Raw Langfuse trace JSON (interleaved multi-fault events) &nbsp;&rarr;&nbsp; <strong>Output:</strong> Per-fault bucket JSONs + <code>manifest.json</code></p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 14 — METRICS EXTRACTOR
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="metrics_extractor/ Module">
+        <h2>Module: <code>metrics_extractor/</code></h2>
+        <p class="slide-subtitle">Phase 1b — Extracts quantitative and qualitative metrics from each fault bucket.</p>
+
+        <div class="cards-grid cols-2 mb-16">
+            <div class="card">
+                <h3>Extraction Process</h3>
+                <ol>
+                    <li>Takes per-fault bucket (from Phase 1a)</li>
+                    <li>Splits spans into batches of 15</li>
+                    <li>LLM extracts metrics per batch</li>
+                    <li><strong>Code-based aggregation</strong> for all numeric values (LLM never does math)</li>
+                    <li>Identifies detection/mitigation timestamps from spans</li>
+                    <li>Tracks token usage</li>
+                    <li>Optionally stores to MongoDB</li>
+                </ol>
+            </div>
+            <div class="card">
+                <h3>Output Schema: <code>ExtractionResult</code></h3>
+                <h4>Quantitative</h4>
+                <ul>
+                    <li>TTD, TTM, fault detection status</li>
+                    <li>Trajectory steps, tokens, tool calls</li>
+                    <li>PII detection, malicious prompts detected</li>
+                    <li>Tool selection accuracy</li>
+                </ul>
+                <h4>Qualitative</h4>
+                <ul>
+                    <li>RAI check, security compliance</li>
+                    <li>Reasoning quality, hallucination score</li>
+                    <li>Agent summary, plan adherence, collateral damage</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="callout">
+            <p><strong>Input:</strong> Per-fault bucket JSON &nbsp;&rarr;&nbsp; <strong>Output:</strong> <code>*_metrics.json</code> (per-run metrics document)</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 15 — AGGREGATOR
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="aggregator/ Module">
+        <h2>Module: <code>aggregator/</code></h2>
+        <p class="slide-subtitle">Phase 2 — Aggregates ~30 per-run metrics into fault-category and agent-level scorecards.</p>
+
+        <div class="cards-grid cols-2 mb-16">
+            <div class="card">
+                <h3>Aggregation Strategy</h3>
+                <div class="cards-grid cols-2" style="gap:10px; margin-top:10px">
+                    <div class="card accent-left-green" style="padding:14px">
+                        <h3 style="font-size:14px">Numeric (Code)</h3>
+                        <ul style="font-size:13px">
+                            <li>Mean, median, std_dev</li>
+                            <li>P95, min, max, sum</li>
+                            <li>Detection/mitigation rates</li>
+                            <li>False positive/negative rates</li>
+                        </ul>
+                    </div>
+                    <div class="card accent-left-orange" style="padding:14px">
+                        <h3 style="font-size:14px">Textual (LLM Council)</h3>
+                        <ul style="font-size:13px">
+                            <li>k independent judges</li>
+                            <li>Meta-judge reconciliation</li>
+                            <li>Consensus summary</li>
+                            <li>Ranked limitations &amp; recs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Key Components</h3>
+                <table class="info-table" style="margin-top:8px">
+                    <tr><th>Component</th><th>Purpose</th></tr>
+                    <tr><td><code>AggregationOrchestrator</code></td><td>Main pipeline orchestrator</td></tr>
+                    <tr><td><code>LLMCouncil</code></td><td>Multi-judge consensus system</td></tr>
+                    <tr><td><code>numeric_aggregation.py</code></td><td>Pure numeric stat functions</td></tr>
+                    <tr><td><code>compute_stats()</code></td><td>Statistical aggregation helper</td></tr>
+                    <tr><td><code>compute_derived_rates()</code></td><td>Detection/mitigation rate calc</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="callout danger">
+            <p><strong>Safety Rule:</strong> Worst-case propagation for safety metrics — if <em>any</em> single run fails safety checks, the entire fault category is marked as failed.</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 16 — CERT BUILDER
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="cert_builder/ Module">
+        <h2>Module: <code>cert_builder/</code></h2>
+        <p class="slide-subtitle">Phase 3 — Transforms aggregated scorecard into a professional certification report.</p>
+
+        <div class="flow-diagram mb-24">
+            <div class="flow-step">
+                <div class="step-label">Stage 1</div>
+                <div class="step-title">Ingestion</div>
+                <div class="step-detail">Parse &amp; validate scorecard</div>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <div class="step-label">Stage 2</div>
+                <div class="step-title">Computation</div>
+                <div class="step-detail">Scorecards, tables, charts, cards</div>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <div class="step-label">Stage 3</div>
+                <div class="step-title">Narratives</div>
+                <div class="step-detail">LLM-generated analysis text</div>
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <div class="step-label">Stage 4</div>
+                <div class="step-title">Assembly</div>
+                <div class="step-detail">Merge into 12-section report</div>
+            </div>
+        </div>
+
+        <div class="cards-grid cols-2">
+            <div class="card">
+                <h3>Computation Builders (6)</h3>
+                <ul>
+                    <li><code>scorecard_builder</code> — Certification scorecard metrics</li>
+                    <li><code>table_builder</code> — 13 data tables</li>
+                    <li><code>chart_builder</code> — 9 visualizations (radar, bar, heatmap)</li>
+                    <li><code>assessment_formatter</code> — Per-category assessments</li>
+                    <li><code>hardcoded_loader</code> — Static YAML content</li>
+                    <li><code>card_builder</code> — 3 executive summary cards</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Narrative Builders (6)</h3>
+                <ul>
+                    <li><code>scope_narrative</code> — Certification scope paragraph</li>
+                    <li><code>key_findings</code> — 5-7 key findings</li>
+                    <li><code>qualitative</code> — 7-dimension qualitative analysis</li>
+                    <li><code>fault_analysis</code> — Per-category fault analysis</li>
+                    <li><code>limitation</code> — Enriched limitations list</li>
+                    <li><code>recommendation</code> — Prioritized recommendations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 17 — SECTION: DOCUMENTATION
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Documentation">
+        <div class="section-num">05</div>
+        <h2>Documentation Landscape</h2>
+        <p>Where to find information — wiki, API spec, and module docs.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 18 — DOCUMENTATION MAP
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Documentation Map">
+        <h2>Documentation Map</h2>
+        <p class="slide-subtitle">Three layers of documentation: methodology wiki, API spec, and per-module docs.</p>
+
+        <div class="cards-grid cols-3">
+            <div class="card accent-left">
+                <h3>AgentCert Wiki</h3>
+                <p style="margin-bottom:10px"><code>AgentCert.wiki/</code></p>
+                <h4>01 — Foundations</h4>
+                <ul>
+                    <li>Experimentation Principles</li>
+                    <li>Global Methods &amp; Standards</li>
+                    <li>Fault Taxonomy (Network, Compute, Application, DB/Storage, Security)</li>
+                    <li>Log Preprocessing &amp; Assumptions</li>
+                </ul>
+                <h4>02 — Metrics</h4>
+                <ul>
+                    <li>5 metric categories with definitions</li>
+                </ul>
+                <h4>03 — Experimentation</h4>
+                <ul>
+                    <li>Fault Configuration</li>
+                    <li>Metrics Extraction from Traces</li>
+                    <li>Aggregation Methods</li>
+                    <li>Fault Experiment Records</li>
+                </ul>
+                <h4>04 — Certification</h4>
+                <ul>
+                    <li>Final certification categories &amp; verdict</li>
+                </ul>
+            </div>
+            <div class="card accent-left-green">
+                <h3>API Specification</h3>
+                <p style="margin-bottom:10px"><code>api-spec.md</code></p>
+                <h4>Endpoint 1</h4>
+                <p><code>POST /api/v1/bucketing-extraction</code></p>
+                <ul>
+                    <li>Input: trace file, batch size, store flag</li>
+                    <li>Output: per-fault metrics + token usage</li>
+                </ul>
+                <h4>Endpoint 2</h4>
+                <p><code>POST /api/v1/aggregation-certification</code></p>
+                <ul>
+                    <li>Input: metrics files/dir, agent info, runs_per_fault</li>
+                    <li>Output: aggregated scorecard + certification report</li>
+                </ul>
+                <h4>main/docs/</h4>
+                <ul>
+                    <li>API_1_FAULT_PROFILING_API.md</li>
+                    <li>API_2_CERTIFICATION_BUILDER_API.md</li>
+                </ul>
+            </div>
+            <div class="card accent-left-orange">
+                <h3>Module-Level Docs</h3>
+                <p style="margin-bottom:10px">Each module has its own <code>docs/</code></p>
+                <h4>fault_analyzer</h4>
+                <ul>
+                    <li><code>fault_bucketing.md</code> — 3-layer architecture, data flow, config</li>
+                </ul>
+                <h4>metrics_extractor</h4>
+                <ul>
+                    <li><code>metric_extraction_from_trace.md</code> — Batch extraction, schema, CLI</li>
+                </ul>
+                <h4>aggregator</h4>
+                <ul>
+                    <li><code>aggregation.md</code> — LLM Council, numeric aggregation, safety rules</li>
+                </ul>
+                <h4>cert_builder</h4>
+                <ul>
+                    <li><code>architecture.md</code> — 4-phase migration, OOP design, data flow</li>
+                    <li>14 additional requirement docs for each builder</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 19 — WIKI DEEP DIVE
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Wiki Structure">
+        <h2>AgentCert Wiki — Methodology Structure</h2>
+        <p class="slide-subtitle">The wiki defines the scientific foundation and standards behind every pipeline decision.</p>
+
+        <div class="tree mb-24">
+<span class="folder">AgentCert.wiki/</span>
+├── <span class="file">Methodologies.md</span>                           <span class="desc"># Main index / entry point</span>
+├── <span class="folder">Methodologies/</span>
+│   ├── <span class="folder">01-Foundations/</span>
+│   │   ├── <span class="file">1.1-Experimentation-Principles.md</span>       <span class="desc"># Core assumptions</span>
+│   │   ├── <span class="file">1.2-Global-Methods-&amp;-Standards.md</span>      <span class="desc"># Why &amp; how metrics are calculated</span>
+│   │   ├── <span class="file">1.3-Fault-Taxonomy.md</span>                  <span class="desc"># 5 fault categories</span>
+│   │   └── <span class="file">1.4-Log-Preprocessing-&amp;-Assumptions.md</span> <span class="desc"># Trace collection &amp; bucketing algo</span>
+│   ├── <span class="file">02-Metrics.md</span>                              <span class="desc"># 5 metric category definitions</span>
+│   ├── <span class="folder">03-Experimentation/</span>
+│   │   ├── <span class="file">3.0-Fault-configuration.md</span>             <span class="desc"># Ground truth schema</span>
+│   │   ├── <span class="file">3.1-Metrics-Extraction-from-Traces.md</span>  <span class="desc"># LLM batch pipeline spec</span>
+│   │   ├── <span class="file">3.2-Aggregation.md</span>                     <span class="desc"># Multi-run aggregation rules</span>
+│   │   └── <span class="file">3.4-Fault-Experiment-Records.md</span>        <span class="desc"># Record format for experiments</span>
+│   └── <span class="file">04-Certification.md</span>                        <span class="desc"># Verdict: Certified / Not Certified</span>
+└── <span class="folder">Older_Versions/</span>                             <span class="desc"># Archive of previous iterations</span>
+        </div>
+
+        <div class="callout info">
+            <p><strong>Start Here:</strong> Read <code>00-How-to-Read-This-Wiki.md</code> first. It explains the wiki's purpose, what it covers, and how experiments connect to certification decisions.</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 20 — FAULT TAXONOMY
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Fault Taxonomy">
+        <h2>Fault Taxonomy</h2>
+        <p class="slide-subtitle">Standard fault categories used across all AgentCert experiments, defined in the wiki.</p>
+
+        <div class="cards-grid cols-3 mb-16">
+            <div class="card accent-left">
+                <h3>Network Faults</h3>
+                <ul>
+                    <li>Pod network loss</li>
+                    <li>Pod network latency</li>
+                    <li>DNS failures</li>
+                    <li>Network partition</li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <h3>Compute Faults</h3>
+                <ul>
+                    <li>CPU stress</li>
+                    <li>Memory pressure</li>
+                    <li>Pod kill / restart</li>
+                    <li>Node drain</li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <h3>Application Faults</h3>
+                <ul>
+                    <li>Service crashes</li>
+                    <li>Configuration errors</li>
+                    <li>Dependency failures</li>
+                    <li>Deployment rollbacks</li>
+                </ul>
+            </div>
+        </div>
+        <div class="cards-grid cols-2">
+            <div class="card accent-left-orange">
+                <h3>Database / Storage Faults</h3>
+                <ul>
+                    <li>Disk fill</li>
+                    <li>Database connection loss</li>
+                    <li>Storage latency</li>
+                    <li>Data corruption scenarios</li>
+                </ul>
+            </div>
+            <div class="card accent-left-red">
+                <h3>Security / Adversarial Faults</h3>
+                <ul>
+                    <li>Malicious prompt injection</li>
+                    <li>PII exposure scenarios</li>
+                    <li>Authentication failures</li>
+                    <li>Unauthorized access attempts</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 21 — SECTION: API ENDPOINTS
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: API Endpoints">
+        <div class="section-num">06</div>
+        <h2>API Endpoints</h2>
+        <p>Two REST endpoints that expose the AgentCert pipelines.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 22 — API OVERVIEW
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="API Endpoints">
+        <h2>REST API Endpoints</h2>
+        <p class="slide-subtitle">Two endpoints map directly to the two pipeline runners.</p>
+
+        <div class="cards-grid cols-2 mb-24">
+            <div class="card accent-left">
+                <div class="pill blue">Endpoint 1</div>
+                <h3>POST /api/v1/bucketing-extraction</h3>
+                <h4>Request (multipart/form-data)</h4>
+                <table class="info-table">
+                    <tr><th>Field</th><th>Type</th><th>Required</th></tr>
+                    <tr><td><code>trace_file</code></td><td>file (JSON)</td><td>Yes</td></tr>
+                    <tr><td><code>batch_size</code></td><td>integer</td><td>No (default: 10)</td></tr>
+                    <tr><td><code>store_to_mongodb</code></td><td>boolean</td><td>No (default: false)</td></tr>
+                </table>
+                <h4>Response</h4>
+                <ul>
+                    <li>Per-fault extraction results</li>
+                    <li>Quantitative + qualitative metrics</li>
+                    <li>Bucketing &amp; extraction token usage</li>
+                </ul>
+            </div>
+            <div class="card accent-left-green">
+                <div class="pill">Endpoint 2</div>
+                <h3>POST /api/v1/aggregation-certification</h3>
+                <h4>Request (multipart/form-data or JSON)</h4>
+                <table class="info-table">
+                    <tr><th>Field</th><th>Type</th><th>Required</th></tr>
+                    <tr><td><code>metrics_files</code> or <code>metrics_dir</code></td><td>files[] / string</td><td>Yes</td></tr>
+                    <tr><td><code>agent_id</code></td><td>string</td><td>Yes</td></tr>
+                    <tr><td><code>agent_name</code></td><td>string</td><td>Yes</td></tr>
+                    <tr><td><code>runs_per_fault</code></td><td>integer</td><td>No (default: 30)</td></tr>
+                </table>
+                <h4>Response</h4>
+                <ul>
+                    <li>Aggregated scorecard with category breakdowns</li>
+                    <li>Full certification report (12 sections)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="callout">
+            <p><strong>Auth:</strong> TBD — endpoints should be protected (API key / OAuth). <strong>Error codes:</strong> 200, 400, 404, 422, 500.</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 23 — SECTION: DESIGN PRINCIPLES
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Design Principles">
+        <div class="section-num">07</div>
+        <h2>Key Design Principles</h2>
+        <p>Fundamental architectural decisions that shape how every module works.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 24 — DESIGN PRINCIPLES
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Design Principles">
+        <h2>Design Principles</h2>
+        <p class="slide-subtitle">These principles are non-negotiable and inform every code decision.</p>
+
+        <div class="cards-grid cols-2">
+            <div class="card accent-left">
+                <h3>LLM Never Does Math</h3>
+                <p>All numeric operations (sums, ratios, averages, percentiles, rates) are executed in <strong>deterministic Python code</strong>. The LLM extracts values; code aggregates them. This eliminates hallucinated calculations.</p>
+            </div>
+            <div class="card accent-left">
+                <h3>Hybrid Aggregation</h3>
+                <p>LLM extracts per-batch qualitative values. <strong>Code aggregates all numerics.</strong> Textual synthesis uses an LLM Council (k judges + meta-judge) to reduce single-model bias.</p>
+            </div>
+            <div class="card accent-left-orange">
+                <h3>Worst-Case Safety Propagation</h3>
+                <p>If <strong>any single run</strong> fails a safety check (RAI, PII, security), the entire fault category is marked as failed. Safety is never averaged — it's a strict boolean gate.</p>
+            </div>
+            <div class="card accent-left-green">
+                <h3>Statistical Rigor (~30 Runs Per Fault)</h3>
+                <p>Each fault is repeated ~30 times to capture variance. This gives enough samples for meaningful means, percentiles, and confidence intervals rather than anecdotal single-run results.</p>
+            </div>
+            <div class="card accent-left">
+                <h3>Ground Truth Comparison</h3>
+                <p>Fault configuration provides ground truth that the agent never sees. This allows objective measurement of detection accuracy, root cause identification, and mitigation correctness.</p>
+            </div>
+            <div class="card accent-left">
+                <h3>Modular Pipeline, Explicit Interfaces</h3>
+                <p>No shared state or global singletons. Each phase receives explicit inputs and returns explicit outputs. Builder scripts are plain functions. Only assemblers and the pipeline orchestrator use classes.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 25 — SECTION: TECH STACK
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Technology Stack">
+        <div class="section-num">08</div>
+        <h2>Technology Stack</h2>
+        <p>Languages, frameworks, services, and key dependencies.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 26 — TECH STACK
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Technology Stack">
+        <h2>Technology Stack &amp; Dependencies</h2>
+        <p class="slide-subtitle">Key technologies from <code>requirements.txt</code> and the codebase.</p>
+
+        <div class="cards-grid cols-3 mb-16">
+            <div class="card accent-left">
+                <h3>Core Framework</h3>
+                <ul>
+                    <li><strong>Python</strong> — Primary language</li>
+                    <li><strong>FastAPI</strong> — REST API framework</li>
+                    <li><strong>Uvicorn</strong> — ASGI server</li>
+                    <li><strong>Pydantic</strong> — Data validation &amp; schemas</li>
+                    <li><strong>asyncio / aiohttp</strong> — Async operations</li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <h3>AI / LLM Services</h3>
+                <ul>
+                    <li><strong>Azure OpenAI</strong> — LLM inference</li>
+                    <li><strong>OpenAI SDK</strong> — API client</li>
+                    <li><strong>Azure AI Content Safety</strong> — RAI checks</li>
+                    <li><strong>Embeddings</strong> — Vector search (1536 dim)</li>
+                    <li><strong>Langfuse</strong> — Trace collection</li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <h3>Data &amp; Storage</h3>
+                <ul>
+                    <li><strong>MongoDB</strong> (pymongo + motor) — Metrics storage</li>
+                    <li><strong>Azure Blob Storage</strong> — File storage</li>
+                    <li><strong>Azure Search</strong> — Vector search index</li>
+                    <li><strong>JSON / YAML</strong> — Config &amp; data formats</li>
+                    <li><strong>NumPy</strong> — Numeric computation</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="cards-grid cols-2">
+            <div class="card accent-left-orange">
+                <h3>Azure Services</h3>
+                <ul>
+                    <li><code>azure-ai-agents</code> — Agent framework integration</li>
+                    <li><code>azure-ai-contentsafety</code> — Content safety checks</li>
+                    <li><code>azure-identity</code> — Azure authentication</li>
+                    <li><code>azure-storage-blob</code> — Blob storage operations</li>
+                    <li><code>azure-monitor-opentelemetry</code> — Telemetry</li>
+                </ul>
+            </div>
+            <div class="card accent-left-green">
+                <h3>Dev &amp; Utilities</h3>
+                <ul>
+                    <li><code>python-dotenv</code> — Environment variable management</li>
+                    <li><code>beautifulsoup4</code> / <code>lxml</code> — HTML parsing</li>
+                    <li><code>requests</code> — HTTP client</li>
+                    <li><code>mcp</code> — Model Context Protocol</li>
+                    <li><code>agent-framework</code> — Agent integration</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 27 — SECTION: UTILS & CONFIG
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Utilities & Config">
+        <div class="section-num">09</div>
+        <h2>Shared Utilities &amp; Configuration</h2>
+        <p>The common infrastructure layer that all modules depend on.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 28 — UTILS & CONFIG
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Utils & Config Details">
+        <h2>Utilities &amp; Configuration</h2>
+        <p class="slide-subtitle">Shared infrastructure used across all pipeline modules.</p>
+
+        <div class="cards-grid cols-2 mb-16">
+            <div class="card">
+                <h3><code>utils/</code> — 8 Utility Modules</h3>
+                <table class="info-table">
+                    <tr><th>File</th><th>Purpose</th></tr>
+                    <tr><td><code>azure_openai_util.py</code></td><td>Azure LLM client for API calls</td></tr>
+                    <tr><td><code>mongodb_util.py</code></td><td>MongoDB client for metrics storage</td></tr>
+                    <tr><td><code>load_config.py</code></td><td>Config loader from <code>configs.json</code></td></tr>
+                    <tr><td><code>file_storage.py</code></td><td>Azure Blob Storage operations</td></tr>
+                    <tr><td><code>embedding.py</code></td><td>Embedding generation &amp; vector ops</td></tr>
+                    <tr><td><code>rai_util.py</code></td><td>Responsible AI utilities</td></tr>
+                    <tr><td><code>setup_logging.py</code></td><td>Centralized logging setup</td></tr>
+                    <tr><td><code>custom_errors.py</code></td><td>Custom exception definitions</td></tr>
+                </table>
+            </div>
+            <div class="card">
+                <h3><code>configs/configs.json</code> — Global Config</h3>
+                <h4>MongoDB</h4>
+                <ul>
+                    <li>Connection string (env var reference)</li>
+                    <li>Database name, collection mappings</li>
+                </ul>
+                <h4>LLM Models</h4>
+                <ul>
+                    <li><strong>embedding_model</strong> — Azure Embedding endpoint</li>
+                    <li><strong>extraction_model</strong> — Standard Azure OpenAI model</li>
+                    <li><strong>reasoning_model</strong> — O1-style reasoning model</li>
+                </ul>
+                <h4>Storage</h4>
+                <ul>
+                    <li>Azure Blob Storage connection (env var)</li>
+                    <li>Vector Search: index name, dimensions (1536), cosine similarity</li>
+                </ul>
+                <h4>Environment</h4>
+                <ul>
+                    <li><code>.env</code> at repo root for secrets</li>
+                    <li><code>.env.example</code> for template</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 29 — DATA DIRECTORY
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Data Directory">
+        <h2>Data Directory &amp; Artifacts</h2>
+        <p class="slide-subtitle">Where input traces, intermediate outputs, and final reports live.</p>
+
+        <div class="cards-grid cols-2 mb-16">
+            <div class="card">
+                <h3><code>data/</code> — Contents</h3>
+                <div class="tree" style="font-size:13px; padding:14px;">
+<span class="folder">data/</span>
+├── <span class="folder">fault_configs/</span>          <span class="desc"># Fault configuration files</span>
+├── <span class="folder">langfuse_minio_traces/</span>  <span class="desc"># Trace data from Langfuse</span>
+├── <span class="folder">original_trace/</span>         <span class="desc"># Original trace backups</span>
+├── <span class="folder">reports/</span>                <span class="desc"># Generated certification reports</span>
+├── <span class="file">traces.json</span>              <span class="desc"># Current trace (873KB)</span>
+├── <span class="file">traces_new.json</span>          <span class="desc"># New trace data (1.2MB)</span>
+├── <span class="file">sample_expected_trace_main_elements.json</span>
+└── <span class="file">app.log</span>                  <span class="desc"># Application logs</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Artifact Flow Through Pipeline</h3>
+                <table class="info-table">
+                    <tr><th>Stage</th><th>Input</th><th>Output</th></tr>
+                    <tr><td>Fault Bucketing</td><td>Raw Langfuse trace JSON</td><td>Per-fault bucket JSONs + manifest</td></tr>
+                    <tr><td>Metrics Extraction</td><td>Per-fault bucket</td><td><code>*_metrics.json</code></td></tr>
+                    <tr><td>Aggregation</td><td>~30 metrics files per fault</td><td><code>aggregated_scorecard.json</code></td></tr>
+                    <tr><td>Cert Builder</td><td>Aggregated scorecard</td><td><code>certification_report.json</code></td></tr>
+                </table>
+                <div class="callout info" style="margin-top:14px">
+                    <p><strong>Debug Mode:</strong> When <code>debug=True</code>, intermediate artifacts are written at each stage for inspection.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 30 — SECTION: EXPECTED OUTCOMES
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-section" data-title="Section: Wrap-Up">
+        <div class="section-num">10</div>
+        <h2>Session Wrap-Up</h2>
+        <p>Expected outcomes, suggested reading, and what comes next.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 31 — EXPECTED OUTCOMES
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="Expected Outcomes">
+        <h2>Day 1 — Expected Outcomes</h2>
+        <p class="slide-subtitle">By the end of this session, you should be able to:</p>
+
+        <div class="cards-grid cols-2 mb-24">
+            <div class="card accent-left-green">
+                <h3>You Should Be Able To...</h3>
+                <ol>
+                    <li><strong>Explain</strong> what AgentCert does and why it exists</li>
+                    <li><strong>Identify</strong> the 4 core modules and their responsibilities</li>
+                    <li><strong>Describe</strong> the end-to-end data flow from trace to certification</li>
+                    <li><strong>Navigate</strong> the repository structure and find relevant documentation</li>
+                    <li><strong>Name</strong> the key technology choices (Azure OpenAI, MongoDB, FastAPI)</li>
+                    <li><strong>Explain</strong> why the LLM never does math and why safety uses worst-case propagation</li>
+                </ol>
+            </div>
+            <div class="card">
+                <h3>Suggested Reading After Today</h3>
+                <ul>
+                    <li><code>AgentCert.wiki/Methodologies/00-How-to-Read-This-Wiki.md</code></li>
+                    <li><code>api-spec.md</code> — Full API specification</li>
+                    <li><code>cert_builder/docs/architecture.md</code> — Certification builder architecture</li>
+                    <li><code>AgentCert.wiki/Methodologies/02-Metrics.md</code> — Metric definitions</li>
+                    <li><code>AgentCert.wiki/Methodologies/01-Foundations/1.3-Fault-Taxonomy.md</code> — Fault categories</li>
+                </ul>
+                <h4 style="margin-top:16px">Optional Deep-Dives</h4>
+                <ul>
+                    <li>Browse <code>data/</code> to see sample trace structures</li>
+                    <li>Browse <code>configs/configs.json</code> for model/DB configuration</li>
+                    <li>Look at <code>requirements.txt</code> to understand the dependency tree</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 32 — WHAT'S NEXT
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide" data-title="What's Next">
+        <h2>What's Coming Next</h2>
+        <p class="slide-subtitle">Preview of the remaining KT sessions.</p>
+
+        <div class="cards-grid cols-2 mb-24">
+            <div class="card accent-left">
+                <div class="pill blue">Day 2 — Tomorrow</div>
+                <h3>Fault Bucketing &amp; Trace Understanding</h3>
+                <p>Deep-dive into how raw Langfuse traces become per-fault buckets. Hands-on walkthrough with sample data.</p>
+                <h4>Key Files</h4>
+                <ul>
+                    <li><code>fault_analyzer/docs/fault_bucketing.md</code></li>
+                    <li><code>run_bucketing_and_extraction_pipeline.py</code></li>
+                    <li>Sample traces in <code>data/</code></li>
+                </ul>
+            </div>
+            <div class="card accent-left">
+                <div class="pill blue">Day 3</div>
+                <h3>Metrics Extraction</h3>
+                <p>How each fault bucket becomes quantitative + qualitative metrics through LLM extraction and code aggregation.</p>
+            </div>
+            <div class="card accent-left-green">
+                <div class="pill">Day 4</div>
+                <h3>Aggregation &amp; Certification</h3>
+                <p>Multi-run scorecards, LLM Council, and the 4-phase certification builder.</p>
+            </div>
+            <div class="card accent-left-orange">
+                <div class="pill" style="background:#fff7e8;color:var(--warning);border-color:rgba(192,122,18,0.18)">Day 5</div>
+                <h3>Operations &amp; Readiness</h3>
+                <p>Testing, debugging, shared utilities, and preparation for reverse KT.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SLIDE 33 — Q&A
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="slide slide-title-page" data-title="Q&A" style="background: linear-gradient(135deg, var(--primary-deeper), #1a6fa0) !important;">
+        <div class="eyebrow">Day 1 Complete</div>
+        <h1>Questions &amp; Discussion</h1>
+        <p class="subtitle">Take time to review the suggested reading materials before tomorrow's session on Fault Bucketing.</p>
+        <div class="meta-row" style="margin-top:24px">
+            <span><strong>Next Session:</strong> Day 2 — Fault Bucketing &amp; Trace Understanding</span>
+            <span><strong>Date:</strong> April 14, 2026</span>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     NAVIGATION BAR
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="nav-bar">
+    <button onclick="prevSlide()" id="btnPrev">&larr; Previous</button>
+    <span class="slide-title-bar" id="slideTitle"></span>
+    <span class="slide-counter" id="slideCounter"></span>
+    <button onclick="nextSlide()" id="btnNext">Next &rarr;</button>
+</div>
+
+<script>
+    const slides = document.querySelectorAll('.slide');
+    let current = 0;
+
+    function showSlide(n) {
+        slides[current].classList.remove('active');
+        current = Math.max(0, Math.min(n, slides.length - 1));
+        slides[current].classList.add('active');
+        updateUI();
+    }
+
+    function nextSlide() { showSlide(current + 1); }
+    function prevSlide() { showSlide(current - 1); }
+
+    function updateUI() {
+        document.getElementById('slideCounter').textContent =
+            `${current + 1} / ${slides.length}`;
+        document.getElementById('slideTitle').textContent =
+            slides[current].getAttribute('data-title') || '';
+        document.getElementById('progressBar').style.width =
+            `${((current + 1) / slides.length) * 100}%`;
+        document.getElementById('btnPrev').disabled = current === 0;
+        document.getElementById('btnNext').disabled = current === slides.length - 1;
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+        if (e.key === 'Home') { e.preventDefault(); showSlide(0); }
+        if (e.key === 'End') { e.preventDefault(); showSlide(slides.length - 1); }
+    });
+
+    updateUI();
+</script>
+
+</body>
+</html>

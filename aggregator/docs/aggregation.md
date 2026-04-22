@@ -65,7 +65,7 @@ All module-specific settings are in `config/aggregation_config.json`:
 | Key | Default | Description |
 |-----|---------|-------------|
 | `llm_council.council_size` | `3` | Number of independent LLM judges (k) |
-| `llm_council.model_name` | `"extraction_model"` | Model key in `configs.json` |
+| `llm_council.model_name` | `"gpt-4o"` | Model key in `configs.json` |
 | `llm_council.judge_temperature` | `0.3` | Temperature for individual judges |
 | `llm_council.judge_max_tokens` | `1500` | Max tokens per judge response |
 | `llm_council.meta_judge_temperature` | `0.1` | Temperature for meta-reconciliation judge |

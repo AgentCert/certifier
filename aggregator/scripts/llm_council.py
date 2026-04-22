@@ -82,7 +82,7 @@ class LLMCouncil:
         elif config.get("council_members"):
             self.council_members = list(config["council_members"])
         else:
-            fallback = model_name or config.get("model_name", "extraction_model")
+            fallback = model_name or config.get("model_name", "gpt-4o")
             self.council_members = [fallback] * self.council_size
 
         # Meta-judge / scorecard synthesis model
@@ -94,6 +94,27 @@ class LLMCouncil:
 
         # Backward-compat: keep model_name pointing to the first member
         self.model_name = self.council_members[0]
+
+    # ---- model info ------------------------------------------------------
+
+    def get_council_model_info(self, model_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return deployment metadata for all council members and the meta model."""
+        info = {}
+        for i, member_model in enumerate(self.council_members, start=1):
+            cfg = model_config.get(member_model, {})
+            info[f"member_{i}"] = {
+                "model_name": member_model,
+                "deployment_name": cfg.get("deployment_name", "unknown"),
+                "api_version": cfg.get("api_version", "unknown"),
+            }
+
+        meta_cfg = model_config.get(self.meta_judge_model, {})
+        info["meta_model"] = {
+            "model_name": self.meta_judge_model,
+            "deployment_name": meta_cfg.get("deployment_name", "unknown"),
+            "api_version": meta_cfg.get("api_version", "unknown"),
+        }
+        return info
 
     # ---- single judge ----------------------------------------------------
 

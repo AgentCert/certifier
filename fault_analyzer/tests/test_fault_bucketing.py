@@ -253,7 +253,7 @@ class TestConfigAndPromptLoading:
         config = _load_module_config()
         assert "classifier" in config
         assert "pipeline" in config
-        assert config["classifier"]["model_name"] == "extraction_model"
+        assert config["classifier"]["model_name"] == "gpt-4o"
         assert config["classifier"]["temperature"] == 0.1
         assert config["classifier"]["max_tokens"] == 4000
         assert config["classifier"]["fallback_confidence"] == 0.3
@@ -281,7 +281,7 @@ class TestFaultEventClassifier:
 
     def test_init_loads_config(self):
         classifier = self._make_classifier()
-        assert classifier._model_name == "extraction_model"
+        assert classifier._model_name == "gpt-4o"
         assert classifier._temperature == 0.1
         assert classifier._max_tokens == 4000
         assert classifier._fallback_confidence == 0.3

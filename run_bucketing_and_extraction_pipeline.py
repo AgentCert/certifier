@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -63,10 +64,7 @@ async def run_pipeline(
             config = {}
     config = config or {}
 
-    output_path = Path(output_dir)
-    buckets_dir = output_path / "fault_buckets"
-    metrics_dir = output_path / "metrics"
-    metrics_dir.mkdir(parents=True, exist_ok=True)
+    base_output = Path(output_dir)
 
     # ------------------------------------------------------------------
     # Step 1: Fault Bucketing
@@ -75,9 +73,12 @@ async def run_pipeline(
     logger.info("STEP 1: Fault Bucketing")
     logger.info("=" * 60)
 
+    # Run bucketing to a temporary location; experiment_id is only known
+    # after the pipeline parses the trace.
+    temp_buckets_dir = base_output / "fault_buckets"
     pipeline = FaultBucketingPipeline(
         trace_file_path=trace_file,
-        output_dir=str(buckets_dir),
+        output_dir=str(temp_buckets_dir),
         config=config,
         batch_size=batch_size,
     )
@@ -86,6 +87,31 @@ async def run_pipeline(
     if not buckets:
         logger.warning("No fault buckets produced. Nothing to extract.")
         return []
+
+    # Resolve output path with experiment_id extracted from the trace
+    experiment_id = pipeline.experiment_id
+    if experiment_id:
+        output_path = base_output / experiment_id
+    else:
+        output_path = base_output
+
+    buckets_dir = output_path / "fault_buckets"
+    metrics_dir = output_path / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    # Move bucket files into the experiment_id-scoped directory
+    if temp_buckets_dir != buckets_dir:
+        if buckets_dir.exists():
+            shutil.rmtree(buckets_dir)
+        shutil.move(str(temp_buckets_dir), str(buckets_dir))
+
+        # Move ground_truth folder (written as sibling of fault_buckets)
+        temp_gt_dir = temp_buckets_dir.parent / "ground_truth"
+        if temp_gt_dir.exists():
+            final_gt_dir = output_path / "ground_truth"
+            if final_gt_dir.exists():
+                shutil.rmtree(final_gt_dir)
+            shutil.move(str(temp_gt_dir), str(final_gt_dir))
 
     logger.info(
         f"Fault bucketing produced {len(buckets)} bucket(s). "

@@ -82,7 +82,7 @@ async def run_pipeline(
             config = {}
     config = config or {}
 
-    output_path = Path(output_dir)
+    output_path = (Path(output_dir) / certification_run_id) if certification_run_id else Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     llm_client = AzureLLMClient(config=config) if AzureLLMClient else None

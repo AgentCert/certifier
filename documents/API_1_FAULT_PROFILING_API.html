@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fault Profiling API - API 1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1a73e8;
+            border-bottom: 3px solid #1a73e8;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #1a73e8;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid #1a73e8;
+            padding-left: 10px;
+        }
+
+        h3 {
+            color: #34a853;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .api-info {
+            background: #f0f7ff;
+            border-left: 4px solid #1a73e8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .endpoint {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #1a73e8;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .parameter {
+            background: #f9f9f9;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #34a853;
+            border-radius: 3px;
+        }
+
+        .success {
+            background: #e6f7f3;
+            border-left-color: #34a853;
+        }
+
+        .error {
+            background: #fce4e4;
+            border-left-color: #d32f2f;
+        }
+
+        .step {
+            background: #f0f7ff;
+            border: 1px solid #1a73e8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .step-title {
+            color: #1a73e8;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .note {
+            background: #fff9e6;
+            border-left: 4px solid #ffb300;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .storage-structure {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fault Profiling API</h1>
+        <p><strong>API 1: POST /api/v1/bucketing-extraction</strong></p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Overview</h2>
+        <p>This API extracts fault buckets and metrics from a single agent run trace. It performs fault classification using LLM batch processing, extracts quantitative and qualitative metrics, and stores results in blob storage with optional MongoDB metadata.</p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>API Endpoint</h2>
+        <div class="endpoint">POST /api/v1/bucketing-extraction</div>
+
+        <h3>Purpose</h3>
+        <p>Extract fault buckets and metrics from a single trace for fault profiling and analysis.</p>
+
+        <h2>Request</h2>
+        <pre><code>{
+  "agent_id": "agent_v2_4_1",
+  "experiment_id": "exp_001",
+  "run_id": "run_001",
+  "trace_file_path": "s3://bucket/traces/trace.json",
+  "llm_batch_size": 5,
+  "storage_config": {
+    "type": "blob_storage | mongodb | hybrid",
+    "container_name": "cert-artifacts"
+  }
+}</code></pre>
+
+        <h3>Parameters</h3>
+        <div class="parameter">
+            <code>agent_id</code> (required): Agent identifier
+        </div>
+        <div class="parameter">
+            <code>experiment_id</code> (required): Experiment identifier
+        </div>
+        <div class="parameter">
+            <code>run_id</code> (required): Run identifier
+        </div>
+        <div class="parameter">
+            <code>trace_file_path</code> (required): Path to trace file (local or remote)
+        </div>
+        <div class="parameter">
+            <code>llm_batch_size</code> (optional): Batch size for LLM fault classification (default: 5)
+        </div>
+        <div class="parameter">
+            <code>storage_config.type</code> (required): <code>blob_storage</code> | <code>mongodb</code> | <code>hybrid</code>
+        </div>
+        <div class="parameter">
+            <code>storage_config.container_name</code> (required): Azure blob container or MongoDB database name
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong>
+            <ul>
+                <li>API loads trace from file_path as dictionary</li>
+                <li>Storage credentials loaded from application config/KeyVault at startup</li>
+            </ul>
+        </div>
+
+        <h2>Response (Success - 200)</h2>
+        <pre><code>{
+  "status": "success",
+  "data": {
+    "extraction_id": "uuid",
+    "agent_id": "agent_v2_4_1",
+    "experiment_id": "exp_001",
+    "run_id": "run_001",
+    "total_logs": 1523,
+    "total_faults_detected": 3,
+    "faults": [
+      {
+        "fault_id": "pod-delete",
+        "fault_name": "Pod Deletion",
+        "severity": "critical",
+        "status": "closed",
+        "detected_at": "2026-04-03T10:30:02Z",
+        "mitigated_at": "2026-04-03T10:35:10Z"
+      }
+    ],
+    "storage_paths": {
+      "fault_buckets_dir": "cert-artifacts/agent_v2_4_1/exp_001/run_001/fault_buckets/",
+      "metrics_dir": "cert-artifacts/agent_v2_4_1/exp_001/run_001/metrics/",
+      "manifest": "cert-artifacts/agent_v2_4_1/exp_001/run_001/manifest.json",
+      "logs": "cert-artifacts/agent_v2_4_1/exp_001/run_001/pipeline.log"
+    }
+  }
+}</code></pre>
+
+        <h2>Response (Error - 400/500)</h2>
+        <pre><code>{
+  "status": "error",
+  "error_code": "INVALID_REQUEST | TRACE_NOT_FOUND | BUCKETING_FAILED | METRICS_EXTRACTION_FAILED | STORAGE_ERROR | MONGODB_ERROR",
+  "message": "Human-readable error message",
+  "details": {
+    "failed_stage": "validation | trace_loading | bucketing | metrics_extraction | storage | mongodb_storage",
+    "error": "..."
+  }
+}</code></pre>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Processing Steps</h2>
+
+        <div class="step">
+            <div class="step-title">Step 1: Validate Input</div>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Validate: agent_id, experiment_id, run_id, trace_file_path provided; storage_config valid</li>
+                <li>Output: Validated inputs</li>
+                <li>Logs: "Input validation passed"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 2: Load Trace</div>
+            <p><strong>Input:</strong> trace_file_path</p>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Load trace JSON/dict from file_path</li>
+                <li>Parse trace structure</li>
+            </ul>
+            <p><strong>Output:</strong> trace dict</p>
+            <p><strong>Logs:</strong> "Loaded trace", "Total logs: {count}"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 3: Fault Bucketing</div>
+            <p><strong>Input:</strong> trace dict, llm_batch_size</p>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>Extract FAULT_DATA events from trace logs</li>
+                <li>Batch events by llm_batch_size</li>
+                <li>Classify each batch via LLM to identify fault types and severities</li>
+                <li>Group logs into fault buckets by fault_id</li>
+            </ul>
+            <p><strong>Output:</strong> Dict[fault_id → FaultBucket]</p>
+            <p><strong>Logs:</strong> "Bucketed {n} events into {m} fault categories"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 4: Metric Extraction</div>
+            <p><strong>Input:</strong> Fault buckets dict, trace dict</p>
+            <p><strong>Process:</strong></p>
+            <ul>
+                <li>For each fault bucket:
+                    <ul>
+                        <li>Extract quantitative metrics (trajectory steps, tokens, tool calls, timing)</li>
+                        <li>Extract qualitative metrics (action correctness, response quality, reasoning quality, hallucination detection, PII detection)</li>
+                        <li>Support LLM-based extraction with token tracking</li>
+                    </ul>
+                </li>
+            </ul>
+            <p><strong>Output:</strong> Dict[fault_id → ExtractedMetrics]</p>
+            <p><strong>Logs:</strong> "Extracted metrics for {n} faults", "Total tokens used: {count}"</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 5: Store Artifacts to Blob Storage</div>
+            <ul>
+                <li>Store: fault_buckets/ → <code>{container}/{agent_id}/{experiment_id}/{run_id}/fault_buckets/bucket_{fault_id}.json</code></li>
+                <li>Store: metrics/ → <code>{container}/{agent_id}/{experiment_id}/{run_id}/metrics/metrics_{fault_id}.json</code></li>
+                <li>Store: manifest.json → <code>{container}/{agent_id}/{experiment_id}/{run_id}/manifest.json</code></li>
+                <li>Store: pipeline.log → <code>{container}/{agent_id}/{experiment_id}/{run_id}/pipeline.log</code></li>
+                <li>Logs: "Stored fault buckets", "Stored metrics"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 6: Store Metrics to MongoDB</div>
+            <p><em>(if storage_config.type = mongodb | hybrid)</em></p>
+            <ul>
+                <li>For each fault, insert a combined document into the <code>agent_run_metrics</code> collection containing quantitative metrics, qualitative metrics, optional embedding, and pipeline metadata</li>
+                <li>Top-level fields (<code>experiment_id</code>, <code>fault_category</code>, <code>fault_name</code>, <code>agent_id</code>, <code>run_id</code>) are extracted from quantitative data for indexed queries</li>
+                <li>If a document with the same <code>experiment_id</code> already exists, it is replaced (upsert behavior)</li>
+                <li>Logs: "Inserted combined metrics", "Stored extraction metadata"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Step 7: Return Response</div>
+            <ul>
+                <li>Collect artifact paths</li>
+                <li>Return extraction_id and storage_paths</li>
+                <li>Return HTTP 200</li>
+            </ul>
+        </div>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>MongoDB Schema</h2>
+        <p>Extracted metrics are stored in a single <code>agent_run_metrics</code> collection that combines quantitative and qualitative data per fault per run. One document is inserted for each fault detected in a run. If <code>storage_config.type</code> is <code>mongodb</code> or <code>hybrid</code>, the pipeline writes to this collection after blob storage.</p>
+
+        <h3>Collection: agent_run_metrics</h3>
+        <p>Stores combined quantitative and qualitative metrics for each extracted fault. Supports Atlas Vector Search for semantic similarity queries.</p>
+        <pre><code>{
+  "_id": "ObjectId",
+  "experiment_id": "exp_001",
+  "run_id": "run_001",
+  "agent_name": "agent_v2_4",
+  "agent_id": "agent_v2_4_1",
+  "fault_category": "compute",
+  "fault_name": "pod-delete",
+  "quantitative": {
+    "experiment_id": "exp_001",
+    "run_id": "run_001",
+    "agent_name": "agent_v2_4",
+    "agent_id": "agent_v2_4_1",
+    "fault_injection_time": "2026-04-03T10:00:00Z",
+    "agent_fault_detection_time": "2026-04-03T10:00:15Z",
+    "agent_fault_mitigation_time": "2026-04-03T10:01:30Z",
+    "time_to_detect": 15.0,
+    "time_to_mitigate": 90.0,
+    "fault_detected": "Misconfig",
+    "trajectory_steps": 12,
+    "input_tokens": 5000,
+    "output_tokens": 1500,
+    "injected_fault_name": "pod-delete",
+    "injected_fault_category": "compute",
+    "detected_fault_type": "pod-delete",
+    "fault_target_service": "payment-service",
+    "fault_namespace": "production",
+    "tool_calls": [
+      {
+        "tool_name": "get_logs",
+        "arguments": {"service": "payment-service"},
+        "was_successful": true,
+        "response_summary": "Retrieved logs",
+        "timestamp": "2026-04-03T10:00:10Z"
+      }
+    ]
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "No harmful content detected",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "No credentials exposed",
+    "reasoning_quality_score": 9.0,
+    "reasoning_quality_notes": "Clear and accurate reasoning",
+    "agent_summary": "Agent detected pod deletion in payment-service and remediated it."
+  },
+  "embedding": [0.012, -0.034, ...],
+  "metadata": {
+    "trace_file": "trace.json",
+    "total_spans": 12,
+    "extraction_token_usage": {
+      "input_tokens": 3000,
+      "output_tokens": 800,
+      "total_tokens": 3800
+    }
+  },
+  "created_at": "2026-04-03T10:30:00Z"
+}</code></pre>
+
+        <h4>Field Descriptions</h4>
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>experiment_id</code></td>
+                <td>String</td>
+                <td>Unique experiment identifier (top-level, extracted from quantitative data)</td>
+            </tr>
+            <tr>
+                <td><code>run_id</code></td>
+                <td>String</td>
+                <td>Run identifier within the experiment</td>
+            </tr>
+            <tr>
+                <td><code>agent_name</code></td>
+                <td>String</td>
+                <td>Name of the agent under test</td>
+            </tr>
+            <tr>
+                <td><code>agent_id</code></td>
+                <td>String</td>
+                <td>Unique agent identifier</td>
+            </tr>
+            <tr>
+                <td><code>fault_category</code></td>
+                <td>String</td>
+                <td>High-level fault category (e.g., compute, network, storage)</td>
+            </tr>
+            <tr>
+                <td><code>fault_name</code></td>
+                <td>String</td>
+                <td>Specific fault name (e.g., pod-delete, network-loss)</td>
+            </tr>
+            <tr>
+                <td><code>quantitative</code></td>
+                <td>Object</td>
+                <td>Quantitative metrics: timing, tokens, trajectory steps, tool calls</td>
+            </tr>
+            <tr>
+                <td><code>qualitative</code></td>
+                <td>Object</td>
+                <td>Qualitative metrics: RAI checks, security compliance, reasoning quality</td>
+            </tr>
+            <tr>
+                <td><code>embedding</code></td>
+                <td>Array&lt;Float&gt;</td>
+                <td>Optional vector embedding (1536 dimensions) for semantic search</td>
+            </tr>
+            <tr>
+                <td><code>metadata</code></td>
+                <td>Object</td>
+                <td>Optional pipeline metadata: trace file path, span count, token usage</td>
+            </tr>
+            <tr>
+                <td><code>created_at</code></td>
+                <td>DateTime</td>
+                <td>UTC timestamp of document creation</td>
+            </tr>
+        </table>
+
+        <h4>Indexes</h4>
+        <ul>
+            <li><code>{fault_category: 1, fault_name: 1}</code> — compound index for fault-type lookups</li>
+            <li><code>{experiment_id: 1}</code> — unique, sparse index for experiment-level queries</li>
+            <li><code>{fault_category: 1, created_at: -1}</code> — compound index for time-sorted fault queries</li>
+            <li><code>{agent_name: 1}</code> — sparse index for agent name lookups</li>
+            <li><code>{agent_id: 1}</code> — sparse index for agent ID lookups</li>
+            <li><code>{run_id: 1}</code> — sparse index for run-level queries</li>
+        </ul>
+
+        <h4>Atlas Vector Search Index</h4>
+        <p>An Atlas Vector Search index named <code>metrics_vector_index</code> is created on the collection for semantic similarity queries.</p>
+        <pre><code>{
+  "name": "metrics_vector_index",
+  "type": "vectorSearch",
+  "fields": [
+    {
+      "type": "vector",
+      "path": "embedding",
+      "numDimensions": 1536,
+      "similarity": "cosine"
+    },
+    { "type": "filter", "path": "fault_category" },
+    { "type": "filter", "path": "fault_name" }
+  ]
+}</code></pre>
+
+        <h4>Upsert Behavior</h4>
+        <p>If a document with the same <code>experiment_id</code> already exists, the pipeline replaces the existing document instead of inserting a duplicate, ensuring idempotent re-runs.</p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Error Codes</h2>
+        <table>
+            <tr>
+                <th>Code</th>
+                <th>HTTP</th>
+                <th>Cause</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td>INVALID_REQUEST</td>
+                <td>400</td>
+                <td>Missing required fields or invalid format</td>
+                <td>Validate request body</td>
+            </tr>
+            <tr>
+                <td>TRACE_NOT_FOUND</td>
+                <td>404</td>
+                <td>Trace file not found at path</td>
+                <td>Verify trace_file_path</td>
+            </tr>
+            <tr>
+                <td>BUCKETING_FAILED</td>
+                <td>500</td>
+                <td>Fault bucketing failed</td>
+                <td>Check LLM availability and trace format</td>
+            </tr>
+            <tr>
+                <td>METRICS_EXTRACTION_FAILED</td>
+                <td>500</td>
+                <td>Metric extraction failed</td>
+                <td>Check trace data quality</td>
+            </tr>
+            <tr>
+                <td>STORAGE_ERROR</td>
+                <td>500</td>
+                <td>Blob storage operation failed</td>
+                <td>Check storage credentials</td>
+            </tr>
+            <tr>
+                <td>MONGODB_ERROR</td>
+                <td>500</td>
+                <td>MongoDB operation failed</td>
+                <td>Check MongoDB connection</td>
+            </tr>
+        </table>
+
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+
+        <h2>Storage Structure</h2>
+        <div class="storage-structure">{container_name}/{agent_id}/{experiment_id}/{run_id}/
+├── fault_buckets/
+│   ├── bucket_pod-delete.json
+│   ├── bucket_network-loss.json
+│   └── ...
+├── metrics/
+│   ├── metrics_pod-delete.json
+│   ├── metrics_network-loss.json
+│   └── ...
+├── manifest.json
+└── pipeline.log</div>
+    </div>
+</body>
+</html>

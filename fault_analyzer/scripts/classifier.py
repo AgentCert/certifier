@@ -66,7 +66,7 @@ class FaultEventClassifier:
         # Load module-level settings
         module_config = _load_module_config()
         classifier_config = module_config.get("classifier", {})
-        self._model_name = classifier_config.get("model_name", "extraction_model")
+        self._model_name = classifier_config.get("model_name", "gpt-4o")
         self._temperature = classifier_config.get("temperature", 0.1)
         self._max_tokens = classifier_config.get("max_tokens", 4000)
         self._fallback_confidence = classifier_config.get("fallback_confidence", 0.3)
