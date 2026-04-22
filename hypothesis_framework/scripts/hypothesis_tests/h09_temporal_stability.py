@@ -1,9 +1,18 @@
 """
 H-09: Temporal Stability & Drift Detection.
 
-CUSUM + EWMA control charts per fault category.
+Per-sub-fault CUSUM + EWMA control charts with category-level rollup.
+
+Always active — does not require SLA thresholds.
 Data must be in run-order (time-sequential).
-Target defaults to IQM of the data; with SLA, uses SLA threshold.
+Target defaults to IQM of each sub-fault's data.
+
+Sub-fault verdicts:
+  - STABLE: no drift detected
+  - DRIFT_DETECTED: CUSUM or EWMA alarm triggered
+  - LOW_POWER: too few observations for reliable drift detection (n < 8)
+
+Category drift: DRIFT_DETECTED if any sub-fault has drift.
 """
 
 from __future__ import annotations
@@ -15,54 +24,97 @@ from scipy.stats import trim_mean
 from hypothesis_framework.schema.hypothesis_results import (
     CategoryDriftResult,
     H09Result,
+    SubFaultDriftResult,
 )
 from hypothesis_framework.scripts.statistical_tests.cusum_ewma import cusum_ewma
 
 
 def run_drift_test(
-    data_per_category: Dict[str, List[float]],
+    data_per_category: Dict[str, Dict[str, List[float]]],
     metric_name: str = "time_to_detect",
     target: Optional[float] = None,
     lambda_: float = 0.2,
 ) -> H09Result:
     """Run H-09: Temporal Stability & Drift Detection.
 
-    CUSUM and EWMA analysis per category on time-ordered observations.
+    CUSUM and EWMA analysis per sub-fault on time-ordered observations.
 
     Args:
-        data_per_category: {category: [values_in_run_order]}.
+        data_per_category: {category: {sub_fault: [values_in_run_order]}}.
         metric_name: Name of the metric.
-        target: Reference value for drift detection (default: IQM of data).
+        target: Reference value for drift detection (default: IQM per sub-fault).
         lambda_: EWMA smoothing factor.
 
     Returns:
-        H09Result with per-category drift verdicts.
+        H09Result with per-sub-fault drift verdicts rolled up to categories.
     """
     warnings: List[str] = []
     per_cat: List[CategoryDriftResult] = []
 
-    for cat, values in data_per_category.items():
-        if len(values) < 2:
-            warnings.append(f"{cat}: need at least 2 observations.")
-            per_cat.append(CategoryDriftResult(category=cat))
-            continue
+    for cat, subfaults in data_per_category.items():
+        sub_results: List[SubFaultDriftResult] = []
+        cat_n = 0
 
-        cat_target = target
-        if cat_target is None:
-            cat_target = trim_mean(values, 0.25)
+        for fname, values in sorted(subfaults.items()):
+            n = len(values)
+            cat_n += n
 
-        r = cusum_ewma(values, target=cat_target, lambda_=lambda_)
-        warnings.extend(r.warnings)
+            if n < 2:
+                warnings.append(f"{cat}/{fname}: need at least 2 observations.")
+                sub_results.append(SubFaultDriftResult(
+                    fault_name=fname, n=n, drift_verdict="LOW_POWER",
+                ))
+                continue
 
-        drift_verdict = "DRIFT_DETECTED" if r.drift_detected else "STABLE"
+            if n < 8:
+                warnings.append(
+                    f"{cat}/{fname}: n={n} < 8; drift detection has very low power."
+                )
+                sub_results.append(SubFaultDriftResult(
+                    fault_name=fname, n=n, drift_verdict="LOW_POWER",
+                ))
+                continue
+
+            sf_target = target
+            if sf_target is None:
+                sf_target = trim_mean(values, 0.25)
+
+            r = cusum_ewma(values, target=sf_target, lambda_=lambda_)
+            warnings.extend(r.warnings)
+
+            drift_verdict = "DRIFT_DETECTED" if r.drift_detected else "STABLE"
+
+            sub_results.append(SubFaultDriftResult(
+                fault_name=fname,
+                n=n,
+                cusum_final=r.cusum_final,
+                cusum_alarm=r.cusum_alarm,
+                ewma_final=r.ewma_final,
+                ewma_alarm=r.ewma_alarm,
+                drift_verdict=drift_verdict,
+            ))
+
+        # Category rollup
+        any_drift = any(
+            s.drift_verdict == "DRIFT_DETECTED" for s in sub_results
+        )
+        all_low = all(
+            s.drift_verdict == "LOW_POWER" for s in sub_results
+        )
+
+        if any_drift:
+            cat_verdict = "DRIFT_DETECTED"
+        elif all_low:
+            cat_verdict = "LOW_POWER"
+        else:
+            cat_verdict = "STABLE"
 
         per_cat.append(CategoryDriftResult(
             category=cat,
-            cusum_final=r.cusum_final,
-            cusum_alarm=r.cusum_alarm,
-            ewma_final=r.ewma_final,
-            ewma_alarm=r.ewma_alarm,
-            drift_verdict=drift_verdict,
+            n=cat_n,
+            n_sub_faults=len(sub_results),
+            drift_verdict=cat_verdict,
+            sub_faults=sub_results,
         ))
 
     any_drift = any(c.drift_verdict == "DRIFT_DETECTED" for c in per_cat)

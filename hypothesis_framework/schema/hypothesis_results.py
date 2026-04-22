@@ -156,11 +156,12 @@ class PairwiseComparison(BaseModel):
     effect_magnitude: str = "negligible"
 
 
-class CategorySLAResult(BaseModel):
-    """Per-category result for H-06."""
+class SubFaultSLAResult(BaseModel):
+    """Per sub-fault SLA compliance result for H-06."""
 
-    category: str
+    fault_name: str
     n: int = 0
+    sla_threshold: Optional[float] = None
     median: float = 0.0
     wilcoxon_p: Optional[float] = None
     ci_upper: Optional[float] = None
@@ -170,42 +171,122 @@ class CategorySLAResult(BaseModel):
     verdict: str = ""
 
 
-class CategoryBreachResult(BaseModel):
-    """Per-category result for H-07."""
+class CategorySLAResult(BaseModel):
+    """Per-category rollup for H-06.
+
+    Category verdict is derived from sub-fault verdicts:
+      PASS: all sub-faults PASS
+      FAIL: any sub-fault FAIL
+      INCOMPLETE: any sub-fault NO_SLA_DEFINED and none FAIL
+      CONDITIONAL: otherwise (mix of PASS/CONDITIONAL)
+    """
 
     category: str
+    n: int = 0
+    n_sub_faults: int = 0
+    n_passed: int = 0
+    n_failed: int = 0
+    n_conditional: int = 0
+    n_no_sla: int = 0
+    verdict: str = ""
+    aggregation_method: str = "per_subfault_sla"
+    sub_faults: List[SubFaultSLAResult] = Field(default_factory=list)
+    worst_sub_fault: str = ""
+
+
+class SubFaultBreachResult(BaseModel):
+    """Per sub-fault breach rate result for H-07."""
+
+    fault_name: str
     breaches: int = 0
     trials: int = 0
     observed_rate: float = 0.0
     target_rate: float = 0.05
-    binomial_p: float = 1.0
+    sla_threshold: Optional[float] = None
+    binomial_p: Optional[float] = None
     ci_lower: float = 0.0
     ci_upper: float = 0.0
     verdict: str = ""
 
 
-class CategoryTailResult(BaseModel):
-    """Per-category result for H-08."""
+class CategoryBreachResult(BaseModel):
+    """Per-category rollup for H-07.
+
+    Category verdict is derived from sub-fault verdicts:
+      PASS: all assessed sub-faults PASS
+      FAIL: any sub-fault FAIL
+      INCOMPLETE: any sub-fault NO_SLA_DEFINED and none FAIL
+      INCONCLUSIVE: any sub-fault INCONCLUSIVE and none FAIL/INCOMPLETE
+    """
 
     category: str
+    n: int = 0
+    n_sub_faults: int = 0
+    n_passed: int = 0
+    n_failed: int = 0
+    n_inconclusive: int = 0
+    n_no_sla: int = 0
+    verdict: str = ""
+    aggregation_method: str = "per_subfault_sla"
+    sub_faults: List[SubFaultBreachResult] = Field(default_factory=list)
+    worst_sub_fault: str = ""
+
+
+class SubFaultTailResult(BaseModel):
+    """Per sub-fault tail risk result for H-08."""
+
+    fault_name: str
+    n: int = 0
     p95: float = 0.0
     cvar: float = 0.0
     n_tail: int = 0
     cvar_iqm_ratio: Optional[float] = None
+    sla_threshold: Optional[float] = None
     expected_overshoot: Optional[float] = None
     n_breaches: Optional[int] = None
     risk_level: str = ""
 
 
-class CategoryDriftResult(BaseModel):
-    """Per-category result for H-09."""
+class CategoryTailResult(BaseModel):
+    """Per-category rollup for H-08.
+
+    Always active — missing SLA only disables overshoot fields.
+    Category risk is the worst sub-fault risk level.
+    """
 
     category: str
+    n: int = 0
+    n_sub_faults: int = 0
+    risk_level: str = ""
+    worst_sub_fault: str = ""
+    aggregation_method: str = "per_subfault_cvar"
+    sub_faults: List[SubFaultTailResult] = Field(default_factory=list)
+
+
+class SubFaultDriftResult(BaseModel):
+    """Per sub-fault drift result for H-09."""
+
+    fault_name: str
+    n: int = 0
     cusum_final: float = 0.0
     cusum_alarm: bool = False
     ewma_final: float = 0.0
     ewma_alarm: bool = False
     drift_verdict: str = "STABLE"
+
+
+class CategoryDriftResult(BaseModel):
+    """Per-category rollup for H-09.
+
+    Category drift is DRIFT_DETECTED if any sub-fault has drift.
+    """
+
+    category: str
+    n: int = 0
+    n_sub_faults: int = 0
+    drift_verdict: str = "STABLE"
+    aggregation_method: str = "per_subfault_drift"
+    sub_faults: List[SubFaultDriftResult] = Field(default_factory=list)
 
 
 # ── Hypothesis result models ────────────────────────────────────────────
@@ -315,7 +396,7 @@ class H06Result(HypothesisResult):
     hypothesis_name: str = "SLA Threshold Compliance"
     null_hypothesis: str = "The agent's true median performance does NOT meet the SLA."
     alt_hypothesis: str = "The agent's true median performance IS within the SLA."
-    sla_threshold: float = 0.0
+    sla_thresholds: Dict[str, float] = Field(default_factory=dict)
     per_category: List[CategorySLAResult] = Field(default_factory=list)
 
 
@@ -326,7 +407,7 @@ class H07Result(HypothesisResult):
     hypothesis_name: str = "SLA Breach Rate Estimation"
     null_hypothesis: str = "The true SLA breach rate is at or above the allowed target."
     alt_hypothesis: str = "The true SLA breach rate is below the allowed target."
-    sla_threshold: float = 0.0
+    sla_thresholds: Dict[str, float] = Field(default_factory=dict)
     target_rate: float = 0.05
     per_category: List[CategoryBreachResult] = Field(default_factory=list)
 
@@ -339,7 +420,7 @@ class H08Result(HypothesisResult):
     null_hypothesis: str = "Tail outcomes are not disproportionately severe."
     alt_hypothesis: str = "The worst 5% average significantly worse than P95, indicating hidden catastrophic risk."
     quantile_level: float = 0.95
-    sla_threshold: Optional[float] = None
+    sla_thresholds: Dict[str, float] = Field(default_factory=dict)
     per_category: List[CategoryTailResult] = Field(default_factory=list)
 
 
