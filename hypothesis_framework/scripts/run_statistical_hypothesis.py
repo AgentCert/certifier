@@ -200,6 +200,56 @@ def run_all_hypothesis_tests(
             "message": f"No run files found in {data_dir}",
         }
 
+    return run_all_hypothesis_tests_from_runs(
+        all_runs=all_runs,
+        gt_dir=gt_dir,
+        min_runs=min_runs,
+        alpha=alpha,
+        n_resamples=n_resamples,
+        random_state=random_state,
+        data_dir=str(data_dir),
+    )
+
+
+def run_all_hypothesis_tests_from_runs(
+    all_runs: Dict[str, list],
+    gt_dir: Any,
+    min_runs: int = 30,
+    alpha: float = 0.05,
+    n_resamples: int = 10000,
+    random_state: Optional[int] = None,
+    data_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run all H01–H09 hypothesis tests using a pre-loaded runs dictionary.
+
+    Identical behavior to :func:`run_all_hypothesis_tests` but accepts an
+    in-memory ``{category: [run_dict, ...]}`` mapping instead of reading
+    JSON files from disk. Useful for callers that have already loaded the
+    runs (e.g., the aggregation+hypothesis pipeline that reads a flat
+    metrics directory and groups by ``fault_category``).
+
+    Args:
+        all_runs:      Pre-loaded runs grouped by category. Each run dict
+                       must follow the per-run metrics schema (with
+                       ``quantitative.*`` keys).
+        gt_dir:        Ground truth directory with per-fault YAML files.
+        min_runs:      Minimum detected runs required.
+        alpha:         Significance level.
+        n_resamples:   Bootstrap resamples.
+        random_state:  Random seed.
+        data_dir:      Optional source directory string for metadata only.
+
+    Returns:
+        Same structure as :func:`run_all_hypothesis_tests`.
+    """
+    gt_dir = Path(gt_dir)
+
+    if not all_runs:
+        return {
+            "error": "no_data",
+            "message": "No runs provided",
+        }
+
     # ── 2. Validate minimum runs ──────────────────────────────────────
     logger.info("Validating minimum run criteria (min=%d)", min_runs)
     valid, validation = validate_minimum_runs(all_runs, min_runs)
@@ -385,7 +435,7 @@ def run_all_hypothesis_tests(
     output: Dict[str, Any] = {
         "metadata": {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "data_dir": str(data_dir),
+            "data_dir": str(data_dir) if data_dir else None,
             "gt_dir": str(gt_dir),
             "total_runs": validation["total_runs"],
             "detected_runs": validation["total_detected"],

@@ -65,6 +65,7 @@ def ingest(raw: dict) -> ParsedContext:
         "total_fault_categories": raw.get("total_fault_categories", 0),
         "runs_per_fault": _compute_runs_per_fault(raw),
         "categories_summary": [],
+        "llm_council": raw.get("llm_council", {}) or {},
     }
 
     categories = []

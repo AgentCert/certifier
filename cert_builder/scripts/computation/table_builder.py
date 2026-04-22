@@ -78,8 +78,57 @@ def _fmt_score(val, decimals=2):
 
 # -- Individual table builders ------------------------------------------------
 
-def _build_judge_models():
-    return CONFIG["judge_models"]
+_DEFAULT_PROVIDER = "Azure OpenAI"
+_DEFAULT_ROLES = {
+    "member_1": "Primary evaluator",
+    "member_2": "Secondary evaluator",
+    "member_3": "Tertiary evaluator",
+    "meta_model": "Meta-Reconciler — consensus synthesis",
+}
+_DEFAULT_LABELS = {
+    "member_1": "Judge 1",
+    "member_2": "Judge 2",
+    "member_3": "Judge 3",
+    "meta_model": "Meta-Reconciler",
+}
+
+
+def _build_judge_models(llm_council: dict | None = None):
+    """Build the LLM Council judge models table.
+
+    Prefers the ``llm_council`` block from the aggregated scorecard
+    (real models actually used). Falls back to the static
+    ``table_config.yaml`` entry when no council data is provided.
+    """
+    if not llm_council:
+        return CONFIG["judge_models"]
+
+    # Try to preserve role descriptions from static config when available.
+    static_rows = CONFIG.get("judge_models", {}).get("rows", []) or []
+    static_role_by_label = {row[0]: row[3] for row in static_rows if len(row) >= 4}
+
+    headers = ["Judge", "Model", "Provider", "Role"]
+    rows = []
+    # Preserve a stable, human-readable order: judges first, then meta.
+    ordered_keys = ["member_1", "member_2", "member_3", "meta_model"]
+    seen = set()
+    for key in ordered_keys + [k for k in llm_council if k not in ordered_keys]:
+        if key in seen or key not in llm_council:
+            continue
+        seen.add(key)
+        member = llm_council.get(key) or {}
+        if not isinstance(member, dict):
+            continue
+        label = _DEFAULT_LABELS.get(key, key.replace("_", " ").title())
+        model = member.get("model_name") or member.get("deployment_name") or "N/A"
+        provider = member.get("provider") or _DEFAULT_PROVIDER
+        role = static_role_by_label.get(label) or _DEFAULT_ROLES.get(key, "Judge")
+        rows.append([label, model, provider, role])
+
+    if not rows:
+        return CONFIG["judge_models"]
+
+    return {"headers": headers, "rows": rows}
 
 
 def _build_ttd_stats(categories):
@@ -324,11 +373,18 @@ def _build_recommendations(categories):
 
 # -- Public API ---------------------------------------------------------------
 
-def build_all_tables(categories):
-    """Build all 13 tables from categories list."""
+def build_all_tables(categories, llm_council=None):
+    """Build all 13 tables from categories list.
+
+    Args:
+        categories: parsed category list from Phase 1.
+        llm_council: optional ``llm_council`` dict from the aggregated
+            scorecard. When provided, the ``judge_models`` table reflects
+            the actual models used; otherwise the static config is used.
+    """
     result = TablesResult.model_validate({
         "tables": {
-            "judge_models": _build_judge_models(),
+            "judge_models": _build_judge_models(llm_council),
             "ttd_stats": _build_ttd_stats(categories),
             "ttm_stats": _build_ttm_stats(categories),
             "detection_rates": _build_detection_rates(categories),
@@ -349,4 +405,5 @@ def build_all_tables(categories):
 def build_from_file(path):
     """Load Phase 1 output and build all tables."""
     ctx = json.loads(Path(path).read_text(encoding="utf-8"))
-    return build_all_tables(ctx["categories"])
+    llm_council = (ctx.get("meta") or {}).get("llm_council") or None
+    return build_all_tables(ctx["categories"], llm_council=llm_council)

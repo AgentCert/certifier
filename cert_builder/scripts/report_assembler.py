@@ -55,7 +55,7 @@ def _chart(chart_data: dict) -> dict:
 
 def _section_executive_summary(phase1, phase2, phase3):
     """Section 1: Executive Summary."""
-    scope_text = phase3["scope_narrative"]["text"]
+    scope_text = (phase3.get("scope_narrative") or {}).get("text", "") or ""
     return {
         "id": "executive_summary",
         "number": 1,
@@ -100,9 +100,10 @@ def _section_methodology(phase2):
 
 def _section_scorecard(phase2, phase3):
     """Section 3: Scorecard Snapshot."""
+    items = (phase3.get("key_findings") or {}).get("items", []) or []
     key_findings = [
         {"severity": f["severity"], "text": f"{f['headline']}: {f['detail']}"}
-        for f in phase3["key_findings"]["items"]
+        for f in items
     ]
 
     return {
@@ -123,7 +124,7 @@ def _section_scorecard(phase2, phase3):
 def _section_qualitative_findings(phase2, phase3):
     """Section 4: Qualitative Findings."""
     intros = phase2["hardcoded"]["section_intros"]
-    qf = phase3["qualitative_findings"]
+    qf = phase3.get("qualitative_findings") or {}
 
     group1 = []
     for dim in ["detection", "mitigation", "action_correctness", "reasoning"]:
@@ -278,7 +279,7 @@ def _section_fault_analysis(phase1, phase2, phase3):
     intros = phase2["hardcoded"]["section_intros"]
     categories = phase1["categories"]
     assessments = phase2["assessments"]
-    analysis = phase3["fault_category_analysis"]["categories"]
+    analysis = (phase3.get("fault_category_analysis") or {}).get("categories", {}) or {}
 
     content = []
     for cat in categories:
@@ -308,7 +309,7 @@ def _section_fault_analysis(phase1, phase2, phase3):
 def _section_limitations(phase2, phase3):
     """Section 11: Limitations."""
     intros = phase2["hardcoded"]["section_intros"]
-    items = phase3["limitations_enriched"]["items"]
+    items = (phase3.get("limitations_enriched") or {}).get("items", []) or []
 
     headers = ["#", "Limitation", "Category", "Severity", "Frequency", "Badge"]
     rows = []
@@ -335,7 +336,7 @@ def _section_limitations(phase2, phase3):
 def _section_recommendations(phase2, phase3):
     """Section 12: Recommendations."""
     intros = phase2["hardcoded"]["section_intros"]
-    items = phase3["recommendations_enriched"]["items"]
+    items = (phase3.get("recommendations_enriched") or {}).get("items", []) or []
 
     headers = ["#", "Priority", "Recommendation", "Category"]
     rows = []
@@ -377,9 +378,10 @@ def _build_meta(phase1):
 
 def _build_header(phase2, phase3):
     scorecard = phase2["scorecard"]["dimensions"]
+    items = (phase3.get("key_findings") or {}).get("items", []) or []
     findings = [
         {"severity": f["severity"], "text": f"{f['headline']}: {f['detail']}"}
-        for f in phase3["key_findings"]["items"]
+        for f in items
     ]
     return {"scorecard": scorecard, "findings": findings}
 
