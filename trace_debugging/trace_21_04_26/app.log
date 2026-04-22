@@ -1,0 +1,236 @@
+2026-04-22 12:06:17,879 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 72] - INFO - ============================================================
+2026-04-22 12:06:17,879 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 73] - INFO - STEP 1: Fault Bucketing
+2026-04-22 12:06:17,880 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 74] - INFO - ============================================================
+2026-04-22 12:06:17,939 - [fault_bucketing.py : _load_trace : 253] - INFO - Loaded 177 events from sorted_trace.json
+2026-04-22 12:06:17,940 - [fault_bucketing.py : _create_fault_bucket_from_span : 396] - INFO - Fault bucket created: pod-cpu-hog (5bf01887) (target=name=carts, namespace=sock-shop)
+2026-04-22 12:06:17,941 - [fault_bucketing.py : _create_fault_bucket_from_span : 396] - INFO - Fault bucket created: pod-memory-hog (0ecaee94) (target=name=orders, namespace=sock-shop)
+2026-04-22 12:06:17,941 - [fault_bucketing.py : _create_fault_bucket_from_span : 396] - INFO - Fault bucket created: pod-delete (b699080c) (target=name=catalogue, namespace=sock-shop)
+2026-04-22 12:06:17,941 - [fault_bucketing.py : _create_fault_bucket_from_span : 396] - INFO - Fault bucket created: pod-network-loss (45ab1ec8) (target=name=user-db, namespace=sock-shop)
+2026-04-22 12:06:17,941 - [fault_bucketing.py : _create_fault_bucket_from_span : 396] - INFO - Fault bucket created: disk-fill (b604906e) (target=name=catalogue-db, namespace=sock-shop)
+2026-04-22 12:06:17,941 - [fault_bucketing.py : run : 573] - INFO - Deterministic bucketing: 5 active, 0 closed fault bucket(s) created from 'fault: *' spans.
+2026-04-22 12:06:17,941 - [fault_bucketing.py : run : 587] - INFO - Processing 172 remaining events via LLM (batch_size=10)
+2026-04-22 12:06:18,354 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-04-22 12:06:18,645 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-04-22 12:06:18,924 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-04-22 12:06:18,925 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-04-22 12:06:18,931 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:06:29,737 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-cpu-hog' at 2026-04-21T05:52:51.261Z
+2026-04-22 12:06:29,737 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-delete' at 2026-04-21T05:55:10.487Z
+2026-04-22 12:06:29,738 - [fault_bucketing.py : run : 636] - INFO - Batch 1/18 processed (10 events)
+2026-04-22 12:06:29,739 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:06:40,665 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-cpu-hog' at 2026-04-21T05:55:23.168Z
+2026-04-22 12:06:40,665 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-delete' at 2026-04-21T05:56:20.028Z
+2026-04-22 12:06:40,666 - [fault_bucketing.py : run : 636] - INFO - Batch 2/18 processed (10 events)
+2026-04-22 12:06:40,669 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:06:51,883 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-network-loss' at 2026-04-21T05:59:52.826Z
+2026-04-22 12:06:51,892 - [fault_bucketing.py : run : 636] - INFO - Batch 3/18 processed (10 events)
+2026-04-22 12:06:51,899 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:07:01,778 - [fault_bucketing.py : run : 636] - INFO - Batch 4/18 processed (10 events)
+2026-04-22 12:07:01,783 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:07:13,456 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'disk-fill' at 2026-04-21T06:07:20.023Z
+2026-04-22 12:07:13,457 - [fault_bucketing.py : run : 636] - INFO - Batch 5/18 processed (10 events)
+2026-04-22 12:07:13,461 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:07:24,819 - [fault_bucketing.py : run : 636] - INFO - Batch 6/18 processed (10 events)
+2026-04-22 12:07:24,823 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:07:36,173 - [fault_bucketing.py : run : 636] - INFO - Batch 7/18 processed (10 events)
+2026-04-22 12:07:36,180 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:07:48,315 - [fault_bucketing.py : run : 636] - INFO - Batch 8/18 processed (10 events)
+2026-04-22 12:07:48,322 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:07:59,013 - [fault_bucketing.py : run : 636] - INFO - Batch 9/18 processed (10 events)
+2026-04-22 12:07:59,018 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:08:14,217 - [fault_bucketing.py : run : 636] - INFO - Batch 10/18 processed (10 events)
+2026-04-22 12:08:14,229 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:08:27,764 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'disk-fill' at 2026-04-21T06:23:51.062Z
+2026-04-22 12:08:27,764 - [fault_bucketing.py : _close_fault : 522] - INFO - Fault bucket closed: disk-fill (b604906e) (27 events)
+2026-04-22 12:08:27,765 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-cpu-hog' at 2026-04-21T06:24:08.765Z
+2026-04-22 12:08:27,765 - [fault_bucketing.py : _close_fault : 522] - INFO - Fault bucket closed: pod-cpu-hog (5bf01887) (56 events)
+2026-04-22 12:08:27,766 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-delete' at 2026-04-21T06:25:04.357Z
+2026-04-22 12:08:27,766 - [fault_bucketing.py : _close_fault : 522] - INFO - Fault bucket closed: pod-delete (b699080c) (54 events)
+2026-04-22 12:08:27,767 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-memory-hog' at 2026-04-21T06:25:23.023Z
+2026-04-22 12:08:27,767 - [fault_bucketing.py : _close_fault : 522] - INFO - Fault bucket closed: pod-memory-hog (0ecaee94) (34 events)
+2026-04-22 12:08:27,768 - [fault_bucketing.py : _record_fault_detection : 506] - INFO - Other fault detected by agent (no matching bucket): 'pod-network-loss' at 2026-04-21T06:26:21.872Z
+2026-04-22 12:08:27,768 - [fault_bucketing.py : _close_fault : 522] - INFO - Fault bucket closed: pod-network-loss (45ab1ec8) (43 events)
+2026-04-22 12:08:27,769 - [fault_bucketing.py : run : 636] - INFO - Batch 11/18 processed (10 events)
+2026-04-22 12:08:27,779 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:08:41,049 - [fault_bucketing.py : run : 636] - INFO - Batch 12/18 processed (10 events)
+2026-04-22 12:08:41,051 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:08:54,288 - [fault_bucketing.py : run : 636] - INFO - Batch 13/18 processed (10 events)
+2026-04-22 12:08:54,291 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:09:04,144 - [fault_bucketing.py : run : 636] - INFO - Batch 14/18 processed (10 events)
+2026-04-22 12:09:04,147 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:09:15,142 - [fault_bucketing.py : run : 636] - INFO - Batch 15/18 processed (10 events)
+2026-04-22 12:09:15,150 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:09:26,327 - [fault_bucketing.py : run : 636] - INFO - Batch 16/18 processed (10 events)
+2026-04-22 12:09:26,335 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:09:37,845 - [fault_bucketing.py : run : 636] - INFO - Batch 17/18 processed (10 events)
+2026-04-22 12:09:37,854 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:09:40,972 - [fault_bucketing.py : run : 636] - INFO - Batch 18/18 processed (2 events)
+2026-04-22 12:09:40,976 - [fault_bucketing.py : run : 679] - INFO - Bucketing complete: 5 buckets, 379 events assigned, 82 unclassified, LLM tokens used: 702752
+2026-04-22 12:09:41,028 - [fault_bucketing.py : _write_output : 782] - INFO - Wrote bucket file: sorted_trace_bucket_disk-fill_(b604906e).json (62 events)
+2026-04-22 12:09:41,051 - [fault_bucketing.py : _write_output : 782] - INFO - Wrote bucket file: sorted_trace_bucket_pod-cpu-hog_(5bf01887).json (90 events)
+2026-04-22 12:09:41,069 - [fault_bucketing.py : _write_output : 782] - INFO - Wrote bucket file: sorted_trace_bucket_pod-delete_(b699080c).json (87 events)
+2026-04-22 12:09:41,096 - [fault_bucketing.py : _write_output : 782] - INFO - Wrote bucket file: sorted_trace_bucket_pod-memory-hog_(0ecaee94).json (66 events)
+2026-04-22 12:09:41,106 - [fault_bucketing.py : _write_output : 782] - INFO - Wrote bucket file: sorted_trace_bucket_pod-network-loss_(45ab1ec8).json (74 events)
+2026-04-22 12:09:41,116 - [fault_bucketing.py : _write_output : 793] - INFO - Wrote other detected faults: sorted_trace_other_detected_faults.json (11 faults)
+2026-04-22 12:09:41,133 - [fault_bucketing.py : _write_output : 804] - INFO - Wrote unclassified events: sorted_trace_unclassified.json (82 events)
+2026-04-22 12:09:41,136 - [fault_bucketing.py : _write_output : 832] - INFO - Wrote manifest: sorted_trace_bucketing_manifest.json
+2026-04-22 12:09:41,145 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 116] - INFO - Fault bucketing produced 5 bucket(s). Output at: data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6\fault_buckets
+2026-04-22 12:09:41,147 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 124] - INFO - ============================================================
+2026-04-22 12:09:41,152 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 125] - INFO - STEP 2: Metric Extraction from Fault Buckets
+2026-04-22 12:09:41,158 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 126] - INFO - ============================================================
+2026-04-22 12:09:41,160 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 131] - INFO - --- Extracting metrics for fault: disk-fill (b604906e) ---
+2026-04-22 12:09:41,172 - [metrics_extractor_from_trace.py : extract_metrics_async : 846] - INFO - Loading trace file: data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6\metrics\disk-fill_(b604906e)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_trace.json
+2026-04-22 12:09:41,234 - [metrics_extractor_from_trace.py : load_trace_file : 258] - INFO - Loaded bucket metadata from trace file: fault_id=disk-fill (b604906e), fault_name=disk-fill (b604906e)
+2026-04-22 12:09:41,235 - [metrics_extractor_from_trace.py : extract_metrics_async : 848] - INFO - Loaded 62 spans
+2026-04-22 12:09:41,235 - [metrics_extractor_from_trace.py : extract_metrics_async : 851] - INFO - Using bucket metadata: fault_id=disk-fill (b604906e), fault_name=disk-fill (b604906e), injection_timestamp=2026-04-21T05:47:54.886Z
+2026-04-22 12:09:41,236 - [metrics_extractor_from_trace.py : extract_metrics_async : 861] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-04-22 12:09:41,236 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-04-22 12:09:41,237 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 682] - INFO - Processing 62 spans in 5 batches
+2026-04-22 12:09:41,237 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 1/5
+2026-04-22 12:09:48,335 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 2/5
+2026-04-22 12:09:53,518 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 3/5
+2026-04-22 12:09:58,828 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 4/5
+2026-04-22 12:10:04,216 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 5/5
+2026-04-22 12:10:33,334 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 692] - INFO - Aggregating quantitative metrics from all batches
+2026-04-22 12:10:33,335 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 617] - INFO - Identifying detection and mitigation spans using LLM...
+2026-04-22 12:10:34,856 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 623] - INFO - Validating bucket timestamps against event content using LLM...
+2026-04-22 12:10:36,666 - [metrics_extractor_from_trace.py : _validate_bucket_timestamps_with_llm : 552] - WARNING - Bucket mitigated_at (2026-04-21T06:23:57.758Z) rejected by LLM — matching event(s) do not represent a mitigation event: The event is an LLM analysis (GENERATION) producing a summary of an experiment; it does not perform or complete any mitigation, remediation, or recovery action on the system.
+2026-04-22 12:10:36,679 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:10:40,376 - [metrics_extractor_from_trace.py : extract_metrics_async : 864] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-04-22 12:10:40,379 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 793] - INFO - Processing 62 spans in 5 batches for qualitative analysis
+2026-04-22 12:10:40,379 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 1/5
+2026-04-22 12:11:04,908 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 2/5
+2026-04-22 12:11:29,644 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 3/5
+2026-04-22 12:11:54,567 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 4/5
+2026-04-22 12:12:15,545 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 5/5
+2026-04-22 12:12:37,028 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 805] - INFO - Aggregating qualitative observations from all batches
+2026-04-22 12:12:37,045 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:13:07,378 - [metrics_extractor_from_trace.py : extract_metrics_async : 867] - INFO - Extraction complete. Token usage - Input: 764431, Output: 16005, Total: 780436
+2026-04-22 12:13:07,386 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 178] - INFO - Metrics for 'disk-fill (b604906e)' written to disk-fill_(b604906e)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_metrics.json. Tokens used: 780436
+2026-04-22 12:13:07,390 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 131] - INFO - --- Extracting metrics for fault: pod-cpu-hog (5bf01887) ---
+2026-04-22 12:13:07,400 - [metrics_extractor_from_trace.py : extract_metrics_async : 846] - INFO - Loading trace file: data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6\metrics\pod-cpu-hog_(5bf01887)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_trace.json
+2026-04-22 12:13:07,442 - [metrics_extractor_from_trace.py : load_trace_file : 258] - INFO - Loaded bucket metadata from trace file: fault_id=pod-cpu-hog (5bf01887), fault_name=pod-cpu-hog (5bf01887)
+2026-04-22 12:13:07,442 - [metrics_extractor_from_trace.py : extract_metrics_async : 848] - INFO - Loaded 90 spans
+2026-04-22 12:13:07,442 - [metrics_extractor_from_trace.py : extract_metrics_async : 851] - INFO - Using bucket metadata: fault_id=pod-cpu-hog (5bf01887), fault_name=pod-cpu-hog (5bf01887), injection_timestamp=2026-04-21T05:47:52.901Z
+2026-04-22 12:13:07,443 - [metrics_extractor_from_trace.py : extract_metrics_async : 861] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-04-22 12:13:07,443 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-04-22 12:13:07,443 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 682] - INFO - Processing 90 spans in 6 batches
+2026-04-22 12:13:07,443 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 1/6
+2026-04-22 12:13:15,732 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 2/6
+2026-04-22 12:13:21,020 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 3/6
+2026-04-22 12:13:26,235 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 4/6
+2026-04-22 12:13:31,374 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 5/6
+2026-04-22 12:13:37,181 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 6/6
+2026-04-22 12:13:42,396 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 692] - INFO - Aggregating quantitative metrics from all batches
+2026-04-22 12:13:42,414 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 617] - INFO - Identifying detection and mitigation spans using LLM...
+2026-04-22 12:13:44,101 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 623] - INFO - Validating bucket timestamps against event content using LLM...
+2026-04-22 12:13:45,534 - [metrics_extractor_from_trace.py : _validate_bucket_timestamps_with_llm : 552] - WARNING - Bucket mitigated_at (2026-04-21T06:24:15.791Z) rejected by LLM — matching event(s) do not represent a mitigation event: The event is an LLM analysis/generation step summarizing experiment results; it does not perform or complete any mitigation, remediation, or recovery action on the system.
+2026-04-22 12:13:45,541 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:13:48,936 - [metrics_extractor_from_trace.py : extract_metrics_async : 864] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-04-22 12:13:48,937 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 793] - INFO - Processing 90 spans in 6 batches for qualitative analysis
+2026-04-22 12:13:48,938 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 1/6
+2026-04-22 12:14:08,875 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 2/6
+2026-04-22 12:14:33,641 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 3/6
+2026-04-22 12:14:56,210 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 4/6
+2026-04-22 12:15:17,841 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 5/6
+2026-04-22 12:15:43,576 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 6/6
+2026-04-22 12:16:07,493 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 805] - INFO - Aggregating qualitative observations from all batches
+2026-04-22 12:16:07,496 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:16:43,464 - [metrics_extractor_from_trace.py : extract_metrics_async : 867] - INFO - Extraction complete. Token usage - Input: 1017310, Output: 14181, Total: 1031491
+2026-04-22 12:16:43,473 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 178] - INFO - Metrics for 'pod-cpu-hog (5bf01887)' written to pod-cpu-hog_(5bf01887)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_metrics.json. Tokens used: 1031491
+2026-04-22 12:16:43,474 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 131] - INFO - --- Extracting metrics for fault: pod-delete (b699080c) ---
+2026-04-22 12:16:43,494 - [metrics_extractor_from_trace.py : extract_metrics_async : 846] - INFO - Loading trace file: data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6\metrics\pod-delete_(b699080c)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_trace.json
+2026-04-22 12:16:43,544 - [metrics_extractor_from_trace.py : load_trace_file : 258] - INFO - Loaded bucket metadata from trace file: fault_id=pod-delete (b699080c), fault_name=pod-delete (b699080c)
+2026-04-22 12:16:43,550 - [metrics_extractor_from_trace.py : extract_metrics_async : 848] - INFO - Loaded 87 spans
+2026-04-22 12:16:43,550 - [metrics_extractor_from_trace.py : extract_metrics_async : 851] - INFO - Using bucket metadata: fault_id=pod-delete (b699080c), fault_name=pod-delete (b699080c), injection_timestamp=2026-04-21T05:47:53.290Z
+2026-04-22 12:16:43,551 - [metrics_extractor_from_trace.py : extract_metrics_async : 861] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-04-22 12:16:43,551 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-04-22 12:16:43,551 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 682] - INFO - Processing 87 spans in 6 batches
+2026-04-22 12:16:43,551 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 1/6
+2026-04-22 12:16:53,982 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 2/6
+2026-04-22 12:17:05,449 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 3/6
+2026-04-22 12:17:15,017 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 4/6
+2026-04-22 12:17:24,757 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 5/6
+2026-04-22 12:17:34,553 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 6/6
+2026-04-22 12:17:41,500 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 692] - INFO - Aggregating quantitative metrics from all batches
+2026-04-22 12:17:41,501 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 617] - INFO - Identifying detection and mitigation spans using LLM...
+2026-04-22 12:17:44,336 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 623] - INFO - Validating bucket timestamps against event content using LLM...
+2026-04-22 12:17:45,706 - [metrics_extractor_from_trace.py : _validate_bucket_timestamps_with_llm : 552] - WARNING - Bucket mitigated_at (2026-04-21T06:25:16.227Z) rejected by LLM — matching event(s) do not represent a mitigation event: The event is an LLM analysis (GENERATION) producing a chaos experiment summary; it does not perform or complete any mitigation, remediation, or recovery action on the system.
+2026-04-22 12:17:45,714 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:17:49,142 - [metrics_extractor_from_trace.py : extract_metrics_async : 864] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-04-22 12:17:49,143 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 793] - INFO - Processing 87 spans in 6 batches for qualitative analysis
+2026-04-22 12:17:49,143 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 1/6
+2026-04-22 12:18:10,753 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 2/6
+2026-04-22 12:18:37,864 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 3/6
+2026-04-22 12:19:04,423 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 4/6
+2026-04-22 12:19:26,089 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 5/6
+2026-04-22 12:19:56,644 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 6/6
+2026-04-22 12:20:19,879 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 805] - INFO - Aggregating qualitative observations from all batches
+2026-04-22 12:20:19,883 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:20:51,270 - [metrics_extractor_from_trace.py : extract_metrics_async : 867] - INFO - Extraction complete. Token usage - Input: 992776, Output: 13425, Total: 1006201
+2026-04-22 12:20:51,275 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 178] - INFO - Metrics for 'pod-delete (b699080c)' written to pod-delete_(b699080c)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_metrics.json. Tokens used: 1006201
+2026-04-22 12:20:51,276 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 131] - INFO - --- Extracting metrics for fault: pod-memory-hog (0ecaee94) ---
+2026-04-22 12:20:51,282 - [metrics_extractor_from_trace.py : extract_metrics_async : 846] - INFO - Loading trace file: data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6\metrics\pod-memory-hog_(0ecaee94)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_trace.json
+2026-04-22 12:20:51,311 - [metrics_extractor_from_trace.py : load_trace_file : 258] - INFO - Loaded bucket metadata from trace file: fault_id=pod-memory-hog (0ecaee94), fault_name=pod-memory-hog (0ecaee94)
+2026-04-22 12:20:51,311 - [metrics_extractor_from_trace.py : extract_metrics_async : 848] - INFO - Loaded 66 spans
+2026-04-22 12:20:51,311 - [metrics_extractor_from_trace.py : extract_metrics_async : 851] - INFO - Using bucket metadata: fault_id=pod-memory-hog (0ecaee94), fault_name=pod-memory-hog (0ecaee94), injection_timestamp=2026-04-21T05:47:52.916Z
+2026-04-22 12:20:51,311 - [metrics_extractor_from_trace.py : extract_metrics_async : 861] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-04-22 12:20:51,311 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-04-22 12:20:51,312 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 682] - INFO - Processing 66 spans in 5 batches
+2026-04-22 12:20:51,312 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 1/5
+2026-04-22 12:21:02,138 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 2/5
+2026-04-22 12:21:10,975 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 3/5
+2026-04-22 12:21:21,178 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 4/5
+2026-04-22 12:21:30,529 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 5/5
+2026-04-22 12:21:35,726 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 692] - INFO - Aggregating quantitative metrics from all batches
+2026-04-22 12:21:35,727 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 617] - INFO - Identifying detection and mitigation spans using LLM...
+2026-04-22 12:21:37,676 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 623] - INFO - Validating bucket timestamps against event content using LLM...
+2026-04-22 12:21:39,018 - [metrics_extractor_from_trace.py : _validate_bucket_timestamps_with_llm : 552] - WARNING - Bucket mitigated_at (2026-04-21T06:25:30.998Z) rejected by LLM — matching event(s) do not represent a mitigation event: The event is an LLM analysis (GENERATION) that summarizes experiment results; it does not perform or complete any mitigation, remediation, or recovery action on the system.
+2026-04-22 12:21:39,026 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:21:42,769 - [metrics_extractor_from_trace.py : extract_metrics_async : 864] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-04-22 12:21:42,770 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 793] - INFO - Processing 66 spans in 5 batches for qualitative analysis
+2026-04-22 12:21:42,770 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 1/5
+2026-04-22 12:22:18,481 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 2/5
+2026-04-22 12:22:41,713 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 3/5
+2026-04-22 12:23:03,574 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 4/5
+2026-04-22 12:23:40,442 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 5/5
+2026-04-22 12:23:57,215 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 805] - INFO - Aggregating qualitative observations from all batches
+2026-04-22 12:23:57,220 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:24:29,610 - [metrics_extractor_from_trace.py : extract_metrics_async : 867] - INFO - Extraction complete. Token usage - Input: 804698, Output: 12831, Total: 817529
+2026-04-22 12:24:29,616 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 178] - INFO - Metrics for 'pod-memory-hog (0ecaee94)' written to pod-memory-hog_(0ecaee94)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_metrics.json. Tokens used: 817529
+2026-04-22 12:24:29,617 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 131] - INFO - --- Extracting metrics for fault: pod-network-loss (45ab1ec8) ---
+2026-04-22 12:24:29,639 - [metrics_extractor_from_trace.py : extract_metrics_async : 846] - INFO - Loading trace file: data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6\metrics\pod-network-loss_(45ab1ec8)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_trace.json
+2026-04-22 12:24:29,677 - [metrics_extractor_from_trace.py : load_trace_file : 258] - INFO - Loaded bucket metadata from trace file: fault_id=pod-network-loss (45ab1ec8), fault_name=pod-network-loss (45ab1ec8)
+2026-04-22 12:24:29,678 - [metrics_extractor_from_trace.py : extract_metrics_async : 848] - INFO - Loaded 74 spans
+2026-04-22 12:24:29,678 - [metrics_extractor_from_trace.py : extract_metrics_async : 851] - INFO - Using bucket metadata: fault_id=pod-network-loss (45ab1ec8), fault_name=pod-network-loss (45ab1ec8), injection_timestamp=2026-04-21T05:47:54.089Z
+2026-04-22 12:24:29,679 - [metrics_extractor_from_trace.py : extract_metrics_async : 861] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-04-22 12:24:29,679 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-04-22 12:24:29,679 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 682] - INFO - Processing 74 spans in 5 batches
+2026-04-22 12:24:29,680 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 1/5
+2026-04-22 12:24:37,408 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 2/5
+2026-04-22 12:24:44,250 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 3/5
+2026-04-22 12:24:51,693 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 4/5
+2026-04-22 12:24:59,328 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 686] - INFO - Processing quantitative batch 5/5
+2026-04-22 12:25:07,804 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 692] - INFO - Aggregating quantitative metrics from all batches
+2026-04-22 12:25:07,806 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 617] - INFO - Identifying detection and mitigation spans using LLM...
+2026-04-22 12:25:09,891 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 623] - INFO - Validating bucket timestamps against event content using LLM...
+2026-04-22 12:25:11,180 - [metrics_extractor_from_trace.py : _validate_bucket_timestamps_with_llm : 552] - WARNING - Bucket mitigated_at (2026-04-21T06:26:28.866Z) rejected by LLM — matching event(s) do not represent a mitigation event: The event is an LLM analysis/generation step producing an experiment summary; it does not perform or complete any mitigation, remediation, or recovery action on the system.
+2026-04-22 12:25:11,193 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:25:14,597 - [metrics_extractor_from_trace.py : extract_metrics_async : 864] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-04-22 12:25:14,597 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 793] - INFO - Processing 74 spans in 5 batches for qualitative analysis
+2026-04-22 12:25:14,598 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 1/5
+2026-04-22 12:25:58,435 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 2/5
+2026-04-22 12:26:31,491 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 3/5
+2026-04-22 12:26:54,718 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 4/5
+2026-04-22 12:27:19,291 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 799] - INFO - Processing qualitative batch 5/5
+2026-04-22 12:27:37,237 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 805] - INFO - Aggregating qualitative observations from all batches
+2026-04-22 12:27:37,241 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-04-22 12:28:03,662 - [metrics_extractor_from_trace.py : extract_metrics_async : 867] - INFO - Extraction complete. Token usage - Input: 889048, Output: 13125, Total: 902173
+2026-04-22 12:28:03,666 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 178] - INFO - Metrics for 'pod-network-loss (45ab1ec8)' written to pod-network-loss_(45ab1ec8)_cbc0a9e1-de84-4b8c-8c74-80503a7b0fb4_metrics.json. Tokens used: 902173
+2026-04-22 12:28:03,678 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 215] - INFO - ============================================================
+2026-04-22 12:28:03,679 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 216] - INFO - Pipeline Complete
+2026-04-22 12:28:03,679 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 217] - INFO - ============================================================
+2026-04-22 12:28:03,680 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 218] - INFO -   Faults bucketed : 5
+2026-04-22 12:28:03,680 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 219] - INFO -   Metrics extracted: 5
+2026-04-22 12:28:03,681 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 220] - INFO -   Output directory : data3\pipeline1_output\16347084-830e-48bb-8d7f-1fa010aa0fd6
+2026-04-22 12:28:03,681 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 221] - INFO -   Summary file     : pipeline_summary.json
