@@ -21,3 +21,7 @@
 6. **Token Count Extraction Failure**: Agent's GENERATION spans lack explicit `input_tokens` and `output_tokens` fields, making token metrics unextractable.
    - Impact: Quantitative metrics report `input_tokens: 0`, `output_tokens: 0` despite agent consuming LLM resources
    - Fix: Populate GENERATION span output/metadata with LLM token counts (input_tokens, output_tokens) from API response
+
+7. **Complete Detection & Mitigation Failure**: Agent did not detect or mitigate any of the 5 injected faults.
+   - Impact: 0% fault detection rate, 0% mitigation rate; TTD and TTR metrics unavailable across all faults
+   - Fix: Investigate agent's fault-diagnosis pipeline and tool selection logic (see items 2, 5); verify fault injection is observable in trace events
