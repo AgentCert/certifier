@@ -110,3 +110,22 @@ class SQLAgentError(MyCustomError):
 
 class DataEncryptionError(MyCustomError):  # pragma: no cover - thin wrapper
     """Raised for encryption/decryption related errors"""
+
+class FaultBucketingError(MyCustomError):
+    """Custom error class for FaultBucketingPipeline."""
+
+
+class FaultClassifierError(MyCustomError):
+    """Custom error class for FaultEventClassifier."""
+
+
+class MetricsExtractorError(MyCustomError):
+    """Custom error class for TraceMetricsExtractor."""
+
+
+class ConfigLoaderError(MyCustomError):
+    """Custom error class for ConfigLoader."""
+
+
+class AggregatorError(MyCustomError):
+    """Custom error class for the aggregation module."""

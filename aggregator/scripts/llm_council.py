@@ -14,6 +14,8 @@ import yaml
 
 from utils.azure_openai_util import AzureLLMClient
 from utils.setup_logging import logger
+from utils.custom_errors import ConfigLoaderError
+
 
 # ---------------------------------------------------------------------------
 # Module-level paths & config
@@ -26,14 +28,46 @@ _CONFIG_PATH = _MODULE_DIR / "config" / "aggregation_config.json"
 
 def _load_prompts() -> Dict[str, Any]:
     """Load prompt templates from prompt/prompt.yml."""
-    with open(_PROMPTS_PATH, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    try:
+        with open(_PROMPTS_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError as exc:
+        raise ConfigLoaderError(
+            f"Prompts file not found: {_PROMPTS_PATH}",
+            original_exception=exc,
+        ) from exc
+    except yaml.YAMLError as exc:
+        raise ConfigLoaderError(
+            f"Prompts file is not valid YAML: {_PROMPTS_PATH}",
+            original_exception=exc,
+        ) from exc
+    except OSError as exc:
+        raise ConfigLoaderError(
+            f"Cannot read prompts file: {_PROMPTS_PATH}",
+            original_exception=exc,
+        ) from exc
 
 
 def _load_module_config() -> Dict[str, Any]:
     """Load module-specific configuration from config/aggregation_config.json."""
-    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError as exc:
+        raise ConfigLoaderError(
+            f"Aggregation config not found: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ConfigLoaderError(
+            f"Aggregation config is not valid JSON: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except OSError as exc:
+        raise ConfigLoaderError(
+            f"Cannot read aggregation config: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
 
 
 _PROMPTS: Dict[str, Any] = {}
@@ -172,14 +206,27 @@ class LLMCouncil:
             n=n_runs,
             judge_outputs=formatted_outputs,
         )
-
-        response, usage = await self.llm_client.call_llm(
-            model_name=self.meta_judge_model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=config.get("meta_judge_temperature", 0.1),
-            max_tokens=config.get("meta_judge_max_tokens", 2000),
-            system_prompt=prompts["meta_judge"]["system_prompt"],
-        )
+        try:
+            response, usage = await self.llm_client.call_llm(
+                model_name=self.meta_judge_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=config.get("meta_judge_temperature", 0.1),
+                max_tokens=config.get("meta_judge_max_tokens", 2000),
+                system_prompt=prompts["meta_judge"]["system_prompt"],
+            )
+        
+        except Exception as exc:
+            logger.error(
+                f"Meta-judge call failed for metric='{metric_name}', "
+                f"fault_category='{fault_category}': {exc}",
+                exc_info=True,
+            )
+            return {
+                "consensus_summary": "Meta-judge reconciliation failed.",
+                "severity_label": "Adequate",
+                "confidence": "Low",
+                "inter_judge_agreement": 0.0,
+            }, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
         if isinstance(response, dict):
             return response, usage
@@ -351,14 +398,23 @@ class LLMCouncil:
             boolean_metrics=json.dumps(boolean_aggs, indent=2, default=str),
             textual_summaries=json.dumps(summaries_for_prompt, indent=2, default=str),
         )
-
-        response, usage = await self.llm_client.call_llm(
-            model_name=self.meta_judge_model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=config.get("scorecard_synthesis_temperature", 0.2),
-            max_tokens=config.get("scorecard_synthesis_max_tokens", 2000),
-            system_prompt=prompts["scorecard_synthesis"]["system_prompt"],
-        )
+        try:
+            response, usage = await self.llm_client.call_llm(
+                model_name=self.meta_judge_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=config.get("scorecard_synthesis_temperature", 0.2),
+                max_tokens=config.get("scorecard_synthesis_max_tokens", 2000),
+                system_prompt=prompts["scorecard_synthesis"]["system_prompt"],
+            )
+        except Exception as exc:
+            logger.error(
+                f"Limitations and recommendations synthesis failed for "
+                f"fault_category='{fault_category}': {exc}. "
+                f"Returning empty known_limitations and recommendations.",
+                exc_info=True,
+            )
+            return {"known_limitations": {}, "recommendations": {}}, total_usage
+    
         for k in total_usage:
             total_usage[k] += usage.get(k, 0)
 
@@ -405,10 +461,17 @@ class LLMCouncil:
             narratives = _collect_narratives(docs, section, field_name)
             if not narratives:
                 continue
-
-            agg, usage = await self.synthesize_textual_metric(
-                narratives, output_key, fault_category
-            )
+            try:
+                agg, usage = await self.synthesize_textual_metric(
+                    narratives, output_key, fault_category
+                )
+            except Exception as exc:
+                logger.error(
+                    f"Textual metric synthesis failed for '{output_key}' "
+                    f"in fault_category='{fault_category}': {exc}. Aborting category aggregation.",
+                    exc_info=True,
+                )
+                raise
 
             results[output_key] = {
                 f: agg.get(f, "" if f == "consensus_summary" else None)

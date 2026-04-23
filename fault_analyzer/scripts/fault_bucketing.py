@@ -22,11 +22,14 @@ Output: per-fault JSON files for downstream metrics extraction.
 
 import argparse
 import asyncio
+import sys
 import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from utils.custom_errors import MyCustomError, FaultBucketingError
 
 from fault_analyzer.scripts.classifier import FaultEventClassifier
 from fault_analyzer.schema.data_models import (
@@ -56,8 +59,14 @@ _CONFIG_PATH = _MODULE_DIR / "config" / "fault_bucketing_config.json"
 
 def _load_module_config() -> Dict[str, Any]:
     """Load the fault bucketing module configuration from JSON."""
-    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise FaultBucketingError(
+            f"Could not load module config: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +115,15 @@ class FaultBucketingPipeline:
             self.config = {}
 
         # LLM classifier for assigning non-fault events to buckets
-        self._classifier = FaultEventClassifier(config=self.config)
+        try:
+            self._classifier = FaultEventClassifier(config=self.config)
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            raise FaultBucketingError(
+                "Failed to initialize FaultEventClassifier",
+                original_exception=exc,
+            ) from exc
 
         # Pipeline state
         self.active_faults: Dict[str, FaultBucket] = {}
@@ -239,14 +256,26 @@ class FaultBucketingPipeline:
     def _load_trace(self) -> List[Dict[str, Any]]:
         """Load the trace JSON file and validate it's a list of span objects."""
         if not self.trace_file_path.exists():
-            raise FileNotFoundError(
+            raise FaultBucketingError(
                 f"Trace file not found: {self.trace_file_path}"
             )
-        with open(self.trace_file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+
+        try:
+            with open(self.trace_file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise FaultBucketingError(
+                f"Trace file is not valid JSON: {self.trace_file_path}",
+                original_exception=exc,
+            ) from exc
+        except OSError as exc:
+            raise FaultBucketingError(
+                f"Could not read trace file: {self.trace_file_path}",
+                original_exception=exc,
+            ) from exc
 
         if not isinstance(data, list):
-            raise ValueError(
+            raise FaultBucketingError(
                 f"Expected a JSON array of trace events, "
                 f"got {type(data).__name__}"
             )
@@ -550,142 +579,167 @@ class FaultBucketingPipeline:
             Dictionary of fault_id → FaultBucket (all buckets, active + closed).
         """
         # Load and sort
-        raw_events = self._load_trace()
-        sorted_events = self._sort_events_chronologically(raw_events)
 
-        # ----------------------------------------------------------
-        # Extract agent metadata from the first trace event
-        # ----------------------------------------------------------
-        self._extract_agent_metadata(sorted_events)
+        try:
+            raw_events = self._load_trace()
+            sorted_events = self._sort_events_chronologically(raw_events)
 
-        # ----------------------------------------------------------
-        # Pass 1: Create fault buckets from "fault: *" spans
-        #         (deterministic — no LLM)
-        # ----------------------------------------------------------
-        remaining_events: List[Dict[str, Any]] = []
+            # ----------------------------------------------------------
+            # Extract agent metadata from the first trace event
+            # ----------------------------------------------------------
+            self._extract_agent_metadata(sorted_events)
 
-        for event in sorted_events:
-            if self._is_fault_name_span(event):
-                self._create_fault_bucket_from_span(event)
-            else:
-                remaining_events.append(event)
+            # ----------------------------------------------------------
+            # Pass 1: Create fault buckets from "fault: *" spans
+            #         (deterministic — no LLM)
+            # ----------------------------------------------------------
+            remaining_events: List[Dict[str, Any]] = []
 
-        logger.info(
-            f"Deterministic bucketing: {len(self.active_faults)} active, "
-            f"{len(self.closed_faults)} closed fault bucket(s) created "
-            f"from 'fault: *' spans."
-        )
+            for event in sorted_events:
+                if self._is_fault_name_span(event):
+                    self._create_fault_bucket_from_span(event)
+                else:
+                    remaining_events.append(event)
 
-        if not remaining_events:
-            self._write_output()
-            return {**self.active_faults, **self.closed_faults}
-
-        # ----------------------------------------------------------
-        # Pass 2: Assign remaining events to fault buckets via LLM
-        #         classifier in chronological batches.
-        # ----------------------------------------------------------
-        logger.info(
-            f"Processing {len(remaining_events)} remaining events via LLM "
-            f"(batch_size={self.batch_size})"
-        )
-        batches = self._create_event_batches(
-            remaining_events, self.batch_size
-        )
-
-        for batch_idx, batch in enumerate(batches):
-            # Provide all known fault buckets (active + closed) as context
-            known_faults = {**self.active_faults, **self.closed_faults}
-
-            classifications = await self._classifier.classify_batch(
-                batch, known_faults
+            logger.info(
+                f"Deterministic bucketing: {len(self.active_faults)} active, "
+                f"{len(self.closed_faults)} closed fault bucket(s) created "
+                f"from 'fault: *' spans."
             )
 
-            # Build a map of event_id → classification
-            classification_map: Dict[str, EventClassification] = {
-                c.event_id: c for c in classifications
-            }
+            if not remaining_events:
+                self._write_output()
+                return {**self.active_faults, **self.closed_faults}
 
-            for event in batch:
-                eid = event.get("id", "")
-                classification = classification_map.get(eid)
+            # ----------------------------------------------------------
+            # Pass 2: Assign remaining events to fault buckets via LLM
+            #         classifier in chronological batches.
+            # ----------------------------------------------------------
+            logger.info(
+                f"Processing {len(remaining_events)} remaining events via LLM "
+                f"(batch_size={self.batch_size})"
+            )
+            batches = self._create_event_batches(
+                remaining_events, self.batch_size
+            )
 
-                if not classification:
-                    self.unclassified_events.append(event)
+            for batch_idx, batch in enumerate(batches):
+                # Provide all known fault buckets (active + closed) as context
+                known_faults = {**self.active_faults, **self.closed_faults}
+
+                try:
+                    classifications = await self._classifier.classify_batch(
+                        batch, known_faults
+                    )
+                except MyCustomError as exc:
+                    logger.error(
+                        f"Batch {batch_idx + 1}/{len(batches)} classification failed "
+                        f"(custom error): {exc}. Marking {len(batch)} events as unclassified."
+                    )
+                    self.unclassified_events.extend(batch)
+                    continue
+                except Exception as exc:
+                    logger.error(
+                        f"Batch {batch_idx + 1}/{len(batches)} classification failed: {exc}. "
+                        f"Marking {len(batch)} events as unclassified.",
+                        exc_info=True,
+                    )
+                    self.unclassified_events.extend(batch)
                     continue
 
-                # --- Handle fault detection/localization identified by LLM ---
-                if classification.fault_detected:
-                    detection_ts = (
-                        event.get("startTime") or event.get("endTime")
-                    )
-                    self._record_fault_detection(
-                        classification, detection_ts
-                    )
+                # Build a map of event_id → classification
+                classification_map: Dict[str, EventClassification] = {
+                    c.event_id: c for c in classifications
+                }
 
-                # --- Assign event to related fault bucket(s) ---
-                self._place_event_in_buckets(event, classification)
+                for event in batch:
+                    eid = event.get("id", "")
+                    classification = classification_map.get(eid)
 
-                # --- Handle fault mitigation identified by LLM ---
-                if classification.fault_mitigated:
-                    mid = classification.fault_mitigated
-                    mitigation_ts = (
-                        event.get("endTime") or event.get("startTime")
-                    )
-                    self._close_fault(mid, mitigated_at=mitigation_ts)
+                    if not classification:
+                        self.unclassified_events.append(event)
+                        continue
 
+                    # --- Handle fault detection/localization identified by LLM ---
+                    if classification.fault_detected:
+                        detection_ts = (
+                            event.get("startTime") or event.get("endTime")
+                        )
+                        self._record_fault_detection(
+                            classification, detection_ts
+                        )
+
+                    # --- Assign event to related fault bucket(s) ---
+                    self._place_event_in_buckets(event, classification)
+
+                    # --- Handle fault mitigation identified by LLM ---
+                    if classification.fault_mitigated:
+                        mid = classification.fault_mitigated
+                        mitigation_ts = (
+                            event.get("endTime") or event.get("startTime")
+                        )
+                        self._close_fault(mid, mitigated_at=mitigation_ts)
+
+                logger.info(
+                    f"Batch {batch_idx + 1}/{len(batches)} processed "
+                    f"({len(batch)} events)"
+                )
+
+            # ----------------------------------------------------------
+            # Fallback: if no faults were discovered → single-fault trace
+            # ----------------------------------------------------------
+            if not self.active_faults and not self.closed_faults:
+                logger.info(
+                    "No 'fault: *' spans found. "
+                    "Treating as single-fault trace (one bucket)."
+                )
+                single_bucket = FaultBucket(
+                    fault_id="single_fault",
+                    fault_name="unknown",
+                    events=sorted_events,
+                    status="closed",
+                    detected_at=(
+                        sorted_events[0].get("startTime")
+                        if sorted_events
+                        else None
+                    ),
+                    mitigated_at=(
+                        sorted_events[-1].get("endTime")
+                        if sorted_events
+                        else None
+                    ),
+                    agent_id=self.agent_id,
+                    agent_name=self.agent_name,
+                    agent_version=self.agent_version,
+                    experiment_id=self.experiment_id,
+                    run_id=self.run_id,
+                )
+                self.closed_faults["single_fault"] = single_bucket
+
+            # Re-sort events within each bucket to maintain chronological order
+            all_buckets = {**self.active_faults, **self.closed_faults}
+            for bucket in all_buckets.values():
+                bucket.events = self._sort_events_chronologically(bucket.events)
+
+            # Log summary
+            total_events = sum(len(b.events) for b in all_buckets.values())
             logger.info(
-                f"Batch {batch_idx + 1}/{len(batches)} processed "
-                f"({len(batch)} events)"
+                f"Bucketing complete: {len(all_buckets)} buckets, "
+                f"{total_events} events assigned, "
+                f"{len(self.unclassified_events)} unclassified, "
+                f"LLM tokens used: {self.total_input_tokens + self.total_output_tokens}"
             )
 
-        # ----------------------------------------------------------
-        # Fallback: if no faults were discovered → single-fault trace
-        # ----------------------------------------------------------
-        if not self.active_faults and not self.closed_faults:
-            logger.info(
-                "No 'fault: *' spans found. "
-                "Treating as single-fault trace (one bucket)."
-            )
-            single_bucket = FaultBucket(
-                fault_id="single_fault",
-                fault_name="unknown",
-                events=sorted_events,
-                status="closed",
-                detected_at=(
-                    sorted_events[0].get("startTime")
-                    if sorted_events
-                    else None
-                ),
-                mitigated_at=(
-                    sorted_events[-1].get("endTime")
-                    if sorted_events
-                    else None
-                ),
-                agent_id=self.agent_id,
-                agent_name=self.agent_name,
-                agent_version=self.agent_version,
-                experiment_id=self.experiment_id,
-                run_id=self.run_id,
-            )
-            self.closed_faults["single_fault"] = single_bucket
-
-        # Re-sort events within each bucket to maintain chronological order
-        all_buckets = {**self.active_faults, **self.closed_faults}
-        for bucket in all_buckets.values():
-            bucket.events = self._sort_events_chronologically(bucket.events)
-
-        # Log summary
-        total_events = sum(len(b.events) for b in all_buckets.values())
-        logger.info(
-            f"Bucketing complete: {len(all_buckets)} buckets, "
-            f"{total_events} events assigned, "
-            f"{len(self.unclassified_events)} unclassified, "
-            f"LLM tokens used: {self.total_input_tokens + self.total_output_tokens}"
-        )
-
-        self._write_output()
-        self._write_ground_truth()
-        return all_buckets
+            self._write_output()
+            self._write_ground_truth()
+            return all_buckets
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            raise FaultBucketingError(
+                "Fault bucketing pipeline failed",
+                original_exception=exc,
+            ) from exc    
 
     # ------------------------------------------------------------------
     # Ground truth writer
@@ -727,10 +781,15 @@ class FaultBucketingPipeline:
                 "ground_truth": bucket.ground_truth,
             }
 
-            with open(gt_path, "w", encoding="utf-8") as f:
-                json.dump(gt_output, f, indent=2, default=str)
-
-            logger.info(f"Wrote ground truth: {gt_filename}")
+            try:
+                with open(gt_path, "w", encoding="utf-8") as f:
+                    json.dump(gt_output, f, indent=2, default=str)
+                logger.info(f"Wrote ground truth: {gt_filename}")
+            except (OSError, TypeError) as exc:
+                logger.error(
+                    f"Failed to write ground truth file {gt_filename}: {exc}",
+                    exc_info=True,
+                )
 
     # ------------------------------------------------------------------
     # Output writer
@@ -738,7 +797,13 @@ class FaultBucketingPipeline:
 
     def _write_output(self) -> None:
         """Write per-fault bucket JSON files and a summary manifest."""
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise FaultBucketingError(
+                f"Failed to create output directory: {self.output_dir}",
+                original_exception=exc,
+            ) from exc
 
         trace_stem = self.trace_file_path.stem  # filename without extension
         # Truncate trace stem to keep filenames within OS limits
@@ -756,8 +821,14 @@ class FaultBucketingPipeline:
 
             bucket_output = bucket.to_dict()
 
-            with open(bucket_path, "w", encoding="utf-8") as f:
-                json.dump(bucket_output, f, indent=2, default=str)
+            try:
+                with open(bucket_path, "w", encoding="utf-8") as f:
+                    json.dump(bucket_output, f, indent=2, default=str)
+            except (OSError, TypeError) as exc:
+                raise FaultBucketingError(
+                    f"Failed to write bucket file: {bucket_filename}",
+                    original_exception=exc,
+                ) from exc
 
             manifest_entries.append({
                 "fault_id": fault_id,
@@ -788,8 +859,14 @@ class FaultBucketingPipeline:
         if self.other_detected_faults:
             other_faults_filename = f"{short_stem}_other_detected_faults.json"
             other_faults_path = self.output_dir / other_faults_filename
-            with open(other_faults_path, "w", encoding="utf-8") as f:
-                json.dump(self.other_detected_faults, f, indent=2, default=str)
+            try:
+                with open(other_faults_path, "w", encoding="utf-8") as f:
+                    json.dump(self.other_detected_faults, f, indent=2, default=str)
+            except (OSError, TypeError) as exc:
+                raise FaultBucketingError(
+                    f"Failed to write other-detected-faults file: {other_faults_path}",
+                    original_exception=exc,
+                ) from exc
             logger.info(
                 f"Wrote other detected faults: {other_faults_filename} "
                 f"({len(self.other_detected_faults)} faults)"
@@ -799,8 +876,14 @@ class FaultBucketingPipeline:
         if self.unclassified_events:
             unclassified_filename = f"{short_stem}_unclassified.json"
             unclassified_path = self.output_dir / unclassified_filename
-            with open(unclassified_path, "w", encoding="utf-8") as f:
-                json.dump(self.unclassified_events, f, indent=2, default=str)
+            try:
+                with open(unclassified_path, "w", encoding="utf-8") as f:
+                    json.dump(self.unclassified_events, f, indent=2, default=str)
+            except (OSError, TypeError) as exc:
+                raise FaultBucketingError(
+                    f"Failed to write unclassified events file: {unclassified_path}",
+                    original_exception=exc,
+                ) from exc
             logger.info(
                 f"Wrote unclassified events: {unclassified_filename} "
                 f"({len(self.unclassified_events)} events)"
@@ -826,8 +909,14 @@ class FaultBucketingPipeline:
             "buckets": manifest_entries,
         }
 
-        with open(manifest_path, "w", encoding="utf-8") as f:
-            json.dump(manifest, f, indent=2, default=str)
+        try:
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2, default=str)
+        except (OSError, TypeError) as exc:
+            raise FaultBucketingError(
+                f"Failed to write manifest: {manifest_path}",
+                original_exception=exc,
+            ) from exc
 
         logger.info(f"Wrote manifest: {manifest_filename}")
 
@@ -874,14 +963,20 @@ def main():
         except Exception as e:
             logger.warning(f"Could not load config: {e}. Using defaults.")
 
-    pipeline = FaultBucketingPipeline(
-        trace_file_path=args.trace_file,
-        output_dir=args.output_dir,
-        config=config,
-        batch_size=args.batch_size,
-    )
-
-    result = asyncio.run(pipeline.run())
+    try:
+        pipeline = FaultBucketingPipeline(
+            trace_file_path=args.trace_file,
+            output_dir=args.output_dir,
+            config=config,
+            batch_size=args.batch_size,
+        )
+        result = asyncio.run(pipeline.run())
+    except MyCustomError as exc:
+        logger.error(f"Fault bucketing failed: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        logger.error(f"Unexpected error in fault bucketing: {exc}", exc_info=True)
+        sys.exit(1)
 
     # Print summary
     print(f"\nFault Bucketing Complete")

@@ -10,6 +10,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils.custom_errors import MyCustomError, FaultClassifierError
 
 import yaml
 
@@ -46,8 +47,19 @@ def _load_prompt() -> str:
 
 def _load_module_config() -> Dict[str, Any]:
     """Load the fault bucketing module configuration from JSON."""
-    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except OSError as exc:
+        raise FaultClassifierError(
+            f"Could not read classifier module config: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise FaultClassifierError(
+            f"Classifier module config is not valid JSON: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -76,11 +88,18 @@ class FaultEventClassifier:
         """Get or create the AzureLLMClient singleton."""
         if self._llm_client is None:
             if AzureLLMClient is None:
-                raise RuntimeError(
-                    "AzureLLMClient is not available. "
-                    "Install the required dependencies."
+                raise FaultClassifierError(
+                    "AzureLLMClient is not available. Install the required dependencies."
                 )
-            self._llm_client = AzureLLMClient(config=self.config)
+            try:
+                self._llm_client = AzureLLMClient(config=self.config)
+            except MyCustomError:
+                raise
+            except Exception as exc:
+                raise FaultClassifierError(
+                    "Failed to initialize AzureLLMClient",
+                    original_exception=exc,
+                ) from exc
         return self._llm_client
 
     def build_user_message(
@@ -117,15 +136,24 @@ class FaultEventClassifier:
                 "metadata": evt.get("metadata"),
             })
 
+        try:
+            faults_context_json = json.dumps(faults_context, indent=2, default=str)
+            events_json = json.dumps(events_for_llm, indent=2, default=str)
+        except (TypeError, ValueError) as exc:
+            raise FaultClassifierError(
+                "Failed to serialize batch or known_faults context to JSON",
+                original_exception=exc,
+            ) from exc
+
         message = "## Known Faults\n\n"
         if faults_context:
-            message += f"```json\n{json.dumps(faults_context, indent=2)}\n```\n\n"
+            message += f"```json\n{faults_context_json}\n```\n\n"
         else:
             message += "No faults have been identified yet. Look for fault detection events in this batch.\n\n"
 
         message += (
             "## Event Batch\n\n"
-            f"```json\n{json.dumps(events_for_llm, indent=2)}\n```\n\n"
+            f"```json\n{events_json}\n```\n\n"
             "Classify each event. Identify any events that represent new fault "
             "detections or fault mitigations. "
             "Return a JSON object with a 'classifications' array."
@@ -139,14 +167,27 @@ class FaultEventClassifier:
     ) -> List[EventClassification]:
         """Send a batch of events to the LLM for classification.
 
-        Falls back to assigning all events to every known fault on failure.
+        Error-handling policy:
+        - Config / serialization bugs in setup → raise ``FaultClassifierError``
+          (these indicate bugs that the fallback would mask).
+        - Transient LLM / network / API errors → log + fallback_classify.
+        - Unexpected LLM output or parse errors → log + fallback_classify.
         """
+        # ---- Stage 1: setup (client + message) ----
+        # Config / serialization bugs here MUST NOT be hidden by the fallback.
         try:
             client = self._get_llm_client()
-            user_message = self.build_user_message(
-                batch, known_faults
-            )
+            user_message = self.build_user_message(batch, known_faults)
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            raise FaultClassifierError(
+                "Failed to prepare classification request",
+                original_exception=exc,
+            ) from exc
 
+        # ---- Stage 2: LLM call (transient failures → fallback) ----
+        try:
             result, usage = await client.with_structured_output(
                 model_name=self._model_name,
                 messages=[{"role": "user", "content": user_message}],
@@ -155,28 +196,51 @@ class FaultEventClassifier:
                 max_tokens=self._max_tokens,
                 system_prompt=self._system_prompt,
             )
+        except MyCustomError as exc:
+            logger.error(
+                f"LLM classification failed (custom error): {exc}. Using fallback."
+            )
+            return self.fallback_classify(batch, known_faults)
+        except Exception as exc:
+            logger.error(
+                f"LLM classification failed: {exc}. Using fallback.",
+                exc_info=True,
+            )
+            return self.fallback_classify(batch, known_faults)
 
-            # Track tokens
+        # ---- Stage 3: parse result + track tokens (failures → fallback) ----
+        try:
             if isinstance(usage, dict):
-                self.total_input_tokens += usage.get("input_tokens", 0)
-                self.total_output_tokens += usage.get("output_tokens", 0)
+                self.total_input_tokens += int(usage.get("input_tokens", 0) or 0)
+                self.total_output_tokens += int(usage.get("output_tokens", 0) or 0)
 
             if isinstance(result, BatchClassificationResult):
                 return result.classifications
-            elif isinstance(result, dict) and "classifications" in result:
+
+            if isinstance(result, dict) and "classifications" in result:
                 return [
                     EventClassification.model_validate(c)
                     for c in result["classifications"]
                 ]
-            else:
-                logger.warning(
-                    "LLM returned unexpected format, using fallback classification"
-                )
-                return self.fallback_classify(batch, known_faults)
 
-        except Exception as e:
-            logger.error(f"LLM classification failed: {e}. Using fallback.")
+            logger.warning(
+                "LLM returned unexpected format, using fallback classification"
+            )
             return self.fallback_classify(batch, known_faults)
+
+        except MyCustomError as exc:
+            logger.error(
+                f"Parsing LLM output failed (custom error): {exc}. Using fallback."
+            )
+            return self.fallback_classify(batch, known_faults)
+        except Exception as exc:
+            logger.error(
+                f"Failed to parse LLM classification output or track tokens: {exc}. "
+                f"Using fallback.",
+                exc_info=True,
+            )
+            return self.fallback_classify(batch, known_faults)
+
 
     def fallback_classify(
         self,

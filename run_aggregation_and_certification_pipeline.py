@@ -22,6 +22,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+from utils.custom_errors import MyCustomError, OrchestratorError, ConfigLoaderError
+import sys
 
 try:
     from utils.azure_openai_util import AzureLLMClient
@@ -42,11 +44,17 @@ from cert_builder.scripts.certification_pipeline import CertificationPipeline
 
 def _save_json(data: dict, path: Path) -> None:
     """Write dict to JSON file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, indent=4, default=str, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(data, indent=4, default=str, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        raise OrchestratorError(
+            f"Failed to write JSON file: {path}",
+            original_exception=exc,
+        ) from exc
 
 
 async def run_pipeline(
@@ -85,7 +93,13 @@ async def run_pipeline(
     output_path = (Path(output_dir) / certification_run_id) if certification_run_id else Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    llm_client = AzureLLMClient(config=config) if AzureLLMClient else None
+    try:
+        llm_client = AzureLLMClient(config=config) if AzureLLMClient else None
+    except Exception as exc:
+        raise OrchestratorError(
+            "Failed to initialize AzureLLMClient",
+            original_exception=exc,
+        ) from exc
 
     try:
         # ------------------------------------------------------------------
@@ -94,42 +108,49 @@ async def run_pipeline(
         logger.info("=" * 60)
         logger.info("STEP 1: Aggregation")
         logger.info("=" * 60)
+        try:
+            query_service = DirectoryQueryService(metrics_dir)
 
-        query_service = DirectoryQueryService(metrics_dir)
+            # Verify documents exist
+            agent_docs = query_service.query_runs_by_agent(agent_id)
+            if not agent_docs:
+                logger.error(
+                    f"No per-run metric documents found for agent_id='{agent_id}' "
+                    f"in directory '{metrics_dir}'. "
+                    "Ensure per-run metrics have been generated first."
+                )
+                return {}
 
-        # Verify documents exist
-        agent_docs = query_service.query_runs_by_agent(agent_id)
-        if not agent_docs:
-            logger.error(
-                f"No per-run metric documents found for agent_id='{agent_id}' "
-                f"in directory '{metrics_dir}'. "
-                "Ensure per-run metrics have been generated first."
+            logger.info(f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'")
+
+            categories = query_service.get_all_fault_categories(agent_id=agent_id)
+            if not categories:
+                logger.error(f"No fault categories found for agent_id='{agent_id}'.")
+                return {}
+
+            logger.info(f"Found fault categories: {categories}")
+
+            orchestrator = AggregationOrchestrator(
+                llm_client=llm_client,
+                query_service=query_service,
+                db_client=None,  # No MongoDB storage; output goes to file
             )
-            return {}
 
-        logger.info(f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'")
-
-        categories = query_service.get_all_fault_categories(agent_id=agent_id)
-        if not categories:
-            logger.error(f"No fault categories found for agent_id='{agent_id}'.")
-            return {}
-
-        logger.info(f"Found fault categories: {categories}")
-
-        orchestrator = AggregationOrchestrator(
-            llm_client=llm_client,
-            query_service=query_service,
-            db_client=None,  # No MongoDB storage; output goes to file
-        )
-
-        aggregated_scorecard = await orchestrator.aggregate_all(
-            agent_id=agent_id,
-            agent_name=agent_name,
-            certification_run_id=certification_run_id,
-            runs_per_fault=runs_per_fault,
-            store_results=False,
-        )
-
+            aggregated_scorecard = await orchestrator.aggregate_all(
+                agent_id=agent_id,
+                agent_name=agent_name,
+                certification_run_id=certification_run_id,
+                runs_per_fault=runs_per_fault,
+                store_results=False,
+            )
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            logger.error(f"Aggregation step failed: {exc}", exc_info=True)
+            raise OrchestratorError(
+                "Aggregation step failed",
+                original_exception=exc,
+            ) from exc
         # Persist aggregated scorecard
         scorecard_path = output_path / f"aggregated_scorecard_output_{agent_id}.json"
         _save_json(aggregated_scorecard, scorecard_path)
@@ -145,13 +166,21 @@ async def run_pipeline(
         logger.info("=" * 60)
 
         report_path = output_path / f"certification_report_{agent_id}.json"
-
-        cert_pipeline = CertificationPipeline(
-            input_path=scorecard_path,
-            output_path=report_path,
-            debug=debug,
-        )
-        report = await cert_pipeline.run()
+        try:
+            cert_pipeline = CertificationPipeline(
+                input_path=scorecard_path,
+                output_path=report_path,
+                debug=debug,
+            )
+            report = await cert_pipeline.run()
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            logger.error(f"Certification step failed: {exc}", exc_info=True)
+            raise OrchestratorError(
+                "Certification step failed",
+                original_exception=exc,
+            ) from exc
 
         logger.info(f"Certification report written to {report_path}")
 
@@ -268,17 +297,24 @@ def main():
     )
     args = parser.parse_args()
 
-    report = asyncio.run(
-        run_pipeline(
-            metrics_dir=args.metrics_dir,
-            output_dir=args.output_dir,
-            agent_id=args.agent_id,
-            agent_name=args.agent_name,
-            certification_run_id=args.certification_run_id,
-            runs_per_fault=args.runs_per_fault,
-            debug=args.debug,
+    try:
+        report = asyncio.run(
+            run_pipeline(
+                metrics_dir=args.metrics_dir,
+                output_dir=args.output_dir,
+                agent_id=args.agent_id,
+                agent_name=args.agent_name,
+                certification_run_id=args.certification_run_id,
+                runs_per_fault=args.runs_per_fault,
+                debug=args.debug,
+            )
         )
-    )
+    except MyCustomError as exc:
+        logger.error(f"Pipeline aborted: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        logger.error(f"Unexpected pipeline error: {exc}", exc_info=True)
+        sys.exit(1)
 
     if report:
         print(f"\nPipeline Complete")
