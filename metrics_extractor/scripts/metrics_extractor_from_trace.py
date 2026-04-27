@@ -14,6 +14,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils.custom_errors import MetricsExtractorError, ConfigLoaderError
 
 import yaml
 
@@ -58,14 +59,40 @@ _CONFIG_PATH = _MODULE_DIR / "config" / "metric_extraction_config.json"
 
 def _load_module_config() -> Dict[str, Any]:
     """Load the metric extraction module configuration from JSON."""
-    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError as e:
+        raise ConfigLoaderError(
+            f"Metrics extractor config not found: {_CONFIG_PATH}"
+        ) from e
+    except json.JSONDecodeError as e:
+        raise ConfigLoaderError(
+            f"Metrics extractor config is not valid JSON ({_CONFIG_PATH}): {e}"
+        ) from e
+    except OSError as e:
+        raise ConfigLoaderError(
+            f"Cannot read metrics extractor config ({_CONFIG_PATH}): {e}"
+        ) from e
 
 
 def _load_prompts() -> Dict[str, str]:
     """Load prompt templates from prompts.yml."""
-    with open(_PROMPT_PATH, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    try:
+        with open(_PROMPT_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError as e:
+        raise ConfigLoaderError(
+            f"Metrics extractor prompts file not found: {_PROMPT_PATH}"
+        ) from e
+    except yaml.YAMLError as e:
+        raise ConfigLoaderError(
+            f"Metrics extractor prompts file is not valid YAML ({_PROMPT_PATH}): {e}"
+        ) from e
+    except OSError as e:
+        raise ConfigLoaderError(
+            f"Cannot read metrics extractor prompts ({_PROMPT_PATH}): {e}"
+        ) from e
 
 
 PROMPTS = _load_prompts()
@@ -225,50 +252,57 @@ class TraceMetricsExtractor:
             self.mongodb_client = None
 
     def load_trace_file(self, file_path: str) -> List[Dict[str, Any]]:
-        """Load and parse trace JSON file.
-
-        Supports two formats:
-        1. Fault bucket JSON — a dict with top-level metadata fields and an
-           ``events`` array.  Bucket metadata is automatically loaded into
-           ``self.bucket_metadata`` if not already set.
-        2. Plain list of span dicts (legacy format).
-        """
         path = Path(file_path)
         if not path.exists():
-            raise FileNotFoundError(f"Trace file not found: {file_path}")
+            raise MetricsExtractorError(f"Trace file not found: {file_path}")
 
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise MetricsExtractorError(
+                f"Trace file is not valid JSON ({file_path}): {e}"
+            ) from e
+        except OSError as e:
+            raise MetricsExtractorError(
+                f"Cannot read trace file ({file_path}): {e}"
+            ) from e
 
-        if isinstance(data, dict) and "events" in data:
-            # Fault bucket format: extract metadata and return events
-            events = data["events"]
-            if not isinstance(events, list):
-                raise ValueError(
-                    f"Expected 'events' to be a list, got {type(events).__name__}"
+        try:
+            if isinstance(data, dict) and "events" in data:
+                events = data["events"]
+                if not isinstance(events, list):
+                    raise MetricsExtractorError(
+                        f"Expected 'events' to be a list, got {type(events).__name__}"
+                    )
+                if events and not all(isinstance(e, dict) for e in events):
+                    raise MetricsExtractorError(
+                        "Expected all items in 'events' to be dicts (span objects)"
+                    )
+                if self.bucket_metadata is None:
+                    self.bucket_metadata = {
+                        k: v for k, v in data.items() if k != "events"
+                    }
+                    logger.info(
+                        f"Loaded bucket metadata from trace file: "
+                        f"fault_id={self.bucket_metadata.get('fault_id')}, "
+                        f"fault_name={self.bucket_metadata.get('fault_name')}"
+                    )
+                return events
+            elif isinstance(data, list):
+                return data
+            else:
+                raise MetricsExtractorError(
+                    "Unsupported trace file format: expected a list of spans "
+                    "or a dict with an 'events' key."
                 )
-            if events and not all(isinstance(e, dict) for e in events):
-                raise ValueError(
-                    "Expected all items in 'events' to be dicts (span objects)"
-                )
-            if self.bucket_metadata is None:
-                self.bucket_metadata = {
-                    k: v for k, v in data.items() if k != "events"
-                }
-                logger.info(
-                    f"Loaded bucket metadata from trace file: "
-                    f"fault_id={self.bucket_metadata.get('fault_id')}, "
-                    f"fault_name={self.bucket_metadata.get('fault_name')}"
-                )
-            return events
-        elif isinstance(data, list):
-            return data
-        else:
-            raise ValueError(
-                f"Unsupported trace file format: expected a list of spans "
-                f"or a dict with an 'events' key."
-            )
-
+        except MetricsExtractorError:
+            raise
+        except Exception as e:
+            raise MetricsExtractorError(
+                f"Failed to parse trace file structure ({file_path}): {e}"
+            ) from e
+    
     def _create_batches(
         self, spans: List[Dict[str, Any]]
     ) -> List[List[Dict[str, Any]]]:
@@ -624,10 +658,19 @@ Extract all quantitative metrics from this batch as a JSON object. Parse every s
             validated_bucket_timestamps = await self._validate_bucket_timestamps_with_llm(spans)
 
         # Step 1: Aggregate all numeric fields in code
-        code_aggregated = self.quant_aggregator.aggregate(
-            partial_metrics, total_spans, span_times, self.bucket_metadata,
-            validated_bucket_timestamps,
-        )
+
+        try:
+            code_aggregated = self.quant_aggregator.aggregate(
+                partial_metrics, total_spans, span_times, self.bucket_metadata,
+                validated_bucket_timestamps,
+            )
+        except MetricsExtractorError:
+            raise
+        except Exception as e:
+            logger.error(f"Code-level quantitative aggregation failed: {e}", exc_info=True)
+            raise MetricsExtractorError(
+                f"Quantitative code aggregation failed: {e}"
+            ) from e
 
         # Step 2: Use LLM only for text field consolidation
         user_message = f"""Consolidate text fields from these partial metrics from {len(partial_metrics)} batches.
@@ -735,7 +778,15 @@ Extract any qualitative observations you can make from this batch."""
     ) -> LLMQualitativeExtraction:
         """Aggregate partial observations from all batches into final qualitative metrics."""
         # Step 1: Pre-compute numeric values in code
-        code_aggregated = self.qual_aggregator.aggregate(partial_observations)
+        try:
+            code_aggregated = self.qual_aggregator.aggregate(partial_observations)
+        except MetricsExtractorError:
+            raise
+        except Exception as e:
+            logger.error(f"Code-level qualitative aggregation failed: {e}", exc_info=True)
+            raise MetricsExtractorError(
+                f"Qualitative code aggregation failed: {e}"
+            ) from e
 
         # Step 2: Use LLM only for text/narrative synthesis
         user_message = f"""Synthesize text and narrative fields from these observations from {len(partial_observations)} batches.
@@ -841,63 +892,71 @@ Create a comprehensive qualitative assessment by combining the narrative observa
         and bucket metadata fields are used for timestamp baselines and ground-truth
         comparison.
         """
-        self.token_usage = TokenUsage()
+        try:
+            self.token_usage = TokenUsage()
 
-        logger.info(f"Loading trace file: {file_path}")
-        spans = self.load_trace_file(file_path)
-        logger.info(f"Loaded {len(spans)} spans")
+            logger.info(f"Loading trace file: {file_path}")
+            spans = self.load_trace_file(file_path)
+            logger.info(f"Loaded {len(spans)} spans")
 
-        if self.bucket_metadata:
-            logger.info(
-                f"Using bucket metadata: fault_id={self.bucket_metadata.get('fault_id')}, "
-                f"fault_name={self.bucket_metadata.get('fault_name')}, "
-                f"injection_timestamp={self.bucket_metadata.get('injection_timestamp')}"
-            )
-        else:
-            logger.info(
-                "No bucket metadata loaded. Proceeding without ground truth context."
-            )
-
-        logger.info("Extracting quantitative metrics using batched LLM processing...")
-        quantitative = await self.extract_quantitative_metrics(spans)
-
-        logger.info("Extracting qualitative metrics using batched LLM processing...")
-        qualitative = await self.extract_qualitative_metrics(spans)
-
-        logger.info(
-            f"Extraction complete. Token usage - Input: {self.token_usage.input_tokens}, "
-            f"Output: {self.token_usage.output_tokens}, Total: {self.token_usage.total_tokens}"
-        )
-
-        mongodb_document_id = None
-        if store_to_mongodb:
-            metadata = {
-                "trace_file": str(Path(file_path).name),
-                "total_spans": len(spans),
-                "extraction_token_usage": self.token_usage.to_dict(),
-            }
             if self.bucket_metadata:
-                metadata["bucket_metadata"] = {
-                    "fault_id": self.bucket_metadata.get("fault_id"),
-                    "fault_name": self.bucket_metadata.get("fault_name"),
-                    "severity": self.bucket_metadata.get("severity"),
-                    "injection_timestamp": self.bucket_metadata.get("injection_timestamp"),
-                }
-            try:
-                mongodb_document_id = self.store_metrics_to_mongodb(
-                    quantitative=quantitative,
-                    qualitative=qualitative,
-                    metadata=metadata,
+                logger.info(
+                    f"Using bucket metadata: fault_id={self.bucket_metadata.get('fault_id')}, "
+                    f"fault_name={self.bucket_metadata.get('fault_name')}, "
+                    f"injection_timestamp={self.bucket_metadata.get('injection_timestamp')}"
                 )
-            except Exception as e:
-                logger.error(f"Failed to store metrics to MongoDB: {e}")
+            else:
+                logger.info(
+                    "No bucket metadata loaded. Proceeding without ground truth context."
+                )
 
-        return ExtractionResult(
-            quantitative=quantitative,
-            qualitative=qualitative,
-            token_usage=self.token_usage,
-            mongodb_document_id=mongodb_document_id,
-        )
+            logger.info("Extracting quantitative metrics using batched LLM processing...")
+            quantitative = await self.extract_quantitative_metrics(spans)
+
+            logger.info("Extracting qualitative metrics using batched LLM processing...")
+            qualitative = await self.extract_qualitative_metrics(spans)
+
+            logger.info(
+                f"Extraction complete. Token usage - Input: {self.token_usage.input_tokens}, "
+                f"Output: {self.token_usage.output_tokens}, Total: {self.token_usage.total_tokens}"
+            )
+
+            mongodb_document_id = None
+            if store_to_mongodb:
+                metadata = {
+                    "trace_file": str(Path(file_path).name),
+                    "total_spans": len(spans),
+                    "extraction_token_usage": self.token_usage.to_dict(),
+                }
+                if self.bucket_metadata:
+                    metadata["bucket_metadata"] = {
+                        "fault_id": self.bucket_metadata.get("fault_id"),
+                        "fault_name": self.bucket_metadata.get("fault_name"),
+                        "severity": self.bucket_metadata.get("severity"),
+                        "injection_timestamp": self.bucket_metadata.get("injection_timestamp"),
+                    }
+                try:
+                    mongodb_document_id = self.store_metrics_to_mongodb(
+                        quantitative=quantitative,
+                        qualitative=qualitative,
+                        metadata=metadata,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to store metrics to MongoDB: {e}")
+
+            return ExtractionResult(
+                quantitative=quantitative,
+                qualitative=qualitative,
+                token_usage=self.token_usage,
+                mongodb_document_id=mongodb_document_id,
+            )
+        except MetricsExtractorError:
+            raise
+        except Exception as e:
+            logger.error(f"extract_metrics_async failed for {file_path}: {e}", exc_info=True)
+            raise MetricsExtractorError(
+                f"Metrics extraction failed for {file_path}: {e}"
+            ) from e
 
     def extract_metrics(
         self, file_path: str, store_to_mongodb: bool = False

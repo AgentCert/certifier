@@ -18,6 +18,12 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils.custom_errors import (
+    MyCustomError,
+    ConfigLoaderError,
+    AggregatorError,  
+)
+import sys
 
 from utils.azure_openai_util import AzureLLMClient
 from utils.load_config import ConfigLoader
@@ -41,8 +47,24 @@ _CONFIG_PATH = _MODULE_DIR / "config" / "aggregation_config.json"
 
 def _load_module_config() -> Dict[str, Any]:
     """Load module-specific configuration from aggregation_config.json."""
-    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError as exc:
+        raise ConfigLoaderError(
+            f"Aggregation config not found: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ConfigLoaderError(
+            f"Aggregation config is not valid JSON: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except OSError as exc:
+        raise ConfigLoaderError(
+            f"Cannot read aggregation config: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
 
 
 _MODULE_CONFIG: Dict[str, Any] = {}
@@ -67,14 +89,16 @@ def _get_collection_name() -> str:
 
 
 class MetricsQueryService:
-    """Handles all MongoDB queries for per-run metric documents."""
-
     def __init__(self, db_client: MongoDBClient):
         self.db_client = db_client
-
     def query_runs_by_agent(self, agent_id: str) -> List[Dict[str, Any]]:
-        """Query all per-run metric documents for a given agent_id."""
-        docs = self.db_client.find_by_agent_id(agent_id)
+        try:
+            docs = self.db_client.find_by_agent_id(agent_id)
+        except Exception as exc:
+            raise AggregatorError(
+                f"MongoDB query failed for agent_id='{agent_id}'",
+                original_exception=exc,
+            ) from exc
         logger.info(
             f"Queried {len(docs)} per-run documents for agent_id='{agent_id}'"
         )
@@ -85,12 +109,17 @@ class MetricsQueryService:
         fault_category: str,
         agent_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Query per-run metric documents for a fault_category (optionally scoped to agent)."""
-        collection = self.db_client.sync_db[self.db_client.config.metrics_collection]
-        query: Dict[str, Any] = {"fault_category": fault_category}
-        if agent_id:
-            query["agent_id"] = agent_id
-        docs = list(collection.find(query))
+        try:
+            collection = self.db_client.sync_db[self.db_client.config.metrics_collection]
+            query: Dict[str, Any] = {"fault_category": fault_category}
+            if agent_id:
+                query["agent_id"] = agent_id
+            docs = list(collection.find(query))
+        except Exception as exc:
+            raise AggregatorError(
+                f"MongoDB query failed for fault_category='{fault_category}'",
+                original_exception=exc,
+            ) from exc
         logger.info(
             f"Queried {len(docs)} per-run documents for fault_category='{fault_category}'"
             + (f", agent_id='{agent_id}'" if agent_id else "")
@@ -101,10 +130,15 @@ class MetricsQueryService:
         self,
         agent_id: Optional[str] = None,
     ) -> List[str]:
-        """Return distinct fault_category values in the metrics collection."""
-        collection = self.db_client.sync_db[self.db_client.config.metrics_collection]
-        filter_query = {"agent_id": agent_id} if agent_id else {}
-        categories = collection.distinct("fault_category", filter_query)
+        try:
+            collection = self.db_client.sync_db[self.db_client.config.metrics_collection]
+            filter_query = {"agent_id": agent_id} if agent_id else {}
+            categories = collection.distinct("fault_category", filter_query)
+        except Exception as exc:
+            raise AggregatorError(
+                "MongoDB query failed for fault categories",
+                original_exception=exc,
+            ) from exc
         return [c for c in categories if c is not None]
 
 
@@ -129,7 +163,7 @@ class DirectoryQueryService:
     def __init__(self, directory: str):
         self.directory = Path(directory)
         if not self.directory.is_dir():
-            raise FileNotFoundError(f"Directory not found: {self.directory}")
+            raise AggregatorError(f"Directory not found: {self.directory}")
         self._docs: Optional[List[Dict[str, Any]]] = None
 
     def _load_all_docs(self) -> List[Dict[str, Any]]:
@@ -327,83 +361,95 @@ class AggregationOrchestrator:
             f"Starting aggregation for fault_category='{fault_category}'"
             + (f", agent_id='{agent_id}'" if agent_id else "")
         )
+        try:
+            # Step 1: Query
+            docs = self.query_service.query_runs_by_fault_category(
+                fault_category, agent_id=agent_id
+            )
+            if not docs:
+                logger.warning(f"No per-run documents found for fault_category='{fault_category}'")
+                return {
+                    "fault_category": fault_category,
+                    "faults_tested": [],
+                    "total_runs": 0,
+                    "numeric_metrics": {},
+                    "derived_metrics": {},
+                    "boolean_status_metrics": {},
+                    "textual_metrics": {},
+                }
 
-        # Step 1: Query
-        docs = self.query_service.query_runs_by_fault_category(
-            fault_category, agent_id=agent_id
-        )
-        if not docs:
-            logger.warning(f"No per-run documents found for fault_category='{fault_category}'")
-            return {
-                "fault_category": fault_category,
-                "faults_tested": [],
-                "total_runs": 0,
-                "numeric_metrics": {},
-                "derived_metrics": {},
-                "boolean_status_metrics": {},
-                "textual_metrics": {},
-            }
+            # Step 2: Numeric aggregates
+            numeric_aggs = compute_numeric_aggregates(docs)
+            logger.info(f"Computed numeric aggregates for {len(numeric_aggs)} metrics")
 
-        # Step 2: Numeric aggregates
-        numeric_aggs = compute_numeric_aggregates(docs)
-        logger.info(f"Computed numeric aggregates for {len(numeric_aggs)} metrics")
+            # Step 3: Derived rates
+            derived_rates = compute_derived_rates(docs)
+            logger.info(f"Computed derived rates: {derived_rates}")
 
-        # Step 3: Derived rates
-        derived_rates = compute_derived_rates(docs)
-        logger.info(f"Computed derived rates: {derived_rates}")
+            # Step 4: Boolean aggregates
+            boolean_aggs = compute_boolean_aggregates(docs)
+            logger.info(f"Computed boolean aggregates: {boolean_aggs}")
 
-        # Step 4: Boolean aggregates
-        boolean_aggs = compute_boolean_aggregates(docs)
-        logger.info(f"Computed boolean aggregates: {boolean_aggs}")
+            # Step 5: Textual aggregates via LLM Council
+            textual_aggs, textual_usage = await self.council.compute_textual_aggregates(
+                docs, fault_category
+            )
+            logger.info(
+                f"Completed LLM Council synthesis for {len(textual_aggs)} textual metrics "
+                f"(tokens: {textual_usage})"
+            )
 
-        # Step 5: Textual aggregates via LLM Council
-        textual_aggs, textual_usage = await self.council.compute_textual_aggregates(
-            docs, fault_category
-        )
-        logger.info(
-            f"Completed LLM Council synthesis for {len(textual_aggs)} textual metrics "
-            f"(tokens: {textual_usage})"
-        )
+            # Step 5b: Synthesize known_limitations & recommendations
+            fault_names = set()
+            for doc in docs:
+                fname = doc.get("fault_name") or doc.get("quantitative", {}).get("injected_fault_name")
+                if fname:
+                    fault_names.add(fname)
 
-        # Step 5b: Synthesize known_limitations & recommendations
-        fault_names = set()
-        for doc in docs:
-            fname = doc.get("fault_name") or doc.get("quantitative", {}).get("injected_fault_name")
-            if fname:
-                fault_names.add(fname)
+            synthesis_result, synthesis_usage = await self.council.synthesize_limitations_and_recommendations(
+                fault_category=fault_category,
+                faults_tested=sorted(fault_names),
+                total_runs=len(docs),
+                numeric_aggs=numeric_aggs,
+                derived_rates=derived_rates,
+                boolean_aggs=boolean_aggs,
+                textual_aggs=textual_aggs,
+            )
+            textual_aggs.update(synthesis_result)
+            logger.info(
+                f"Synthesized known_limitations and recommendations "
+                f"(tokens: {synthesis_usage})"
+            )
 
-        synthesis_result, synthesis_usage = await self.council.synthesize_limitations_and_recommendations(
-            fault_category=fault_category,
-            faults_tested=sorted(fault_names),
-            total_runs=len(docs),
-            numeric_aggs=numeric_aggs,
-            derived_rates=derived_rates,
-            boolean_aggs=boolean_aggs,
-            textual_aggs=textual_aggs,
-        )
-        textual_aggs.update(synthesis_result)
-        logger.info(
-            f"Synthesized known_limitations and recommendations "
-            f"(tokens: {synthesis_usage})"
-        )
+            # Step 6: Assemble category scorecard
+            scorecard = self.assembler.assemble_category_scorecard(
+                fault_category=fault_category,
+                docs=docs,
+                numeric_aggs=numeric_aggs,
+                derived_rates=derived_rates,
+                boolean_aggs=boolean_aggs,
+                textual_aggs=textual_aggs,
+            )
 
-        # Step 6: Assemble category scorecard
-        scorecard = self.assembler.assemble_category_scorecard(
-            fault_category=fault_category,
-            docs=docs,
-            numeric_aggs=numeric_aggs,
-            derived_rates=derived_rates,
-            boolean_aggs=boolean_aggs,
-            textual_aggs=textual_aggs,
-        )
+            logger.info(
+                f"Aggregation complete for '{fault_category}': "
+                f"{scorecard['total_runs']} runs, "
+                f"{len(scorecard['faults_tested'])} fault types"
+            )
 
-        logger.info(
-            f"Aggregation complete for '{fault_category}': "
-            f"{scorecard['total_runs']} runs, "
-            f"{len(scorecard['faults_tested'])} fault types"
-        )
-
-        return scorecard
+            return scorecard
+        
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            logger.error(
+                f"Aggregation failed for fault_category='{fault_category}': {exc}",
+                exc_info=True,
+            )
+            raise AggregatorError(
+                f"Aggregation failed for fault_category='{fault_category}'",
+                original_exception=exc,
+            ) from exc
 
     async def aggregate_all(
         self,
@@ -418,43 +464,55 @@ class AggregationOrchestrator:
 
         Processes categories sequentially to manage LLM API rate limits.
         """
-        categories = self.query_service.get_all_fault_categories(
-            agent_id=agent_id or None
-        )
-        logger.info(f"Found {len(categories)} fault categories: {categories}")
-
-        category_scorecards: List[Dict[str, Any]] = []
-
-        for category in categories:
-            scorecard = await self.aggregate_fault_category(
-                fault_category=category,
-                agent_id=agent_id or None,
+        try:
+            categories = self.query_service.get_all_fault_categories(
+                agent_id=agent_id or None
             )
-            category_scorecards.append(scorecard)
+            logger.info(f"Found {len(categories)} fault categories: {categories}")
 
-        logger.info(f"Completed aggregation for {len(category_scorecards)} fault categories")
+            category_scorecards: List[Dict[str, Any]] = []
 
-        final_scorecard = self.assembler.assemble_final_scorecard(
-            category_scorecards=category_scorecards,
-            agent_id=agent_id,
-            agent_name=agent_name,
-            certification_run_id=certification_run_id,
-            runs_per_fault=runs_per_fault,
-        )
+            for category in categories:
+                scorecard = await self.aggregate_fault_category(
+                    fault_category=category,
+                    agent_id=agent_id or None,
+                )
+                category_scorecards.append(scorecard)
 
-        # Attach LLM Council model metadata
-        llm_council_info = self.council.get_council_model_info(self.council.llm_client.config)
-        final_scorecard["llm_council"] = llm_council_info
+            logger.info(f"Completed aggregation for {len(category_scorecards)} fault categories")
 
-        if store_results:
-            if self.storage is None:
-                logger.warning("No MongoDB client configured; skipping scorecard storage.")
-            else:
-                doc_id = self.storage.store(final_scorecard)
-                logger.info(f"Certification scorecard stored: {doc_id}")
+            final_scorecard = self.assembler.assemble_final_scorecard(
+                category_scorecards=category_scorecards,
+                agent_id=agent_id,
+                agent_name=agent_name,
+                certification_run_id=certification_run_id,
+                runs_per_fault=runs_per_fault,
+            )
 
-        return final_scorecard
+            # Attach LLM Council model metadata
+            llm_council_info = self.council.get_council_model_info(self.council.llm_client.config)
+            final_scorecard["llm_council"] = llm_council_info
 
+            if store_results:
+                if self.storage is None:
+                    logger.warning("No MongoDB client configured; skipping scorecard storage.")
+                else:
+                    doc_id = self.storage.store(final_scorecard)
+                    logger.info(f"Certification scorecard stored: {doc_id}")
+
+            return final_scorecard
+        except MyCustomError:
+            # Preserve the specific typed error (AggregatorError, ConfigLoaderError, etc.)
+            raise
+        except Exception as exc:
+            logger.error(
+                f"aggregate_all failed for agent_id='{agent_id}': {exc}",
+                exc_info=True,
+            )
+            raise AggregatorError(
+                f"aggregate_all failed for agent_id='{agent_id}'",
+                original_exception=exc,
+            ) from exc
 
 # ---------------------------------------------------------------------------
 # CLI entry point
@@ -609,10 +667,12 @@ async def main():
             json.dump(final_scorecard, f, indent=4, default=str)
         print(f"Scorecard also written to: {output_file}")
 
-    except Exception as e:
-        logger.error(f"Aggregation failed: {e}")
-        import traceback
-        traceback.print_exc()
+    except MyCustomError as exc:
+        logger.error(f"Aggregation failed (typed): {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        logger.error(f"Aggregation failed (unexpected): {exc}", exc_info=True)
+        sys.exit(1)
 
     finally:
         if db_client:

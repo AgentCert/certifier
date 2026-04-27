@@ -8,6 +8,8 @@ import json
 import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils.custom_errors import ConfigLoaderError
+
 
 # ---------------------------------------------------------------------------
 # Module-level config
@@ -19,8 +21,24 @@ _CONFIG_PATH = _MODULE_DIR / "config" / "aggregation_config.json"
 
 def _load_module_config() -> Dict[str, Any]:
     """Load module-specific configuration from aggregation_config.json."""
-    with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError as exc:
+        raise ConfigLoaderError(
+            f"Aggregation config not found: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ConfigLoaderError(
+            f"Aggregation config is not valid JSON: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
+    except OSError as exc:
+        raise ConfigLoaderError(
+            f"Cannot read aggregation config: {_CONFIG_PATH}",
+            original_exception=exc,
+        ) from exc
 
 
 _MODULE_CONFIG: Dict[str, Any] = {}
