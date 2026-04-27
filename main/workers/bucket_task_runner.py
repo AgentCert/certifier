@@ -57,7 +57,10 @@ async def run_task(
             settings.workspace_dir, request.agent_id, request.experiment_id, request.run_id
         )
         trace_path, total_observations = await trace_svc.acquire_trace(
-            request.trace_source, run_dir / "traces"
+            request.trace_source,
+            run_dir / "traces",
+            experiment_id=request.experiment_id,
+            run_id=request.run_id,
         )
     except TraceIngestionError as exc:
         # Structured error with a known error_code from TraceService

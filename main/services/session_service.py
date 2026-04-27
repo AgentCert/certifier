@@ -120,6 +120,14 @@ class SessionService:
         """Return the full task document (without ``_id``) or ``None`` if not found."""
         return await self._col.find_one({"task_id": task_id}, {"_id": 0})
 
+    async def get_task_by_run(self, experiment_id: str, run_id: str) -> Optional[dict]:
+        """Return the most-recent task for *(experiment_id, run_id)*, or ``None``."""
+        return await self._col.find_one(
+            {"experiment_id": experiment_id, "run_id": run_id},
+            {"_id": 0},
+            sort=[("created_at", -1)],
+        )
+
     async def find_active_task(
         self, agent_id: str, experiment_id: str, run_id: str
     ) -> Optional[dict]:
@@ -238,6 +246,14 @@ class CertSessionService:
     async def get_task(self, cert_task_id: str) -> Optional[dict]:
         """Return the full certification task document (without ``_id``) or ``None``."""
         return await self._col.find_one({"cert_task_id": cert_task_id}, {"_id": 0})
+
+    async def get_task_by_experiment(self, experiment_id: str) -> Optional[dict]:
+        """Return the most-recent certification task for *experiment_id*, or ``None``."""
+        return await self._col.find_one(
+            {"experiment_id": experiment_id},
+            {"_id": 0},
+            sort=[("created_at", -1)],
+        )
 
     async def find_active_task(
         self, agent_id: str, experiment_id: str
