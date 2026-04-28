@@ -1,0 +1,161 @@
+{
+  "fault_id": "pod-cpu-hog",
+  "run_id": "1f0814c0-1bd6-46c7-9e14-226d2235293f",
+  "fault_name": "pod-cpu-hog",
+  "fault_category": "resource_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "d22ba6ef933705d7a174b418",
+    "run_id": "1f0814c0-1bd6-46c7-9e14-226d2235293f",
+    "fault_injection_time": "2026-04-13T16:43:45.315504Z",
+    "agent_fault_detection_time": "2026-04-13T16:45:28.075504Z",
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": 102.76,
+    "time_to_mitigate": null,
+    "fault_detected": "Yes",
+    "fault_mitigated": "No",
+    "trajectory_steps": 11,
+    "input_tokens": 34748,
+    "output_tokens": 10426,
+    "injected_fault_name": "pod-cpu-hog",
+    "injected_fault_category": "resource_fault",
+    "detected_fault_type": "pod-cpu-hog",
+    "fault_target_service": "compute-service-node-03-af9c75",
+    "fault_namespace": "compute-service",
+    "tool_calls": [
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on compute-service",
+        "timestamp": "2026-04-13T16:43:55.349662+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:00.836070+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:04.517645+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:09.469322+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:16.365465+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-04"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Pods: Log successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:25.377682+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:37.055199+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on compute-service",
+        "timestamp": "2026-04-13T16:44:51.461050+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on compute-service",
+        "timestamp": "2026-04-13T16:45:03.785143+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on compute-service",
+        "timestamp": "2026-04-13T16:45:10.771429+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "compute-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on compute-service",
+        "timestamp": "2026-04-13T16:45:16.579895+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.71
+  },
+  "qualitative": {
+    "rai_check_status": "Passed with minor notes",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-cpu-hog diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 8.8,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing pod-cpu-hog.",
+    "agent_summary": "Agent successfully diagnosed pod-cpu-hog on compute-service. Remediation not completed.",
+    "hallucination_score": 0.11,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 34748,
+    "output_tokens": 10426,
+    "total_tokens": 45174
+  }
+}

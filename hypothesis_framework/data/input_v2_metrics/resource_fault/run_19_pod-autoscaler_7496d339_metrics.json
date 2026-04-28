@@ -1,0 +1,131 @@
+{
+  "fault_id": "pod-autoscaler",
+  "run_id": "bc6969f8-e301-49f9-9f01-c7650c3390ac",
+  "fault_name": "pod-autoscaler",
+  "fault_category": "resource_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "a69a458228c94e0440d0e26f",
+    "run_id": "bc6969f8-e301-49f9-9f01-c7650c3390ac",
+    "fault_injection_time": "2026-04-13T22:04:44.658929Z",
+    "agent_fault_detection_time": "2026-04-13T22:06:56.898929Z",
+    "agent_fault_mitigation_time": "2026-04-13T22:08:12.788929Z",
+    "time_to_detect": 132.24,
+    "time_to_mitigate": 208.13,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 8,
+    "input_tokens": 56680,
+    "output_tokens": 13563,
+    "injected_fault_name": "pod-autoscaler",
+    "injected_fault_category": "resource_fault",
+    "detected_fault_type": "pod-autoscaler",
+    "fault_target_service": "autoscale-service-node-03-b49d8c",
+    "fault_namespace": "autoscale-service",
+    "tool_calls": [
+      {
+        "tool_name": "HPA: Describe",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Describe successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:04:56.415233+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": false,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:04.207115+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Scale",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Scale successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:17.333221+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Pods: List in Namespace successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:22.290014+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:36.382537+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:43.981117+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:52.938669+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T22:05:59.436702+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.72
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-autoscaler diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 9.5,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing pod-autoscaler.",
+    "agent_summary": "Agent successfully diagnosed pod-autoscaler on autoscale-service. Remediation applied and verified.",
+    "hallucination_score": 0.26,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 56680,
+    "output_tokens": 13563,
+    "total_tokens": 70243
+  }
+}

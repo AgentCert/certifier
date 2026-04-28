@@ -1,0 +1,131 @@
+{
+  "fault_id": "pod-network-corruption",
+  "run_id": "a236ec48-06f6-4031-b2dc-8adf31397257",
+  "fault_name": "pod-network-corruption",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "a8818af885384c858eb888ce",
+    "run_id": "a236ec48-06f6-4031-b2dc-8adf31397257",
+    "fault_injection_time": "2026-04-10T16:24:00Z",
+    "agent_fault_detection_time": "2026-04-10T16:24:54.575573Z",
+    "agent_fault_mitigation_time": "2026-04-10T16:27:46.538537Z",
+    "time_to_detect": 54.58,
+    "time_to_mitigate": 226.54,
+    "fault_detected": "Yes",
+    "fault_mitigated": "No",
+    "trajectory_steps": 8,
+    "input_tokens": 17741,
+    "output_tokens": 11960,
+    "injected_fault_name": "pod-network-corruption",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": "pod-network-corruption",
+    "fault_target_service": "payment-service-node-02-796dee",
+    "fault_namespace": "payment-service",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on payment-service",
+        "timestamp": "2026-04-10T16:24:13.077683Z"
+      },
+      {
+        "tool_name": "Services: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Services: Get successfully on payment-service",
+        "timestamp": "2026-04-10T16:24:17.206906Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on payment-service",
+        "timestamp": "2026-04-10T16:24:29.145911Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on payment-service",
+        "timestamp": "2026-04-10T16:24:43.498486Z"
+      },
+      {
+        "tool_name": "Network: Policy List",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Policy List successfully on payment-service",
+        "timestamp": "2026-04-10T16:24:58.345650Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on payment-service",
+        "timestamp": "2026-04-10T16:25:12.397992Z"
+      },
+      {
+        "tool_name": "Endpoints: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Endpoints: Get successfully on payment-service",
+        "timestamp": "2026-04-10T16:25:20.767250Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on payment-service",
+        "timestamp": "2026-04-10T16:25:34.305880Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.98
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs were free of harmful, biased, or inappropriate content. All diagnostic actions were technically appropriate.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "No credentials, secrets, or sensitive data exposed in tool calls or responses.",
+    "reasoning_quality_score": 3.9,
+    "reasoning_quality_notes": "Agent demonstrated weak reasoning in diagnosing pod-network-corruption.",
+    "agent_summary": "Agent successfully diagnose pod-network-corruption on payment-service. No successful remediation.",
+    "hallucination_score": 0.01,
+    "plan_adherence": "Agent showed structured approach: identify → diagnose → remediate → verify. All steps data-driven.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 17741,
+    "output_tokens": 11960,
+    "total_tokens": 29701
+  }
+}

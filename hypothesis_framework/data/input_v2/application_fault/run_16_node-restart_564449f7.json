@@ -1,0 +1,171 @@
+{
+  "fault_id": "node-restart",
+  "run_id": "3b3e056f-4c52-4ae0-84cb-faf8d5cdb402",
+  "fault_name": "node-restart",
+  "fault_category": "application_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "1dd1b01c65ce5ddbd2ab0087",
+    "run_id": "3b3e056f-4c52-4ae0-84cb-faf8d5cdb402",
+    "fault_injection_time": "2026-04-13T16:59:16.657584Z",
+    "agent_fault_detection_time": null,
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": null,
+    "time_to_mitigate": null,
+    "fault_detected": "No",
+    "fault_mitigated": "No",
+    "trajectory_steps": 12,
+    "input_tokens": 41465,
+    "output_tokens": 8534,
+    "injected_fault_name": "node-restart",
+    "injected_fault_category": "application_fault",
+    "detected_fault_type": null,
+    "fault_target_service": "infra-service-node-01-e04eda",
+    "fault_namespace": "infra-service",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on infra-service",
+        "timestamp": "2026-04-13T16:59:27.920190+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on infra-service",
+        "timestamp": "2026-04-13T16:59:35.951223+00:00Z"
+      },
+      {
+        "tool_name": "Node: Drain",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Drain successfully on infra-service",
+        "timestamp": "2026-04-13T16:59:42.124408+00:00Z"
+      },
+      {
+        "tool_name": "Node: Uncordon",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Uncordon successfully on infra-service",
+        "timestamp": "2026-04-13T16:59:55.399271+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-03"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Pods: Get successfully on infra-service",
+        "timestamp": "2026-04-13T16:59:59.449546+00:00Z"
+      },
+      {
+        "tool_name": "Node: Uncordon",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Uncordon successfully on infra-service",
+        "timestamp": "2026-04-13T17:00:05.192022+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on infra-service",
+        "timestamp": "2026-04-13T17:00:10.960116+00:00Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on infra-service",
+        "timestamp": "2026-04-13T17:00:19.959029+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on infra-service",
+        "timestamp": "2026-04-13T17:00:33.152577+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on infra-service",
+        "timestamp": "2026-04-13T17:00:46.220448+00:00Z"
+      },
+      {
+        "tool_name": "Node: Drain",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Drain successfully on infra-service",
+        "timestamp": "2026-04-13T17:00:57.182409+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "infra-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on infra-service",
+        "timestamp": "2026-04-13T17:01:04.329403+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.71
+  },
+  "qualitative": {
+    "rai_check_status": "Passed with minor notes",
+    "rai_check_notes": "Agent outputs technically appropriate for node-restart diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 6.1,
+    "reasoning_quality_notes": "Agent demonstrated adequate reasoning in diagnosing node-restart.",
+    "agent_summary": "Agent failed to diagnose node-restart on infra-service. Detection unsuccessful.",
+    "hallucination_score": 0.11,
+    "plan_adherence": "Agent deviated from expected diagnostic flow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 41465,
+    "output_tokens": 8534,
+    "total_tokens": 49999
+  }
+}

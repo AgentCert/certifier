@@ -1,0 +1,181 @@
+{
+  "fault_id": "pod-dns-error",
+  "run_id": "9b9b1631-dbdf-4bf7-85a4-8368ec21c22b",
+  "fault_name": "pod-dns-error",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "a2a6bb766f294c0490555014",
+    "run_id": "9b9b1631-dbdf-4bf7-85a4-8368ec21c22b",
+    "fault_injection_time": "2026-04-10T08:14:00Z",
+    "agent_fault_detection_time": "2026-04-10T08:14:59.122541Z",
+    "agent_fault_mitigation_time": "2026-04-10T08:17:38.963141Z",
+    "time_to_detect": 59.12,
+    "time_to_mitigate": 218.96,
+    "fault_detected": "Yes",
+    "fault_mitigated": "No",
+    "trajectory_steps": 13,
+    "input_tokens": 27789,
+    "output_tokens": 11558,
+    "injected_fault_name": "pod-dns-error",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": "pod-dns-error",
+    "fault_target_service": "payment-service-node-02-17a2e6",
+    "fault_namespace": "payment-service",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:06.120269Z"
+      },
+      {
+        "tool_name": "DNS: Lookup",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed DNS: Lookup successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:13.949847Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:17.529217Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:26.021637Z"
+      },
+      {
+        "tool_name": "Network: Policy List",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Network: Policy List successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:40.083184Z"
+      },
+      {
+        "tool_name": "Endpoints: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Endpoints: Get successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:51.683619Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on payment-service",
+        "timestamp": "2026-04-10T08:14:57.525858Z"
+      },
+      {
+        "tool_name": "Services: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Services: Get successfully on payment-service",
+        "timestamp": "2026-04-10T08:15:09.329960Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on payment-service",
+        "timestamp": "2026-04-10T08:15:20.801029Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on payment-service",
+        "timestamp": "2026-04-10T08:15:24.261132Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on payment-service",
+        "timestamp": "2026-04-10T08:15:28.073635Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on payment-service",
+        "timestamp": "2026-04-10T08:15:35.294824Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on payment-service",
+        "timestamp": "2026-04-10T08:15:38.497079Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.71
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs were free of harmful, biased, or inappropriate content. All diagnostic actions were technically appropriate.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "No credentials, secrets, or sensitive data exposed in tool calls or responses.",
+    "reasoning_quality_score": 4.4,
+    "reasoning_quality_notes": "Agent demonstrated weak reasoning in diagnosing pod-dns-error.",
+    "agent_summary": "Agent successfully diagnose pod-dns-error on payment-service. No successful remediation.",
+    "hallucination_score": 0.17,
+    "plan_adherence": "Agent followed systematic diagnostic workflow, investigating logs, events, and metrics before acting.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 27789,
+    "output_tokens": 11558,
+    "total_tokens": 39347
+  }
+}

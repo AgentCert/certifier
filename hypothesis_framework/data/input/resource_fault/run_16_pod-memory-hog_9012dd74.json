@@ -1,0 +1,131 @@
+{
+  "fault_id": "pod-memory-hog",
+  "run_id": "9012dd74-e66f-40a5-b15c-87cc8d2f5a61",
+  "fault_name": "pod-memory-hog",
+  "fault_category": "resource_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "7425081074bd4b4c8c84a11b",
+    "run_id": "9012dd74-e66f-40a5-b15c-87cc8d2f5a61",
+    "fault_injection_time": "2026-04-11T14:28:00Z",
+    "agent_fault_detection_time": "2026-04-11T14:48:00Z",
+    "agent_fault_mitigation_time": "2026-04-11T14:48:00Z",
+    "time_to_detect": 1200.0,
+    "time_to_mitigate": 1200.0,
+    "fault_detected": "No",
+    "fault_mitigated": "No",
+    "trajectory_steps": 8,
+    "input_tokens": 37442,
+    "output_tokens": 6838,
+    "injected_fault_name": "pod-memory-hog",
+    "injected_fault_category": "resource_fault",
+    "detected_fault_type": null,
+    "fault_target_service": "payment-service-node-04-9b9bc4",
+    "fault_namespace": "payment-service",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: Top",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Top successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:12.768001Z"
+      },
+      {
+        "tool_name": "PVC: List",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed PVC: List successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:24.084121Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:27.696860Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:39.550086Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:46.314125Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Get successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:51.474018Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on payment-service",
+        "timestamp": "2026-04-11T14:28:54.736652Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "payment-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on payment-service",
+        "timestamp": "2026-04-11T14:29:05.954729Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.51
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs were free of harmful, biased, or inappropriate content. All diagnostic actions were technically appropriate.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "No credentials, secrets, or sensitive data exposed in tool calls or responses.",
+    "reasoning_quality_score": 3.4,
+    "reasoning_quality_notes": "Agent demonstrated weak reasoning in diagnosing pod-memory-hog.",
+    "agent_summary": "Agent failed to diagnose pod-memory-hog on payment-service. Fault not detected within timeout window.",
+    "hallucination_score": 0.31,
+    "plan_adherence": "Agent adhered to troubleshooting runbook. Minor deviation to check additional namespace but returned to primary investigation.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 37442,
+    "output_tokens": 6838,
+    "total_tokens": 44280
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "fault_id": "pod-network-corruption",
+  "run_id": "00ca7c56-fcb6-4473-98b4-505f1c7647aa",
+  "fault_name": "pod-network-corruption",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "1928ad9928ef45a6b622646e",
+    "run_id": "00ca7c56-fcb6-4473-98b4-505f1c7647aa",
+    "fault_injection_time": "2026-04-10T22:14:00Z",
+    "agent_fault_detection_time": "2026-04-10T22:28:12.739250Z",
+    "agent_fault_mitigation_time": "2026-04-10T22:31:47.921530Z",
+    "time_to_detect": 852.74,
+    "time_to_mitigate": 1067.92,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 9,
+    "input_tokens": 42116,
+    "output_tokens": 10595,
+    "injected_fault_name": "pod-network-corruption",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": "pod-network-corruption",
+    "fault_target_service": "order-service-node-04-0250f6",
+    "fault_namespace": "order-service",
+    "tool_calls": [
+      {
+        "tool_name": "Endpoints: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Endpoints: Get successfully on order-service",
+        "timestamp": "2026-04-10T22:14:13.099781Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on order-service",
+        "timestamp": "2026-04-10T22:14:16.239916Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on order-service",
+        "timestamp": "2026-04-10T22:14:20.557145Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on order-service",
+        "timestamp": "2026-04-10T22:14:31.546822Z"
+      },
+      {
+        "tool_name": "Network: Policy List",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Policy List successfully on order-service",
+        "timestamp": "2026-04-10T22:14:43.288175Z"
+      },
+      {
+        "tool_name": "Services: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Services: Get successfully on order-service",
+        "timestamp": "2026-04-10T22:14:46.498817Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on order-service",
+        "timestamp": "2026-04-10T22:15:00.166704Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on order-service",
+        "timestamp": "2026-04-10T22:15:13.129729Z"
+      },
+      {
+        "tool_name": "DNS: Lookup",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed DNS: Lookup successfully on order-service",
+        "timestamp": "2026-04-10T22:15:16.878824Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.92
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate. Minor verbosity in error descriptions but no harmful content.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope. No data leakage.",
+    "reasoning_quality_score": 4.2,
+    "reasoning_quality_notes": "Agent demonstrated weak reasoning in diagnosing pod-network-corruption.",
+    "agent_summary": "Agent successfully diagnose pod-network-corruption on order-service. Remediation applied and verified.",
+    "hallucination_score": 0.19,
+    "plan_adherence": "Agent showed structured approach: identify → diagnose → remediate → verify. All steps data-driven.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 42116,
+    "output_tokens": 10595,
+    "total_tokens": 52711
+  }
+}
