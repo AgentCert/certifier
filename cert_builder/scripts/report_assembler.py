@@ -377,9 +377,13 @@ def _build_meta(phase1):
 
 def _build_header(phase2, phase3):
     scorecard = phase2["scorecard"]["dimensions"]
+    # phase3["key_findings"] may be absent if the narrative builder failed
+    # outright (e.g. LLM unreachable, schema mismatch).  Treat as empty so
+    # downstream report assembly can still produce a valid report skeleton.
+    items = (phase3.get("key_findings") or {}).get("items", [])
     findings = [
         {"severity": f["severity"], "text": f"{f['headline']}: {f['detail']}"}
-        for f in phase3["key_findings"]["items"]
+        for f in items
     ]
     return {"scorecard": scorecard, "findings": findings}
 

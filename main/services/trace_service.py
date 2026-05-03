@@ -234,26 +234,45 @@ def _list_observations(client, trace_id: str) -> List[Any]:
 def _format_observations(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Normalise Langfuse observation dicts into the pipeline's expected format.
 
-    The pipeline expects observations sorted by (depth, startTime) so that
-    parent spans always precede their children in the event list.
+    Output is sorted strictly by ``startTime`` so the on-disk dump matches
+    real chronological event order regardless of tree depth.  ``depth`` and
+    ``parentObservationId`` are still emitted so consumers that need the
+    parent-child hierarchy can reconstruct it.
+
+    Fields preserved beyond the bucketing pipeline's strict needs (e.g.
+    ``model``, ``usage``, ``latency``) are kept so downstream metric
+    extraction and qualitative analysis don't lose information that the
+    Langfuse SDK already returned.  Fields that are universally null/zero
+    or constant per project (``projectId``, ``environment``, pricing
+    tiers, etc.) are intentionally dropped to keep the dump compact.
     """
-    # Pre-compute tree depth so we can sort parent-before-child
     depth_map = _compute_depths(raw)
     out = []
     for o in raw:
         out.append({
             "id": o.get("id"),
+            "traceId": o.get("trace_id"),
+            "parentObservationId": o.get("parent_observation_id"),
             "type": o.get("type"),
             "name": o.get("name"),
+            "level": o.get("level"),
+            "statusMessage": o.get("status_message"),
             "startTime": _fmt_ts(o.get("start_time")),
             "endTime": _fmt_ts(o.get("end_time")),
+            "completionStartTime": _fmt_ts(o.get("completion_start_time")),
             "depth": depth_map.get(o.get("id", ""), 0),
+            "model": o.get("model"),
+            "modelParameters": _to_json_str(o.get("model_parameters")),
+            "usage": _to_json_str(o.get("usage")),
+            "usageDetails": _to_json_str(o.get("usage_details")),
+            "costDetails": _to_json_str(o.get("cost_details")),
+            "latency": o.get("latency"),
+            "timeToFirstToken": o.get("time_to_first_token"),
             "input": _to_json_str(o.get("input")),
             "output": _to_json_str(o.get("output")),
             "metadata": _to_json_str(o.get("metadata")),
         })
-    # Primary sort: depth (root first); secondary: startTime for stable ordering within a level
-    out.sort(key=lambda x: (x["depth"], x["startTime"] or ""))
+    out.sort(key=lambda x: x["startTime"] or "")
     return out
 
 

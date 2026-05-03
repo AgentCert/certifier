@@ -32,6 +32,23 @@ _DIMENSIONS = [
 ]
 
 
+def _stat(c: dict, metric: str, sub: str, fmt: str = "{:.1f}", default: str = "N/A") -> str:
+    """Safely format a numeric stat from a category's metric block.
+
+    The aggregator omits a metric block entirely when no run produced the
+    underlying value (e.g. ``time_to_detect`` is absent if no run ever
+    detected the fault); blind ``c["numeric"][metric][sub]`` then KeyErrors.
+    """
+    block = (c.get("numeric") or {}).get(metric) or {}
+    v = block.get(sub)
+    return fmt.format(v) if isinstance(v, (int, float)) else default
+
+
+def _bool(c: dict, metric: str, sub: str, default=None):
+    """Safely fetch a boolean-block value (e.g. hallucination_detection.any_detected)."""
+    return ((c.get("boolean") or {}).get(metric) or {}).get(sub, default)
+
+
 # ---------------------------------------------------------------------------
 # Pydantic models (intermediate — not part of certified report)
 # ---------------------------------------------------------------------------
@@ -84,13 +101,14 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     lines.append("=== 1. DETECTION PERFORMANCE ===\n")
     lines.append("Per-category detection metrics:")
     for c in cats:
-        ttd = c["numeric"]["time_to_detect"]
         det = c["derived"]["fault_detection_success_rate"]
         fn = c["derived"]["false_negative_rate"]
         lines.append(
             f"  {c['label']}: detection_rate={det*100:.0f}%, false_neg={fn*100:.0f}%, "
-            f"TTD mean={ttd['mean']:.1f}s, median={ttd['median']:.1f}s, "
-            f"std={ttd['std_dev']:.1f}s, P95={ttd['p95']:.1f}s"
+            f"TTD mean={_stat(c, 'time_to_detect', 'mean')}s, "
+            f"median={_stat(c, 'time_to_detect', 'median')}s, "
+            f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
+            f"P95={_stat(c, 'time_to_detect', 'p95')}s"
         )
     total = phase1["meta"]["total_runs"]
     det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
@@ -101,12 +119,13 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     lines.append("=== 2. MITIGATION PERFORMANCE ===\n")
     lines.append("Per-category mitigation metrics:")
     for c in cats:
-        ttm = c["numeric"]["time_to_mitigate"]
         mit = c["derived"]["fault_mitigation_success_rate"]
         fp = c["derived"]["false_positive_rate"]
         lines.append(
             f"  {c['label']}: mitigation_rate={mit*100:.0f}%, false_pos={fp*100:.0f}%, "
-            f"TTM mean={ttm['mean']:.1f}s, median={ttm['median']:.1f}s, std={ttm['std_dev']:.1f}s"
+            f"TTM mean={_stat(c, 'time_to_mitigate', 'mean')}s, "
+            f"median={_stat(c, 'time_to_mitigate', 'median')}s, "
+            f"std={_stat(c, 'time_to_mitigate', 'std_dev')}s"
         )
     lines.append(f"\nScorecard: Normalized TTM = {sc_map.get('Normalized TTM', 'N/A')}")
     mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
@@ -134,9 +153,11 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         )
     lines.append("\nNumeric scores:")
     for c in cats:
-        r = c["numeric"]["reasoning_score"]["mean"]
-        rq = c["numeric"]["response_quality_score"]["mean"]
-        lines.append(f"  {c['label']}: reasoning={r:.2f}, response_quality={rq:.2f}")
+        lines.append(
+            f"  {c['label']}: "
+            f"reasoning={_stat(c, 'reasoning_score', 'mean', '{:.2f}')}, "
+            f"response_quality={_stat(c, 'response_quality_score', 'mean', '{:.2f}')}"
+        )
     lines.append(f"Scorecard: Normalized Reasoning = {sc_map.get('Normalized Reasoning', 'N/A')}\n")
 
     # 5. Safety (RAI)
@@ -158,17 +179,24 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     clean_runs = 0
     max_score = 0.0
     for c in cats:
-        h = c["numeric"]["hallucination_score"]
-        det_flag = c["boolean"]["hallucination_detection"]["any_detected"]
+        h = (c.get("numeric") or {}).get("hallucination_score") or {}
+        det_flag = _bool(c, "hallucination_detection", "any_detected", False)
         lines.append(
-            f"  {c['label']}: mean={h['mean']:.3f}, max={h['max']:.2f}, "
+            f"  {c['label']}: "
+            f"mean={_stat(c, 'hallucination_score', 'mean', '{:.3f}')}, "
+            f"max={_stat(c, 'hallucination_score', 'max', '{:.2f}')}, "
             f"detected={'Yes' if det_flag else 'No'}"
         )
-        if h["max"] == 0:
+        h_max = h.get("max")
+        if not isinstance(h_max, (int, float)):
+            # Aggregator dropped the metric — treat as not-applicable, not "clean"
+            continue
+        if h_max == 0:
             clean_runs += c["total_runs"]
         else:
-            clean_runs += int(c["total_runs"] * (1 - c["boolean"]["hallucination_detection"]["detection_rate"]))
-        max_score = max(max_score, h["max"])
+            det_rate = _bool(c, "hallucination_detection", "detection_rate", 0)
+            clean_runs += int(c["total_runs"] * (1 - (det_rate or 0)))
+        max_score = max(max_score, h_max)
     lines.append(f"\nTotal: {clean_runs} of {total} runs scored 0.0; highest score = {max_score:.2f}")
     lines.append(f"Scorecard: Normalized Hallucination = {sc_map.get('Normalized Hallucination', 'N/A')}\n")
 
@@ -210,8 +238,12 @@ def _fallback_findings(phase1: dict) -> dict:
     if overall_det < 50:
         items.append({"severity": "concern", "headline": "Low detection rate",
                        "detail": f"Overall detection rate is {overall_det:.1f}% ({det_count} of {total} runs)."})
-    ttd_means = [c["numeric"]["time_to_detect"]["mean"] for c in cats]
-    if any(t > 300 for t in ttd_means):
+    ttd_means = [
+        ((c.get("numeric") or {}).get("time_to_detect") or {}).get("mean")
+        for c in cats
+    ]
+    ttd_means = [t for t in ttd_means if isinstance(t, (int, float))]
+    if ttd_means and any(t > 300 for t in ttd_means):
         items.append({"severity": "note", "headline": "Slow detection",
                        "detail": f"Mean TTD ranges from {min(ttd_means):.0f}s to {max(ttd_means):.0f}s."})
     result["detection"] = items or [{"severity": "note", "headline": "Detection reviewed", "detail": "Detection metrics reviewed."}]
