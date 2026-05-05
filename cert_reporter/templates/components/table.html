@@ -1,0 +1,70 @@
+{# components/table.html — renders a single table object #}
+{# Expects `table` variable to be in scope #}
+{% set rows = table.rows | default([]) %}
+{% set first_row = rows[0] if rows else {} %}
+{# Use explicit `is not none` — an empty list [] is falsy but means "no headers".
+   After schema normalisation, empty list is always converted to null/None.       #}
+{% set hdrs = table.headers if (table.headers is defined and table.headers is not none) else (first_row.keys() | list if first_row is mapping else []) %}
+<div class="table-wrap">
+  {% if table.title %}
+  <p style="font-size:0.83rem; font-weight:600; color:#444; margin-bottom:6px;">{{ table.title }}</p>
+  {% endif %}
+  <table class="{{ 'scorecard-table' if 'scorecard' in (table.table_id | default('')) else '' }}">
+    {% if hdrs %}
+    <thead>
+      <tr>
+        {% for header in hdrs %}
+        <th>{{ header | replace_underscore }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    {% endif %}
+    <tbody>
+      {% for row in rows %}
+      {% if row is mapping %}
+        <tr>
+          {% if hdrs %}
+            {% for header in hdrs %}
+            {% set val = row[header] if header in row else row.get(header | lower | replace(' ','_'), '') %}
+            {% set vstr = val | string %}
+            {% set is_num = val is number %}
+            <td class="{{ vstr | upper | status_class }}">
+              {%- if is_num -%}{{ val | fmt_num }}{%- else -%}
+              <span class="{{ vstr | upper | status_class }}">{{ vstr }}</span>
+              {%- endif -%}
+            </td>
+            {% endfor %}
+          {% else %}
+            {% for key, val in row.items() %}
+            <td>{{ val | fmt_num if val is number else val }}</td>
+            {% endfor %}
+          {% endif %}
+        </tr>
+      {% elif row is iterable and row is not string %}
+        <tr>
+          {% for cell in row %}
+          <td>{{ cell | fmt_num if cell is number else cell }}</td>
+          {% endfor %}
+        </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+    {% if table.footer_rows %}
+    <tfoot>
+      {% for row in table.footer_rows %}
+      <tr>
+        {% if row is mapping %}
+          {% for key, val in row.items() %}
+          <td>{{ val | fmt_num if val is number else val }}</td>
+          {% endfor %}
+        {% else %}
+          {% for cell in row %}
+          <td>{{ cell | fmt_num if cell is number else cell }}</td>
+          {% endfor %}
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tfoot>
+    {% endif %}
+  </table>
+</div>

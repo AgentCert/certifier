@@ -1,0 +1,29 @@
+{# blocks/assessment.html — renders an assessment content block as fault-card #}
+{# Expects `block` dict: {type:"assessment", title, rating, confidence, agreement, body} #}
+{% set rating = block.rating | default('') %}
+{% if rating is not string %}{% set rating = rating.value | default('') %}{% endif %}
+{% set rating_lower = rating | lower %}
+{% set confidence = block.confidence | default('') %}
+{% if confidence is not string %}{% set confidence = confidence.value | default('') %}{% endif %}
+{% set assess_cls = 'assess-strong' if rating_lower in ('strong', 'pass', 'excellent', 'good') else 'assess-weak' if rating_lower in ('weak', 'fail', 'poor', 'critical') else 'assess-adequate' %}
+<div class="fault-card">
+  <div class="fault-card-header">
+    {% if block.title %}
+    <span class="fault-card-title">{{ block.title }}</span>
+    {% endif %}
+    <span class="fault-card-meta">
+      {% if confidence %}Confidence: {{ confidence }}{% endif %}
+      {% if block.agreement is defined and block.agreement is not none %}
+        &nbsp;|&nbsp; Agreement: {% if block.agreement is number %}{{ (block.agreement * 100) | int }}%{% else %}{{ block.agreement }}{% endif %}
+      {% endif %}
+    </span>
+  </div>
+  {% if rating %}
+  <div class="fault-block-header" style="margin-bottom:8px">
+    <span class="assessment-badge {{ assess_cls }}">{{ rating }}</span>
+  </div>
+  {% endif %}
+  {% if block.body %}
+  <div class="narrative">{{ block.body | md }}</div>
+  {% endif %}
+</div>

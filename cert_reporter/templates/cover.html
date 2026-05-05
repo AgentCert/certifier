@@ -1,0 +1,33 @@
+{# cover.html — report header with navy gradient and certification badge #}
+{% set scorecard = header.scorecard | default([]) if header is mapping else [] %}
+{% set overall_score = header.overall_score | default(0) if header is mapping else 0 %}
+{% set cert_level = header.certification_level | default('') if header is mapping else '' %}
+{% if cert_level is not string %}{% set cert_level = cert_level.value | default('') %}{% endif %}
+
+{# Compute overall score from scorecard if not provided directly #}
+{% if not overall_score and scorecard %}
+  {% set ns = namespace(total=0) %}
+  {% for dim in scorecard %}
+    {% set ns.total = ns.total + (dim.value | default(0) | float) %}
+  {% endfor %}
+  {% set overall_score = ((ns.total / scorecard|length) * 100) | round(1) %}
+{% endif %}
+
+<div class="report-header">
+  <div class="header-title-row">
+    <div class="header-brand-logo">AC</div>
+    <h1>Agent Certification Report</h1>
+  </div>
+  <h2>{{ meta.subtitle | default("Comprehensive Evaluation &amp; Certification") }}</h2>
+
+  {% if cert_level or overall_score %}
+  <div class="cert-badge {{ cert_level | cert_class }}">
+    {% if cert_level %}
+    <span class="cert-level">{{ cert_level }}</span>
+    {% endif %}
+    {% if overall_score %}
+    <span class="cert-score">{{ overall_score }} <small>/ 100</small></span>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

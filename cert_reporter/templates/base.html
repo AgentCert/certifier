@@ -1,0 +1,90 @@
+{# base.html — master layout for the certification report (designer finalized) #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Agent Certification Report — {{ meta.agent_name | default('') }}</title>
+  <style>
+{{ css | safe }}
+  </style>
+</head>
+<body>
+<div class="report-page">
+
+  {# ── Report Header (navy gradient + cert badge) ── #}
+  {% include "cover.html" %}
+
+  {# ── Main Content ── #}
+  <div class="report-content">
+
+    {# ── Agent Identity Card ── #}
+    <div class="identity-card">
+      <div class="agent-name-header">
+        <span class="identity-value highlight">{{ meta.agent_name | default('') }}</span>
+      </div>
+      <div class="identity-grid">
+        <div class="identity-item">
+          <span class="identity-label">Agent ID / Version</span>
+          <span class="identity-value">{{ meta.agent_id | default('—') }}</span>
+        </div>
+        <div class="identity-item">
+          <span class="identity-label">Certification Date</span>
+          <span class="identity-value">{{ meta.certification_date | default('—') }}</span>
+        </div>
+        <div class="identity-item">
+          <span class="identity-label">Certification Run</span>
+          <span class="identity-value">{{ meta.certification_run_id | default('—') }}</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Key Findings (from header) ── #}
+    {% set findings = header.findings | default([]) if header is mapping else [] %}
+    {% if findings %}
+    <details open>
+      <summary><span class="section-num">!</span> Key Findings</summary>
+      <div class="section-body">
+        <div class="findings-block">
+          {% for item in findings %}
+          {% set sev = item.severity | default('note') %}
+          {% if sev is not string %}{% set sev = sev.value | default('note') %}{% endif %}
+          <div class="finding-item finding-{{ sev }}">
+            <span class="finding-severity">{{ sev }}</span>
+            <span class="finding-text">{{ item.text | default('') }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </details>
+    {% endif %}
+
+    {# ── Sections (collapsible) ── #}
+    {% set ns = namespace(current_part='') %}
+    {% for section in sections %}
+    {% set part = section.part | default('') or '' %}
+    {% if part and part != ns.current_part %}
+    {% set ns.current_part = part %}
+    <div class="part-divider">{{ part }}</div>
+    {% elif not part %}
+    {% set ns.current_part = '' %}
+    {% endif %}
+    {% include "sections/section.html" %}
+    {% endfor %}
+
+  </div>
+
+  {# ── Footer ── #}
+  <div class="report-footer">
+    {% if footer is string and footer %}
+      <span>{{ footer }}</span>
+    {% else %}
+      <span>Document ID: {{ meta.certification_run_id | default('') }}</span>
+      <span>{{ meta.certification_date | default('') }}</span>
+      <span>AgentCert</span>
+    {% endif %}
+  </div>
+
+</div>
+</body>
+</html>

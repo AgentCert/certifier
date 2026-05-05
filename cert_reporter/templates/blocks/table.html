@@ -1,0 +1,54 @@
+{# blocks/table.html — renders a table content block as data-table #}
+{# Expects `block` dict: {type:"table", headers:[], rows:[[]], title} #}
+{% set headers = block.headers | default([]) %}
+{% set rows = block.rows | default([]) %}
+{% if block.title %}
+<div class="sub-section-title">{{ block.title }}</div>
+{% endif %}
+<table class="data-table">
+  {% if headers %}
+  <thead>
+    <tr>
+      {% for h in headers %}
+      <th>{{ h | replace_underscore }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  {% endif %}
+  <tbody>
+    {% for row in rows %}
+    <tr{% if row is iterable and row is not string and row is not mapping and row|length > 0 and row[0] is string and row[0] | upper in ['OVERALL', 'GRAND TOTAL', 'TOTAL'] %} class="total-row"{% endif %}>
+      {% if row is mapping %}
+        {# dict row — iterate by headers or keys #}
+        {% if headers %}
+          {% for h in headers %}
+          {% set val = row[h] if h in row else '' %}
+          {% set vstr = val | string %}
+          <td{% if val is number %} class="num"{% endif %}>
+            {%- if val is number -%}{{ val | fmt_num }}{%- else -%}
+              {% set tag_cls = vstr | tag_class %}
+              {% if tag_cls %}<span class="tag {{ tag_cls }}">{{ vstr }}</span>{% else %}{{ vstr }}{% endif %}
+            {%- endif -%}
+          </td>
+          {% endfor %}
+        {% else %}
+          {% for key, val in row.items() %}
+          <td{% if val is number %} class="num"{% endif %}>{{ val | fmt_num if val is number else val }}</td>
+          {% endfor %}
+        {% endif %}
+      {% elif row is iterable and row is not string %}
+        {# list row #}
+        {% for cell in row %}
+        {% set vstr = cell | string %}
+        <td{% if cell is number %} class="num"{% endif %}>
+          {%- if cell is number -%}{{ cell | fmt_num }}{%- else -%}
+            {% set tag_cls = vstr | tag_class %}
+            {% if tag_cls %}<span class="tag {{ tag_cls }}">{{ vstr }}</span>{% else %}{{ vstr }}{% endif %}
+          {%- endif -%}
+        </td>
+        {% endfor %}
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

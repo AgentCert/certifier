@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>cert-reporter — Demo UI</title>
+<style>
+:root {
+  --primary: #1a2b4a;
+  --accent: #3498db;
+  --success: #27ae60;
+  --warning: #f39c12;
+  --danger: #e74c3c;
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --border: #dee2e6;
+  --text: #212529;
+  --muted: #6c757d;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: "SFMono-Regular", Consolas, monospace;
+  --radius: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Header */
+header {
+  background: var(--primary);
+  color: white;
+  padding: 0 32px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+header .logo { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px; }
+header .logo span { color: var(--accent); }
+header .subtitle { font-size: 0.78rem; opacity: 0.6; }
+header .badge {
+  margin-left: auto;
+  background: rgba(255,255,255,0.12);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Layout */
+main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex-direction: column; gap: 24px; }
+
+/* Card */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.card-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-body { padding: 20px; }
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #fafbfc;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: #eef6fd;
+}
+.drop-zone input[type="file"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+}
+.drop-zone .dz-icon { font-size: 2.2rem; margin-bottom: 10px; }
+.drop-zone .dz-text { font-size: 0.9rem; color: var(--muted); }
+.drop-zone .dz-text strong { color: var(--accent); }
+.drop-zone .dz-file-info {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--success);
+  font-weight: 600;
+  font-family: var(--mono);
+}
+
+/* Options grid */
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+@media (max-width: 600px) { .options-grid { grid-template-columns: 1fr; } }
+
+.option-group label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.option-group select, .option-group input[type="text"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-family: var(--font);
+  background: white;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.option-group select:focus, .option-group input[type="text"]:focus { border-color: var(--accent); }
+
+/* Toggle switches */
+.toggle-row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  user-select: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.toggle-item input[type="checkbox"] { display: none; }
+.toggle-item .toggle-pill {
+  width: 32px; height: 18px;
+  background: #ccc;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle-item .toggle-pill::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-item.active { border-color: var(--accent); background: #eef6fd; }
+.toggle-item.active .toggle-pill { background: var(--accent); }
+.toggle-item.active .toggle-pill::after { transform: translateX(14px); }
+
+/* LLM section (collapsible) */
+.llm-options { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); }
+.llm-options.visible { display: block; }
+
+/* Submit button */
+.btn-generate {
+  margin-top: 20px;
+  width: 100%;
+  padding: 13px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.btn-generate:hover:not(:disabled) { background: #243d6b; }
+.btn-generate:active:not(:disabled) { transform: scale(0.99); }
+.btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Status */
+.status-bar {
+  display: none;
+  background: #e8f4fd;
+  border: 1px solid #b8d8f3;
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-size: 0.88rem;
+  color: #1a5276;
+  align-items: center;
+  gap: 12px;
+}
+.status-bar.visible { display: flex; }
+.status-bar.error { background: #fdecea; border-color: #f5b7b1; color: #922b21; }
+.status-bar.success { background: #eafaf1; border-color: #a9dfbf; color: #1e8449; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(26,82,118,0.3);
+  border-top-color: #1a5276;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Results */
+.results-card { display: none; }
+.results-card.visible { display: block; }
+
+.result-links { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.result-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.result-link:hover { opacity: 0.85; }
+.result-link.html-link { background: var(--accent); color: white; }
+.result-link.pdf-link { background: var(--danger); color: white; }
+.result-link.preview-link { background: var(--success); color: white; }
+
+.result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.result-meta strong { color: var(--text); }
+
+/* Preview iframe */
+.preview-frame {
+  width: 100%;
+  height: 600px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: white;
+  display: none;
+}
+.preview-frame.visible { display: block; }
+
+.preview-toggle {
+  font-size: 0.82rem;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* Reports history table */
+.history-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.history-table th { text-align: left; padding: 9px 12px; background: var(--primary); color: white; font-weight: 600; }
+.history-table td { padding: 9px 12px; border-bottom: 1px solid #eee; }
+.history-table tr:nth-child(even) td { background: #f8f9fa; }
+.history-table .link-cell { display: flex; gap: 8px; }
+.history-table a { font-size: 0.8rem; padding: 3px 9px; border-radius: 4px; text-decoration: none; font-weight: 600; }
+.history-table a.html { background: #dbeafe; color: #1d4ed8; }
+.history-table a.pdf  { background: #fee2e2; color: #b91c1c; }
+
+.empty-history { text-align: center; color: var(--muted); padding: 28px; font-size: 0.88rem; }
+
+/* Errors */
+.error-list { margin-top: 10px; }
+.error-list li { font-size: 0.82rem; color: var(--danger); list-style: disc; margin-left: 18px; padding: 2px 0; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #1a2b4a;
+  color: white;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  transform: translateY(80px);
+  opacity: 0;
+  transition: transform 0.3s, opacity 0.3s;
+  z-index: 999;
+  max-width: 320px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">cert<span>-reporter</span></div>
+  <div class="subtitle">AgentCert Certification Report Generator</div>
+  <div class="badge">Demo UI</div>
+</header>
+
+<main>
+
+  <!-- Generate Report Card -->
+  <div class="card">
+    <div class="card-header">
+      <span>⚡</span> Generate Report
+    </div>
+    <div class="card-body">
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".json,application/json"/>
+        <div class="dz-icon">📄</div>
+        <div class="dz-text">
+          <strong>Click to upload</strong> or drag &amp; drop<br/>
+          Certification JSON document (.json)
+        </div>
+        <div class="dz-file-info" id="fileInfo" style="display:none;"></div>
+      </div>
+
+      <!-- Format toggles -->
+      <div style="margin-top:16px; font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Output Formats</div>
+      <div class="toggle-row">
+        <label class="toggle-item active" id="toggle-html">
+          <input type="checkbox" checked id="fmt-html"/>
+          <div class="toggle-pill"></div>
+          <span>HTML Report</span>
+        </label>
+        <label class="toggle-item active" id="toggle-pdf">
+          <input type="checkbox" checked id="fmt-pdf"/>
+          <div class="toggle-pill"></div>
+          <span>PDF Report</span>
+        </label>
+        <label class="toggle-item" id="toggle-llm">
+          <input type="checkbox" id="fmt-llm"/>
+          <div class="toggle-pill"></div>
+          <span>LLM Enrichment</span>
+        </label>
+      </div>
+
+      <!-- LLM options (shown when enrichment toggled) -->
+      <div class="llm-options" id="llmOptions">
+        <div style="font-size:0.8rem; color:var(--muted); margin-bottom:12px;">
+          LLM enrichment rewrites narrative prose for improved clarity. Requires a valid API key in <code>.env</code>.
+        </div>
+        <div class="options-grid">
+          <div class="option-group">
+            <label>Provider</label>
+            <select id="llm-provider">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+          </div>
+          <div class="option-group">
+            <label>Model</label>
+            <select id="llm-model">
+              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4.1">gpt-4.1</option>
+              <option value="claude-3-5-haiku-20241022">claude-3-5-haiku-20241022</option>
+              <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-generate" id="generateBtn" disabled>
+        <span id="btnIcon">🚀</span>
+        <span id="btnText">Generate Report</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar">
+    <div class="spinner" id="spinner"></div>
+    <span id="statusMsg">Generating report...</span>
+  </div>
+
+  <!-- Results -->
+  <div class="card results-card" id="resultsCard">
+    <div class="card-header"><span>✅</span> Report Ready</div>
+    <div class="card-body">
+      <div class="result-meta" id="resultMeta"></div>
+      <div class="result-links" id="resultLinks"></div>
+      <div class="error-list" id="errorList" style="display:none;"></div>
+      <button class="preview-toggle" id="previewToggle" style="display:none;" onclick="togglePreview()">
+        Show HTML Preview ▼
+      </button>
+      <iframe class="preview-frame" id="previewFrame" id="previewFrame"></iframe>
+    </div>
+  </div>
+
+  <!-- Reports History -->
+  <div class="card">
+    <div class="card-header">
+      <span>📋</span> Generated Reports
+      <button onclick="loadHistory()" style="margin-left:auto; background:none; border:1px solid var(--border); padding:4px 12px; border-radius:4px; font-size:0.78rem; cursor:pointer; color:var(--muted);">Refresh</button>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div id="historyContainer">
+        <div class="empty-history">No reports generated yet.</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api';
+let selectedFile = null;
+let previewOpen = false;
+
+// ── File selection ──────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo  = document.getElementById('fileInfo');
+const generateBtn = document.getElementById('generateBtn');
+
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) setFile(f);
+});
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) { fileInput.files = e.dataTransfer.files; setFile(f); }
+});
+
+function setFile(f) {
+  selectedFile = f;
+  fileInfo.style.display = 'block';
+  fileInfo.textContent = `✓ ${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+  generateBtn.disabled = false;
+}
+
+// ── Format toggles ──────────────────────────────────────────────────────────
+['html','pdf','llm'].forEach(id => {
+  const label = document.getElementById(`toggle-${id}`);
+  const cb    = document.getElementById(`fmt-${id}`);
+  label.addEventListener('click', () => {
+    cb.checked = !cb.checked;
+    label.classList.toggle('active', cb.checked);
+    if (id === 'llm') {
+      document.getElementById('llmOptions').classList.toggle('visible', cb.checked);
+    }
+  });
+});
+
+// ── Provider ↔ Model sync ───────────────────────────────────────────────────
+document.getElementById('llm-provider').addEventListener('change', function() {
+  const modelSel = document.getElementById('llm-model');
+  const openaiModels = [
+    {v:'gpt-4.1-mini',l:'gpt-4.1-mini'},{v:'gpt-4o',l:'gpt-4o'},
+    {v:'gpt-4.1',l:'gpt-4.1'}
+  ];
+  const anthropicModels = [
+    {v:'claude-3-5-haiku-20241022',l:'claude-3-5-haiku-20241022'},
+    {v:'claude-3-5-sonnet-20241022',l:'claude-3-5-sonnet-20241022'},
+    {v:'claude-3-7-sonnet-20250219',l:'claude-3-7-sonnet-20250219'}
+  ];
+  const opts = this.value === 'anthropic' ? anthropicModels : openaiModels;
+  modelSel.innerHTML = opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+});
+
+// ── Generate ────────────────────────────────────────────────────────────────
+generateBtn.addEventListener('click', generate);
+
+async function generate() {
+  if (!selectedFile) return;
+
+  const formats = [];
+  if (document.getElementById('fmt-html').checked) formats.push('html');
+  if (document.getElementById('fmt-pdf').checked)  formats.push('pdf');
+  if (!formats.length) { showToast('Select at least one output format.'); return; }
+
+  const enrichLlm = document.getElementById('fmt-llm').checked;
+  const model    = document.getElementById('llm-model').value;
+  const provider = document.getElementById('llm-provider').value;
+
+  // UI state
+  generateBtn.disabled = true;
+  document.getElementById('btnIcon').textContent = '⏳';
+  document.getElementById('btnText').textContent = 'Generating...';
+  setStatus('Uploading and generating report…', 'loading');
+  document.getElementById('resultsCard').classList.remove('visible');
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('formats', formats.join(','));
+  fd.append('enrich_llm', enrichLlm ? 'true' : 'false');
+  fd.append('model', model);
+  fd.append('provider', provider);
+  fd.append('temperature', '0.4');
+
+  try {
+    const res = await fetch(`${API}/generate/upload`, { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setStatus(`Error: ${data.detail || res.statusText}`, 'error');
+      return;
+    }
+
+    setStatus(
+      `Done in ${data.duration_seconds}s — ${data.doc_id}${enrichLlm ? ` · ${(data.token_usage?.total||0).toLocaleString()} tokens` : ''}`,
+      'success'
+    );
+    showResults(data);
+    loadHistory();
+  } catch (err) {
+    setStatus(`Request failed: ${err.message}`, 'error');
+  } finally {
+    generateBtn.disabled = false;
+    document.getElementById('btnIcon').textContent = '🚀';
+    document.getElementById('btnText').textContent = 'Generate Report';
+  }
+}
+
+function showResults(data) {
+  const card  = document.getElementById('resultsCard');
+  const meta  = document.getElementById('resultMeta');
+  const links = document.getElementById('resultLinks');
+  const errDiv = document.getElementById('errorList');
+  const prevToggle = document.getElementById('previewToggle');
+
+  card.classList.add('visible');
+
+  meta.innerHTML = `
+    <span>Doc ID: <strong>${data.doc_id}</strong></span>
+    <span>Duration: <strong>${data.duration_seconds}s</strong></span>
+    ${data.token_usage ? `<span>Tokens: <strong>${data.token_usage.total.toLocaleString()}</strong></span>` : ''}
+  `;
+
+  links.innerHTML = '';
+  if (data.html_url) {
+    links.innerHTML += `<a href="${data.html_url}" target="_blank" class="result-link html-link">🌐 View HTML</a>`;
+    links.innerHTML += `<a href="${data.html_url}" download class="result-link html-link" style="background:#2471a3;">⬇ Download HTML</a>`;
+  }
+  if (data.pdf_url) {
+    links.innerHTML += `<a href="${data.pdf_url}" target="_blank" class="result-link pdf-link">📄 View PDF</a>`;
+    links.innerHTML += `<a href="${data.pdf_url}" download class="result-link pdf-link" style="background:#922b21;">⬇ Download PDF</a>`;
+  }
+
+  errDiv.style.display = 'none';
+  errDiv.innerHTML = '';
+  if (data.errors && data.errors.length) {
+    errDiv.style.display = 'block';
+    errDiv.innerHTML = '<ul>' + data.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+  }
+
+  if (data.html_url) {
+    prevToggle.style.display = 'inline';
+    previewOpen = false;
+    document.getElementById('previewFrame').classList.remove('visible');
+    document.getElementById('previewFrame').src = '';
+    prevToggle.textContent = 'Show HTML Preview ▼';
+  } else {
+    prevToggle.style.display = 'none';
+  }
+}
+
+function togglePreview() {
+  const frame = document.getElementById('previewFrame');
+  const toggle = document.getElementById('previewToggle');
+  const links = document.getElementById('resultLinks');
+  const htmlLink = links.querySelector('.html-link');
+  previewOpen = !previewOpen;
+  if (previewOpen) {
+    frame.src = htmlLink ? htmlLink.href : '';
+    frame.classList.add('visible');
+    toggle.textContent = 'Hide HTML Preview ▲';
+  } else {
+    frame.classList.remove('visible');
+    frame.src = '';
+    toggle.textContent = 'Show HTML Preview ▼';
+  }
+}
+
+// ── Status bar ──────────────────────────────────────────────────────────────
+function setStatus(msg, state) {
+  const bar = document.getElementById('statusBar');
+  const spinner = document.getElementById('spinner');
+  bar.className = 'status-bar visible' + (state === 'error' ? ' error' : state === 'success' ? ' success' : '');
+  spinner.style.display = state === 'loading' ? 'block' : 'none';
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+// ── History ─────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const res = await fetch(`${API}/reports`);
+    const reports = await res.json();
+    const container = document.getElementById('historyContainer');
+    if (!reports.length) {
+      container.innerHTML = '<div class="empty-history">No reports generated yet.</div>';
+      return;
+    }
+    container.innerHTML = `
+      <table class="history-table">
+        <thead><tr><th>Document ID</th><th>HTML</th><th>PDF</th></tr></thead>
+        <tbody>
+          ${reports.map(r => `
+            <tr>
+              <td style="font-family:var(--mono); font-size:0.78rem;">${r.doc_id}</td>
+              <td>${r.html_url ? `<a href="${r.html_url}" target="_blank" class="html">HTML</a>` : '—'}</td>
+              <td>${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="pdf">PDF</a>` : '—'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    console.warn('Failed to load history:', err);
+  }
+}
+
+// ── Toast ───────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Init
+loadHistory();
+</script>
+</body>
+</html>

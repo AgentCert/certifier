@@ -1,0 +1,16 @@
+{# blocks/findings.html — renders a findings content block as limitation items #}
+{# Expects `block` dict: {type:"findings", items:[{severity, text}]} #}
+{% set finding_items = block["items"] | default([]) %}
+<div class="findings-block">
+  {% for item in finding_items %}
+  {% set sev = item.severity | default('note') %}
+  {% if sev is not string %}{% set sev = sev.value | default('note') %}{% endif %}
+  <div class="limitation-item">
+    <span class="limitation-rank">{{ loop.index }}</span>
+    <div>
+      <span class="sev-{{ sev | lower }}">[{{ sev | title }}]</span>
+      {{ item.text | default('') }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
