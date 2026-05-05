@@ -59,7 +59,7 @@ Raw Langfuse Trace (JSON)
 Both pipeline pairs are exposed as **async REST endpoints** (submit → poll) and
 as **CLI commands** for direct local execution.
 
-`POST /api/v1/aggregation-certification` runs all four steps above in a single background task. The rendered HTML and PDF are available at `POST /api/generate/html` and `POST /api/generate/pdf` once the task completes.
+`POST /api/v1/aggregation-certification` runs all four steps above in a single background task. The rendered HTML and PDF are available at `GET /api/certification/html` and `GET /api/certification/pdf` once the task completes.
 
 ---
 
@@ -405,7 +405,7 @@ certifier/
 ├── cert_builder/                   # Phase 3 — 12-section CertificationReport
 ├── cert_reporter/                  # Report rendering — LangGraph HTML + PDF pipeline
 │   ├── main.py                     # serve / generate subcommands
-│   ├── api/                        # POST /api/generate/pdf, POST /api/generate/html
+│   ├── api/                        # GET /api/certification/pdf, GET /api/certification/html
 │   └── pipeline/                   # LangGraph static + agentic pipelines
 ├── utils/                          # Shared utilities: AzureLLMClient, ConfigLoader
 │

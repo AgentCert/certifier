@@ -467,10 +467,8 @@ async function generate() {
   };
 
   try {
-    const res = await fetch(`${API}/generate/${fmt}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    const res = await fetch(`${API}/certification/${fmt}?agent_id=${encodeURIComponent(agentId)}&experiment_id=${encodeURIComponent(expId)}`, {
+      method: 'GET',
     });
 
     if (!res.ok) {

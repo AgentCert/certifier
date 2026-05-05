@@ -40,8 +40,8 @@ def create_app() -> FastAPI:
         title="cert-reporter API",
         description=(
             "Generates HTML and PDF certification reports from AgentCert pipeline output. "
-            "POST /api/generate/pdf returns a PDF file. "
-            "POST /api/generate/html returns an HTML file."
+            "GET /api/certification/pdf returns a PDF file. "
+            "GET /api/certification/html returns an HTML file."
         ),
         version="1.0.0",
         docs_url="/docs",

@@ -51,8 +51,8 @@ Comprehensive reference covering system design, data flow, component interaction
 
   ┌──────────┐      ┌────────────────────────────────────────────────────┐
   │  HTTP    │─────▶│  main.py `serve` subcmd → api/app.py               │
-  │  Client  │      │  POST /api/generate/pdf  → serve .pdf from workspace│
-  └──────────┘      │  POST /api/generate/html → serve .html from workspace│
+  │  Client  │      │  GET /api/certification/pdf  → serve .pdf from workspace │
+  └──────────┘      │  GET /api/certification/html → serve .html from workspace│
                     └────────────────────────────────────────────────────┘
 ```
 
@@ -414,18 +414,18 @@ _WORKSPACE_DIR = (
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/generate/pdf`  | Serve the latest `.pdf` from `workspace/{agent_id}/{experiment_id}/certification/` |
-| `POST` | `/api/generate/html` | Serve the latest `.html` from `workspace/{agent_id}/{experiment_id}/certification/` |
+| `GET` | `/api/certification/pdf`  | Serve the latest `.pdf` from `workspace/{agent_id}/{experiment_id}/certification/` |
+| `GET` | `/api/certification/html` | Serve the latest `.html` from `workspace/{agent_id}/{experiment_id}/certification/` |
 
 Both endpoints return a **direct binary file download** (`FileResponse`). They do **not** run the report pipeline.
 
-#### `POST /api/generate/pdf` and `POST /api/generate/html` request lifecycle
+#### `GET /api/certification/pdf` and `GET /api/certification/html` request lifecycle
 
 ```
-POST /api/generate/{fmt}  { agent_id, experiment_id }
+GET /api/certification/{fmt}?agent_id={agent_id}&experiment_id={experiment_id}
   │
   ├─ cert_dir = workspace/{agent_id}/{experiment_id}/certification/
-  ├─ 404 if directory does not exist or contains no .{fmt} files
+  ├─ 404 "No PDF found" / "No HTML found" if directory does not exist or contains no .{fmt} files
   ├─ Pick most-recently-modified .{fmt} file
   └─ Return FileResponse (application/pdf or text/html)
 ```
@@ -441,11 +441,7 @@ def _find_latest(agent_id, experiment_id, ext) -> Path | None:
 
 ### API models (`api/models.py`)
 
-```python
-class GenerateRequest(BaseModel):
-    agent_id:      str   # required — matches POST /api/v1/aggregation-certification
-    experiment_id: str   # required — matches POST /api/v1/aggregation-certification
-```
+No request body models — both endpoints use query parameters (`agent_id`, `experiment_id`) declared via FastAPI `Query()`.
 
 ---
 
@@ -573,8 +569,8 @@ main certifier API:
 cert-reporter main.py:
   ├── serve  ──▶ api/app.py ──▶ api/routes.py
   │                                  │
-  │                          POST /generate/pdf   → _find_latest() → FileResponse
-  │                          POST /generate/html  → _find_latest() → FileResponse
+  │                          GET /certification/pdf   → _find_latest() → FileResponse
+  │                          GET /certification/html  → _find_latest() → FileResponse
   │
   └── generate ──────────────▶ pipeline/graph.py
                                 pipeline/agentic_graph.py

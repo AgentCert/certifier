@@ -4,7 +4,7 @@ Converts a structured [AgentCert](https://github.com/agentcert) `certification.j
 
 The pipeline is a **LangGraph `StateGraph`** (5 nodes) with an optional LLM enrichment step that rewrites section introductions using LangChain. Two pipeline modes are available: **static** (deterministic, no LLM required) and **agentic** (LLM-driven section-by-section enrichment with domain detection). Both a **CLI** and a **FastAPI server** (with demo UI) are provided via a single `main.py` entry point.
 
-**Report generation is triggered by `POST /api/v1/aggregation-certification`** (the main certifier API). The two endpoints in this module (`POST /api/generate/pdf` and `POST /api/generate/html`) only serve already-generated files from the workspace.
+**Report generation is triggered by `POST /api/v1/aggregation-certification`** (the main certifier API). The two endpoints in this module (`GET /api/certification/pdf` and `GET /api/certification/html`) only serve already-generated files from the workspace.
 
 ---
 
@@ -40,8 +40,8 @@ cert-reporter/
 │
 ├── api/                        # FastAPI application
 │   ├── app.py                  # application factory (loads .env, mounts routes)
-│   ├── routes.py               # POST /generate/pdf, POST /generate/html (file-serve only)
-│   └── models.py               # Pydantic request schema (agent_id + experiment_id)
+│   ├── routes.py               # GET /certification/pdf, GET /certification/html (file-serve only)
+│   └── models.py               # (no request body models — inputs passed as query params)
 │
 ├── pipeline/                   # LangGraph pipeline nodes
 │   ├── graph.py                # static StateGraph  (build_graph / run_pipeline)
@@ -96,8 +96,8 @@ POST /api/v1/aggregation-certification          ← triggers the full pipeline
         → workspace/{agent_id}/{experiment_id}/certification/<doc_id>.html
         → workspace/{agent_id}/{experiment_id}/certification/<doc_id>.pdf
 
-POST /api/generate/html   }
-POST /api/generate/pdf    }  ← serve the already-generated file from workspace
+GET /api/certification/html   }
+GET /api/certification/pdf    }  ← serve the already-generated file from workspace
 ```
 
 The cert_reporter pipeline is called synchronously (via `asyncio.to_thread`) inside the background task of `POST /api/v1/aggregation-certification`. Report generation failure is non-fatal — the certification task still completes and the `pdf_report` / `html_report` paths in `storage_paths` will be empty strings if generation failed.
@@ -227,8 +227,8 @@ python main.py serve --reload
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/generate/pdf`  | Return the PDF report for the given agent/experiment |
-| `POST` | `/api/generate/html` | Return the HTML report for the given agent/experiment |
+| `GET`  | `/api/certification/pdf`  | Return the PDF certification report for the given agent/experiment |
+| `GET`  | `/api/certification/html` | Return the HTML certification report for the given agent/experiment |
 | `GET`  | `/docs`  | Swagger / OpenAPI interactive docs |
 | `GET`  | `/redoc` | ReDoc API reference |
 
@@ -236,24 +236,23 @@ Both generate endpoints **serve a pre-generated file** from `workspace/{agent_id
 
 ---
 
-#### `POST /api/generate/pdf` and `POST /api/generate/html`
+#### `GET /api/certification/pdf` and `GET /api/certification/html`
 
-**Request body:**
+**Query parameters:**
 
-```json
-{
-  "agent_id":      "my-agent",
-  "experiment_id": "exp-001"
-}
-```
+| Parameter | Type | Required |
+|---|---|---|
+| `agent_id` | string | yes |
+| `experiment_id` | string | yes |
 
 **Response:** Binary file download (`application/pdf` or `text/html`).
 
 **Error responses:**
 
-| Code | Meaning |
-|------|---------|
-| `404` | No report file found — run `POST /api/v1/aggregation-certification` first |
+| Code | Body |
+|------|------|
+| `404` | `"No PDF found"` / `"No HTML found"` |
+| `422` | Missing or invalid query parameters |
 
 **Workspace path read:**
 
@@ -268,15 +267,11 @@ workspace/{agent_id}/{experiment_id}/certification/<most-recent>.html
 
 ```bash
 # Download PDF report
-curl -X POST http://localhost:8000/api/generate/pdf \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "my-agent", "experiment_id": "exp-001"}' \
+curl "http://localhost:8000/api/certification/pdf?agent_id=my-agent&experiment_id=exp-001" \
   -o report.pdf
 
 # Download HTML report
-curl -X POST http://localhost:8000/api/generate/html \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "my-agent", "experiment_id": "exp-001"}' \
+curl "http://localhost:8000/api/certification/html?agent_id=my-agent&experiment_id=exp-001" \
   -o report.html
 ```
 
