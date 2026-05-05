@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import time
 import traceback
 import uuid
@@ -7,11 +8,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
+log = logging.getLogger(__name__)
+
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from main.config.settings import Settings
 from main.models.cert_requests import AggregationCertificationRequest
-from main.services.pipeline_service import CertPipelineService
+from main.services.pipeline_service import CertPipelineService, generate_cert_report_documents
 from main.services.session_service import CertSessionService
 
 
@@ -165,6 +168,7 @@ async def run_cert_task(
 
     # ── Stage: running_pipeline (inside semaphore) ────────────────────────────
     # The semaphore limits simultaneous heavy cert pipeline runs to prevent OOM
+    report_paths: Dict[str, str] = {}
     try:
         async with cert_semaphore:
             await cert_session_svc.update_stage(cert_task_id, "running_pipeline")
@@ -178,20 +182,38 @@ async def run_cert_task(
                 runs_per_fault=request.runs_per_fault,
                 config=app_config,
             )
+
+            # An empty result means no metrics were found — bail before report gen
+            if not result:
+                await cert_session_svc.set_failed(
+                    cert_task_id, "METRICS_NOT_FOUND",
+                    f"No metrics documents found for agent_id='{request.agent_id}'",
+                    "running_pipeline", "",
+                )
+                return
+
+            # ── Stage: generating_report ──────────────────────────────────────
+            # Run cert_reporter pipeline to produce HTML + PDF from certification.json
+            await cert_session_svc.update_stage(cert_task_id, "generating_report")
+            cert_json_path = cert_output_dir / "cert-builder" / "certification.json"
+            report_output_dir = cert_output_dir / "certification"
+            try:
+                report_paths = await asyncio.to_thread(
+                    generate_cert_report_documents,
+                    cert_json_path,
+                    report_output_dir,
+                )
+            except Exception as exc:
+                # Report generation failure is non-fatal — log and continue
+                log.warning("cert_reporter pipeline failed (non-fatal): %s", exc)
+                report_paths = {}
+
             elapsed = time.monotonic() - start
+
     except Exception as exc:
         await cert_session_svc.set_failed(
             cert_task_id, classify_cert_error(exc), str(exc), "running_pipeline",
             traceback.format_exc(),
-        )
-        return
-
-    # An empty result dict means the pipeline found no metrics for the given agent_id
-    if not result:
-        await cert_session_svc.set_failed(
-            cert_task_id, "METRICS_NOT_FOUND",
-            f"No metrics documents found for agent_id='{request.agent_id}'",
-            "running_pipeline", "",
         )
         return
 
@@ -242,6 +264,8 @@ async def run_cert_task(
             "aggregated_scorecard": str(cert_output_dir / "aggregation" / "aggregation.json"),
             "certification_report": str(cert_output_dir / "cert-builder" / "certification.json"),
             "summary": str(cert_output_dir / "pipeline_summary.json"),
+            "html_report": report_paths.get("html_path", ""),
+            "pdf_report": report_paths.get("pdf_path", ""),
         },
         "processing_time_seconds": round(elapsed, 1),
     }

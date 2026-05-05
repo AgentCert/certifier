@@ -1,8 +1,10 @@
 # cert-reporter
 
-Converts a structured [AgentCert](https://github.com/agentcert) certification JSON document into a polished **HTML** and **PDF** report.
+Converts a structured [AgentCert](https://github.com/agentcert) `certification.json` document into a polished **HTML** and **PDF** report.
 
-The pipeline is a **LangGraph `StateGraph`** (5 nodes) with an optional LLM enrichment step that rewrites section introductions using LangChain. Two pipeline modes are available: **static** (deterministic, no LLM required) and **agentic** (LLM-driven section-by-section enrichment with domain detection). Both a **CLI** and a **FastAPI server** (with demo UI) are provided.
+The pipeline is a **LangGraph `StateGraph`** (5 nodes) with an optional LLM enrichment step that rewrites section introductions using LangChain. Two pipeline modes are available: **static** (deterministic, no LLM required) and **agentic** (LLM-driven section-by-section enrichment with domain detection). Both a **CLI** and a **FastAPI server** (with demo UI) are provided via a single `main.py` entry point.
+
+**Report generation is triggered by `POST /api/v1/aggregation-certification`** (the main certifier API). The two endpoints in this module (`POST /api/generate/pdf` and `POST /api/generate/html`) only serve already-generated files from the workspace.
 
 ---
 
@@ -17,12 +19,12 @@ python -m playwright install chromium   # headless browser for PDF
 cp .env.example .env
 # edit .env and add OPENAI_API_KEY / ANTHROPIC_API_KEY
 
-# 3a — CLI (generates HTML + PDF in ./output/)
-python main.py --input certification_report.json --output-dir ./output
-
-# 3b — API server + demo UI
-python server.py
+# 3a — start the API server (default when no subcommand is given)
+python main.py
 # open http://localhost:8000
+
+# 3b — CLI: generate directly (reads from / writes to workspace)
+python main.py generate --agent-id my-agent --experiment-id exp-001
 ```
 
 ---
@@ -32,15 +34,14 @@ python server.py
 ```
 cert-reporter/
 │
-├── main.py                     # CLI entry point
-├── server.py                   # uvicorn server entry point
+├── main.py                     # Unified entry point: `serve` (default) + `generate` subcommands
 ├── requirements.txt
 ├── .env.example                # environment variable template → copy to .env
 │
 ├── api/                        # FastAPI application
 │   ├── app.py                  # application factory (loads .env, mounts routes)
-│   ├── routes.py               # GET /health, POST /generate, GET /reports, ...
-│   └── models.py               # Pydantic request / response schemas
+│   ├── routes.py               # POST /generate/pdf, POST /generate/html (file-serve only)
+│   └── models.py               # Pydantic request schema (agent_id + experiment_id)
 │
 ├── pipeline/                   # LangGraph pipeline nodes
 │   ├── graph.py                # static StateGraph  (build_graph / run_pipeline)
@@ -64,33 +65,42 @@ cert-reporter/
 │   ├── base.html               # master layout (identity card, findings, sections loop, footer)
 │   ├── cover.html              # cover page (navy gradient, cert badge, scorecard)
 │   ├── blocks/                 # one template per content block type
-│   │   ├── assessment.html     # standalone assessment card
-│   │   ├── card.html           # key-value grid card
-│   │   ├── chart.html          # inline SVG chart card
-│   │   ├── fault_group.html    # merged heading + assessments card (synthetic block)
-│   │   ├── findings.html       # numbered findings list
-│   │   ├── heading.html        # sub-section heading with optional detail
-│   │   ├── table.html          # data table (list or dict rows)
-│   │   └── text.html           # narrative text (markdown rendered)
-│   ├── sections/
-│   │   └── section.html        # collapsible <details> section wrapper
-│   └── components/             # reusable sub-components (legacy / advanced use)
-│       ├── chart_embed.html
-│       ├── kv_pairs.html
-│       ├── narrative_block.html
-│       └── table.html
+│   │   ├── assessment.html
+│   │   ├── card.html
+│   │   ├── chart.html
+│   │   ├── fault_group.html
+│   │   ├── findings.html
+│   │   ├── heading.html
+│   │   ├── table.html
+│   │   └── text.html
+│   └── sections/
+│       └── section.html        # collapsible <details> section wrapper
 │
 ├── static/
 │   └── report.css              # inlined into HTML at render time
 │
-├── ui/
-│   └── index.html              # single-page demo UI (drag-and-drop upload, preview)
-│
-├── tests/
-│   └── __init__.py
-│
-└── output/                     # generated reports written here
+└── ui/
+    └── index.html              # single-page demo UI (agent_id + experiment_id, format picker)
 ```
+
+---
+
+## How report generation works
+
+```
+POST /api/v1/aggregation-certification          ← triggers the full pipeline
+  │
+  ├── Phase 2: Aggregation  → workspace/{agent_id}/{experiment_id}/aggregation/aggregation.json
+  ├── Phase 3: cert_builder → workspace/{agent_id}/{experiment_id}/cert-builder/certification.json
+  └── cert_reporter pipeline (this module)
+        → workspace/{agent_id}/{experiment_id}/certification/<doc_id>.html
+        → workspace/{agent_id}/{experiment_id}/certification/<doc_id>.pdf
+
+POST /api/generate/html   }
+POST /api/generate/pdf    }  ← serve the already-generated file from workspace
+```
+
+The cert_reporter pipeline is called synchronously (via `asyncio.to_thread`) inside the background task of `POST /api/v1/aggregation-certification`. Report generation failure is non-fatal — the certification task still completes and the `pdf_report` / `html_report` paths in `storage_paths` will be empty strings if generation failed.
 
 ---
 
@@ -99,7 +109,7 @@ cert-reporter/
 ### Static mode (`--mode static`, default)
 
 ```
-certification_report.json
+certification.json
          │
          ▼
 preprocess_node   Load JSON → normalise schema → extract chart blocks
@@ -120,7 +130,7 @@ pdf_renderer_node   Playwright headless Chromium → A4 PDF (page numbers, heade
 ### Agentic mode (`--mode agentic`)
 
 ```
-certification_report.json
+certification.json
          │
          ▼
 preprocess_node → charts_node → inspect_node (rule-based domain detection)
@@ -138,50 +148,15 @@ LLM enrichment is **opt-in**. When disabled (`--mode static` without `--enrich-l
 
 ## CLI
 
-```
-python main.py [OPTIONS]
+`main.py` exposes two subcommands.
 
-Options:
-  -i, --input PATH          Path to the certification JSON file  [required]
-  -o, --output-dir PATH     Output directory (default: ./output)
-  -f, --format TEXT         Comma-separated formats: html,pdf  (default: html,pdf)
-      --mode TEXT           Pipeline mode: static | agentic  (default: static)
-      --enrich-llm          Enable LLM narrative enrichment (static mode only)
-      --model TEXT          LLM model name  (default: gpt-4.1-mini)
-      --provider TEXT       openai | anthropic  (default: openai)
-      --temperature FLOAT   LLM temperature  (default: 0.4)
-  -v, --verbose
-```
-
-### Examples
+### `serve` — start the API server (default)
 
 ```bash
-# HTML + PDF, no LLM
-python main.py -i cert.json -o ./output
-
-# HTML only
-python main.py -i cert.json -o ./output --format html
-
-# LLM enrichment (OpenAI)
-python main.py -i cert.json -o ./output --enrich-llm --model gpt-4.1-mini
-
-# LLM enrichment (Anthropic)
-python main.py -i cert.json -o ./output \
-  --enrich-llm --provider anthropic --model claude-3-5-haiku-20241022
-
-# Agentic mode (parallel per-section enrichment)
-python main.py -i cert.json -o ./output --mode agentic
-```
-
----
-
-## API server
-
-```bash
-python server.py                         # http://0.0.0.0:8000
-python server.py --port 8080             # custom port
-python server.py --reload                # dev mode with auto-reload
-python server.py --workers 4             # multi-process (production, no --reload)
+python main.py                          # 0.0.0.0:8000
+python main.py serve                    # same
+python main.py serve --port 8080
+python main.py serve --reload           # dev mode with auto-reload
 ```
 
 | URL | Description |
@@ -190,90 +165,153 @@ python server.py --workers 4             # multi-process (production, no --reloa
 | `http://localhost:8000/docs` | Swagger / OpenAPI interactive docs |
 | `http://localhost:8000/redoc` | ReDoc API reference |
 
+### `generate` — run the pipeline directly from CLI
+
+Reads `certification.json` from the workspace and writes HTML/PDF back to the workspace.
+
+```
+python main.py generate [OPTIONS]
+
+Required:
+  -a, --agent-id TEXT        Agent ID (matches POST /aggregation-certification)
+  -e, --experiment-id TEXT   Experiment ID (matches POST /aggregation-certification)
+
+Optional:
+  -f, --format TEXT          Comma-separated formats: html,pdf  (default: html,pdf)
+      --mode TEXT            Pipeline mode: static | agentic    (default: static)
+      --enrich-llm           Enable LLM narrative enrichment
+      --model TEXT           LLM model name                     (default: gpt-4.1-mini)
+      --provider TEXT        openai | anthropic                  (default: openai)
+      --temperature FLOAT    LLM temperature                    (default: 0.4)
+  -v, --verbose
+```
+
+**Workspace paths:**
+
+| Direction | Path |
+|-----------|------|
+| Input (reads) | `workspace/{agent_id}/{experiment_id}/cert-builder/certification.json` |
+| Output (writes) | `workspace/{agent_id}/{experiment_id}/certification/` |
+
+**Examples:**
+
+```bash
+# HTML + PDF, no LLM
+python main.py generate -a my-agent -e exp-001
+
+# HTML only
+python main.py generate -a my-agent -e exp-001 --format html
+
+# LLM enrichment (OpenAI)
+python main.py generate -a my-agent -e exp-001 --enrich-llm --model gpt-4.1-mini
+
+# LLM enrichment (Anthropic)
+python main.py generate -a my-agent -e exp-001 \
+  --enrich-llm --provider anthropic --model claude-3-5-haiku-20241022
+
+# Agentic mode (parallel per-section enrichment)
+python main.py generate -a my-agent -e exp-001 --mode agentic
+```
+
+---
+
+## API server
+
+```bash
+python main.py              # start server on http://0.0.0.0:8000
+python main.py serve --port 8080
+python main.py serve --reload
+```
+
 ### API endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET`  | `/api/health` | Health check |
-| `POST` | `/api/generate` | Generate from JSON body |
-| `POST` | `/api/generate/upload` | Generate from file upload (multipart) |
-| `GET`  | `/api/reports` | List all generated reports |
-| `GET`  | `/api/reports/{filename}` | Serve a report file (HTML or PDF) |
+| `POST` | `/api/generate/pdf`  | Return the PDF report for the given agent/experiment |
+| `POST` | `/api/generate/html` | Return the HTML report for the given agent/experiment |
+| `GET`  | `/docs`  | Swagger / OpenAPI interactive docs |
+| `GET`  | `/redoc` | ReDoc API reference |
 
-#### `POST /api/generate` — JSON body
+Both generate endpoints **serve a pre-generated file** from `workspace/{agent_id}/{experiment_id}/certification/`. They do **not** run the pipeline. Generation happens inside `POST /api/v1/aggregation-certification`.
 
-```json
-{
-  "json_content": { "...certification document..." },
-  "formats": ["html", "pdf"],
-  "mode": "static",
-  "enrich_llm": false,
-  "model": "gpt-4.1-mini",
-  "provider": "openai",
-  "temperature": 0.4
-}
-```
+---
 
-#### `POST /api/generate/upload` — multipart form
+#### `POST /api/generate/pdf` and `POST /api/generate/html`
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `file` | file | — | Certification JSON file (required) |
-| `formats` | string | `"html,pdf"` | Comma-separated output formats |
-| `mode` | string | `"static"` | `static` or `agentic` |
-| `enrich_llm` | bool | `false` | Enable LLM enrichment (static mode) |
-| `model` | string | `"gpt-4.1-mini"` | LLM model |
-| `provider` | string | `"openai"` | `openai` or `anthropic` |
-| `temperature` | float | `0.4` | LLM temperature |
-
-#### Response
+**Request body:**
 
 ```json
 {
-  "doc_id": "cert-doc-2026-02-25-1f006d",
-  "html_url": "/reports/cert-doc-2026-02-25-1f006d.html",
-  "pdf_url":  "/reports/cert-doc-2026-02-25-1f006d.pdf",
-  "errors": [],
-  "token_usage": { "input_tokens": 4200, "output_tokens": 980, "total": 5180 },
-  "duration_seconds": 2.3
+  "agent_id":      "my-agent",
+  "experiment_id": "exp-001"
 }
 ```
 
-`html_url` / `pdf_url` are relative — prepend the server origin for the full URL.
-`token_usage` is `null` when no LLM is used.
+**Response:** Binary file download (`application/pdf` or `text/html`).
+
+**Error responses:**
+
+| Code | Meaning |
+|------|---------|
+| `404` | No report file found — run `POST /api/v1/aggregation-certification` first |
+
+**Workspace path read:**
+
+```
+workspace/{agent_id}/{experiment_id}/certification/<most-recent>.pdf
+workspace/{agent_id}/{experiment_id}/certification/<most-recent>.html
+```
+
+---
 
 #### curl examples
 
 ```bash
-# Health check
-curl http://localhost:8000/api/health
+# Download PDF report
+curl -X POST http://localhost:8000/api/generate/pdf \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "my-agent", "experiment_id": "exp-001"}' \
+  -o report.pdf
 
-# Generate from file
-curl -X POST http://localhost:8000/api/generate/upload \
-  -F "file=@certification_report.json" \
-  -F "formats=html,pdf"
-
-# Generate with LLM enrichment
-curl -X POST http://localhost:8000/api/generate/upload \
-  -F "file=@cert.json" \
-  -F "formats=html,pdf" \
-  -F "enrich_llm=true" \
-  -F "model=gpt-4.1-mini"
-
-# Agentic mode
-curl -X POST http://localhost:8000/api/generate/upload \
-  -F "file=@cert.json" \
-  -F "mode=agentic"
-
-# Download PDF
-curl -O http://localhost:8000/reports/cert-doc-2026-02-25-1f006d.pdf
+# Download HTML report
+curl -X POST http://localhost:8000/api/generate/html \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "my-agent", "experiment_id": "exp-001"}' \
+  -o report.html
 ```
+
+---
+
+## Workspace layout
+
+cert-reporter integrates with the AgentCert certifier pipeline workspace:
+
+```
+certifier/
+└── workspace/
+    └── {agent_id}/
+        └── {experiment_id}/
+            ├── fault-bucketing/          ← Phase 0+1 output
+            │   └── {run_id}/
+            │       ├── traces/
+            │       ├── fault_buckets/
+            │       └── metrics/
+            ├── aggregation/
+            │   └── aggregation.json      ← Phase 2 output
+            ├── cert-builder/
+            │   └── certification.json    ← Phase 3 output — READ by cert-reporter
+            └── certification/
+                ├── <doc_id>.html         ← cert-reporter HTML output
+                └── <doc_id>.pdf          ← cert-reporter PDF output
+```
+
+The workspace root is resolved from the `WORKSPACE_DIR` environment variable. If `WORKSPACE_DIR` is a relative path (e.g. `"workspace"`) it is joined onto the certifier project root, not the cert_reporter directory. If not set, defaults to `certifier/workspace/`.
 
 ---
 
 ## Environment variables
 
-Copy `.env.example` to `.env` in the project root.
+Copy `.env.example` to `.env` in the cert_reporter directory.
 
 ```dotenv
 # OpenAI — required when --provider openai and LLM is enabled
@@ -282,6 +320,9 @@ OPENAI_API_KEY=sk-...
 
 # Anthropic — required when --provider anthropic and LLM is enabled
 ANTHROPIC_API_KEY=sk-ant-...
+
+# Workspace root (optional — defaults to certifier/workspace/)
+# WORKSPACE_DIR=workspace
 
 # LangSmith tracing (optional)
 # LANGCHAIN_TRACING_V2=false
@@ -365,4 +406,3 @@ Each section's `content` is a list of typed blocks. See [SCHEMA.md](SCHEMA.md) f
 | `pydantic` | State schema + API models |
 | `python-dotenv` | `.env` file loading |
 | `fastapi` + `uvicorn` | HTTP API server |
-| `python-multipart` | File upload support |

@@ -22,6 +22,136 @@ from aggregator.scripts.aggregation import AggregationOrchestrator, DirectoryQue
 from cert_builder.scripts.certification_pipeline import CertificationPipeline
 
 
+# ── Narrative fallback defaults ───────────────────────────────────────────────
+# Required keys in the Phase 3 narratives output. If the LLM call for any of
+# these fails, the report assembler crashes with a KeyError. This dict provides
+# safe fallback structures so the pipeline can still produce a valid report.
+
+_NARRATIVE_FALLBACKS: Dict[str, Any] = {
+    "key_findings": {
+        "items": [
+            {"severity": "note", "headline": "Narrative generation unavailable", "detail": "LLM narrative call did not return results for this run."}
+        ],
+        "source": "fallback",
+        "model": None,
+        "tokens_used": 0,
+    },
+    "scope_narrative": {
+        "text": "Certification scope narrative was not generated for this run.",
+        "source": "fallback",
+        "model": None,
+        "tokens_used": 0,
+    },
+    "qualitative_findings": {
+        "detection": [{"severity": "note", "headline": "No findings generated", "detail": "LLM narrative call did not return results."}],
+        "mitigation": [],
+        "action_correctness": [],
+        "reasoning": [],
+        "safety": [{"severity": "note", "headline": "No findings generated", "detail": "LLM narrative call did not return results."}],
+        "security": [],
+        "hallucination": [{"severity": "note", "headline": "No findings generated", "detail": "LLM narrative call did not return results."}],
+        "source": "fallback",
+        "model": None,
+        "tokens_used": 0,
+    },
+    "fault_category_analysis": {
+        "categories": [],
+        "source": "fallback",
+        "model": None,
+        "tokens_used": 0,
+    },
+    "limitations_enriched": {
+        "items": [
+            {"severity": "note", "headline": "Limitations unavailable", "detail": "LLM narrative call did not return results."}
+        ],
+        "source": "fallback",
+        "model": None,
+        "tokens_used": 0,
+    },
+    "recommendations_enriched": {
+        "items": [
+            {"severity": "note", "headline": "Recommendations unavailable", "detail": "LLM narrative call did not return results."}
+        ],
+        "source": "fallback",
+        "model": None,
+        "tokens_used": 0,
+    },
+}
+
+
+_PLACEHOLDER_FINDING = {"severity": "note", "text": "No findings available for this section."}
+
+
+def _patch_empty_findings(report_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure no findings list is empty in the report dict before Pydantic validation.
+
+    The CertificationReport schema requires min_length=1 on all findings lists.
+    If any LLM narrative call failed or returned no results, the assembled report
+    may contain empty findings lists. This fills them with a placeholder.
+    """
+    # header.findings
+    header = report_dict.get("header", {})
+    if "findings" in header and not header["findings"]:
+        header["findings"] = [_PLACEHOLDER_FINDING]
+
+    # sections[].content[] — any block with type "findings" and empty items
+    for section in report_dict.get("sections", []):
+        content = section.get("content", [])
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "findings":
+                items = block.get("items", [])
+                if not items:
+                    block["items"] = [_PLACEHOLDER_FINDING]
+
+    return report_dict
+
+
+class _SafeCertificationPipeline(CertificationPipeline):
+    """Wraps CertificationPipeline to inject fallback values for missing narrative keys
+    and fix empty findings lists before Pydantic validation."""
+
+    async def run(self) -> dict:
+        # Monkey-patch the narratives assembler's assemble method to inject fallbacks
+        from cert_builder.scripts.narratives.assembler import NarrativeAssembler
+        from cert_builder.scripts.report_assembler import ReportAssembler
+
+        _original_assemble = NarrativeAssembler.assemble
+        _original_report_assemble = ReportAssembler.assemble
+
+        async def _patched_assemble(self_inner):
+            result = await _original_assemble(self_inner)
+            for key, fallback in _NARRATIVE_FALLBACKS.items():
+                if key not in result:
+                    logger.warning(
+                        f"Narrative key '{key}' missing from Phase 3 output; using fallback."
+                    )
+                    result[key] = fallback
+            return result
+
+        def _patched_report_assemble(self_inner):
+            # Temporarily disable Pydantic validation in the original to patch the dict
+            import cert_builder.scripts.report_assembler as ra_module
+            _orig_validate = ra_module.CertificationReport.model_validate
+
+            def _validate_with_fix(data, **kwargs):
+                data = _patch_empty_findings(data)
+                return _orig_validate(data, **kwargs)
+
+            ra_module.CertificationReport.model_validate = staticmethod(_validate_with_fix)
+            try:
+                return _original_report_assemble(self_inner)
+            finally:
+                ra_module.CertificationReport.model_validate = _orig_validate
+
+        NarrativeAssembler.assemble = _patched_assemble
+        ReportAssembler.assemble = _patched_report_assemble
+        try:
+            return await super().run()
+        finally:
+            NarrativeAssembler.assemble = _original_assemble
+            ReportAssembler.assemble = _original_report_assemble
+
+
 # ── Bucketing / Extraction helpers ────────────────────────────────────────────
 
 def _build_fault_config_from_bucket(bucket_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -72,6 +202,41 @@ def _save_json(data: dict, path: Path) -> None:
         json.dumps(data, indent=4, default=str, ensure_ascii=False),
         encoding="utf-8",
     )
+
+
+# Valid ratings accepted by cert_builder's Rating enum.
+_VALID_RATINGS = {"Strong", "Clean", "Moderate", "Minor", "Significant"}
+
+# Map common LLM-generated labels that fall outside the enum to the closest valid value.
+_RATING_FALLBACK_MAP: Dict[str, str] = {
+    "Adequate": "Moderate",
+    "Weak": "Minor",
+    "Good": "Strong",
+    "Poor": "Significant",
+    "Excellent": "Strong",
+    "Fair": "Moderate",
+    "Low": "Minor",
+    "High": "Significant",
+    "Critical": "Significant",
+}
+
+
+def _normalize_severity_labels(scorecard: Dict[str, Any]) -> Dict[str, Any]:
+    """Rewrite any non-standard severity_label values produced by the LLM Council
+    to valid Rating enum members so cert_builder validation does not fail."""
+    for cat in scorecard.get("fault_category_scorecards", []):
+        # The raw scorecard uses "textual_metrics"; check both keys for safety
+        for key in ("textual_metrics", "textual"):
+            textual = cat.get(key, {})
+            if not isinstance(textual, dict):
+                continue
+            for field_obj in textual.values():
+                if not isinstance(field_obj, dict):
+                    continue
+                label = field_obj.get("severity_label")
+                if label and label not in _VALID_RATINGS:
+                    field_obj["severity_label"] = _RATING_FALLBACK_MAP.get(label, "Moderate")
+    return scorecard
 
 
 def _print_aggregation_summary(
@@ -208,7 +373,7 @@ class BucketPipelineService:
 
             extractor = TraceMetricsExtractor(
                 config=config,
-                fault_config_path=str(fault_cfg_tmp),
+                bucket_metadata=fault_cfg,
             )
             try:
                 extraction_result: ExtractionResult = (
@@ -372,6 +537,9 @@ class CertPipelineService:
                 store_results=False,
             )
 
+            # Normalize LLM-generated severity labels to valid Rating enum values
+            aggregated_scorecard = _normalize_severity_labels(aggregated_scorecard)
+
             scorecard_path = agg_dir / "aggregation.json"
             _save_json(aggregated_scorecard, scorecard_path)
             logger.info(f"Aggregated scorecard written to {scorecard_path}")
@@ -384,7 +552,7 @@ class CertPipelineService:
 
             report_path = cert_dir / "certification.json"
 
-            cert_pipeline = CertificationPipeline(
+            cert_pipeline = _SafeCertificationPipeline(
                 input_path=scorecard_path,
                 output_path=report_path,
                 debug=debug,
@@ -424,3 +592,56 @@ class CertPipelineService:
             if llm_client:
                 await llm_client.close()
                 logger.info("LLM client connection closed.")
+
+
+# ── cert_reporter document generation ────────────────────────────────────────
+
+# Path to cert_reporter package: certifier/cert_reporter/
+_CERT_REPORTER_DIR: Path = Path(__file__).resolve().parent.parent.parent / "cert_reporter"
+
+
+def generate_cert_report_documents(
+    cert_json_path: Path,
+    output_dir: Path,
+    formats: Optional[List[str]] = None,
+) -> Dict[str, str]:
+    """Generate HTML and/or PDF report files from a certification.json.
+
+    Runs the cert_reporter static pipeline synchronously (safe to wrap with
+    ``asyncio.to_thread`` in async callers).
+
+    Args:
+        cert_json_path: Absolute path to ``cert-builder/certification.json``.
+        output_dir:     Directory where report files will be written
+                        (``workspace/{agent_id}/{experiment_id}/certification/``).
+        formats:        List of formats to generate, e.g. ``["html", "pdf"]``.
+                        Defaults to both.
+
+    Returns:
+        Dict with ``"html_path"`` and/or ``"pdf_path"`` keys for each file produced.
+    """
+    import sys as _sys
+
+    reporter_dir = str(_CERT_REPORTER_DIR)
+    injected = reporter_dir not in _sys.path
+    if injected:
+        _sys.path.insert(0, reporter_dir)
+
+    try:
+        from pipeline.graph import run_pipeline  # type: ignore[import]
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        state = run_pipeline(
+            input_path=str(cert_json_path),
+            output_dir=str(output_dir),
+            formats=formats or ["html", "pdf"],
+            enrich_llm=False,
+            verbose=False,
+        )
+        return {k: v for k, v in state.items() if k in ("html_path", "pdf_path") and v}
+    finally:
+        if injected:
+            try:
+                _sys.path.remove(reporter_dir)
+            except ValueError:
+                pass

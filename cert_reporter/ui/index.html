@@ -71,34 +71,14 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
 }
 .card-body { padding: 20px; }
 
-/* Drop zone */
-.drop-zone {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 36px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-  background: #fafbfc;
-  position: relative;
+/* ID fields row */
+.id-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
 }
-.drop-zone:hover, .drop-zone.drag-over {
-  border-color: var(--accent);
-  background: #eef6fd;
-}
-.drop-zone input[type="file"] {
-  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
-}
-.drop-zone .dz-icon { font-size: 2.2rem; margin-bottom: 10px; }
-.drop-zone .dz-text { font-size: 0.9rem; color: var(--muted); }
-.drop-zone .dz-text strong { color: var(--accent); }
-.drop-zone .dz-file-info {
-  margin-top: 10px;
-  font-size: 0.82rem;
-  color: var(--success);
-  font-weight: 600;
-  font-family: var(--mono);
-}
+@media (max-width: 600px) { .id-fields { grid-template-columns: 1fr; } }
 
 /* Options grid */
 .options-grid {
@@ -132,6 +112,12 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
 }
 .option-group select:focus, .option-group input[type="text"]:focus { border-color: var(--accent); }
 
+.field-hint {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
 /* Toggle switches */
 .toggle-row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
 .toggle-item {
@@ -146,7 +132,8 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
   user-select: none;
   transition: border-color 0.2s, background 0.2s;
 }
-.toggle-item input[type="checkbox"] { display: none; }
+.toggle-item input[type="checkbox"],
+.toggle-item input[type="radio"] { display: none; }
 .toggle-item .toggle-pill {
   width: 32px; height: 18px;
   background: #ccc;
@@ -236,11 +223,11 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
   font-size: 0.88rem;
   text-decoration: none;
   transition: opacity 0.2s;
+  cursor: pointer;
 }
 .result-link:hover { opacity: 0.85; }
 .result-link.html-link { background: var(--accent); color: white; }
 .result-link.pdf-link { background: var(--danger); color: white; }
-.result-link.preview-link { background: var(--success); color: white; }
 
 .result-meta {
   display: flex;
@@ -272,22 +259,6 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
   border: none;
   padding: 0;
 }
-
-/* Reports history table */
-.history-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-.history-table th { text-align: left; padding: 9px 12px; background: var(--primary); color: white; font-weight: 600; }
-.history-table td { padding: 9px 12px; border-bottom: 1px solid #eee; }
-.history-table tr:nth-child(even) td { background: #f8f9fa; }
-.history-table .link-cell { display: flex; gap: 8px; }
-.history-table a { font-size: 0.8rem; padding: 3px 9px; border-radius: 4px; text-decoration: none; font-weight: 600; }
-.history-table a.html { background: #dbeafe; color: #1d4ed8; }
-.history-table a.pdf  { background: #fee2e2; color: #b91c1c; }
-
-.empty-history { text-align: center; color: var(--muted); padding: 28px; font-size: 0.88rem; }
-
-/* Errors */
-.error-list { margin-top: 10px; }
-.error-list li { font-size: 0.82rem; color: var(--danger); list-style: disc; margin-left: 18px; padding: 2px 0; }
 
 /* Toast */
 .toast {
@@ -326,27 +297,30 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
     </div>
     <div class="card-body">
 
-      <!-- Drop zone -->
-      <div class="drop-zone" id="dropZone">
-        <input type="file" id="fileInput" accept=".json,application/json"/>
-        <div class="dz-icon">📄</div>
-        <div class="dz-text">
-          <strong>Click to upload</strong> or drag &amp; drop<br/>
-          Certification JSON document (.json)
+      <!-- Agent ID + Experiment ID -->
+      <div class="id-fields">
+        <div class="option-group">
+          <label>Agent ID <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="agent-id" placeholder="e.g. k8s-agent-v2" oninput="checkReady()"/>
+          <div class="field-hint">Matches workspace/{agent_id}/</div>
         </div>
-        <div class="dz-file-info" id="fileInfo" style="display:none;"></div>
+        <div class="option-group">
+          <label>Experiment ID <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="experiment-id" placeholder="e.g. exp_april2" oninput="checkReady()"/>
+          <div class="field-hint">Reads from workspace/{agent_id}/{experiment_id}/cert-builder/certification.json</div>
+        </div>
       </div>
 
       <!-- Format toggles -->
-      <div style="margin-top:16px; font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Output Formats</div>
+      <div style="font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Output Format</div>
       <div class="toggle-row">
         <label class="toggle-item active" id="toggle-html">
-          <input type="checkbox" checked id="fmt-html"/>
+          <input type="radio" name="fmt" value="html" checked id="fmt-html"/>
           <div class="toggle-pill"></div>
           <span>HTML Report</span>
         </label>
-        <label class="toggle-item active" id="toggle-pdf">
-          <input type="checkbox" checked id="fmt-pdf"/>
+        <label class="toggle-item" id="toggle-pdf">
+          <input type="radio" name="fmt" value="pdf" id="fmt-pdf"/>
           <div class="toggle-pill"></div>
           <span>PDF Report</span>
         </label>
@@ -403,24 +377,10 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
     <div class="card-body">
       <div class="result-meta" id="resultMeta"></div>
       <div class="result-links" id="resultLinks"></div>
-      <div class="error-list" id="errorList" style="display:none;"></div>
-      <button class="preview-toggle" id="previewToggle" style="display:none;" onclick="togglePreview()">
+      <button class="preview-toggle" id="previewToggle" style="display:none;">
         Show HTML Preview ▼
       </button>
-      <iframe class="preview-frame" id="previewFrame" id="previewFrame"></iframe>
-    </div>
-  </div>
-
-  <!-- Reports History -->
-  <div class="card">
-    <div class="card-header">
-      <span>📋</span> Generated Reports
-      <button onclick="loadHistory()" style="margin-left:auto; background:none; border:1px solid var(--border); padding:4px 12px; border-radius:4px; font-size:0.78rem; cursor:pointer; color:var(--muted);">Refresh</button>
-    </div>
-    <div class="card-body" style="padding:0;">
-      <div id="historyContainer">
-        <div class="empty-history">No reports generated yet.</div>
-      </div>
+      <iframe class="preview-frame" id="previewFrame"></iframe>
     </div>
   </div>
 
@@ -431,46 +391,26 @@ main { max-width: 900px; margin: 0 auto; padding: 32px 16px; display: flex; flex
 
 <script>
 const API = '/api';
-let selectedFile = null;
 let previewOpen = false;
 
-// ── File selection ──────────────────────────────────────────────────────────
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const fileInfo  = document.getElementById('fileInfo');
-const generateBtn = document.getElementById('generateBtn');
-
-fileInput.addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) setFile(f);
-});
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f) { fileInput.files = e.dataTransfer.files; setFile(f); }
-});
-
-function setFile(f) {
-  selectedFile = f;
-  fileInfo.style.display = 'block';
-  fileInfo.textContent = `✓ ${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
-  generateBtn.disabled = false;
-}
-
 // ── Format toggles ──────────────────────────────────────────────────────────
-['html','pdf','llm'].forEach(id => {
+['html','pdf'].forEach(id => {
   const label = document.getElementById(`toggle-${id}`);
-  const cb    = document.getElementById(`fmt-${id}`);
+  const rb    = document.getElementById(`fmt-${id}`);
   label.addEventListener('click', () => {
-    cb.checked = !cb.checked;
-    label.classList.toggle('active', cb.checked);
-    if (id === 'llm') {
-      document.getElementById('llmOptions').classList.toggle('visible', cb.checked);
-    }
+    document.querySelectorAll('input[name="fmt"]').forEach(r => r.checked = false);
+    rb.checked = true;
+    document.getElementById('toggle-html').classList.toggle('active', id === 'html');
+    document.getElementById('toggle-pdf').classList.toggle('active', id === 'pdf');
   });
+});
+
+const llmLabel = document.getElementById('toggle-llm');
+const llmCb    = document.getElementById('fmt-llm');
+llmLabel.addEventListener('click', () => {
+  llmCb.checked = !llmCb.checked;
+  llmLabel.classList.toggle('active', llmCb.checked);
+  document.getElementById('llmOptions').classList.toggle('visible', llmCb.checked);
 });
 
 // ── Provider ↔ Model sync ───────────────────────────────────────────────────
@@ -489,154 +429,143 @@ document.getElementById('llm-provider').addEventListener('change', function() {
   modelSel.innerHTML = opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
 });
 
+// ── Ready check ─────────────────────────────────────────────────────────────
+function checkReady() {
+  const agentId = document.getElementById('agent-id').value.trim();
+  const expId   = document.getElementById('experiment-id').value.trim();
+  document.getElementById('generateBtn').disabled = !(agentId && expId);
+}
+
 // ── Generate ────────────────────────────────────────────────────────────────
-generateBtn.addEventListener('click', generate);
+document.getElementById('generateBtn').addEventListener('click', generate);
 
 async function generate() {
-  if (!selectedFile) return;
+  const agentId = document.getElementById('agent-id').value.trim();
+  const expId   = document.getElementById('experiment-id').value.trim();
+  if (!agentId || !expId) return;
 
-  const formats = [];
-  if (document.getElementById('fmt-html').checked) formats.push('html');
-  if (document.getElementById('fmt-pdf').checked)  formats.push('pdf');
-  if (!formats.length) { showToast('Select at least one output format.'); return; }
-
+  const fmt       = document.getElementById('fmt-pdf').checked ? 'pdf' : 'html';
   const enrichLlm = document.getElementById('fmt-llm').checked;
-  const model    = document.getElementById('llm-model').value;
-  const provider = document.getElementById('llm-provider').value;
+  const model     = document.getElementById('llm-model').value;
+  const provider  = document.getElementById('llm-provider').value;
 
-  // UI state
-  generateBtn.disabled = true;
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
   document.getElementById('btnIcon').textContent = '⏳';
   document.getElementById('btnText').textContent = 'Generating...';
-  setStatus('Uploading and generating report…', 'loading');
+  setStatus(`Generating ${fmt.toUpperCase()} report…`, 'loading');
   document.getElementById('resultsCard').classList.remove('visible');
 
-  const fd = new FormData();
-  fd.append('file', selectedFile);
-  fd.append('formats', formats.join(','));
-  fd.append('enrich_llm', enrichLlm ? 'true' : 'false');
-  fd.append('model', model);
-  fd.append('provider', provider);
-  fd.append('temperature', '0.4');
+  const body = {
+    agent_id:      agentId,
+    experiment_id: expId,
+    enrich_llm:    enrichLlm,
+    model:         model,
+    provider:      provider,
+    temperature:   0.4,
+    mode:          'static',
+  };
 
   try {
-    const res = await fetch(`${API}/generate/upload`, { method: 'POST', body: fd });
-    const data = await res.json();
+    const res = await fetch(`${API}/generate/${fmt}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
 
     if (!res.ok) {
-      setStatus(`Error: ${data.detail || res.statusText}`, 'error');
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      setStatus(`Error ${res.status}: ${err.detail || res.statusText}`, 'error');
       return;
     }
 
-    setStatus(
-      `Done in ${data.duration_seconds}s — ${data.doc_id}${enrichLlm ? ` · ${(data.token_usage?.total||0).toLocaleString()} tokens` : ''}`,
-      'success'
-    );
-    showResults(data);
-    loadHistory();
+    const blob = await res.blob();
+    const disposition = res.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^";\n]+)"?/);
+    const filename = match ? match[1] : `report.${fmt}`;
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    setStatus(`${fmt.toUpperCase()} report ready — downloading as ${filename}`, 'success');
+    showResults(fmt, filename, url, agentId, expId);
+    showToast(`Downloaded ${filename}`);
+
   } catch (err) {
     setStatus(`Request failed: ${err.message}`, 'error');
   } finally {
-    generateBtn.disabled = false;
+    btn.disabled = false;
     document.getElementById('btnIcon').textContent = '🚀';
     document.getElementById('btnText').textContent = 'Generate Report';
+    checkReady();
   }
 }
 
-function showResults(data) {
-  const card  = document.getElementById('resultsCard');
-  const meta  = document.getElementById('resultMeta');
-  const links = document.getElementById('resultLinks');
-  const errDiv = document.getElementById('errorList');
+// ── Show results card ────────────────────────────────────────────────────────
+function showResults(fmt, filename, url, agentId, expId) {
+  const card       = document.getElementById('resultsCard');
+  const meta       = document.getElementById('resultMeta');
+  const links      = document.getElementById('resultLinks');
   const prevToggle = document.getElementById('previewToggle');
+  const frame      = document.getElementById('previewFrame');
 
   card.classList.add('visible');
 
   meta.innerHTML = `
-    <span>Doc ID: <strong>${data.doc_id}</strong></span>
-    <span>Duration: <strong>${data.duration_seconds}s</strong></span>
-    ${data.token_usage ? `<span>Tokens: <strong>${data.token_usage.total.toLocaleString()}</strong></span>` : ''}
+    <span>Format: <strong>${fmt.toUpperCase()}</strong></span>
+    <span>File: <strong>${filename}</strong></span>
+    <span>Agent: <strong>${agentId}</strong></span>
+    <span>Experiment: <strong>${expId}</strong></span>
   `;
 
-  links.innerHTML = '';
-  if (data.html_url) {
-    links.innerHTML += `<a href="${data.html_url}" target="_blank" class="result-link html-link">🌐 View HTML</a>`;
-    links.innerHTML += `<a href="${data.html_url}" download class="result-link html-link" style="background:#2471a3;">⬇ Download HTML</a>`;
-  }
-  if (data.pdf_url) {
-    links.innerHTML += `<a href="${data.pdf_url}" target="_blank" class="result-link pdf-link">📄 View PDF</a>`;
-    links.innerHTML += `<a href="${data.pdf_url}" download class="result-link pdf-link" style="background:#922b21;">⬇ Download PDF</a>`;
-  }
+  const linkClass = fmt === 'pdf' ? 'pdf-link' : 'html-link';
+  const linkIcon  = fmt === 'pdf' ? '📄' : '🌐';
+  links.innerHTML = `
+    <a href="${url}" download="${filename}" class="result-link ${linkClass}">
+      ⬇ Download ${fmt.toUpperCase()} Again
+    </a>
+  `;
 
-  errDiv.style.display = 'none';
-  errDiv.innerHTML = '';
-  if (data.errors && data.errors.length) {
-    errDiv.style.display = 'block';
-    errDiv.innerHTML = '<ul>' + data.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
-  }
-
-  if (data.html_url) {
+  // HTML preview
+  if (fmt === 'html') {
     prevToggle.style.display = 'inline';
     previewOpen = false;
-    document.getElementById('previewFrame').classList.remove('visible');
-    document.getElementById('previewFrame').src = '';
-    prevToggle.textContent = 'Show HTML Preview ▼';
-  } else {
-    prevToggle.style.display = 'none';
-  }
-}
-
-function togglePreview() {
-  const frame = document.getElementById('previewFrame');
-  const toggle = document.getElementById('previewToggle');
-  const links = document.getElementById('resultLinks');
-  const htmlLink = links.querySelector('.html-link');
-  previewOpen = !previewOpen;
-  if (previewOpen) {
-    frame.src = htmlLink ? htmlLink.href : '';
-    frame.classList.add('visible');
-    toggle.textContent = 'Hide HTML Preview ▲';
-  } else {
     frame.classList.remove('visible');
     frame.src = '';
-    toggle.textContent = 'Show HTML Preview ▼';
+    prevToggle.textContent = 'Show HTML Preview ▼';
+    prevToggle.onclick = function() {
+      previewOpen = !previewOpen;
+      if (previewOpen) {
+        frame.src = url;
+        frame.classList.add('visible');
+        prevToggle.textContent = 'Hide HTML Preview ▲';
+      } else {
+        frame.classList.remove('visible');
+        frame.src = '';
+        prevToggle.textContent = 'Show HTML Preview ▼';
+      }
+    };
+  } else {
+    prevToggle.style.display = 'none';
+    frame.classList.remove('visible');
+    frame.src = '';
   }
+
+  // Revoke blob URL after 5 minutes
+  setTimeout(() => URL.revokeObjectURL(url), 300_000);
 }
 
 // ── Status bar ──────────────────────────────────────────────────────────────
 function setStatus(msg, state) {
-  const bar = document.getElementById('statusBar');
+  const bar     = document.getElementById('statusBar');
   const spinner = document.getElementById('spinner');
   bar.className = 'status-bar visible' + (state === 'error' ? ' error' : state === 'success' ? ' success' : '');
   spinner.style.display = state === 'loading' ? 'block' : 'none';
   document.getElementById('statusMsg').textContent = msg;
-}
-
-// ── History ─────────────────────────────────────────────────────────────────
-async function loadHistory() {
-  try {
-    const res = await fetch(`${API}/reports`);
-    const reports = await res.json();
-    const container = document.getElementById('historyContainer');
-    if (!reports.length) {
-      container.innerHTML = '<div class="empty-history">No reports generated yet.</div>';
-      return;
-    }
-    container.innerHTML = `
-      <table class="history-table">
-        <thead><tr><th>Document ID</th><th>HTML</th><th>PDF</th></tr></thead>
-        <tbody>
-          ${reports.map(r => `
-            <tr>
-              <td style="font-family:var(--mono); font-size:0.78rem;">${r.doc_id}</td>
-              <td>${r.html_url ? `<a href="${r.html_url}" target="_blank" class="html">HTML</a>` : '—'}</td>
-              <td>${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="pdf">PDF</a>` : '—'}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
-  } catch (err) {
-    console.warn('Failed to load history:', err);
-  }
 }
 
 // ── Toast ───────────────────────────────────────────────────────────────────
@@ -646,9 +575,6 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 }
-
-// Init
-loadHistory();
 </script>
 </body>
 </html>
