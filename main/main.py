@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorGridFSBucket
 from pymongo.errors import OperationFailure
 
 from main.config.settings import get_settings
@@ -116,6 +116,10 @@ async def lifespan(app: FastAPI):
     agg_cat_col = db[settings.agg_category_collection]
     await _ensure_agg_category_indexes(agg_cat_col)
     app.state.agg_cat_col = agg_cat_col
+
+    # 6b. GridFS bucket for HTML/PDF report storage (mongodb mode)
+    gridfs_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="cert_reports")
+    app.state.gridfs_bucket = gridfs_bucket
 
     # 7. Attach settings + semaphores to app state
     app.state.settings = settings

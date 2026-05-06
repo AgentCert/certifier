@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import logging
 import time
@@ -6,7 +7,7 @@ import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +130,25 @@ async def _write_aggregated_category_metadata(
         await agg_cat_col.insert_many(docs)
 
 
+async def _store_report_in_gridfs(
+    gridfs_bucket,
+    file_path: Path,
+    agent_id: str,
+    experiment_id: str,
+    fmt: str,
+) -> str:
+    """Upload a report file to GridFS and return its file_id as a string."""
+    data = await asyncio.to_thread(file_path.read_bytes)
+    content_type = "application/pdf" if fmt == "pdf" else "text/html"
+    file_id = await gridfs_bucket.upload_from_stream(
+        file_path.name,
+        io.BytesIO(data),
+        metadata={"agent_id": agent_id, "experiment_id": experiment_id, "format": fmt,
+                   "content_type": content_type},
+    )
+    return str(file_id)
+
+
 async def run_cert_task(
     cert_task_id: str,
     request: AggregationCertificationRequest,
@@ -139,6 +159,7 @@ async def run_cert_task(
     agg_cat_col: AsyncIOMotorCollection,
     settings: Settings,
     app_config: dict,
+    gridfs_bucket: Optional[Any] = None,
 ) -> None:
     """Background coroutine that drives a single aggregation-certification task.
 
@@ -181,6 +202,7 @@ async def run_cert_task(
                 certification_run_id=request.certification_run_id,
                 runs_per_fault=request.runs_per_fault,
                 config=app_config,
+                storage_type=request.storage_config.type,
             )
 
             # An empty result means no metrics were found — bail before report gen
@@ -207,6 +229,25 @@ async def run_cert_task(
                 # Report generation failure is non-fatal — log and continue
                 log.warning("cert_reporter pipeline failed (non-fatal): %s", exc)
                 report_paths = {}
+
+            # When running in mongodb mode, upload reports to GridFS so they can be
+            # served without a mounted workspace volume in Docker
+            gridfs_ids: Dict[str, str] = {}
+            if gridfs_bucket and report_paths:
+                for key, file_path_str in report_paths.items():
+                    fmt = "pdf" if key == "pdf_path" else "html"
+                    try:
+                        file_id = await _store_report_in_gridfs(
+                            gridfs_bucket,
+                            Path(file_path_str),
+                            request.agent_id,
+                            request.experiment_id,
+                            fmt,
+                        )
+                        gridfs_ids[fmt] = file_id
+                        log.info("Stored %s report in GridFS: file_id=%s", fmt, file_id)
+                    except Exception as exc:
+                        log.warning("GridFS upload failed for %s (non-fatal): %s", fmt, exc)
 
             elapsed = time.monotonic() - start
 
@@ -255,6 +296,7 @@ async def run_cert_task(
         return
 
     # ── Complete ───────────────────────────────────────────────────────────────
+    storage_type = request.storage_config.type
     task_result = {
         "total_documents": summary.get("total_documents", 0),
         "total_fault_categories": summary.get("total_fault_categories", 0),
@@ -264,9 +306,16 @@ async def run_cert_task(
             "aggregated_scorecard": str(cert_output_dir / "aggregation" / "aggregation.json"),
             "certification_report": str(cert_output_dir / "cert-builder" / "certification.json"),
             "summary": str(cert_output_dir / "pipeline_summary.json"),
-            "html_report": report_paths.get("html_path", ""),
-            "pdf_report": report_paths.get("pdf_path", ""),
+            "html_report": (
+                f"gridfs:{gridfs_ids['html']}" if "html" in gridfs_ids
+                else report_paths.get("html_path", "")
+            ),
+            "pdf_report": (
+                f"gridfs:{gridfs_ids['pdf']}" if "pdf" in gridfs_ids
+                else report_paths.get("pdf_path", "")
+            ),
         },
+        "storage_mode": storage_type,
         "processing_time_seconds": round(elapsed, 1),
     }
     await cert_session_svc.set_completed(cert_task_id, task_result)

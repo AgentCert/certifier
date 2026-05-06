@@ -1,9 +1,11 @@
 import asyncio
 import json
+import shutil
+import tempfile
 import time
 import traceback
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from main.config.settings import Settings
 from main.models.bucket_requests import BucketingExtractionRequest
@@ -50,12 +52,19 @@ async def run_task(
     # Mark the task as started before any I/O so the poll endpoint reflects RUNNING immediately
     await session_svc.set_started(task_id)
 
+    storage_type = request.storage_config.type
+    # mongodb mode: use a temp directory; all intermediate files are cleaned up after the task
+    _temp_dir: Optional[str] = None
+
     # ── Stage 1: acquiring_trace ──────────────────────────────────────────────
-    # Download / copy the raw trace to the per-run workspace directory
     try:
-        run_dir = _resolve_run_dir(
-            settings.workspace_dir, request.agent_id, request.experiment_id, request.run_id
-        )
+        if storage_type == "mongodb":
+            _temp_dir = tempfile.mkdtemp(prefix="agentcert_run_")
+            run_dir = Path(_temp_dir)
+        else:
+            run_dir = _resolve_run_dir(
+                settings.workspace_dir, request.agent_id, request.experiment_id, request.run_id
+            )
         trace_path, total_observations = await trace_svc.acquire_trace(
             request.trace_source,
             run_dir / "traces",
@@ -63,25 +72,25 @@ async def run_task(
             run_id=request.run_id,
         )
     except TraceIngestionError as exc:
-        # Structured error with a known error_code from TraceService
         await session_svc.set_failed(
             task_id, exc.error_code, str(exc), "acquiring_trace",
             traceback.format_exc(),
         )
+        if _temp_dir:
+            shutil.rmtree(_temp_dir, ignore_errors=True)
         return
     except Exception as exc:
-        # Unexpected errors during path resolution or file copy
         await session_svc.set_failed(
             task_id, "TRACE_NOT_FOUND", str(exc), "acquiring_trace",
             traceback.format_exc(),
         )
+        if _temp_dir:
+            shutil.rmtree(_temp_dir, ignore_errors=True)
         return
 
     await session_svc.update_stage(task_id, "running_pipeline")
 
     # ── Stage 2: running_pipeline ─────────────────────────────────────────────
-    # The semaphore limits simultaneous heavy pipeline executions across all tasks
-    storage_type = request.storage_config.type
     try:
         async with semaphore:
             start = time.monotonic()
@@ -89,7 +98,6 @@ async def run_task(
                 trace_file=str(trace_path),
                 output_dir=str(run_dir),
                 batch_size=request.llm_batch_size,
-                # Write extracted metrics to MongoDB only when storage includes it
                 store_to_mongodb=(storage_type in ("mongodb", "hybrid")),
                 agent_id=request.agent_id,
                 config=app_config,
@@ -100,6 +108,8 @@ async def run_task(
             task_id, "PIPELINE_FAILED", str(exc), "running_pipeline",
             traceback.format_exc(),
         )
+        if _temp_dir:
+            shutil.rmtree(_temp_dir, ignore_errors=True)
         return
 
     # Read the JSON summary file written by the pipeline and build the task result dict
@@ -108,14 +118,23 @@ async def run_task(
             _read_json, str(run_dir / "pipeline_summary.json")
         )
         result = _build_result(results, summary, total_observations, run_dir, elapsed)
+        # In mongodb mode, storage_paths reference temp paths — clear them to avoid confusion
+        if storage_type == "mongodb":
+            result["storage_paths"] = {"storage_mode": "mongodb"}
     except Exception as exc:
         await session_svc.set_failed(
             task_id, "STORAGE_ERROR", str(exc), "running_pipeline",
             traceback.format_exc(),
         )
+        if _temp_dir:
+            shutil.rmtree(_temp_dir, ignore_errors=True)
         return
 
     await session_svc.set_completed(task_id, result)
+
+    # Clean up temp directory after task is fully recorded
+    if _temp_dir:
+        shutil.rmtree(_temp_dir, ignore_errors=True)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

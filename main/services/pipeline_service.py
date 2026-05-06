@@ -18,7 +18,12 @@ except ImportError:
 
 from fault_analyzer import FaultBucketingPipeline
 from metrics_extractor import ExtractionResult, TraceMetricsExtractor
-from aggregator.scripts.aggregation import AggregationOrchestrator, DirectoryQueryService
+from aggregator.scripts.aggregation import AggregationOrchestrator, DirectoryQueryService, MetricsQueryService
+
+try:
+    from utils.mongodb_util import MongoDBClient
+except ImportError:
+    MongoDBClient = None
 from cert_builder.scripts.certification_pipeline import CertificationPipeline
 
 
@@ -459,11 +464,12 @@ class CertPipelineService:
         runs_per_fault: int = 30,
         debug: bool = False,
         config: Optional[Dict[str, Any]] = None,
+        storage_type: str = "local",
     ) -> Dict[str, Any]:
         """Run aggregation then certification (Phase 2+3).
 
         Args:
-            metrics_dir:          Directory containing ``*metrics.json`` files from Phase 1.
+            metrics_dir:          Directory containing ``*metrics.json`` files (local mode).
             output_dir:           Root directory for aggregated scorecard + cert report.
             agent_id:             Filters metric documents to this agent.
             agent_name:           Human-readable name written into the scorecard.
@@ -474,6 +480,9 @@ class CertPipelineService:
                                   outputs for post-mortem inspection.
             config:               App config dict; loaded from ``configs/configs.json``
                                   if not provided.
+            storage_type:         ``"local"`` reads ``*metrics.json`` files from
+                                  *metrics_dir*; ``"mongodb"`` queries MongoDB via
+                                  ``MetricsQueryService``.
 
         Returns:
             The certification report dict, or an empty dict if no metric docs were found.
@@ -503,17 +512,24 @@ class CertPipelineService:
             logger.info("STEP 1: Aggregation")
             logger.info("=" * 60)
 
-            # DirectoryQueryService reads *metrics.json files from disk
-            query_service = DirectoryQueryService(metrics_dir)
+            # Select query service based on storage mode
+            db_client = None
+            if storage_type == "mongodb" and MongoDBClient:
+                db_client = MongoDBClient(config=config)
+                query_service = MetricsQueryService(db_client)
+                logger.info("Using MetricsQueryService (MongoDB) for agent_id='%s'", agent_id)
+            else:
+                query_service = DirectoryQueryService(metrics_dir)
+                logger.info("Using DirectoryQueryService (filesystem) for agent_id='%s'", agent_id)
+
             agent_docs = query_service.query_runs_by_agent(agent_id)
             if not agent_docs:
                 logger.error(
-                    f"No per-run metric documents found for agent_id='{agent_id}' "
-                    f"in directory '{metrics_dir}'. "
+                    f"No per-run metric documents found for agent_id='{agent_id}'. "
                     "Ensure per-run metrics have been generated first."
                 )
                 return {}
-  #
+
             logger.info(f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'")
 
             categories = query_service.get_all_fault_categories(agent_id=agent_id)
@@ -526,7 +542,7 @@ class CertPipelineService:
             orchestrator = AggregationOrchestrator(
                 llm_client=llm_client,
                 query_service=query_service,
-                db_client=None,  # No MongoDB storage; scorecard goes to file only
+                db_client=db_client if storage_type == "mongodb" and MongoDBClient else None,
             )
 
             aggregated_scorecard = await orchestrator.aggregate_all(
@@ -566,7 +582,7 @@ class CertPipelineService:
                 "agent_id": agent_id,
                 "agent_name": agent_name,
                 "certification_run_id": certification_run_id,
-                "metrics_dir": str(Path(metrics_dir).resolve()),
+                "metrics_source": f"mongodb:{agent_id}" if storage_type == "mongodb" else str(Path(metrics_dir).resolve()),
                 "total_documents": len(agent_docs),
                 "total_fault_categories": len(categories),
                 "fault_categories": categories,
