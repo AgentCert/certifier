@@ -36,6 +36,9 @@ class ParsedContext:
     meta: dict[str, Any]
     categories: list[dict[str, Any]]
     warnings: list[str] = field(default_factory=list)
+    statistical_hypothesis: dict[str, Any] = field(
+        default_factory=lambda: {"status": "not_requested"}
+    )
 
 
 def _compute_runs_per_fault(raw: dict) -> int:
@@ -105,7 +108,18 @@ def ingest(raw: dict) -> ParsedContext:
             "runs": sc.get("total_runs", 0),
         })
 
-    return ParsedContext(meta=meta, categories=categories, warnings=warnings)
+    # Pass through the statistical_hypothesis block emitted by the orchestrator.
+    # When the key is absent (e.g., legacy scorecards or runs without
+    # --advanced-analysis), default to a neutral "not_requested" status so all
+    # downstream consumers can rely on a stable shape.
+    sh = raw.get("statistical_hypothesis") or {"status": "not_requested"}
+
+    return ParsedContext(
+        meta=meta,
+        categories=categories,
+        warnings=warnings,
+        statistical_hypothesis=sh,
+    )
 
 
 def ingest_from_file(path: str | Path) -> ParsedContext:

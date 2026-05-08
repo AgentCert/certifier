@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentCert — Statistical Hypothesis Framework</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL / RESET
+   ═══════════════════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:15px;scroll-behavior:smooth}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  color:#1e293b;background:#f0f4f8;line-height:1.55;
+}
+
+/* ═══════════════ PAGE FRAME ═══════════════ */
+.page{max-width:1200px;margin:0 auto;background:#fff;
+      box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+/* ═══════════════ COVER ═══════════════ */
+.cover{
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 40%,#2563eb 100%);
+  color:#fff;padding:48px 56px 40px;position:relative;overflow:hidden;
+}
+.cover::after{
+  content:'';position:absolute;top:-60px;right:-80px;
+  width:320px;height:320px;border-radius:50%;
+  background:rgba(255,255,255,.04);
+}
+.cover h1{font-size:2.1rem;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
+.cover .subtitle{font-size:1.05rem;opacity:.85;margin-bottom:20px}
+.cover .badge-row{display:flex;gap:10px;flex-wrap:wrap}
+.cover .badge-row span{
+  font-size:.72rem;padding:4px 12px;border-radius:20px;
+  background:rgba(255,255,255,.15);backdrop-filter:blur(4px);
+  letter-spacing:.3px;text-transform:uppercase;font-weight:600;
+}
+
+/* ═══════════════ CONTENT AREA ═══════════════ */
+.content{padding:40px 56px 56px}
+
+/* ═══════════════ SECTION ═══════════════ */
+.section{margin-bottom:42px}
+.section-num{
+  display:inline-block;font-size:.7rem;font-weight:700;
+  color:#2563eb;background:#eff6ff;padding:3px 10px;
+  border-radius:12px;margin-bottom:8px;letter-spacing:.4px;
+}
+.section h2{font-size:1.35rem;font-weight:700;color:#0f172a;margin-bottom:14px}
+.section h3{font-size:1.05rem;font-weight:600;color:#1e3a5f;margin:18px 0 10px}
+
+p{margin-bottom:12px;color:#334155}
+ul{margin:8px 0 16px 22px}
+li{margin-bottom:6px;color:#334155}
+
+/* ═══════════════ CARDS / GRID ═══════════════ */
+.card-grid{display:grid;gap:16px;margin:16px 0}
+.card-grid.two{grid-template-columns:1fr 1fr}
+.card-grid.three{grid-template-columns:1fr 1fr 1fr}
+
+.card{
+  border:1px solid #e2e8f0;border-radius:10px;padding:20px 22px;
+  background:#fafbfc;transition:box-shadow .15s;
+}
+.card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card .card-title{font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;
+  color:#64748b;font-weight:600;margin-bottom:6px}
+.card .card-value{font-size:1.6rem;font-weight:700;color:#0f172a}
+.card p{font-size:.88rem}
+
+/* ═══════════════ INFO BOX ═══════════════ */
+.info-box{
+  background:#eff6ff;border-left:4px solid #2563eb;
+  padding:16px 20px;border-radius:0 8px 8px 0;margin:16px 0;
+}
+.info-box.warn{background:#fef9c3;border-left-color:#eab308}
+.info-box.green{background:#f0fdf4;border-left-color:#22c55e}
+
+/* ═══════════════ TABLES ═══════════════ */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.82rem}
+th{
+  background:#0f172a;color:#fff;padding:10px 12px;
+  text-align:left;font-weight:600;letter-spacing:.3px;
+  position:sticky;top:0;
+}
+td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+tr:nth-child(even){background:#f8fafc}
+tr:hover{background:#eff6ff}
+td code{
+  background:#f1f5f9;padding:1px 5px;border-radius:3px;
+  font-size:.78rem;color:#1e40af;
+}
+
+/* ═══════════════ DECISION BADGES ═══════════════ */
+.decision-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:20px 0}
+.decision-card{border-radius:10px;padding:22px 24px;text-align:center}
+.decision-card.pass{background:#f0fdf4;border:2px solid #22c55e}
+.decision-card.cond{background:#fefce8;border:2px solid #eab308}
+.decision-card.fail{background:#fef2f2;border:2px solid #ef4444}
+.decision-card .icon{font-size:2rem;margin-bottom:6px}
+.decision-card .label{font-weight:700;font-size:1.1rem;margin-bottom:6px}
+.decision-card.pass .label{color:#15803d}
+.decision-card.cond .label{color:#a16207}
+.decision-card.fail .label{color:#dc2626}
+.decision-card p{font-size:.82rem;color:#475569}
+
+/* ═══════════════ EXTENSION SCHEMA ═══════════════ */
+.schema-block{
+  background:#1e293b;color:#e2e8f0;padding:20px 24px;
+  border-radius:10px;font-family:'Cascadia Code','Fira Code',monospace;
+  font-size:.78rem;line-height:1.65;overflow-x:auto;margin:14px 0;
+  white-space:pre;
+}
+.schema-block .key{color:#93c5fd}
+.schema-block .str{color:#86efac}
+.schema-block .num{color:#fde68a}
+.schema-block .bool{color:#f9a8d4}
+.schema-block .comment{color:#64748b;font-style:italic}
+
+/* ═══════════════ BADGE RENDERING ═══════════════ */
+.badge{
+  display:inline-block;padding:3px 10px;border-radius:12px;
+  font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+}
+.badge.pass{background:#dcfce7;color:#15803d}
+.badge.warn{background:#fef9c3;color:#a16207}
+.badge.fail{background:#fee2e2;color:#dc2626}
+.badge.info{background:#dbeafe;color:#1e40af}
+.badge.sla{background:#e0e7ff;color:#4338ca}
+
+/* ═══════════════ FOOTER ═══════════════ */
+.footer{
+  background:#f8fafc;border-top:1px solid #e2e8f0;
+  padding:20px 56px;text-align:center;
+  font-size:.76rem;color:#94a3b8;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ════════════════════════════════════════════════════════════
+     COVER
+     ════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <h1>Statistical Hypothesis Framework</h1>
+  <div class="subtitle">Advanced Inference Strategy for AgentCert Certification Pipeline</div>
+</div>
+
+<div class="content">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION A — WHAT IS IT?
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION A</span>
+  <h2>What Is a Statistical Hypothesis Framework in AgentCert?</h2>
+
+  <p>A <strong>statistical hypothesis framework</strong> replaces single-number summaries
+  (means, rates) with formal probabilistic inference. Instead of asking
+  <em>"what is the mean time_to_detect?"</em>, we ask <em>"what is the confidence interval
+  around mean time_to_detect, does it meet SLA thresholds, how consistent is it across fault categories,
+  and is there evidence of drift over time?"</em></p>
+
+  <div class="info-box">
+    <strong>Framework Context:</strong> This evaluates <strong>one agent</strong> using
+    <strong>30+ runs per fault category</strong> to ensure statistical validity.
+    The framework operates in <strong>two modes</strong>:
+    <ul style="margin-top:8px">
+      <li><strong>No-SLA Mode:</strong> Provides confidence intervals, cross-category comparisons, effect sizes, and variance stability checks.</li>
+      <li><strong>SLA-Aware Mode:</strong> Adds threshold compliance testing, breach rate estimation, equivalence testing, tail risk analysis, survival analysis, and drift detection against predefined SLA targets.</li>
+    </ul>
+    <p style="margin-top:8px">All 9 hypotheses always run. H-01 through H-05 provide the core evaluation. H-06 through H-09 activate additional SLA-specific tests when SLA thresholds are provided, and provide informational analysis even without SLAs.</p>
+  </div>
+
+  <h3>What This Framework Delivers</h3>
+  <div class="card-grid three">
+    <div class="card">
+      <div class="card-title">Uncertainty Quantification</div>
+      <p>Wilson CI, Bootstrap CI, and IQM provide confidence intervals &mdash; not just point estimates.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Cross-Category Analysis</div>
+      <p>Kruskal-Wallis, Mann-Whitney U, Welch's ANOVA, and Fisher's Exact tests compare fault types.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Effect Size Measurement</div>
+      <p>Vargha-Delaney A&#x2081;&#x2082; quantifies how large differences actually are &mdash; beyond statistical significance.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Stability Testing</div>
+      <p>Levene's test and CV analysis ensure consistent performance across runs.</p>
+    </div>
+    <div class="card" style="border-left:3px solid #4338ca">
+      <div class="card-title"><span class="badge sla">SLA</span> Threshold Compliance</div>
+      <p>Wilcoxon one-sample test and Bootstrap CI vs SLA threshold prove performance meets requirements.</p>
+    </div>
+    <div class="card" style="border-left:3px solid #4338ca">
+      <div class="card-title"><span class="badge sla">SLA</span> Tail Risk &amp; Drift</div>
+      <p>CVaR quantifies worst-case severity. CUSUM/EWMA detect performance drift toward SLA violation.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION B — WORKFLOW
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION B</span>
+  <h2>How to Use This Framework (Step-by-Step)</h2>
+
+  <div style="max-width:700px; margin:1.5rem auto">
+    <div style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:6px; padding:1rem; margin-bottom:1rem">
+      <div style="background:#2563eb; color:white; font-weight:600; padding:0.6rem; border-radius:4px; text-align:center; font-size:0.9rem">
+        Phase 1: BUILD HYPOTHESIS
+      </div>
+      <ul style="color:#475569; line-height:1.6; font-size:0.88rem; margin:0.5rem 0 0.5rem 1.2rem; padding:0">
+        <li>Choose from 9 pre-defined hypotheses (H-01 to H-09)</li>
+        <li>If SLA thresholds exist, configure them per fault type and per metric</li>
+        <li>Select appropriate statistical method</li>
+        <li>Document expected "steady state" behavior</li>
+      </ul>
+    </div>
+
+    <div style="text-align:center; font-size:1.5rem; color:#94a3b8; margin:0.5rem 0">&darr;</div>
+
+    <div style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:6px; padding:1rem; margin-bottom:1rem">
+      <div style="background:#2563eb; color:white; font-weight:600; padding:0.6rem; border-radius:4px; text-align:center; font-size:0.9rem">
+        Phase 2: SET UP MONITORING
+      </div>
+      <ul style="color:#475569; line-height:1.6; font-size:0.88rem; margin:0.5rem 0 0.5rem 1.2rem; padding:0">
+        <li>Deploy Langfuse OTEL trace store</li>
+        <li>Configure LiteLLM Proxy for multi-model routing</li>
+        <li>Set up MongoDB for 30+ runs per fault type</li>
+        <li>Enable bucketing &amp; extraction pipeline</li>
+      </ul>
+    </div>
+
+    <div style="text-align:center; font-size:1.5rem; color:#94a3b8; margin:0.5rem 0">&darr;</div>
+
+    <div style="background:#f8fafc; border:2px solid #cbd5e1; border-radius:6px; padding:1rem">
+      <div style="background:#2563eb; color:white; font-weight:600; padding:0.6rem; border-radius:4px; text-align:center; font-size:0.9rem">
+        Phase 3: CONDUCT EXPERIMENT &amp; GENERATE CERTIFICATION
+      </div>
+      <ul style="color:#475569; line-height:1.6; font-size:0.88rem; margin:0.5rem 0 0.5rem 1.2rem; padding:0">
+        <li>Run agent 30+ times per fault category (application, network, resource)</li>
+        <li>Inject faults using Litmus Chaos</li>
+        <li>Collect traces via MCP protocol</li>
+        <li>Apply statistical tests (H-01 to H-09)</li>
+        <li>Generate comprehensive certification report (scorecard, findings, assessments, recommendations)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box" style="margin-top:1.5rem; font-size:0.85rem">
+    <strong>Key Principle:</strong> Statistical hypothesis tests (H-01&ndash;H-09) run <strong>per experiment</strong>, never across experiments. Results feed into the aggregation layer which generates the comprehensive certification report.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION C — HYPOTHESIS FRAMEWORK
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION C</span>
+  <h2>The Nine Hypotheses: What We Test and Why</h2>
+
+  <!-- ──── C.1 UNDERSTANDING THE PROBLEM ──── -->
+  <h3 style="color:#1e40af; border-bottom:2px solid #3b82f6; padding-bottom:0.3rem">C.1 Understanding the Problem: Testing AI Agents Under Chaos</h3>
+
+  <p style="line-height:1.8">AgentCert evaluates how well AI agents handle real Kubernetes production failures by injecting controlled faults and measuring the agent's ability to detect, diagnose, and remediate them. We test across <strong>three fault categories</strong>:</p>
+
+  <div class="card-grid three" style="margin:1.5rem 0">
+    <div class="card" style="border-left:4px solid #8b5cf6">
+      <div class="card-title">Application Faults</div>
+      <ul style="font-size:0.85rem; line-height:1.7; margin:0.5rem 0 0 1rem; color:#475569">
+        <li><strong>container-kill</strong> &mdash; Pod crashes, CrashLoopBackOff</li>
+        <li><strong>pod-delete</strong> &mdash; Pod termination, replica set reconciliation</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:4px solid #0ea5e9">
+      <div class="card-title">Network Faults</div>
+      <ul style="font-size:0.85rem; line-height:1.7; margin:0.5rem 0 0 1rem; color:#475569">
+        <li><strong>pod-network-loss</strong> &mdash; Packet drop, partitions</li>
+        <li><strong>pod-network-corruption</strong> &mdash; Data integrity failures</li>
+        <li><strong>pod-network-rate-limit</strong> &mdash; Bandwidth throttling</li>
+        <li><strong>pod-dns-error</strong> &mdash; DNS resolution failures</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:4px solid #f59e0b">
+      <div class="card-title">Resource Faults</div>
+      <ul style="font-size:0.85rem; line-height:1.7; margin:0.5rem 0 0 1rem; color:#475569">
+        <li><strong>disk-fill</strong> &mdash; Disk exhaustion, I/O pressure</li>
+        <li><strong>pod-cpu-hog</strong> &mdash; CPU saturation, throttling</li>
+        <li><strong>pod-memory-hog</strong> &mdash; Memory pressure, OOMKill</li>
+        <li><strong>pod-autoscaler</strong> &mdash; HPA/VPA misconfiguration</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ──── C.2 HYPOTHESIS SUMMARY TABLE ──── -->
+  <h3 style="color:#1e40af; border-bottom:2px solid #3b82f6; padding-bottom:0.3rem; margin-top:3rem">C.2 Hypothesis Summary</h3>
+
+  <table>
+    <tr>
+      <th style="width:6%">#</th>
+      <th style="width:22%">Hypothesis</th>
+      <th style="width:26%">Question</th>
+      <th style="width:8%">Mode</th>
+      <th style="width:38%">Key Methods</th>
+    </tr>
+    <tr><td><strong>H-01</strong></td><td>CI for Continuous Metrics</td><td>How fast does the agent respond &mdash; and how confident are we?</td><td>Both</td><td>IQM, Bootstrap BCa CI</td></tr>
+    <tr><td><strong>H-02</strong></td><td>Success Rate with Safety Floor</td><td>What % of faults are caught &mdash; and what's the worst-case guarantee?</td><td>Both</td><td>Wilson CI</td></tr>
+    <tr><td><strong>H-03</strong></td><td>Cross-Category Comparison</td><td>Does the agent handle all fault types equally well?</td><td>Both</td><td>Kruskal-Wallis, Mann-Whitney U, A&#x2081;&#x2082;</td></tr>
+    <tr><td><strong>H-04</strong></td><td>Success Rate Uniformity</td><td>Does the agent fail some fault types more often?</td><td>Both</td><td>Fisher's Exact Test</td></tr>
+    <tr><td><strong>H-05</strong></td><td>Consistency &amp; Predictability</td><td>Is the agent reliable every time, or erratic?</td><td>Both</td><td>Levene's Test, CV</td></tr>
+    <tr style="background:#e0e7ff"><td><strong>H-06</strong></td><td>SLA Threshold Compliance</td><td>Can we prove this agent meets the SLA?</td><td><span class="badge sla">SLA</span></td><td>Wilcoxon one-sample, Bootstrap CI vs SLA, TOST, Kaplan-Meier</td></tr>
+    <tr style="background:#e0e7ff"><td><strong>H-07</strong></td><td>SLA Breach Rate</td><td>Is the SLA violation rate below the allowed limit?</td><td><span class="badge sla">SLA</span></td><td>Exact Binomial, Wilson CI on breaches</td></tr>
+    <tr><td><strong>H-08</strong></td><td>Tail Risk Analysis</td><td>When the agent fails, how badly does it fail?</td><td>Both*</td><td>CVaR&#x2089;&#x2085;, Expected Overshoot</td></tr>
+    <tr><td><strong>H-09</strong></td><td>Temporal Stability</td><td>Is the agent getting worse over time?</td><td>Both*</td><td>CUSUM, EWMA, Change Point Detection</td></tr>
+  </table>
+  <p style="font-size:0.8rem; color:#64748b; margin-top:4px">* H-08 and H-09 provide informational analysis even without SLAs.</p>
+
+  <!-- ──── C.3 CORE HYPOTHESES H-01 to H-05 ──── -->
+  <h3 style="color:#1e40af; border-bottom:2px solid #3b82f6; padding-bottom:0.3rem; margin-top:3rem">C.3 Core Hypotheses (H-01 to H-05) &mdash; Always Active</h3>
+
+  <div class="card-grid two" style="margin:1.5rem 0">
+    <!-- H-01 -->
+    <div class="card" style="border-left:4px solid #16a34a">
+      <div class="card-title">H-01: Confidence Intervals for Continuous Metrics</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;How fast does this agent actually respond &mdash; and how confident are we in that number?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> True typical performance is unknown &mdash; observed IQM is a noisy estimate.<br><strong>H&#x2090;:</strong> Bootstrap CI provides a reliable bound on where the true performance lies.</p>
+      <p style="font-size:0.85rem"><strong>Metrics:</strong> time_to_detect, time_to_mitigate, reasoning_score, hallucination_score</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Collect n=30-40 runs per fault category</li>
+        <li>Compute: <strong>IQM</strong> (25% trimmed mean), Median, P95, Mean (reference)</li>
+        <li>Bootstrap CI: Resample 10k times &rarr; distribution of IQMs &rarr; 95% CI</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <p style="font-size:0.82rem; margin-top:0.5rem; color:#059669"><strong>Benefit:</strong> IQM is <strong>robust to LLM retry loops</strong> (Agarwal NeurIPS 2021). Bootstrap doesn't assume normality.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#f0fdf4; padding:0.6rem; border-radius:4px; border-left:3px solid #16a34a">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#065f46">time_to_detect: <strong>IQM=245s</strong> [210-280s BCa CI], median=242s, P95=452s, mean=293s</p>
+      </div>
+    </div>
+
+    <!-- H-02 -->
+    <div class="card" style="border-left:4px solid #0284c7">
+      <div class="card-title">H-02: Success Rate Estimation with Safety Floor</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;What percentage of faults does this agent actually catch &mdash; and what&rsquo;s the worst-case guarantee?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Observed success rate may overstate the true rate due to small sample size.<br><strong>H&#x2090;:</strong> Wilson CI lower bound provides a conservative floor on the true success rate.</p>
+      <p style="font-size:0.85rem"><strong>Metrics:</strong> fault_detection_success_rate, fault_mitigation_success_rate, false_negative_rate</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Count successes out of n=30-40 runs</li>
+        <li>Wilson score interval &rarr; 95% CI</li>
+        <li>Report <strong>lower bound</strong> as safety floor</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <p style="font-size:0.82rem; margin-top:0.5rem; color:#059669"><strong>Benefit:</strong> Wilson handles small n and extreme proportions (0%, 100%). Lower bound = conservative guarantee.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#eff6ff; padding:0.6rem; border-radius:4px; border-left:3px solid #0284c7">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#0369a1">fault_detection_success_rate: 24/30 = <strong>80.0%</strong> [62.1%-91.4% Wilson CI] | Floor: <strong>62%</strong></p>
+      </div>
+    </div>
+
+    <!-- H-03 -->
+    <div class="card" style="border-left:4px solid #8b5cf6">
+      <div class="card-title">H-03: Cross-Category Performance Comparison</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;Does this agent handle network faults just as well as application faults &mdash; or does it struggle with specific types?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Performance is the same across all fault categories.<br><strong>H&#x2090;:</strong> At least one category has significantly different performance.</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li><strong>Kruskal-Wallis (omnibus):</strong> "Any difference?" &rarr; one p-value</li>
+        <li><strong>IF p&lt;0.05:</strong> Mann-Whitney U pairwise + Holm-Bonferroni correction</li>
+        <li><strong>For each pair:</strong> Vargha-Delaney A&#x2081;&#x2082; &rarr; effect size</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#f5f3ff; padding:0.6rem; border-radius:4px; border-left:3px solid #8b5cf6">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#7c3aed">KW H=18.4, p=0.0001 | Res vs App: MWU p=0.007, A&#x2081;&#x2082;=<strong>0.92</strong> (large)</p>
+      </div>
+    </div>
+
+    <!-- H-04 -->
+    <div class="card" style="border-left:4px solid #f59e0b">
+      <div class="card-title">H-04: Cross-Category Success Rate Uniformity</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;Does this agent fail network faults more often than application faults &mdash; or is the success rate roughly the same everywhere?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Success rates are the same across all fault categories.<br><strong>H&#x2090;:</strong> At least one category has a significantly different success rate.</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Build 2&times;3 contingency table</li>
+        <li>Fisher's Exact Test &rarr; p-value</li>
+        <li>If p&lt;0.05: identify weakest category</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fffbeb; padding:0.6rem; border-radius:4px; border-left:3px solid #f59e0b">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#b45309">App: 27/30 (90%) | Net: 15/30 (<strong>50%</strong>) | Res: 21/30 (70%) | Fisher p=<strong>0.003</strong></p>
+      </div>
+    </div>
+
+    <!-- H-05 -->
+    <div class="card" style="border-left:4px solid #dc2626; grid-column:span 2">
+      <div class="card-title">H-05: Consistency &amp; Predictability (Variance Stability)</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;Can you rely on this agent to behave the same way every time &mdash; or is it fast one minute and slow the next?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Variance is equal across all fault categories.<br><strong>H&#x2090;:</strong> At least one category has significantly higher variance (erratic behavior).</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong> Compute CV per category. Levene's test for variance equality. CV: &lt;0.15 stable | 0.15-0.30 moderate | &gt;0.30 unstable</p>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fef2f2; padding:0.6rem; border-radius:4px; border-left:3px solid #dc2626">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#b91c1c">Net: &sigma;=404s, CV=<strong>1.40</strong> | Res: &sigma;=106s, CV=0.38 | App: &sigma;=52s, CV=0.14 | Levene p=0.02</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──── C.4 SLA-AWARE HYPOTHESES H-06 to H-09 ──── -->
+  <h3 style="color:#4338ca; border-bottom:2px solid #6366f1; padding-bottom:0.3rem; margin-top:3rem">C.4 SLA-Aware Hypotheses (H-06 to H-09)</h3>
+
+  <div class="info-box" style="background:#e0e7ff; border-left-color:#4338ca; margin-bottom:1.5rem">
+    <strong>Mode Note:</strong> H-06 and H-07 activate only when SLA thresholds are defined. H-08 and H-09 provide informational analysis even without SLAs.
+  </div>
+
+  <div class="card-grid two" style="margin:1.5rem 0">
+    <!-- H-06 -->
+    <div class="card" style="border-left:4px solid #4338ca">
+      <div class="card-title"><span class="badge sla">SLA</span> H-06: SLA Threshold Compliance</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;Can we prove this agent meets the SLA &mdash; not just on average, but with statistical confidence?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> True median performance does NOT meet SLA (median &ge; threshold).<br><strong>H&#x2090;:</strong> True median performance IS within SLA (median &lt; threshold).</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Compute IQM + Bootstrap CI for each metric</li>
+        <li>Compare CI upper bound against SLA threshold</li>
+        <li>Wilcoxon one-sample test: H&#x2080;: median &ge; SLA vs H&#x2090;: median &lt; SLA</li>
+        <li>TOST equivalence: prove performance is <em>within</em> SLA bounds</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <div class="decision-grid" style="margin-top:0.5rem; grid-template-columns:1fr 1fr 1fr; gap:8px">
+        <div class="decision-card pass" style="padding:10px"><div class="label" style="font-size:0.8rem">PASS</div><p style="font-size:0.72rem">CI upper &le; SLA</p></div>
+        <div class="decision-card cond" style="padding:10px"><div class="label" style="font-size:0.8rem">CONDITIONAL</div><p style="font-size:0.72rem">CI contains SLA</p></div>
+        <div class="decision-card fail" style="padding:10px"><div class="label" style="font-size:0.8rem">FAIL</div><p style="font-size:0.72rem">CI lower &gt; SLA</p></div>
+      </div>
+      <table style="width:100%; margin-top:0.6rem; font-size:0.75rem; border-collapse:collapse; border:1px solid #c7d2fe">
+        <tr style="background:#e0e7ff"><th style="padding:4px 6px;border:1px solid #c7d2fe">Priority</th><th style="padding:4px 6px;border:1px solid #c7d2fe">Method</th><th style="padding:4px 6px;border:1px solid #c7d2fe">Role</th><th style="padding:4px 6px;border:1px solid #c7d2fe">When to use</th></tr>
+        <tr><td style="padding:4px 6px;border:1px solid #c7d2fe"><strong>Primary</strong></td><td style="padding:4px 6px;border:1px solid #c7d2fe">Wilcoxon signed-rank</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Core compliance test</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Always &mdash; non-parametric, robust to skew</td></tr>
+        <tr><td style="padding:4px 6px;border:1px solid #c7d2fe">Supplementary</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Bootstrap CI vs SLA</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Visual + directional</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Already from H-01; compare CI upper vs SLA</td></tr>
+        <tr><td style="padding:4px 6px;border:1px solid #c7d2fe">Supplementary</td><td style="padding:4px 6px;border:1px solid #c7d2fe">TOST equivalence</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Formal equivalence + power analysis</td><td style="padding:4px 6px;border:1px solid #c7d2fe">For one-sided metrics, reduces to one-sided t-test</td></tr>
+        <tr><td style="padding:4px 6px;border:1px solid #c7d2fe">Supplementary</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Kaplan-Meier survival</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Censored-data compliance</td><td style="padding:4px 6px;border:1px solid #c7d2fe">Only when right-censored runs exist</td></tr>
+      </table>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#e0e7ff; padding:0.6rem; border-radius:4px; border-left:3px solid #4338ca">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#3730a3">TTD (SLA &le;300s): IQM=245s [210-280s] | CI upper 280s &lt; SLA 300s | Wilcoxon p=0.003 | <strong>PASS</strong></p>
+      </div>
+    </div>
+
+    <!-- H-07 -->
+    <div class="card" style="border-left:4px solid #7c3aed">
+      <div class="card-title"><span class="badge sla">SLA</span> H-07: SLA Breach Rate Estimation</div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;Even if most runs are fine, do too many runs violate the SLA? Can we prove the breach rate is below the allowed limit?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Breach rate &ge; allowed target (e.g., &ge; 5%).<br><strong>H&#x2090;:</strong> Breach rate &lt; allowed target.</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Count SLA breaches: runs where metric exceeds threshold</li>
+        <li>Exact binomial test: H&#x2080;: breach_rate &ge; target vs H&#x2090;: breach_rate &lt; target</li>
+        <li>Wilson CI on breach rate</li>
+        <li>Report minimum n needed to certify</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <p style="font-size:0.82rem; margin-top:0.5rem; color:#64748b"><strong>Key Insight:</strong> At n=30, proving breach_rate &le; 5% requires 0 observed breaches.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#ede9fe; padding:0.6rem; border-radius:4px; border-left:3px solid #7c3aed">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#5b21b6">Breaches (TTD&gt;300s): 3/30=10% [3.5%-25.6% CI] | Binomial p=0.184 | <strong>FAIL</strong> | Need n=93</p>
+      </div>
+    </div>
+
+    <!-- H-08 -->
+    <div class="card" style="border-left:4px solid #dc2626">
+      <div class="card-title">H-08: Tail Risk Analysis <span class="badge info">BOTH*</span></div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;When this agent fails, how badly does it fail? Is a bad run just a little slow, or catastrophically slow?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Tail outcomes are not disproportionately severe.<br><strong>H&#x2090;:</strong> Worst 5% of runs are significantly worse than P95, indicating hidden catastrophic risk.</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li><strong>CVaR&#x2089;&#x2085;:</strong> Average of worst 5% of outcomes</li>
+        <li>P95 and P99 percentile values</li>
+        <li>With SLA: Expected overshoot = E[X - SLA | X &gt; SLA]</li>
+        <li>Bootstrap CI on CVaR for uncertainty</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <p style="font-size:0.82rem; margin-top:0.5rem; color:#64748b"><strong>Why:</strong> P95 is a single point; CVaR reveals "when things go wrong, <em>how wrong</em>?"</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fef2f2; padding:0.6rem; border-radius:4px; border-left:3px solid #dc2626">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#991b1b">P95=452s | P99=890s | CVaR&#x2089;&#x2085;=672s [480-890s CI] | SLA overshoot: mean=234s, max=590s</p>
+      </div>
+    </div>
+
+    <!-- H-09 -->
+    <div class="card" style="border-left:4px solid #ea580c">
+      <div class="card-title">H-09: Temporal Stability &amp; Drift Detection <span class="badge info">BOTH*</span></div>
+      <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-top:0.3rem">&ldquo;Is this agent getting worse over time during the test &mdash; or is it rock-solid from run 1 to run 30?&rdquo;</p>
+      <p style="font-size:0.82rem; margin-top:0.3rem"><strong>H&#x2080;:</strong> Performance is stable &mdash; no systematic trend or structural change.<br><strong>H&#x2090;:</strong> Performance is drifting &mdash; systematic trend or structural break exists.</p>
+      <p style="font-size:0.85rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li><strong>CUSUM:</strong> Track cumulative deviations from target (SLA or IQM baseline)</li>
+        <li><strong>EWMA:</strong> Weighted average emphasizing recent observations</li>
+        <li><strong>Change Point:</strong> Detect structural breaks (model updates)</li>
+      </ol>
+      <p style="font-size:0.78rem; margin-top:0.45rem; color:#475569"><strong>Configuration Note:</strong> Metric selection for this hypothesis is configurable and can be changed per use case. Optional normalization may be applied when needed to align scales across metrics and fault categories.</p>
+      <p style="font-size:0.82rem; margin-top:0.5rem; color:#64748b"><strong>Why:</strong> Static tests are a snapshot; CUSUM/EWMA detect trends <em>before</em> actual breach.</p>
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fff7ed; padding:0.6rem; border-radius:4px; border-left:3px solid #ea580c">
+        <p style="margin:0; font-family:monospace; font-size:0.75rem; color:#9a3412">CUSUM S&#x2083;&#x2080;=8.4 (threshold h=15) | EWMA trend: +2.1s/run | Change point: None | <strong>STABLE</strong></p>
+      </div>
+      <p style="font-size:0.78rem; margin-top:0.5rem; color:#78716c"><strong>Power Caveat (n &le; 30):</strong> CUSUM/EWMA designed for n&gt;&gt;100. At n=30, interpret drift verdicts as directional indicators, not definitive conclusions.</p>
+    </div>
+  </div>
+
+  <!-- ──── C.5 STATISTICAL FOUNDATION TABLE ──── -->
+  <h3 style="color:#1e40af; border-bottom:2px solid #3b82f6; padding-bottom:0.3rem; margin-top:3rem">C.5 Statistical Foundation</h3>
+
+  <div class="info-box" style="margin-top:1.5rem; background:#f8fafc; border-left:4px solid #64748b">
+    <table style="width:100%; margin-top:0.5rem; font-size:0.8rem; border-collapse:collapse">
+      <tr style="background:#334155; color:white">
+        <th style="padding:0.5rem; width:7%">Test</th>
+        <th style="padding:0.5rem; width:20%">Question</th>
+        <th style="padding:0.5rem; width:27%">H&#x2080; (Null)</th>
+        <th style="padding:0.5rem; width:27%">H&#x2090; (Alternative)</th>
+        <th style="padding:0.5rem; width:19%">Key Output</th>
+      </tr>
+      <tr><td><strong>H-01</strong></td><td>How fast does it respond?</td><td>True performance is unknown</td><td>Bootstrap CI bounds the true IQM</td><td>IQM &plusmn; CI, P95</td></tr>
+      <tr><td><strong>H-02</strong></td><td>What % of faults caught?</td><td>Observed rate may overstate truth</td><td>Wilson CI lower bound = safety floor</td><td>Rate &plusmn; CI, floor</td></tr>
+      <tr><td><strong>H-03</strong></td><td>All categories equal?</td><td>Performance same across categories</td><td>At least one category differs</td><td>p-value + A&#x2081;&#x2082;</td></tr>
+      <tr><td><strong>H-04</strong></td><td>Success rates uniform?</td><td>Rates same across categories</td><td>At least one category differs</td><td>Per-category rates</td></tr>
+      <tr><td><strong>H-05</strong></td><td>Consistent every time?</td><td>Variance equal across categories</td><td>At least one category more erratic</td><td>CV per category</td></tr>
+      <tr style="background:#e0e7ff"><td><strong>H-06</strong></td><td>Meets SLA?</td><td>Median &ge; SLA (doesn&rsquo;t meet)</td><td>Median &lt; SLA (meets)</td><td>Pass/Cond/Fail</td></tr>
+      <tr style="background:#e0e7ff"><td><strong>H-07</strong></td><td>Breach rate OK?</td><td>Breach rate &ge; allowed target</td><td>Breach rate &lt; allowed target</td><td>Rate CI + required n</td></tr>
+      <tr><td><strong>H-08</strong></td><td>How bad are failures?</td><td>Tail not disproportionately severe</td><td>Worst 5% significantly worse than typical</td><td>CVaR&#x2089;&#x2085;, overshoot</td></tr>
+      <tr><td><strong>H-09</strong></td><td>Drifting over time?</td><td>Stable across run sequence</td><td>Systematic trend or structural break</td><td>CUSUM/EWMA trend</td></tr>
+    </table>
+  </div>
+
+  <!-- ──── C.6 GLOSSARY ──── -->
+  <h3 style="color:#1e40af; border-bottom:2px solid #3b82f6; padding-bottom:0.3rem; margin-top:3rem">C.6 Key Concepts Glossary</h3>
+
+  <table>
+    <tr><th style="width:220px">Concept</th><th>One-Sentence Explanation</th></tr>
+    <tr><td><strong>Confidence Interval (CI)</strong></td><td>A range where we're 95% sure the true answer lies.</td></tr>
+    <tr><td><strong>p-value</strong></td><td>Probability that the observed difference is just random luck &mdash; below 5% = real.</td></tr>
+    <tr><td><strong>Effect Size (A&#x2081;&#x2082;)</strong></td><td>How big a difference actually is &mdash; even if "significant," it might be tiny.</td></tr>
+    <tr><td><strong>IQM</strong></td><td>25% trimmed mean &mdash; average of middle 50%, robust to outliers.</td></tr>
+    <tr><td><strong>Bootstrap (BCa)</strong></td><td>Measuring uncertainty by reshuffling data 10,000 times. BCa corrects for bias and skewness.</td></tr>
+    <tr><td><strong>Wilson CI</strong></td><td>CI for success rates that works correctly with small samples or extreme values.</td></tr>
+    <tr><td><strong>Kruskal-Wallis / Mann-Whitney</strong></td><td>Rank-based group comparisons &mdash; no bell-curve assumption needed.</td></tr>
+    <tr><td><strong>Fisher's Exact Test</strong></td><td>Exact probability test for success rates &mdash; works with small cell counts.</td></tr>
+    <tr><td><strong>Levene's Test + CV</strong></td><td>Variance stability. CV = std/mean &mdash; shows reliability.</td></tr>
+    <tr><td><strong>Wilcoxon Signed-Rank</strong></td><td>Non-parametric test comparing observations against an SLA threshold.</td></tr>
+    <tr><td><strong>Exact Binomial Test</strong></td><td>Tests whether observed breach rate is within acceptable limit.</td></tr>
+    <tr><td><strong>TOST</strong></td><td>Proves performance is <em>within</em> bounds, not just "not different from."</td></tr>
+    <tr><td><strong>CVaR</strong></td><td>Average of worst 5% of outcomes &mdash; measures tail severity.</td></tr>
+    <tr><td><strong>Kaplan-Meier</strong></td><td>Survival curve estimating probability of completing within a time limit.</td></tr>
+    <tr><td><strong>CUSUM</strong></td><td>Control chart detecting cumulative drift from a target value.</td></tr>
+    <tr><td><strong>EWMA</strong></td><td>Weighted moving average emphasizing recent observations for trend detection.</td></tr>
+    <tr><td><strong>Error Budget</strong></td><td>Allowed SLA breach count per window &mdash; tracks consumption toward violation.</td></tr>
+    <tr><td><strong>Holm-Bonferroni</strong></td><td>Correction for multiple tests &mdash; prevents false positives from chance.</td></tr>
+    <tr><td><strong>Worst-Category Assessment</strong></td><td>Judge the agent by its worst fault category, not its best.</td></tr>
+  </table>
+
+  <!-- ──── C.7 MODE SELECTION ──── -->
+  <h3 style="color:#1e40af; border-bottom:2px solid #3b82f6; padding-bottom:0.3rem; margin-top:3rem">C.7 Mode Selection</h3>
+
+  <table>
+    <tr><th>Condition</th><th>Mode</th><th>Active Hypotheses</th></tr>
+    <tr><td>No SLA thresholds provided</td><td><strong>No-SLA</strong></td><td>H-01 to H-05 (full), H-08 &amp; H-09 (informational)</td></tr>
+    <tr><td>SLA thresholds provided</td><td><strong>SLA-Aware</strong></td><td>H-01 to H-09 (all, full SLA-specific analysis)</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION D — RESEARCH GROUNDING
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION D</span>
+  <h2>Research Grounding &mdash; 20 Peer-Reviewed Papers</h2>
+
+  <p>This framework is built on <strong>20 peer-reviewed papers</strong> from top-tier venues in AI evaluation, software testing, statistical methodology, risk management, and reliability engineering.</p>
+
+  <h3>Core Statistical Methods</h3>
+  <table>
+    <tr><th style="width:220px">Paper</th><th style="width:180px">Key Contribution</th><th>Application</th></tr>
+    <tr><td><a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. (NeurIPS 2021)</a></td><td>IQM, Bootstrap, Performance Profiles</td><td><strong>H-01:</strong> IQM as primary metric. Bootstrap B=10k for n=30-40.</td></tr>
+    <tr><td><a href="https://doi.org/10.1145/1985793.1985795" style="color:#2563eb">Arcuri &amp; Briand (ICSE 2011)</a></td><td>A&#x2081;&#x2082; Effect Size, Mann-Whitney U</td><td><strong>H-03:</strong> A&#x2081;&#x2082; for effect size. Holm-Bonferroni correction.</td></tr>
+    <tr><td><a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al. (AAAI 2018)</a></td><td>CI-First Reporting</td><td><strong>H-01/H-02:</strong> CIs before p-values. Shapiro-Wilk gating.</td></tr>
+    <tr><td><a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al. (CCS 2018)</a></td><td>Minimum 30 Trials</td><td><strong>Sample size:</strong> n&ge;30 per fault category.</td></tr>
+    <tr><td>Wilcoxon (1945)</td><td>Signed-rank test</td><td><strong>H-06:</strong> Non-parametric SLA threshold test.</td></tr>
+    <tr><td>Clopper &amp; Pearson (1934)</td><td>Exact binomial CI</td><td><strong>H-07:</strong> Exact breach rate estimation.</td></tr>
+  </table>
+
+  <h3>SLA &amp; Risk Analysis Methods</h3>
+  <table>
+    <tr><th style="width:220px">Paper</th><th style="width:180px">Key Contribution</th><th>Application</th></tr>
+    <tr><td>Schuirmann (1987) / <a href="https://doi.org/10.1177/1948550617697177" style="color:#2563eb">Lakens (2017)</a></td><td>TOST equivalence testing</td><td><strong>H-06:</strong> Proves performance within SLA bounds.</td></tr>
+    <tr><td>Rockafellar &amp; Uryasev (2000)</td><td>CVaR / Conditional Value-at-Risk</td><td><strong>H-08:</strong> Tail risk severity quantification.</td></tr>
+    <tr><td>Artzner et al. (1999)</td><td>Coherent risk measures</td><td><strong>H-08:</strong> Theoretical foundation for CVaR.</td></tr>
+    <tr><td>Kaplan &amp; Meier (1958)</td><td>Non-parametric survival estimation</td><td><strong>H-06:</strong> Time-to-detection survival curves.</td></tr>
+    <tr><td>Page (1954)</td><td>CUSUM control charts</td><td><strong>H-09:</strong> Drift detection toward SLA violation.</td></tr>
+    <tr><td>Roberts (1959)</td><td>EWMA smoothing</td><td><strong>H-09:</strong> Gradual trend detection in agent performance.</td></tr>
+    <tr><td>Killick &amp; Eckley (2014)</td><td>PELT change point detection</td><td><strong>H-09:</strong> Structural break detection (e.g., model updates).</td></tr>
+    <tr><td>Google SRE Book (2016)</td><td>Error budgets, burn rates</td><td><strong>H-07:</strong> Error budget concepts inform breach rate analysis.</td></tr>
+  </table>
+
+  <h3>Robustness, Certification &amp; Supporting</h3>
+  <table>
+    <tr><th style="width:220px">Paper</th><th style="width:180px">Key Contribution</th><th>Application</th></tr>
+    <tr><td><a href="https://arxiv.org/abs/1911.08731" style="color:#2563eb">Sagawa et al. (ICLR 2020)</a></td><td>Worst-Group Accuracy</td><td><strong>H-03/H-05:</strong> Worst-category awareness in cross-category analysis.</td></tr>
+    <tr><td><a href="https://arxiv.org/abs/2005.04118" style="color:#2563eb">Ribeiro et al. (ACL 2020)</a></td><td>CheckList testing</td><td><strong>Conceptual:</strong> Per-capability testing informs per-category analysis.</td></tr>
+    <tr><td>Basiri et al. (ICSE 2019)</td><td>Chaos Engineering</td><td>Fault injection testing design.</td></tr>
+    <tr><td><a href="https://doi.org/10.1111/rssb.12167" style="color:#2563eb">Peters et al. (JRSS-B 2016)</a></td><td>Causal Invariance</td><td><strong>H-05:</strong> Invariant relationships = robustness.</td></tr>
+    <tr><td><a href="https://doi.org/10.1109/JPROC.2021.3058954" style="color:#2563eb">Sch&ouml;lkopf et al. (IEEE 2021)</a></td><td>Causal Representation</td><td>Transfer risk metric concept.</td></tr>
+    <tr><td><a href="https://doi.org/10.1145/3143561" style="color:#2563eb">Chen et al. (CSUR 2018)</a></td><td>Metamorphic Testing</td><td>Cross-category consistency.</td></tr>
+    <tr><td><a href="https://arxiv.org/abs/1903.12261" style="color:#2563eb">Hendrycks &amp; Dietterich (ICLR 2019)</a></td><td>Corruption Robustness</td><td>Diverse fault type testing.</td></tr>
+    <tr><td><a href="https://arxiv.org/abs/1710.10571" style="color:#2563eb">Sinha et al. (ICLR 2018)</a></td><td>Wasserstein DRO</td><td>Worst-case robustness concept.</td></tr>
+  </table>
+
+  <div class="info-box green" style="margin-top:1.5rem">
+    <strong>Research Validation:</strong> 20 papers from top-tier venues (NeurIPS, ICLR, AAAI, ACL, ICSE, CCS, JRSS-B, JASA, Biometrika, Mathematical Finance). Every statistical method is grounded in peer-reviewed methodology.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION E — JSON SCHEMA
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION E</span>
+  <h2><code>statistical_evidence</code> &mdash; JSON Schema</h2>
+
+  <p>The framework produces a <code>statistical_evidence</code> block per fault category that adapts based on mode:</p>
+
+  <div class="schema-block"><span class="comment">// Inside each fault_category_scorecards[] entry:</span>
+{
+  <span class="key">"fault_category"</span>: <span class="str">"application_fault"</span>,
+  <span class="key">"total_runs"</span>: <span class="num">30</span>,
+
+  <span class="key">"statistical_evidence"</span>: {
+    <span class="key">"mode"</span>: <span class="str">"sla_aware"</span>,                    <span class="comment">// "no_sla" | "sla_aware"</span>
+    <span class="key">"sla_thresholds"</span>: {                        <span class="comment">// only when mode = "sla_aware"</span>
+      <span class="key">"time_to_detect"</span>: <span class="num">300</span>,
+      <span class="key">"time_to_mitigate"</span>: <span class="num">600</span>,
+      <span class="key">"fault_detection_success_rate"</span>: <span class="num">0.95</span>,
+      <span class="key">"max_breach_rate"</span>: <span class="num">0.05</span>
+    },
+    <span class="key">"assessment"</span>: <span class="str">"CONDITIONAL"</span>,
+    <span class="key">"consistency_flag"</span>: <span class="str">"stable"</span>,
+    <span class="key">"sample_adequacy"</span>: <span class="str">"sufficient"</span>,
+
+    <span class="comment">// ── H-01: Confidence Intervals ──</span>
+    <span class="key">"confidence_intervals"</span>: {
+      <span class="key">"time_to_detect_iqm"</span>: { <span class="key">"ci_95"</span>: [<span class="num">210.5</span>, <span class="num">280.1</span>], <span class="key">"method"</span>: <span class="str">"bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">10000</span> },
+      <span class="key">"fault_detection_success_rate"</span>: { <span class="key">"ci_95"</span>: [<span class="num">0.744</span>, <span class="num">0.965</span>], <span class="key">"method"</span>: <span class="str">"wilson"</span> }
+    },
+
+    <span class="comment">// ── H-06 to H-09: SLA Compliance (when mode = "sla_aware") ──</span>
+    <span class="key">"sla_compliance"</span>: {
+      <span class="key">"h06_threshold_test"</span>: {
+        <span class="key">"time_to_detect"</span>: { <span class="key">"sla_threshold"</span>: <span class="num">300</span>, <span class="key">"iqm"</span>: <span class="num">245</span>, <span class="key">"ci_upper"</span>: <span class="num">280.1</span>, <span class="key">"wilcoxon_p"</span>: <span class="num">0.003</span>, <span class="key">"verdict"</span>: <span class="str">"PASS"</span> }
+      },
+      <span class="key">"h07_breach_rate"</span>: {
+        <span class="key">"time_to_detect"</span>: { <span class="key">"breaches"</span>: <span class="num">3</span>, <span class="key">"total"</span>: <span class="num">30</span>, <span class="key">"breach_rate"</span>: <span class="num">0.10</span>, <span class="key">"binomial_p"</span>: <span class="num">0.184</span>, <span class="key">"verdict"</span>: <span class="str">"FAIL"</span> }
+      },
+      <span class="key">"h08_tail_risk"</span>: {
+        <span class="key">"time_to_detect"</span>: { <span class="key">"cvar_95"</span>: <span class="num">672</span>, <span class="key">"cvar_95_ci"</span>: [<span class="num">480</span>, <span class="num">890</span>], <span class="key">"expected_overshoot"</span>: <span class="num">234</span> }
+      },
+      <span class="key">"h09_drift"</span>: { <span class="key">"cusum_stat"</span>: <span class="num">8.4</span>, <span class="key">"cusum_threshold"</span>: <span class="num">15</span>, <span class="key">"ewma_trend"</span>: <span class="num">2.1</span>, <span class="key">"drift_verdict"</span>: <span class="str">"STABLE"</span> },
+    },
+
+    <span class="comment">// ── H-03/H-04/H-05: Cross-Category Tests ──</span>
+    <span class="key">"cross_category_tests"</span>: {
+      <span class="key">"kruskal_wallis_ttd"</span>: { <span class="key">"H_stat"</span>: <span class="num">9.8</span>, <span class="key">"p_value"</span>: <span class="num">0.007</span>, <span class="key">"result"</span>: <span class="str">"significant_disparity"</span> },
+      <span class="key">"mann_whitney_posthoc"</span>: [
+        { <span class="key">"pair"</span>: <span class="str">"app_vs_res"</span>, <span class="key">"p_value"</span>: <span class="num">0.008</span>, <span class="key">"a12"</span>: <span class="num">0.92</span>, <span class="key">"effect"</span>: <span class="str">"large"</span> }
+      ],
+      <span class="key">"fisher_exact_detection"</span>: { <span class="key">"p_value"</span>: <span class="num">0.014</span>, <span class="key">"result"</span>: <span class="str">"non_uniform"</span> },
+      <span class="key">"levene_ttd"</span>: { <span class="key">"f_stat"</span>: <span class="num">5.8</span>, <span class="key">"p_value"</span>: <span class="num">0.018</span>, <span class="key">"result"</span>: <span class="str">"unequal_variance"</span> },
+      <span class="key">"correction_method"</span>: <span class="str">"holm_bonferroni"</span>
+    },
+
+    <span class="comment">// ── All 9 hypothesis results ──</span>
+    <span class="key">"hypothesis_results"</span>: [
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-01"</span>, <span class="key">"test_name"</span>: <span class="str">"Bootstrap CI (BCa)"</span>, <span class="key">"iqm"</span>: <span class="num">245</span>, <span class="key">"ci_95"</span>: [<span class="num">210</span>, <span class="num">280</span>], <span class="key">"assessment"</span>: <span class="str">"precise_at_n30"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-02"</span>, <span class="key">"test_name"</span>: <span class="str">"Wilson CI"</span>, <span class="key">"rate"</span>: <span class="num">0.90</span>, <span class="key">"ci_95"</span>: [<span class="num">0.744</span>, <span class="num">0.965</span>], <span class="key">"assessment"</span>: <span class="str">"actionable"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-03"</span>, <span class="key">"test_name"</span>: <span class="str">"Kruskal-Wallis H"</span>, <span class="key">"p_value"</span>: <span class="num">0.007</span>, <span class="key">"assessment"</span>: <span class="str">"significant_category_disparity"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-04"</span>, <span class="key">"test_name"</span>: <span class="str">"Fisher's Exact"</span>, <span class="key">"p_value"</span>: <span class="num">0.014</span>, <span class="key">"assessment"</span>: <span class="str">"non_uniform_rates"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-05"</span>, <span class="key">"test_name"</span>: <span class="str">"Levene's + CV"</span>, <span class="key">"cv_values"</span>: { <span class="key">"app"</span>: <span class="num">0.14</span>, <span class="key">"net"</span>: <span class="num">1.40</span>, <span class="key">"res"</span>: <span class="num">0.38</span> } },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-06"</span>, <span class="key">"test_name"</span>: <span class="str">"Wilcoxon + Bootstrap vs SLA"</span>, <span class="key">"verdict"</span>: <span class="str">"PASS"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-07"</span>, <span class="key">"test_name"</span>: <span class="str">"Exact Binomial"</span>, <span class="key">"breach_rate"</span>: <span class="num">0.10</span>, <span class="key">"verdict"</span>: <span class="str">"FAIL"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-08"</span>, <span class="key">"test_name"</span>: <span class="str">"CVaR + Overshoot"</span>, <span class="key">"cvar_95"</span>: <span class="num">672</span>, <span class="key">"assessment"</span>: <span class="str">"significant_tail_risk"</span> },
+      { <span class="key">"hypothesis_id"</span>: <span class="str">"H-09"</span>, <span class="key">"test_name"</span>: <span class="str">"CUSUM + EWMA"</span>, <span class="key">"drift_verdict"</span>: <span class="str">"STABLE"</span> }
+    ],
+
+  }
+}</div>
+
+</div>
+
+</div><!-- /content -->
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="footer">
+  AgentCert &mdash; Statistical Hypothesis Framework (No-SLA + SLA-Aware) &nbsp;|&nbsp; Generated 2026-04-15 &nbsp;|&nbsp;
+  9 Hypotheses &nbsp;|&nbsp; 16 Methods &nbsp;|&nbsp; 20 Research Papers &nbsp;|&nbsp;
+  Methods: Wilson CI, Bootstrap BCa, IQM, Shapiro-Wilk, Kruskal-Wallis, Mann-Whitney U, A&#x2081;&#x2082;, Welch's ANOVA, Fisher's Exact, Levene's,
+  Wilcoxon, Exact Binomial, TOST, CVaR, Kaplan-Meier, CUSUM/EWMA &nbsp;|&nbsp;
+  Corrections: Holm-Bonferroni, BH-FDR
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

@@ -148,7 +148,7 @@ class AzureLLMClient:
         return self.model_agents[cache_key]
 
     def is_reasoning_model(self, model_name: str) -> bool:
-        """Check if a model is a reasoning model that doesn't support temperature/max_tokens."""
+        """Check if a model is a reasoning model that doesn't support temperature or max_tokens."""
         return self._model_types.get(model_name, "standard") == "reasoning"
 
     def _convert_messages_to_chat_messages(

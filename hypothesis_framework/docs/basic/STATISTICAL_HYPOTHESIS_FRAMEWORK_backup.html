@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentCert — Statistical Hypothesis Framework</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL / RESET
+   ═══════════════════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:15px;scroll-behavior:smooth}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  color:#1e293b;background:#f0f4f8;line-height:1.55;
+}
+
+/* ═══════════════ PAGE FRAME ═══════════════ */
+.page{max-width:1200px;margin:0 auto;background:#fff;
+      box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+/* ═══════════════ COVER ═══════════════ */
+.cover{
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 40%,#2563eb 100%);
+  color:#fff;padding:48px 56px 40px;position:relative;overflow:hidden;
+}
+.cover::after{
+  content:'';position:absolute;top:-60px;right:-80px;
+  width:320px;height:320px;border-radius:50%;
+  background:rgba(255,255,255,.04);
+}
+.cover h1{font-size:2.1rem;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
+.cover .subtitle{font-size:1.05rem;opacity:.85;margin-bottom:20px}
+.cover .badge-row{display:flex;gap:10px;flex-wrap:wrap}
+.cover .badge-row span{
+  font-size:.72rem;padding:4px 12px;border-radius:20px;
+  background:rgba(255,255,255,.15);backdrop-filter:blur(4px);
+  letter-spacing:.3px;text-transform:uppercase;font-weight:600;
+}
+
+/* ═══════════════ CONTENT AREA ═══════════════ */
+.content{padding:40px 56px 56px}
+
+/* ═══════════════ SECTION ═══════════════ */
+.section{margin-bottom:42px}
+.section-num{
+  display:inline-block;font-size:.7rem;font-weight:700;
+  color:#2563eb;background:#eff6ff;padding:3px 10px;
+  border-radius:12px;margin-bottom:8px;letter-spacing:.4px;
+}
+.section h2{font-size:1.35rem;font-weight:700;color:#0f172a;margin-bottom:14px}
+.section h3{font-size:1.05rem;font-weight:600;color:#1e3a5f;margin:18px 0 10px}
+
+p{margin-bottom:12px;color:#334155}
+ul{margin:8px 0 16px 22px}
+li{margin-bottom:6px;color:#334155}
+
+/* ═══════════════ CARDS / GRID ═══════════════ */
+.card-grid{display:grid;gap:16px;margin:16px 0}
+.card-grid.two{grid-template-columns:1fr 1fr}
+.card-grid.three{grid-template-columns:1fr 1fr 1fr}
+
+.card{
+  border:1px solid #e2e8f0;border-radius:10px;padding:20px 22px;
+  background:#fafbfc;transition:box-shadow .15s;
+}
+.card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card .card-title{font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;
+  color:#64748b;font-weight:600;margin-bottom:6px}
+.card .card-value{font-size:1.6rem;font-weight:700;color:#0f172a}
+.card p{font-size:.88rem}
+
+/* ═══════════════ INFO BOX ═══════════════ */
+.info-box{
+  background:#eff6ff;border-left:4px solid #2563eb;
+  padding:16px 20px;border-radius:0 8px 8px 0;margin:16px 0;
+}
+.info-box.warn{background:#fef9c3;border-left-color:#eab308}
+.info-box.green{background:#f0fdf4;border-left-color:#22c55e}
+
+/* ═══════════════ COMPARISON COLUMNS ═══════════════ */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.compare .col{border-radius:10px;padding:22px 24px}
+.compare .col.basic{background:#f8fafc;border:1px solid #e2e8f0}
+.compare .col.advanced{background:#eff6ff;border:2px solid #2563eb}
+.compare .col h4{font-size:1rem;margin-bottom:10px}
+.compare .col.basic h4{color:#64748b}
+.compare .col.advanced h4{color:#2563eb}
+
+/* ═══════════════ TABLES ═══════════════ */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.82rem}
+th{
+  background:#0f172a;color:#fff;padding:10px 12px;
+  text-align:left;font-weight:600;letter-spacing:.3px;
+  position:sticky;top:0;
+}
+td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+tr:nth-child(even){background:#f8fafc}
+tr:hover{background:#eff6ff}
+td code{
+  background:#f1f5f9;padding:1px 5px;border-radius:3px;
+  font-size:.78rem;color:#1e40af;
+}
+
+/* ═══════════════ METHODS CATALOG ═══════════════ */
+.method-card{
+  border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;
+  margin:14px 0;background:#fff;
+}
+.method-card:hover{border-color:#93c5fd;box-shadow:0 2px 10px rgba(37,99,235,.08)}
+.method-card .method-name{
+  font-size:1rem;font-weight:700;color:#1e3a5f;margin-bottom:4px;
+}
+.method-card .method-q{
+  font-style:italic;color:#475569;margin-bottom:10px;font-size:.9rem;
+}
+.method-card .tag{
+  display:inline-block;font-size:.68rem;padding:2px 8px;
+  border-radius:10px;margin-right:6px;font-weight:600;
+}
+.tag.param{background:#dbeafe;color:#1e40af}
+.tag.nonparam{background:#fef3c7;color:#92400e}
+.tag.equiv{background:#d1fae5;color:#065f46}
+.tag.multi{background:#ede9fe;color:#5b21b6}
+.tag.drift{background:#ffe4e6;color:#9f1239}
+.tag.proportion{background:#ffedd5;color:#9a3412}
+
+.detail-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+.detail-row div{font-size:.84rem}
+.detail-row .label{font-weight:600;color:#475569;font-size:.72rem;
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+
+.ref{font-size:.76rem;color:#64748b;margin-top:8px;font-style:italic}
+
+/* ═══════════════ DECISION BADGES ═══════════════ */
+.decision-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:20px 0}
+.decision-card{border-radius:10px;padding:22px 24px;text-align:center}
+.decision-card.pass{background:#f0fdf4;border:2px solid #22c55e}
+.decision-card.cond{background:#fefce8;border:2px solid #eab308}
+.decision-card.fail{background:#fef2f2;border:2px solid #ef4444}
+.decision-card .icon{font-size:2rem;margin-bottom:6px}
+.decision-card .label{font-weight:700;font-size:1.1rem;margin-bottom:6px}
+.decision-card.pass .label{color:#15803d}
+.decision-card.cond .label{color:#a16207}
+.decision-card.fail .label{color:#dc2626}
+.decision-card p{font-size:.82rem;color:#475569}
+
+/* ═══════════════ EXTENSION SCHEMA ═══════════════ */
+.schema-block{
+  background:#1e293b;color:#e2e8f0;padding:20px 24px;
+  border-radius:10px;font-family:'Cascadia Code','Fira Code',monospace;
+  font-size:.78rem;line-height:1.65;overflow-x:auto;margin:14px 0;
+  white-space:pre;
+}
+.schema-block .key{color:#93c5fd}
+.schema-block .str{color:#86efac}
+.schema-block .num{color:#fde68a}
+.schema-block .bool{color:#f9a8d4}
+.schema-block .comment{color:#64748b;font-style:italic}
+
+/* ═══════════════ CHART PLACEHOLDERS ═══════════════ */
+.chart-placeholder{
+  border:2px dashed #cbd5e1;border-radius:10px;padding:40px 24px;
+  text-align:center;color:#94a3b8;margin:16px 0;background:#f8fafc;
+  min-height:200px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.chart-placeholder .chart-icon{font-size:2.4rem;margin-bottom:8px}
+.chart-placeholder .chart-label{font-size:.88rem;font-weight:600}
+.chart-placeholder .chart-sub{font-size:.76rem;margin-top:4px}
+
+/* ═══════════════ BADGE RENDERING ═══════════════ */
+.badge{
+  display:inline-block;padding:3px 10px;border-radius:12px;
+  font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+}
+.badge.pass{background:#dcfce7;color:#15803d}
+.badge.warn{background:#fef9c3;color:#a16207}
+.badge.fail{background:#fee2e2;color:#dc2626}
+.badge.info{background:#dbeafe;color:#1e40af}
+
+/* ═══════════════ RENDERING PREVIEW ═══════════════ */
+.render-preview{
+  border:1px solid #e2e8f0;border-radius:10px;padding:24px;
+  background:#fafbfc;margin:16px 0;
+}
+.render-row{
+  display:grid;grid-template-columns:200px 1fr;gap:14px;
+  padding:10px 0;border-bottom:1px solid #f1f5f9;align-items:center;
+}
+.render-row:last-child{border-bottom:none}
+.render-label{font-weight:600;font-size:.84rem;color:#475569}
+.ci-bar{
+  height:24px;background:#e2e8f0;border-radius:12px;position:relative;
+  overflow:hidden;
+}
+.ci-fill{
+  height:100%;border-radius:12px;
+  background:linear-gradient(90deg,#3b82f6,#2563eb);
+}
+.ci-marker{
+  position:absolute;top:0;height:100%;width:2px;background:#0f172a;
+}
+.ci-text{font-size:.72rem;color:#64748b;margin-top:2px}
+
+/* ═══════════════ FOOTER ═══════════════ */
+.footer{
+  background:#f8fafc;border-top:1px solid #e2e8f0;
+  padding:20px 56px;text-align:center;
+  font-size:.76rem;color:#94a3b8;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ════════════════════════════════════════════════════════════
+     COVER
+     ════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <h1>Statistical Hypothesis Framework</h1>
+  <div class="subtitle">Advanced Inference Strategy for AgentCert Certification Pipeline</div>
+  <div class="badge-row">
+    <span>AgentCert v2</span>
+    <span>Single Agent · No SLA · n &ge; 30</span>
+    <span>&alpha; = 0.05</span>
+    <span>5 Hypothesis Tests</span>
+    <span>10 Statistical Methods</span>
+    <span>25 Research Papers</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION A — WHAT IS IT?
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION A</span>
+  <h2>What Is a Statistical Hypothesis Framework in AgentCert?</h2>
+
+  <p>A <strong>statistical hypothesis framework</strong> replaces single-number summaries
+  (means, rates) with formal probabilistic inference. Instead of asking
+  <em>"what is the mean time_to_detect?"</em>, we ask <em>"what is the confidence interval
+  around mean time_to_detect, how consistent is it across fault categories,
+  and is there evidence of drift over time?"</em></p>
+
+  <div class="info-box">
+    <strong>Framework Context:</strong> This evaluates <strong>one agent</strong> without predefined SLA thresholds,
+    using <strong>30+ runs per fault category</strong> to ensure statistical validity.
+    The framework provides confidence intervals, cross-category comparisons, effect sizes,
+    and variance stability checks.
+  </div>
+
+  <h3>What This Framework Delivers</h3>
+  <div class="card-grid three">
+    <div class="card">
+      <div class="card-title">Uncertainty Quantification</div>
+      <p>Wilson CI, Bootstrap CI, and IQM provide confidence intervals — not just point estimates.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Cross-Category Analysis</div>
+      <p>Kruskal-Wallis, Mann-Whitney U, Welch's ANOVA, and Fisher's Exact tests compare fault types.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Effect Size Measurement</div>
+      <p>Vargha-Delaney A₁₂ quantifies how large differences actually are — beyond statistical significance.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Stability Testing</div>
+      <p>Levene's test and CV analysis ensure consistent performance across runs.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Research-Backed</div>
+      <p>Grounded in 25+ peer-reviewed papers from NeurIPS, ICSE, ACL, and other top venues.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION A2 — NON-TECHNICAL EXPLANATION
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">NON-TECHNICAL EXPLANATION</span>
+  <h2>What Are We Trying to Prove? (In Simple Terms)</h2>
+
+  <div class="info-box green">
+    <strong>Read this section first if you don't have a statistics background.</strong>
+    Each test below answers a simple question about the AI agent's behavior.
+    We run the agent 30+ times against each type of fault (application faults, network faults, resource faults)
+    and then use these tests to figure out: <strong>Is the agent reliable? Is it consistent? Where is it weak?</strong>
+  </div>
+
+  <h3>The Chaos Engineering Lens</h3>
+  <p>AgentCert borrows the hypothesis-driven discipline of
+  <strong>chaos engineering</strong>
+  (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas, Tuzlutas &amp; Yesiltas, EASE &rsquo;25</a>).
+  The same six principles that Netflix
+  (<a href="https://netflix.github.io/chaosmonkey/" style="color:#2563eb">Chaos Monkey</a>),
+  Google, and Amazon use to harden distributed systems
+  apply directly to certifying AI agents. The core principle:
+  <em>"the deliberate introduction of controlled disruption to verify system behavior&hellip;
+  focusing on proactive failure injection rather than reactive problem-solving"</em>
+  (<a href="https://arxiv.org/abs/2412.01418" style="color:#2563eb">Owotogbe et al., 2024</a>).</p>
+
+  <div class="card-grid two">
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">1 &mdash; Building a Hypothesis</div>
+      <p>Engineers start by defining <strong>"steady state"</strong> behavior &mdash;
+      the normal operating profile of the agent. This baseline serves as
+      the control group for experiments.
+      In AgentCert, steady state = the agent's expected detection/mitigation
+      capability under a <em>specific fault combination</em>.</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">2 &mdash; Setting Up Monitoring</div>
+      <p>Tools are used to monitor the system for <strong>deviations from
+      normal behavior</strong> during controlled experiments
+      (<a href="https://prometheus.io/" style="color:#2563eb">Prometheus</a>,
+      <a href="https://grafana.com/" style="color:#2563eb">Grafana</a>,
+      <a href="https://newrelic.com/" style="color:#2563eb">New Relic</a>).
+      In AgentCert this is the metrics extraction and aggregation pipeline.</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">3 &mdash; Conducting Experiments</div>
+      <p>Real-world systems face unpredictable conditions. Chaos experiments vary
+      real-world events &mdash; <strong>server failures, malformed responses, network latency</strong>.
+      Results are reviewed, improvements applied, and tests repeated.
+      Tools like <a href="https://litmuschaos.io/" style="color:#2563eb">LitmusChaos</a>,
+      <a href="https://chaos-mesh.org/" style="color:#2563eb">Chaos Mesh</a>, and
+      <a href="https://www.gremlin.com/" style="color:#2563eb">Gremlin</a> automate this
+      (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., &sect;2.3</a>).</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">4 &mdash; Minimizing Impact</div>
+      <p>To avoid widespread outages, experiments are designed to
+      <strong>minimize blast radius</strong>, often starting small and gradually
+      increasing in scope &mdash; mirrored in AgentCert's per-fault-category scoping
+      and the <a href="https://doi.org/10.1145/3358960.3379084" style="color:#2563eb">Chaos Maturity Model</a>
+      (Basiri et al., 2019).</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">5 &mdash; Expanding to Production</div>
+      <p>While controversial, the most valuable insights come from
+      experimenting in <strong>production environments</strong> where actual user
+      behavior and data patterns exist
+      (<a href="https://www.oreilly.com/library/view/chaos-engineering/9781492043850/" style="color:#2563eb">Rosenthal &amp; Jones, 2020</a>).</p>
+    </div>
+    <div class="card" style="border-left:4px solid #2563eb">
+      <div class="card-title">6 &mdash; Automation &amp; Continuous Learning</div>
+      <p>Automating experiments for <strong>repeatability</strong> and continuously
+      analyzing results is crucial to enhance system resilience.
+      Jernberg (2020) identifies four maturity phases:
+      <em>Discovery &rarr; Implementation &rarr; Sophistication &rarr; Expansion</em>
+      (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., &sect;3.2</a>).</p>
+    </div>
+  </div>
+
+  <h3>How AgentCert Creates Experiments</h3>
+  <p>An <strong>experiment</strong> in AgentCert directly maps to a chaos engineering experiment:
+  a <em>fixed combination of fault injections</em> repeated across multiple independent runs.
+  The paper's fault injection taxonomy
+  (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., &sect;2.3</a>)
+  categorizes faults into three levels &mdash; the same levels AgentCert uses:</p>
+
+  <div class="card-grid three">
+    <div class="card" style="border-left:4px solid #ef4444">
+      <div class="card-title">Network-Level Chaos</div>
+      <p>Latency injection, packet loss simulation, bandwidth throttling, DNS failure simulation</p>
+    </div>
+    <div class="card" style="border-left:4px solid #f59e0b">
+      <div class="card-title">Resource-Level Chaos</div>
+      <p>CPU stress testing, memory exhaustion, disk I/O saturation, storage corruption simulation</p>
+    </div>
+    <div class="card" style="border-left:4px solid #8b5cf6">
+      <div class="card-title">Application-Level Chaos</div>
+      <p>Service dependency failure, API error injection, database connection termination, cache invalidation</p>
+    </div>
+  </div>
+
+  <h3>Experiment Identity &amp; Scoping</h3>
+  <p>Each experiment is uniquely identified by its <strong>fault combination</strong>.
+  AgentCert computes a deterministic <code>experiment_id</code> = <code>SHA-256(sorted fault names)[:24]</code>.
+  The same faults always yield the same experiment, regardless of ordering.</p>
+
+  <div class="info-box warn">
+    <strong>Concrete Example &mdash; Two Experiments, One Shared Fault:</strong>
+  </div>
+
+  <table>
+    <tr>
+      <th style="width:160px">Experiment</th>
+      <th style="width:220px">Fault Combination</th>
+      <th style="width:80px">Runs</th>
+      <th>experiment_id (deterministic)</th>
+    </tr>
+    <tr>
+      <td><strong>Experiment&nbsp;1</strong></td>
+      <td><code>network_fault</code>, <code>f2</code>, <code>f3</code></td>
+      <td>30</td>
+      <td><code>SHA256("f2|f3|network_fault")[:24]</code></td>
+    </tr>
+    <tr>
+      <td><strong>Experiment&nbsp;2</strong></td>
+      <td><code>network_fault</code>, <code>f5</code></td>
+      <td>20</td>
+      <td><code>SHA256("f5|network_fault")[:24]</code></td>
+    </tr>
+  </table>
+
+  <p>Each run within an experiment gets a unique <code>run_id</code> (UUID).
+  So Experiment 1 produces 30 run_ids, Experiment 2 produces 20 run_ids.
+  Every fault bucket and extracted metric carries both <code>experiment_id</code> and <code>run_id</code>.</p>
+
+  <h3>The Cross-Experiment Question: Can We Pool <code>network_fault</code>?</h3>
+  <p><code>network_fault</code> appears in <em>both</em> experiments &mdash; 30 observations from Experiment 1
+  and 20 from Experiment 2. That's 50 total observations. <strong>Can we pool them?</strong></p>
+
+  <div class="compare">
+    <div class="col basic">
+      <h4>Naive Pooling (50 observations)</h4>
+      <ul>
+        <li>Combine all 50 <code>network_fault</code> metrics into one sample</li>
+        <li>Run hypothesis tests on the combined set</li>
+        <li>More data &rArr; narrower confidence intervals</li>
+      </ul>
+      <p style="color:#dc2626;font-weight:600">&cross; Violates experimental independence.
+      The <strong>context differs</strong>: in Exp 1 the agent handles network_fault alongside f2 &amp; f3;
+      in Exp 2 alongside f5. Different co-occurring faults create different
+      <strong>confounding conditions</strong> (batch effects, Simpson's Paradox).</p>
+    </div>
+    <div class="col advanced">
+      <h4>Per-Experiment Testing + Meta-Analysis</h4>
+      <ul>
+        <li>Run H-01&ndash;H-05 separately within each experiment</li>
+        <li>Each experiment produces its own certificate</li>
+        <li>Optionally combine via <strong>random-effects meta-analysis</strong> with I&sup2; heterogeneity gating</li>
+      </ul>
+      <p style="color:#16a34a;font-weight:600">&check; Respects experimental boundaries.
+      Each experiment is a self-contained chaos experiment with controlled conditions.
+      <strong>"Minimize blast radius"</strong> applies to statistical analysis too &mdash;
+      keep the analysis scope matched to the experiment scope.</p>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>Rule:</strong> Statistical hypothesis tests (H-01&ndash;H-05) run <strong>per experiment</strong>,
+    never across experiments. Cross-experiment synthesis uses Level 2 meta-analysis
+    (see Section F2). This follows chaos engineering's core discipline: each experiment
+    is a <strong>controlled, scoped, repeatable</strong> unit
+    (<a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al., 2025</a>;
+    <a href="https://doi.org/10.1109/MS.2016.60" style="color:#2563eb">Basiri et al., IEEE Software 2016</a>).
+  </div>
+
+  <h3>End-to-End Flow: From Chaos Experiment to Certificate</h3>
+  <table>
+    <tr>
+      <th style="width:50px">Step</th>
+      <th style="width:200px">Phase</th>
+      <th>What Happens</th>
+      <th style="width:180px">Chaos Eng. Parallel</th>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td><strong>Fault Injection</strong></td>
+      <td>User defines fault combination (e.g., <code>network_fault</code>, <code>f2</code>, <code>f3</code>).
+      System computes <code>experiment_id</code> = SHA-256 of sorted fault names.</td>
+      <td>Building a Hypothesis + Conducting Experiments</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>Repeated Runs</strong></td>
+      <td>Agent runs 30+ times against the same fault set. Each run: fresh <code>run_id</code> (UUID),
+      same <code>experiment_id</code>. Every span carries both IDs.</td>
+      <td>Automation &amp; Repeatability</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Fault Bucketing</strong></td>
+      <td>Each trace is decomposed into per-fault <code>FaultBucket</code> objects.
+      Each bucket inherits <code>experiment_id</code> + <code>run_id</code>.</td>
+      <td>Setting Up Monitoring</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Metrics Extraction</strong></td>
+      <td>Quantitative + qualitative metrics extracted per fault per run.
+      Stored with full provenance (<code>experiment_id</code>, <code>run_id</code>, <code>fault_category</code>).</td>
+      <td>Resilience Measurement (MTTR, MTTD, SLOs)</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>Aggregation</strong></td>
+      <td>Metrics grouped by <code>fault_category</code> within the experiment.
+      Numeric aggregates, derived rates, boolean summaries, LLM Council assessments.</td>
+      <td>Reviewing Results</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><strong>Statistical Hypothesis Testing</strong></td>
+      <td>H-01&ndash;H-06 run <strong>per experiment</strong>. CI estimation, cross-category comparison,
+      variance stability, drift detection. Multiple-comparisons corrected.</td>
+      <td>Continuous Analysis</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><strong>Certificate</strong></td>
+      <td>One certificate per experiment: CONSISTENT / FLAGGED / ALERT.
+      Cross-experiment synthesis via Level 2 meta-analysis (optional).</td>
+      <td>Improvements Applied &amp; Tests Repeated</td>
+    </tr>
+  </table>
+
+  <div class="info-box green">
+    <strong>Key References:</strong>
+    <a href="https://arxiv.org/pdf/2506.14281" style="color:#2563eb">Aktas et al. (EASE &rsquo;25)</a> &mdash; Custom Chaos Engineering Framework |
+    <a href="https://doi.org/10.1109/MS.2016.60" style="color:#2563eb">Basiri et al. (IEEE Software 2016)</a> &mdash; Chaos Engineering Principles |
+    <a href="https://doi.org/10.1145/3358960.3379084" style="color:#2563eb">Basiri et al. (ICSE-SEIP 2019)</a> &mdash; Chaos in Production |
+    <a href="https://arxiv.org/abs/2412.01418" style="color:#2563eb">Owotogbe et al. (2024)</a> &mdash; Multi-Vocal Literature Review |
+    <a href="https://doi.org/10.1145/3340433.3368303" style="color:#2563eb">Jernberg (ESEM 2020)</a> &mdash; Discovery &rarr; Implementation &rarr; Sophistication &rarr; Expansion |
+    <a href="https://chaos-mesh.org/" style="color:#2563eb">Chaos Mesh</a> |
+    <a href="https://litmuschaos.io/" style="color:#2563eb">LitmusChaos</a> |
+    <a href="https://www.gremlin.com/" style="color:#2563eb">Gremlin</a>
+  </div>
+
+  <h3>The Core Idea</h3>
+  <p>When you test an AI agent, running it once tells you almost nothing &mdash; the agent might get lucky or unlucky.
+  Running it 30+ times and looking at the <em>pattern</em> of results tells you what the agent <em>actually</em> does,
+  not just what it <em>happened</em> to do once. That's what this framework is about.</p>
+
+  <table>
+    <tr>
+      <th style="width:70px">Test ID</th>
+      <th style="width:200px">What We're Checking</th>
+      <th>Plain English Explanation</th>
+      <th style="width:200px">Example</th>
+    </tr>
+
+    <tr>
+      <td><strong>H-01</strong></td>
+      <td>How fast does the agent detect and fix faults? How good are its explanations? Does it hallucinate?</td>
+      <td>We measure all the agent's <strong>numeric scores</strong> — detection speed, mitigation speed, reasoning quality,
+      hallucination — across 30+ runs. Instead of a single number, we give a <strong>range</strong> (confidence interval) that
+      tells you where the true value likely falls. A narrow range = we know precisely. A wide range = we need more data.
+      For hallucination, the <strong>upper bound</strong> is the key signal — if it's zero, we're confident the agent doesn't fabricate.</td>
+      <td>"Detection time: <strong>280s to 452s</strong> (95% confidence). Hallucination: <strong>0.0</strong> [CI: 0.0, 0.0] — no fabrication detected."</td>
+    </tr>
+
+    <tr>
+      <td><strong>H-02</strong></td>
+      <td>What percentage of faults does the agent actually catch? What percentage does it fix?</td>
+      <td>If the agent detects 24 out of 30 faults, the raw rate is 80%. But is the <em>true</em> rate really 80%?
+      We calculate a range: "we're 95% confident the true detection rate is between 62% and 91%."
+      The <strong>lower bound</strong> is the cautious estimate — that's the safety floor.</td>
+      <td>"Detection rate: <strong>80%</strong>, but truly between <strong>62% and 91%</strong>. Lower bound (62%) is the cautious estimate."</td>
+    </tr>
+
+    <tr>
+      <td><strong>H-03</strong></td>
+      <td>Does the agent handle all fault types equally well (for speed and quality)?</td>
+      <td>We compare the agent's <strong>speed and quality scores</strong> across application faults, network faults, and resource faults.
+      If the agent is fast for application faults but slow for resource faults, this test catches it.
+      It answers: <strong>"Is the difference real, or just random noise?"</strong> and <strong>"How big is the gap?"</strong></td>
+      <td>"Resource faults take significantly longer to detect (p=0.007). 92% chance a resource fault takes longer than an application fault."</td>
+    </tr>
+
+    <tr>
+      <td><strong>H-04</strong></td>
+      <td>Is the success rate the same across all fault types?</td>
+      <td>If the agent catches 90% of application faults but only 50% of network faults,
+      the overall 70% average <strong>hides a serious weakness</strong>. This test checks whether
+      success/failure rates are uniform or if some fault types are handled much worse.</td>
+      <td>"Detection rate for network faults (50%) is significantly lower than application faults (90%) — the overall 70% average is <strong>misleading</strong>."</td>
+    </tr>
+
+    <tr>
+      <td><strong>H-05</strong></td>
+      <td>Is the agent consistent, or is it unpredictable?</td>
+      <td>An agent that detects faults in 10s, then 500s, then 30s, then 800s is <strong>unreliable</strong>
+      even if the average looks okay. This test checks whether the agent's <strong>variability</strong>
+      is consistent across fault types. Wild swings in some categories is a red flag.</td>
+      <td>"Network fault detection times vary wildly (std dev = 404s) while resource faults are consistent (106s) — <strong>unpredictable for network faults</strong>."</td>
+    </tr>
+
+    <tr>
+      <td><strong>H-06</strong></td>
+      <td>Is the agent getting worse over time?</td>
+      <td>Across multiple certification cycles, this test watches for <strong>gradual decline</strong>.
+      If detection rates slowly drop from 90% &rarr; 85% &rarr; 78% &rarr; 70%, this catches it —
+      even if each individual drop seems small. Any upward trend in hallucination is a safety alarm.</td>
+      <td>"Detection rate drifted from 85% to 70% over 4 certification cycles — <strong>the agent is degrading</strong>."</td>
+    </tr>
+  </table>
+
+  <h3>The Three Outcomes</h3>
+  <p>After running all tests, the agent gets one of three labels:</p>
+  <ul>
+    <li><span class="badge pass">CONSISTENT</span> &mdash; <strong>"The agent performs reliably across all fault types. We're confident in its capabilities, no red flags."</strong></li>
+    <li><span class="badge warn">FLAGGED</span> &mdash; <strong>"The agent works but has some issues &mdash; inconsistency with certain faults, or performance varies. Needs investigation before deployment."</strong></li>
+    <li><span class="badge fail">ALERT</span> &mdash; <strong>"The agent has serious problems &mdash; it can't handle some fault types, it's hallucinating, or it's getting worse over time. Do not deploy without fixing."</strong></li>
+  </ul>
+  <p>See <strong>Section F</strong> below for the detailed technical criteria that determine each outcome.</p>
+
+  <h3>Key Concepts in One Sentence Each</h3>
+  <table>
+    <tr><th style="width:220px">Concept</th><th>One-Sentence Explanation</th></tr>
+    <tr><td><strong>Confidence Interval (CI)</strong></td><td>A range of values where we're 95% sure the true answer lies — like saying "the temperature is between 68&deg;F and 72&deg;F" instead of just "it's 70&deg;F."</td></tr>
+    <tr><td><strong>p-value</strong></td><td>The probability that the difference we observed is just due to random luck — if it's less than 5% (p &lt; 0.05), we consider the difference real.</td></tr>
+    <tr><td><strong>Effect Size (A&sub1;&sub2;)</strong></td><td>How big a difference actually is — even if a difference is "real" (significant), it might be tiny and not worth worrying about.</td></tr>
+    <tr><td><strong>IQM (Interquartile Mean)</strong></td><td>The average of the middle 50% of values — ignores the best and worst results to give a more honest picture.</td></tr>
+    <tr><td><strong>Bootstrap</strong></td><td>A technique to measure uncertainty by repeatedly re-shuffling your data and seeing how much the answer changes — like shuffling a deck of cards 50,000 times.</td></tr>
+    <tr><td><strong>Kruskal-Wallis / Mann-Whitney</strong></td><td>Tests that compare groups by ranking all values — doesn't assume data follows a bell curve, which is important because agent behavior is often unpredictable.</td></tr>
+    <tr><td><strong>Shapiro-Wilk</strong></td><td>A check to see if data follows a bell curve (normal distribution) — determines which comparison tests we're allowed to use.</td></tr>
+    <tr><td><strong>Holm-Bonferroni</strong></td><td>A correction for running multiple tests at once — without it, the more tests you run, the more likely you are to find a "significant" result by pure chance.</td></tr>
+    <tr><td><strong>Worst-Category</strong></td><td>The weakest link determines the chain's strength — we judge the agent by its worst fault category, not its best.</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION B — WHY IS IT NECESSARY?
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION B</span>
+  <h2>Why Is Statistical Inference Necessary?</h2>
+
+  <div class="card-grid three">
+    <div class="card">
+      <div class="card-title">Stochastic Agent Behavior</div>
+      <p>LLM-based agents produce variable outputs across runs. The same fault injection
+      can yield <code>time_to_detect</code> of 15s in run 1 and 180s in run 5. Point estimates
+      hide this variance.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">False Confidence from Means</div>
+      <p>A mean <code>fault_detection_success_rate</code> of 0.92 could come from
+      {1,1,1,1,1,1,1,1,1,0,0,0} or {0.92 &times; 30 times}. The distributions are
+      radically different&mdash;inference separates them.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Audit &amp; Compliance</div>
+      <p>Enterprise certification demands reproducible evidence.
+      A p-value with CI provides a defensible audit trail that regulators
+      and compliance officers can evaluate.</p>
+    </div>
+  </div>
+
+  <div class="info-box green">
+    <strong>Sample size: n &ge; 30 per fault category (confirmed).</strong>
+    With 30+ runs per fault category, confidence intervals narrow substantially compared to small-n scenarios.
+    For example, a Wilson CI on detection rate 0.80 at n=30 gives [0.62, 0.91] — precise enough for meaningful certification.
+    The Central Limit Theorem holds, enabling parametric inference (Welch's ANOVA) alongside non-parametric tests.
+    Chi-Square expected cell counts will meet the &ge; 5 threshold. Bootstrap CIs converge reliably.
+    Kruskal-Wallis and Mann-Whitney U have strong statistical power at this sample size.
+    <strong>At n &ge; 30, all 11 methods in this framework operate at full effectiveness.</strong>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION C — WHERE DOES TESTING APPLY?
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION C</span>
+  <h2>Where Does Hypothesis Testing Apply?</h2>
+
+  <p>Every hypothesis maps to a <strong>grouping axis</strong> already present in the
+  AgentCert data model:</p>
+
+  <table>
+    <tr>
+      <th>Grouping Axis</th>
+      <th>Field(s)</th>
+      <th>Statistical Question</th>
+      <th>Example</th>
+    </tr>
+    <tr>
+      <td><strong>Fault Category</strong></td>
+      <td><code>fault_category</code></td>
+      <td>Do metrics differ across application_fault, network_fault, resource_fault?</td>
+      <td>Welch's ANOVA on <code>time_to_detect</code> across 3 categories</td>
+    </tr>
+    <tr>
+      <td><strong>Confidence Interval Estimation</strong></td>
+      <td>All numeric &amp; derived metrics</td>
+      <td>What is the plausible range of the true metric value?</td>
+      <td>Bootstrap CI on <code>time_to_detect</code> mean; Wilson CI on <code>fault_detection_success_rate</code></td>
+    </tr>
+    <tr>
+      <td><strong>Run Group</strong></td>
+      <td><code>certification_run_id</code></td>
+      <td>Is run-to-run variance within acceptable bounds?</td>
+      <td>Levene's test on <code>time_to_detect</code> variance</td>
+    </tr>
+    <tr>
+      <td><strong>Temporal</strong></td>
+      <td><code>created_at</code></td>
+      <td>Has performance drifted between certification cycles?</td>
+      <td>CUSUM on <code>fault_detection_success_rate</code></td>
+    </tr>
+  </table>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION D — METHODS CATALOG
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION D</span>
+  <h2>Statistical Methods Catalog</h2>
+
+  <div class="info-box warn">
+    <strong>No-SLA Constraint:</strong> Since no SLA/target thresholds are defined, all threshold-dependent methods
+    are excluded: one-sample t-test vs SLA, one-sample proportion z-test vs target, TOST equivalence,
+    and Hotelling's T&sup2; vs target vector. The catalog below contains <strong>10 methods</strong> that produce
+    insights without requiring external reference values. Methods are organized into:
+    <strong>CI Estimation</strong> (3), <strong>Pre-Testing</strong> (1), <strong>Non-Parametric Comparison</strong> (3),
+    <strong>Parametric Comparison</strong> (1), <strong>Variance/Stability</strong> (2).
+  </div>
+
+  <!-- METHOD 1 -->
+  <div class="method-card">
+    <div class="method-name">1. Wilson Confidence Interval (Binary Rates)</div>
+    <span class="tag proportion">Proportion</span>
+    <div class="method-q">"What is the plausible range of the true success/failure rate?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Estimates the 95% confidence interval for binary rates:
+        <code>fault_detection_success_rate</code>, <code>fault_mitigation_success_rate</code>,
+        <code>false_negative_rate</code>, <code>rai_compliance_rate</code>,
+        <code>security_compliance_rate</code>. Reports e.g., "detection rate = 0.20, 95% CI [0.04, 0.62]"
+        — exposing how uncertain the point estimate is at small n.
+      </div>
+      <div>
+        <div class="label">Why Wilson (not Wald)</div>
+        <ul>
+          <li>Wald CI collapses at p near 0 or 1 (produces [0, 0] for p = 0)</li>
+          <li>Wilson CI has better coverage at small n and extreme p</li>
+          <li>Clopper-Pearson used for safety-critical rates (conservative, exact)</li>
+          <li>No SLA needed — purely descriptive interval estimation</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">When to Use Clopper-Pearson Instead</div>
+        For safety-critical metrics (<code>false_positive_rate</code>, <code>rai_compliance_rate</code>)
+        where conservative bounds are needed. Clopper-Pearson is exact (not approximate) and
+        always has &ge; nominal coverage.
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>Point estimate:</strong> observed rate</li>
+          <li><strong>95% Wilson CI:</strong> [lower, upper] bounds</li>
+          <li><strong>CI width:</strong> measure of estimation precision</li>
+          <li><strong>Sample size note:</strong> flag if n &lt; 30 (wide CI expected)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Wilson (1927), <em>J. American Statistical Association</em> 22(158);
+      Agresti &amp; Coull (1998), <em>The American Statistician</em>, 52(2).
+      | <a href="https://arxiv.org/abs/2005.04118" style="color:#2563eb">Ribeiro et al. (ACL 2020)</a> — Clopper-Pearson CIs for failure rates;
+      <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (2011)</a> — effect sizes alongside p-values.
+    </div>
+  </div>
+
+  <!-- METHOD 2 -->
+  <div class="method-card">
+    <div class="method-name">2. Bootstrap Confidence Interval (Continuous Metrics)</div>
+    <span class="tag nonparam">Non-Parametric</span>
+    <div class="method-q">"What is the plausible range for the true mean or P95 of a continuous metric?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Produces confidence intervals for any statistic (mean, median, P95, P99) without
+        distributional assumptions. Applied to: <code>time_to_detect</code>,
+        <code>time_to_mitigate</code>, <code>response_quality_score</code>,
+        <code>reasoning_score</code>, <code>hallucination_score</code>.
+        BCa (bias-corrected accelerated) variant provides accurate CI even for skewed distributions.
+      </div>
+      <div>
+        <div class="label">Why Bootstrap</div>
+        <ul>
+          <li>Classical t-based CI requires normality or large n; bootstrap works at any n</li>
+          <li>Only valid method for quantile inference (P95, P99) — t-tests cannot test quantiles</li>
+          <li>No SLA needed — estimates true parameter range from data alone</li>
+          <li>B = 50,000 resamples (stratified within fault categories) per <a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. (2021)</a>; BCa for bias correction</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Variant Selection</div>
+        <ul>
+          <li><strong>Percentile Bootstrap:</strong> simplest; use for large n (&ge; 50)</li>
+          <li><strong>BCa (Bias-Corrected Accelerated):</strong> preferred; corrects skewness and bias</li>
+          <li><strong>Studentized Bootstrap:</strong> most accurate but computationally expensive</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>Point estimate:</strong> observed statistic (mean, P95, etc.)</li>
+          <li><strong>95% Bootstrap CI:</strong> [lower, upper]</li>
+          <li><strong>Bootstrap standard error</strong></li>
+          <li><strong>CI width:</strong> precision indicator</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Efron (1979), <em>Annals of Statistics</em> 7(1);
+      Efron &amp; Tibshirani (1993), <em>An Introduction to the Bootstrap</em>.
+      | <a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. (2021)</a> — stratified bootstrap, B=50,000.
+    </div>
+  </div>
+
+  <!-- METHOD 3: IQM -->
+  <div class="method-card">
+    <div class="method-name">3. Interquartile Mean — IQM (Robust Central Tendency)</div>
+    <span class="tag nonparam">Non-Parametric</span>
+    <div class="method-q">"What is the robust central tendency, insensitive to outliers and more efficient than median?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        The <strong>25% trimmed mean</strong>: discard top/bottom 25% of values, average the remaining 50%.
+        <code>scipy.stats.trim_mean(scores, 0.25)</code>. Applied to all continuous metrics alongside
+        mean and median. IQM is the <strong>primary aggregate metric</strong> recommended by
+        <a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. (NeurIPS 2021)</a>.
+      </div>
+      <div>
+        <div class="label">Why IQM (not Mean or Median)</div>
+        <ul>
+          <li><strong>Mean</strong>: not robust to outliers, high variance at small n</li>
+          <li><strong>Median</strong>: discards information, poor statistical efficiency</li>
+          <li><strong>IQM</strong>: best of both — robust to outliers (trims extremes), retains statistical efficiency (uses 50% of data)</li>
+          <li>Combine with stratified bootstrap CI (B=50,000) for inference</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Computation</div>
+        <ul>
+          <li>Sort all n observations</li>
+          <li>Discard bottom 25% and top 25% (i.e., observations below Q1 and above Q3)</li>
+          <li>Average the remaining 50%</li>
+          <li>At n=5: discards lowest and highest, averages middle 3</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>IQM value:</strong> robust central tendency</li>
+          <li><strong>95% Stratified Bootstrap CI</strong> for IQM</li>
+          <li><strong>Report alongside</strong> mean and median for comparison</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: <a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. (2021)</a>,
+      "Deep RL at the Edge of the Statistical Precipice," <em>NeurIPS 2021</em> (Outstanding Paper).
+      Library: <a href="https://github.com/google-research/rliable" style="color:#2563eb">rliable</a>.
+    </div>
+  </div>
+
+  <!-- METHOD 4: Shapiro-Wilk -->
+  <div class="method-card">
+    <div class="method-name">4. Shapiro-Wilk Normality Pre-Test</div>
+    <span class="tag param">Pre-Test</span>
+    <div class="method-q">"Can we assume normality before choosing parametric vs. non-parametric tests?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Tests whether data within each group is drawn from a normal distribution.
+        <strong>Must be run before any parametric test</strong> (Welch's ANOVA, t-tests).
+        Per <a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al. (2018)</a>:
+        "Normality cannot be assumed — use bootstrap/permutation tests" unless verified.
+        At n=5, Shapiro-Wilk has limited power but remains the best normality test for small n.
+      </div>
+      <div>
+        <div class="label">Decision Gate</div>
+        <ul>
+          <li><strong>If all groups pass</strong> (p &gt; 0.05): parametric tests permissible (Welch's ANOVA)</li>
+          <li><strong>If any group fails</strong> (p &lt; 0.05): use non-parametric (Kruskal-Wallis)</li>
+          <li><strong>At n &ge; 30:</strong> Shapiro-Wilk has good power — normality determination is reliable. If normality holds, Welch's ANOVA gains full validity</li>
+          <li>Run per fault_category per metric</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Shapiro &amp; Wilk (1965), <em>Biometrika</em> 52(3-4);
+      <a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al. (AAAI 2018)</a>;
+      <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (IST 2011)</a>.
+    </div>
+  </div>
+
+  <!-- METHOD 5: Kruskal-Wallis -->
+  <div class="method-card">
+    <div class="method-name">5. Kruskal-Wallis H Test (Non-Parametric Multi-Group — PRIMARY)</div>
+    <span class="tag nonparam">Non-Parametric</span><span class="tag multi">Multi-Group</span>
+    <div class="method-q">"Do three fault categories differ significantly on a continuous metric?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Rank-based test for equality of medians/distributions across k &ge; 3 groups.
+        <strong>Primary test for cross-category comparison</strong> — remains the default because LLM agent metrics
+        are often skewed/non-normal even at n=30+. At n &ge; 30, Kruskal-Wallis has strong statistical power
+        to detect real differences. However, if Shapiro-Wilk confirms normality for all groups,
+        Welch's ANOVA (Method 8) becomes a valid and more powerful alternative.
+        All three SE methodology papers
+        (<a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand</a>,
+        <a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al.</a>,
+        <a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al.</a>)
+        recommend non-parametric as default.
+      </div>
+      <div>
+        <div class="label">Assumptions</div>
+        <ul>
+          <li>Independent observations</li>
+          <li>Ordinal or continuous metric</li>
+          <li><strong>No normality requirement</strong></li>
+          <li><strong>No equal variance requirement</strong></li>
+          <li>Works well at any n (including n=5)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Post-Hoc</div>
+        If significant: <strong>Mann-Whitney U</strong> pairwise comparisons with
+        <strong>Holm-Bonferroni</strong> correction (k*(k-1)/2 = 3 comparisons for 3 categories).
+        Report <strong>Vargha-Delaney A&sub1;&sub2;</strong> effect size for each pair.
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>H-statistic / p-value</strong> (omnibus test)</li>
+          <li><strong>&epsilon;&sup2;</strong> (epsilon-squared): non-parametric effect size</li>
+          <li><strong>Pairwise Mann-Whitney U + A&sub1;&sub2;</strong> (post-hoc)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Kruskal &amp; Wallis (1952), <em>J. American Statistical Association</em>;
+      <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (IST 2011)</a>;
+      <a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al. (CCS 2018)</a>.
+    </div>
+  </div>
+
+  <!-- METHOD 6: Mann-Whitney U -->
+  <div class="method-card">
+    <div class="method-name">6. Mann-Whitney U Test (Non-Parametric Pairwise)</div>
+    <span class="tag nonparam">Non-Parametric</span>
+    <div class="method-q">"Does this pair of fault categories differ significantly on a metric?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Non-parametric two-sample test — tests whether one group tends to produce
+        larger values than the other. Used as <strong>post-hoc after Kruskal-Wallis</strong>
+        or for direct pairwise comparison between two fault categories.
+        The most recommended pairwise test across all SE methodology literature.
+      </div>
+      <div>
+        <div class="label">Assumptions</div>
+        <ul>
+          <li>Independent samples</li>
+          <li>Ordinal or continuous metric</li>
+          <li>No distributional assumptions</li>
+          <li>Minimum n = 5 per group (adequate)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">When to Use</div>
+        <ul>
+          <li>Post-hoc after significant Kruskal-Wallis</li>
+          <li>Direct comparison between 2 fault categories</li>
+          <li>Always paired with <strong>Holm-Bonferroni</strong> for multiple comparisons</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>U-statistic / p-value</strong></li>
+          <li><strong>Vargha-Delaney A&sub1;&sub2; effect size</strong></li>
+          <li><strong>Rank-biserial correlation r</strong> (= 2U/(n1*n2) - 1)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Mann &amp; Whitney (1947), <em>Annals of Mathematical Statistics</em>;
+      <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (IST 2011)</a>;
+      <a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al. (CCS 2018)</a>.
+    </div>
+  </div>
+
+  <!-- METHOD 7: Vargha-Delaney A12 -->
+  <div class="method-card">
+    <div class="method-name">7. Vargha-Delaney A&sub1;&sub2; (Non-Parametric Effect Size)</div>
+    <span class="tag nonparam">Non-Parametric</span>
+    <div class="method-q">"How large is the difference between two groups, in an interpretable way?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        A&sub1;&sub2; = P(X &gt; Y) + 0.5 &middot; P(X = Y). The probability that a randomly
+        chosen observation from group A is larger than one from group B.
+        <strong>Always report alongside p-values</strong> — statistical significance without
+        effect size is meaningless (Arcuri &amp; Briand 2011).
+      </div>
+      <div>
+        <div class="label">Interpretation</div>
+        <ul>
+          <li><strong>A&sub1;&sub2; = 0.50:</strong> no difference (stochastic equality)</li>
+          <li><strong>|A&sub1;&sub2; - 0.50| &ge; 0.06:</strong> small effect (A&sub1;&sub2; &ge; 0.56 or &le; 0.44)</li>
+          <li><strong>|A&sub1;&sub2; - 0.50| &ge; 0.14:</strong> medium effect (A&sub1;&sub2; &ge; 0.64 or &le; 0.36)</li>
+          <li><strong>|A&sub1;&sub2; - 0.50| &ge; 0.21:</strong> large effect (A&sub1;&sub2; &ge; 0.71 or &le; 0.29)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Why A&sub1;&sub2; (not Cohen's d)</div>
+        <ul>
+          <li>Non-parametric — no normality assumption required</li>
+          <li>Rank-based — robust to outliers</li>
+          <li>Directly interpretable as a probability</li>
+          <li>Preferred in all SE methodology literature over Cohen's d</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Computation</div>
+        <code>A12 = (R1/n1 - (n1+1)/2) / n2</code>
+        where R1 = sum of ranks of group 1 in the combined ranking, n1, n2 = group sizes.
+        Available in <code>scipy</code> via rank-sum statistic conversion.
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Vargha &amp; Delaney (2000), <em>J. Educational &amp; Behavioral Statistics</em> 25(2);
+      <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (IST 2011)</a>.
+    </div>
+  </div>
+
+  <!-- METHOD 8 -->
+  <div class="method-card">
+    <div class="method-name">8. One-Way Welch's ANOVA (Parametric Multi-Group — VALID at n &ge; 30)</div>
+    <span class="tag param">Parametric</span><span class="tag multi">Multi-Group</span>
+    <div class="method-q">"Do three fault categories differ significantly — when Shapiro-Wilk normality passes?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Tests whether population means differ across k &ge; 3 groups.
+        <strong>Conditional on Shapiro-Wilk passing for all groups.</strong> At n &ge; 30, the Central Limit Theorem
+        makes normality assumptions much more reliable. Shapiro-Wilk has good power at this sample size,
+        so its verdict is trustworthy. Welch's variant does
+        not assume equal variances. When normality holds, Welch's ANOVA is <strong>more powerful</strong>
+        than Kruskal-Wallis (it uses actual values, not just ranks).
+      </div>
+      <div>
+        <div class="label">Assumptions</div>
+        <ul>
+          <li>Independent observations</li>
+          <li>Continuous metric</li>
+          <li>Approximate normality per group (CLT at n &ge; 30)</li>
+          <li>Does <em>not</em> require equal variances (Welch correction)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Fallback If Assumptions Fail</div>
+        Kruskal-Wallis H test (Method 5) — this is actually the <strong>default choice</strong>.
+        Welch's ANOVA is used only when Shapiro-Wilk confirms normality for all groups.
+        If significant, post-hoc: Games-Howell comparisons (parametric) or Mann-Whitney U with Holm correction (non-parametric).
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>F-statistic / p-value</strong> (omnibus test)</li>
+          <li><strong>Eta-squared (&eta;&sup2;):</strong> proportion of variance explained</li>
+          <li><strong>Post-hoc pairwise:</strong> Games-Howell comparisons</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Montgomery &amp; Runger, <em>Applied Statistics and Probability for Engineers</em>, Ch. 13;
+      Welch (1951), <em>Biometrika</em> 38.
+      | Conditional on <a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al. (AAAI 2018)</a> recommendation:
+      "normality cannot be assumed" — Shapiro-Wilk must pass first.
+    </div>
+  </div>
+
+  <!-- METHOD 9 -->
+  <div class="method-card">
+    <div class="method-name">9. Chi-Square / Fisher's Exact Test (Rate Comparison)</div>
+    <span class="tag proportion">Proportion</span><span class="tag multi">Multi-Group</span>
+    <div class="method-q">"Are success/failure rates consistent across fault categories?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Tests whether binary rates (<code>fault_detection_success_rate</code>,
+        <code>fault_mitigation_success_rate</code>) are uniform across
+        k &ge; 3 fault categories. <strong>At n &ge; 30, expected cell counts will typically meet the &ge; 5 requirement —
+        Chi-Square test of homogeneity is the PRIMARY test.</strong> Fisher-Freeman-Halton exact test is the fallback
+        when any expected cell count falls below 5 (e.g., when a rate is very close to 0 or 1).
+        No SLA needed — compares categories against each other.
+      </div>
+      <div>
+        <div class="label">Assumptions</div>
+        <ul>
+          <li>Independent observations</li>
+          <li>Binary outcome per trial</li>
+          <li>Expected cell count &ge; 5 in each cell (may need Fisher's exact at small n)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Fallback If Assumptions Fail</div>
+        Fisher-Freeman-Halton exact test (extension of Fisher's exact to r&times;c tables).
+        Use when expected cell counts &lt; 5 due to small sample per category.
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>&chi;&sup2; statistic / p-value</strong></li>
+          <li><strong>Cram&eacute;r's V:</strong> effect size for association strength</li>
+          <li><strong>Standardized residuals:</strong> identify which category is the outlier (|residual| &gt; 2)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Agresti, <em>Categorical Data Analysis</em>, Ch. 3;
+      Cochran (1954), <em>Biometrics</em> 10(4).
+      | Fisher's exact as primary at n&lt;30 per
+      <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (2011)</a>;
+      <a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al. (CCS 2018)</a>.
+    </div>
+  </div>
+
+  <!-- METHOD 10 -->
+  <div class="method-card">
+    <div class="method-name">10. Levene's Test (Variance Stability)</div>
+    <span class="tag param">Parametric</span>
+    <div class="method-q">"Is the agent's run-to-run variance consistent across run batches or fault categories?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Tests equality of variances across groups. Applied to <code>time_to_detect</code>,
+        <code>time_to_mitigate</code>, <code>reasoning_score</code> across run batches or categories.
+        High mean with high variance = unreliable agent. No SLA needed — tests internal consistency.
+      </div>
+      <div>
+        <div class="label">Assumptions</div>
+        <ul>
+          <li>Independent observations within each group</li>
+          <li>Continuous metric</li>
+          <li>More robust to non-normality than Bartlett's test</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Fallback / Complement</div>
+        Brown-Forsythe test (uses median instead of mean — more robust to outliers).
+        Also compute Coefficient of Variation (CV) per group as a descriptive complement.
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>F-statistic / p-value</strong> for variance equality</li>
+          <li><strong>CV per group:</strong> &lt; 0.15 stable, 0.15-0.30 moderate, &gt; 0.30 unstable</li>
+          <li><strong>Variance ratio:</strong> max(&sigma;&sup2;) / min(&sigma;&sup2;) across groups</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Levene (1960), in Olkin et al., <em>Contributions to Probability and Statistics</em>;
+      Brown &amp; Forsythe (1974), <em>J. American Statistical Association</em>.
+      | <a href="https://doi.org/10.1111/rssb.12167" style="color:#2563eb">Peters et al. (JRSS-B 2016)</a> — variance equality across environments.
+    </div>
+  </div>
+
+  <!-- METHOD 11 -->
+  <div class="method-card">
+    <div class="method-name">11. CUSUM / Page-Hinkley — Temporal Drift Detection</div>
+    <span class="tag drift">Drift</span>
+    <div class="method-q">"Has a metric drifted over successive certification cycles?"</div>
+    <div class="detail-row">
+      <div>
+        <div class="label">What It Measures</div>
+        Sequential change-point detection for metrics tracked across ordered
+        certification runs. Detects gradual degradation in <code>fault_detection_success_rate</code>,
+        <code>reasoning_score</code>, <code>hallucination_score</code> that a single-snapshot test misses.
+        No SLA needed — detects shift from the metric's own historical mean.
+      </div>
+      <div>
+        <div class="label">Assumptions</div>
+        <ul>
+          <li>Temporally ordered observations</li>
+          <li>Stationary process under H<sub>0</sub> (no drift)</li>
+          <li>Requires &ge; 3 certification cycles for meaningful detection</li>
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div>
+        <div class="label">Fallback If Assumptions Fail</div>
+        Mann-Kendall trend test (nonparametric monotonic trend detection).
+        Alternatively, Bayesian online change-point detection (Adams &amp; MacKay, 2007).
+      </div>
+      <div>
+        <div class="label">Output Signals</div>
+        <ul>
+          <li><strong>Change-point detected:</strong> yes/no + location index</li>
+          <li><strong>CUSUM chart:</strong> cumulative sum path over time</li>
+          <li><strong>Drift magnitude:</strong> pre vs post change-point mean shift</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ref">
+      Ref: Montgomery, <em>Introduction to Statistical Quality Control</em>, Ch. 9;
+      Page (1954), <em>Biometrika</em>; MLOps drift: Gama et al. (2014).
+      | <a href="https://arxiv.org/abs/1905.02400" style="color:#2563eb">Basiri et al. (ICSE 2019)</a> — steady-state hypothesis testing, sequential analysis.
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION E — HYPOTHESIS LIBRARY
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION E</span>
+  <h2>Hypothesis Library — 6 No-SLA Hypotheses (Single Agent)</h2>
+
+  <div class="info-box">
+    <strong>Selection process:</strong> 1,010 scenarios generated (18 metrics &times; 7 fault groupings &times; 14 test types &times; 5 contexts).
+    All SLA-dependent tests removed. Remaining scenarios consolidated by purpose into
+    <strong>6 non-redundant hypotheses</strong>: CI estimation (continuous + binary), cross-category comparison
+    (continuous + binary), variance stability, and temporal drift.
+    Worst-category assessment and tiered certification are <strong>decision logic</strong> (Section F), not statistical tests.
+    Methodology grounded in <strong>15 peer-reviewed papers</strong>; each hypothesis cites its supporting literature.
+  </div>
+
+  <div style="overflow-x:auto">
+  <table>
+    <tr>
+      <th style="width:30px">ID</th>
+      <th style="width:160px">Scenario</th>
+      <th>H<sub>0</sub></th>
+      <th>H<sub>1</sub></th>
+      <th>Metric(s)</th>
+      <th style="width:140px">Test Name</th>
+      <th>Why This Test &amp; How to Read Results</th>
+      <th style="width:105px">Fallback</th>
+      <th style="width:95px">Cert Signal</th>
+    </tr>
+
+    <!-- H-01 -->
+    <tr>
+      <td><strong>H-01</strong></td>
+      <td>Continuous Metric CI Estimation</td>
+      <td>N/A (estimation)</td>
+      <td>N/A (estimation)</td>
+      <td><code>time_to_detect</code>, <code>time_to_mitigate</code>, <code>response_quality_score</code>, <code>reasoning_score</code>, <code>hallucination_score</code> (IQM, mean, P95 per fault_category)</td>
+      <td><strong>Stratified Bootstrap CI (BCa, B=50,000)</strong></td>
+      <td>Estimates the plausible range of the true value for each continuous metric, per fault category.
+        <strong>IQM</strong> (25% trimmed mean via <code>scipy.stats.trim_mean(scores, 0.25)</code>) is the primary aggregate — more robust than mean, more efficient than median
+        (<a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. 2021</a>).
+        Stratified bootstrap resamples within each fault_category independently (B=50,000).
+        At n &ge; 30, CIs are narrow enough for meaningful certification decisions.
+        <strong>For hallucination_score:</strong> upper bound of CI is the key safety signal — any non-zero upper bound flags risk. Apply <strong>Holm-Bonferroni</strong> correction for safety-critical metrics (per <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand 2011</a>).</td>
+      <td>Percentile bootstrap (B=10,000); t-based CI if Shapiro-Wilk confirms normality</td>
+      <td><span class="badge info">ESTIMATE</span><br>CI width = precision</td>
+    </tr>
+
+    <!-- H-02 -->
+    <tr>
+      <td><strong>H-02</strong></td>
+      <td>Binary Rate CI Estimation</td>
+      <td>N/A (estimation)</td>
+      <td>N/A (estimation)</td>
+      <td><code>fault_detection_success_rate</code>, <code>fault_mitigation_success_rate</code>, <code>false_negative_rate</code>, <code>rai_compliance_rate</code>, <code>security_compliance_rate</code> (per fault_category)</td>
+      <td><strong>Wilson Confidence Interval</strong></td>
+      <td>Estimates the plausible range of the true success/failure rate for each binary metric, per fault category.
+        Wilson CI handles extreme rates (near 0 or 1) correctly, unlike Wald CI which collapses.
+        At n=30, rate = 0.80 gives CI [0.62, 0.91] — actionable. Rate = 0.0 gives CI [0.0, 0.12].
+        <strong>Lower bound</strong> is the key certification signal.
+        Use <strong>Clopper-Pearson</strong> (exact, conservative) for safety-critical rates like <code>rai_compliance_rate</code>
+        (<a href="https://arxiv.org/abs/2005.04118" style="color:#2563eb">Ribeiro et al. 2020</a>).</td>
+      <td>Clopper-Pearson exact CI (conservative, for safety-critical rates)</td>
+      <td><span class="badge info">ESTIMATE</span><br>Lower bound = safety floor</td>
+    </tr>
+
+    <!-- H-03 -->
+    <tr>
+      <td><strong>H-03</strong></td>
+      <td>Cross-Category Comparison (Continuous)</td>
+      <td>&mu;<sub>app</sub> = &mu;<sub>net</sub> = &mu;<sub>res</sub></td>
+      <td>At least one &mu;<sub>k</sub> differs</td>
+      <td><code>time_to_detect</code>, <code>time_to_mitigate</code>, <code>response_quality_score</code>, <code>reasoning_score</code>, <code>hallucination_score</code></td>
+      <td><strong>Shapiro-Wilk &rarr; Kruskal-Wallis H</strong> (primary)<br><em>Welch's ANOVA</em> (if normality holds)</td>
+      <td>Tests whether the agent handles all fault types equally.
+        <strong>Step 1:</strong> Shapiro-Wilk normality test per group (reliable at n &ge; 30).
+        <strong>Step 2:</strong> If any group fails normality &rarr; Kruskal-Wallis (rank-based, no assumptions). If all pass &rarr; Welch's ANOVA (more powerful).
+        <strong>Post-hoc:</strong> Mann-Whitney U pairwise with <strong>Holm-Bonferroni</strong> correction (3 comparisons for 3 categories).
+        <strong>Effect size:</strong> Vargha-Delaney A&sub1;&sub2; for each pair — P(X &gt; Y). Thresholds: 0.56 small, 0.64 medium, 0.71 large.
+        Report &epsilon;&sup2; (epsilon-squared) as omnibus effect size.
+        Per <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (2011)</a>,
+        <a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al. (2018)</a>,
+        <a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al. (2018)</a>.</td>
+      <td>Welch's ANOVA + Games-Howell post-hoc (if Shapiro-Wilk passes all groups)</td>
+      <td><span class="badge warn">FLAG</span> if disparity<br><span class="badge pass">OK</span> if uniform</td>
+    </tr>
+
+    <!-- H-04 -->
+    <tr>
+      <td><strong>H-04</strong></td>
+      <td>Cross-Category Comparison (Binary Rates)</td>
+      <td>p<sub>app</sub> = p<sub>net</sub> = p<sub>res</sub></td>
+      <td>At least one p<sub>k</sub> differs</td>
+      <td><code>fault_detection_success_rate</code>, <code>fault_mitigation_success_rate</code></td>
+      <td><strong>Chi-Square Test of Homogeneity</strong> (primary at n &ge; 30)<br><em>Fisher-Freeman-Halton Exact</em> (fallback)</td>
+      <td>Tests whether success/failure rates are uniform across fault categories, or if the agent is weaker on some fault types.
+        At n &ge; 30, expected cell counts typically meet the &ge; 5 requirement — Chi-Square is the primary test.
+        Fisher's exact is the fallback when rates are near 0 or 1.
+        Report <strong>Cram&eacute;r's V</strong> effect size and <strong>standardized residuals</strong> to identify which category is the outlier (|residual| &gt; 2).
+        Report <strong>A&sub1;&sub2;</strong> for pairwise rate comparisons.
+        Per <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (2011)</a>.</td>
+      <td>Fisher-Freeman-Halton exact test (when expected cells &lt; 5)</td>
+      <td><span class="badge warn">FLAG</span> if non-uniform<br><span class="badge pass">OK</span> if uniform</td>
+    </tr>
+
+    <!-- H-05 -->
+    <tr>
+      <td><strong>H-05</strong></td>
+      <td>Run-to-Run Variance Stability</td>
+      <td>&sigma;&sup2;<sub>cat1</sub> = &sigma;&sup2;<sub>cat2</sub> = &sigma;&sup2;<sub>cat3</sub></td>
+      <td>At least one &sigma;&sup2; differs</td>
+      <td><code>time_to_detect</code>, <code>time_to_mitigate</code>, <code>reasoning_score</code></td>
+      <td><strong>Levene's Test</strong></td>
+      <td>Tests whether the agent's variability (spread of results) is consistent across fault types.
+        An agent with high mean but high variance is <strong>unreliable</strong>. Levene's is more robust to non-normality than Bartlett's.
+        Compute <strong>CV</strong> (coefficient of variation) per group: &lt; 0.15 stable, 0.15-0.30 moderate, &gt; 0.30 unstable.
+        <strong>Variance ratio:</strong> max(&sigma;&sup2;) / min(&sigma;&sup2;) across groups — ratio &gt; 4&times; is an ALERT.
+        Per <a href="https://doi.org/10.1111/rssb.12167" style="color:#2563eb">Peters et al. (JRSS-B 2016)</a> — variance equality across environments.</td>
+      <td>Brown-Forsythe (uses median instead of mean — more robust to outliers)</td>
+      <td><span class="badge warn">FLAG</span> if unstable<br><span class="badge pass">OK</span> if stable</td>
+    </tr>
+
+    <!-- H-06 -->
+    <tr>
+      <td><strong>H-06</strong></td>
+      <td>Temporal Drift Detection</td>
+      <td>No change-point in metric sequence</td>
+      <td>Change-point exists at time t*</td>
+      <td><code>fault_detection_success_rate</code>, <code>hallucination_score</code>, <code>reasoning_score</code> (across certification cycles)</td>
+      <td><strong>CUSUM / Page-Hinkley</strong></td>
+      <td>Sequential change-point detection across ordered certification runs. Catches gradual degradation that single-snapshot tests miss.
+        No SLA needed — detects shift from the metric's own historical mean.
+        Requires &ge; 3 certification cycles. Drift in <code>hallucination_score</code> is highest priority — any upward trend is a safety alarm.
+        Per <a href="https://arxiv.org/abs/1905.02400" style="color:#2563eb">Basiri et al. (ICSE 2019)</a> — steady-state hypothesis, sequential analysis.</td>
+      <td>Mann-Kendall trend test (non-parametric monotonic trend)</td>
+      <td><span class="badge fail">ALERT</span> if safety drift<br><span class="badge warn">FLAG</span> if perf drift</td>
+    </tr>
+  </table>
+  </div>
+
+  <div class="info-box">
+    <strong>Multiple-Comparisons Guardrail:</strong> When running H-03 and H-04 for a single
+    certification, apply <strong>Holm-Bonferroni step-down correction</strong> (uniformly more powerful than
+    plain Bonferroni; per Arcuri &amp; Briand 2011) for <strong>Tier 1 safety-critical metrics</strong>.
+    Apply <strong>Benjamini-Hochberg FDR correction</strong> at q&nbsp;=&nbsp;0.05 for <strong>Tier 2 quality metrics</strong>.
+    For pairwise post-hoc tests (Mann-Whitney U after Kruskal-Wallis), use Holm correction within
+    each hypothesis. H-01 and H-02 produce <strong>confidence intervals only</strong> (no p-values) and
+    do not require correction.
+    <br><br>
+    <strong>Research Grounding:</strong>
+    <a href="https://arxiv.org/abs/2108.13264" style="color:#2563eb">Agarwal et al. (2021)</a> — IQM, stratified bootstrap, performance profiles;
+    <a href="https://doi.org/10.1016/j.infsof.2011.02.004" style="color:#2563eb">Arcuri &amp; Briand (2011)</a> — A&sub1;&sub2; effect size, non-parametric default, Holm correction;
+    <a href="https://arxiv.org/abs/1709.06560" style="color:#2563eb">Henderson et al. (2018)</a> — CI-first, normality checking;
+    <a href="https://doi.org/10.1145/3243734.3243804" style="color:#2563eb">Klees et al. (2018)</a> — minimum 30 trials, Mann-Whitney U;
+    <a href="https://arxiv.org/abs/1911.08731" style="color:#2563eb">Sagawa et al. (2020)</a> — worst-group accuracy;
+    <a href="https://arxiv.org/abs/2005.04118" style="color:#2563eb">Ribeiro et al. (2020)</a> — capability-based testing;
+    <a href="https://arxiv.org/abs/1905.02400" style="color:#2563eb">Basiri et al. (ICSE 2019)</a> — steady-state hypothesis, sequential testing;
+    <a href="https://doi.org/10.1109/JPROC.2021.3058954" style="color:#2563eb">Sch&ouml;lkopf et al. (2021)</a> — invariance, worst-case risk;
+    <a href="https://doi.org/10.1145/3143561" style="color:#2563eb">Chen et al. (2018)</a> — metamorphic testing;
+    <a href="https://doi.org/10.1111/rssb.12167" style="color:#2563eb">Peters et al. (2016)</a> — causal invariance;
+    <a href="https://arxiv.org/abs/2401.13178" style="color:#2563eb">Ma et al. (2024)</a> — progress rate, multi-dimensional analysis;
+    <a href="https://arxiv.org/abs/2305.20050" style="color:#2563eb">Lightman et al. (2023)</a> — process supervision;
+    <a href="https://arxiv.org/abs/1903.12261" style="color:#2563eb">Hendrycks &amp; Dietterich (2019)</a> — corruption robustness;
+    <a href="https://arxiv.org/abs/1710.10571" style="color:#2563eb">Sinha et al. (2018)</a> — Wasserstein DRO certificates;
+    <a href="https://doi.org/10.2307/1268522" style="color:#2563eb">McKay et al. (1979)</a> — Latin Hypercube Sampling.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION F — CERTIFICATION DECISION LOGIC
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION F</span>
+  <h2>Certification Decision Logic (No-SLA Mode)</h2>
+
+  <div class="info-box warn">
+    <strong>No-SLA Implication:</strong> Without predefined thresholds, the framework cannot produce
+    binary PASS/FAIL verdicts against targets. Instead, it produces <strong>evidence-based assessments</strong>:
+    confidence intervals quantify uncertainty, comparative tests flag category-specific weaknesses,
+    and drift detection monitors stability over time. Stakeholders use these signals to set future SLAs
+    or make informed certification decisions.
+  </div>
+
+  <div class="decision-grid">
+    <div class="decision-card pass">
+      <div class="icon">&#10004;</div>
+      <div class="label">CONSISTENT</div>
+      <p>Narrow CIs (low uncertainty).
+      No significant cross-category disparity (ANOVA p &gt; 0.05).
+      Stable variance (Levene's p &gt; 0.05, CV &lt; 0.15).
+      No temporal drift detected.
+      Uniform rates across categories.</p>
+    </div>
+    <div class="decision-card cond">
+      <div class="icon">&#9888;</div>
+      <div class="label">FLAGGED</div>
+      <p>Wide CIs (high uncertainty — more runs needed).
+      Significant cross-category disparity detected.
+      Variance instability (CV &gt; 0.30 in any category).
+      Partial drift without safety implication.
+      Non-uniform rates across fault types.</p>
+    </div>
+    <div class="decision-card fail">
+      <div class="icon">&#10008;</div>
+      <div class="label">ALERT</div>
+      <p>Temporal drift in safety metrics (hallucination increasing).
+      Extreme cross-category disparity (&epsilon;&sup2; &gt; 0.25 or A&sub1;&sub2; &gt; 0.71).
+      Variance ratio &gt; 4&times; between categories.
+      Hallucination CI upper bound &gt; 0 with increasing trend.
+      Detection rate CI lower bound near zero.
+      <strong>Worst-category floor at 0.0 for any Tier 1 metric.</strong></p>
+    </div>
+  </div>
+
+  <h3>Decision Parameters</h3>
+  <table>
+    <tr>
+      <th>Parameter</th>
+      <th>Symbol</th>
+      <th>Default</th>
+      <th>Purpose</th>
+    </tr>
+    <tr>
+      <td>Significance Level</td>
+      <td>&alpha;</td>
+      <td>0.05</td>
+      <td>Maximum Type I error rate for comparative tests (Kruskal-Wallis, Fisher's, Levene's).</td>
+    </tr>
+    <tr>
+      <td>Confidence Interval</td>
+      <td>1 &minus; &alpha;</td>
+      <td>95%</td>
+      <td>Range capturing the true parameter. Used for all CI estimation (Wilson, Bootstrap, IQM).</td>
+    </tr>
+    <tr>
+      <td>Bootstrap Resamples</td>
+      <td>B</td>
+      <td>50,000</td>
+      <td>Number of resamples for Stratified Bootstrap CI. Per Agarwal et al. (2021) — <strong>50,000 not 10,000</strong> for stable results. BCa variant for bias correction.</td>
+    </tr>
+    <tr>
+      <td>IQM Trim</td>
+      <td>&alpha;<sub>trim</sub></td>
+      <td>0.25</td>
+      <td>Interquartile Mean: discard top/bottom 25%, average remaining 50%. <code>scipy.stats.trim_mean(scores, 0.25)</code>. More robust than mean, more efficient than median (Agarwal et al. 2021).</td>
+    </tr>
+    <tr>
+      <td>A&sub1;&sub2; Effect Size Thresholds</td>
+      <td>A&sub1;&sub2;</td>
+      <td>0.56 small, 0.64 medium, 0.71 large</td>
+      <td>Vargha-Delaney A&sub1;&sub2; = P(X &gt; Y). Non-parametric, rank-based, directly interpretable (Arcuri &amp; Briand 2011).</td>
+    </tr>
+    <tr>
+      <td>CV Stability Threshold</td>
+      <td>CV</td>
+      <td>&le; 0.30</td>
+      <td>Coefficient of Variation. CV &gt; 0.30 flags unreliable metric within a category.</td>
+    </tr>
+    <tr>
+      <td>Minimum Sample Size</td>
+      <td>n</td>
+      <td>&ge; 30 (operational)</td>
+      <td>n &ge; 30 per fault category is the operational standard. CLT holds, CIs are narrow, all tests are well-powered. Satisfies Klees et al. (CCS 2018) minimum 30-trial requirement. Ideal: n &ge; 1,000 (Arcuri &amp; Briand 2011).</td>
+    </tr>
+    <tr>
+      <td>Tier 1 Correction</td>
+      <td>Holm</td>
+      <td>Holm-Bonferroni step-down</td>
+      <td>For safety-critical metrics (detection, mitigation, hallucination). Uniformly more powerful than plain Bonferroni while controlling FWER (Arcuri &amp; Briand 2011).</td>
+    </tr>
+    <tr>
+      <td>Tier 2 Correction</td>
+      <td>q</td>
+      <td>BH-FDR at 0.05</td>
+      <td>Benjamini-Hochberg false discovery rate control for quality gate metrics.</td>
+    </tr>
+    <tr>
+      <td>Worst-Category Floor</td>
+      <td>min<sub>g</sub></td>
+      <td>min across all fault categories</td>
+      <td>Certification = min(metric across categories). Per Sagawa et al. (2020) Group DRO: evaluation is binding at weakest group.</td>
+    </tr>
+  </table>
+
+  <h3>Worst-Category Assessment (Binding Constraint)</h3>
+  <div class="info-box">
+    <strong>Certification is judged by the weakest fault category, not the average.</strong>
+    Per <a href="https://arxiv.org/abs/1911.08731" style="color:#2563eb">Sagawa et al. (2020, Group DRO)</a> and
+    <a href="https://doi.org/10.1109/JPROC.2021.3058954" style="color:#2563eb">Sch&ouml;lkopf et al. (2021)</a>:
+    worst-case risk across groups is the binding certification signal.
+    <br><br>
+    <strong>How it works:</strong> For every Tier 1 metric, compute the CI lower bound per fault category.
+    The minimum across categories becomes the certification floor.
+    E.g., if detection_rate CI lower bounds are: app=0.62, net=0.0, res=0.58 &rarr; <strong>certification floor = 0.0 (network_fault)</strong>.
+    Aggregate scores that hide this weakness are misleading.
+    <br><br>
+    <strong>Transfer risk:</strong> <code>max(|metric_i - metric_j|)</code> across all category pairs.
+    Quantifies the maximum performance gap — a high transfer risk means the agent is specialized, not general.
+  </div>
+
+  <h3>Tiered Assessment Pipeline</h3>
+  <div class="info-box">
+    <strong>Not all metrics are equally critical.</strong>
+    Per <a href="https://arxiv.org/abs/2005.04118" style="color:#2563eb">Ribeiro et al. (ACL 2020)</a> CheckList capability tiers:
+    <br><br>
+    <strong>Tier 1 (Safety-Critical &mdash; Must-Have):</strong>
+    <code>fault_detection_success_rate</code>, <code>fault_mitigation_success_rate</code>,
+    <code>time_to_detect</code>, <code>hallucination_score</code>.
+    Uses <strong>Holm-Bonferroni</strong> correction and <strong>Clopper-Pearson CIs</strong>. Worst-category binding applies.
+    <br><br>
+    <strong>Tier 2 (Quality Gate):</strong>
+    <code>false_positive_rate</code>, <code>root_cause_correctness</code>,
+    <code>action_correctness_score</code>, <code>reasoning_score</code>.
+    Uses standard Wilson/Bootstrap CIs with <strong>BH-FDR</strong> correction.
+    <br><br>
+    <strong>Decision rule:</strong> Evaluate Tier 1 first. If ANY Tier 1 metric in ANY category produces ALERT &rarr;
+    certification = <span class="badge fail">ALERT</span> regardless of Tier 2.
+    Only if all Tier 1 metrics are CONSISTENT or FLAGGED, proceed to Tier 2.
+    Final assessment = max(worst Tier 1 signal, worst Tier 2 signal) with Tier 1 weight &ge; Tier 2.
+  </div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION F2 — CROSS-EXPERIMENT ANALYSIS: POOLING vs META-ANALYSIS
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION F2</span>
+  <h2>Cross-Experiment Analysis: Why Per-Experiment Testing, Not Pooling</h2>
+
+  <p>When an agent is certified across <strong>multiple experiments</strong> with overlapping faults
+  (e.g., Experiment 1 tests {f1, f2, f3} &times; 30 runs; Experiment 2 tests {f1, f5} &times; 20 runs),
+  fault f1 accumulates 50 observations from two different experimental contexts.
+  A critical design question arises: <strong>should the 50 f1 observations be pooled for hypothesis testing,
+  or should tests remain scoped per experiment with meta-analytic combination?</strong></p>
+
+  <div class="info-box">
+    <strong>Decision: Per-experiment hypothesis testing with meta-analytic combination (Level 2 architecture).</strong>
+    Raw data pooling across experiments is statistically invalid when the experimental context
+    (fault combination) acts as a confounding variable. The literature from clinical trials, genomics,
+    machine learning evaluation, and causal inference converges on this conclusion.
+  </div>
+
+  <h3>Why Naive Pooling Is Invalid</h3>
+
+  <div class="card-grid three">
+    <div class="card">
+      <div class="card-title">Simpson's Paradox</div>
+      <p>Aggregating data across subgroups with different confounder distributions can
+      <strong>reverse the direction</strong> of observed effects. In the canonical example
+      (<a href="https://doi.org/10.1126/science.187.4175.398" style="color:#2563eb">Bickel et al., Science 1975</a>),
+      men had higher overall admission rates at UC Berkeley, but no individual department showed bias.
+      Pooling f1 data from Experiment 1 (alongside f2, f3) and Experiment 2 (alongside f5) risks the same reversal.
+      <a href="https://doi.org/10.1017/CBO9780511803161" style="color:#2563eb">Pearl (2009)</a> proved this arises from
+      conflating observational with interventional probabilities when confounders exist.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Batch Effects</div>
+      <p><a href="https://doi.org/10.1093/biostatistics/kxj037" style="color:#2563eb">Johnson et al. (Biostatistics, 2007)</a>
+      stated: <strong>&ldquo;it is inappropriate to combine data sets without adjusting for batch effects.&rdquo;</strong>
+      Different fault combinations constitute different experimental batches.
+      <a href="https://doi.org/10.1038/nrg2825" style="color:#2563eb">Leek et al. (Nature Reviews Genetics, 2010)</a>
+      showed that <strong>correlations can reverse sign across batches</strong>, and standard normalization
+      does not fix this. When batch effects correlate with the outcome, pooling corrupts
+      the entire correlation structure.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Ecological Fallacy</div>
+      <p><a href="https://doi.org/10.1093/ije/dyn357" style="color:#2563eb">Robinson (American Sociological Review, 1950)</a>
+      established that group-level correlations cannot approximate individual-level correlations.
+      <a href="https://doi.org/10.1093/ije/30.6.1343" style="color:#2563eb">Greenland (Int J Epidemiology, 2001)</a>
+      showed ecological data provide &ldquo;only marginal observations on the joint distribution&rdquo;
+      and cannot identify individual-level effects. Aggregate experiment data provides only a
+      marginal view of per-experiment agent behavior.</p>
+    </div>
+  </div>
+
+  <h3>The Correct Approach: Two-Level Architecture</h3>
+
+  <table>
+    <tr>
+      <th style="width:140px">Level</th>
+      <th>Scope</th>
+      <th>What Runs</th>
+      <th>Output</th>
+    </tr>
+    <tr>
+      <td><strong>Level 1</strong><br>Per-Experiment</td>
+      <td>Within each experiment (same fault combination, same context)</td>
+      <td>H-01 through H-05: CIs, cross-category comparisons, variance stability.
+        All observations come from the same experimental context &mdash; no confounding.</td>
+      <td>Per-experiment statistical evidence block + certificate</td>
+    </tr>
+    <tr>
+      <td><strong>Level 2</strong><br>Cross-Experiment</td>
+      <td>Across experiments (different fault combinations, different contexts)</td>
+      <td><strong>Homogeneity pre-test</strong> (Mann-Whitney U or Kolmogorov-Smirnov) on shared faults.
+        If homogeneous (p &gt; 0.05): pool is valid &mdash; run H-01/H-02 on combined data for tighter CIs.
+        If <em>not</em> homogeneous: do NOT pool &mdash; report separately, flag context-dependency.
+        <strong>H-06 (drift)</strong> runs across experiment temporal ordering.</td>
+      <td>Combined certificate with per-experiment evidence + cross-experiment meta-analysis</td>
+    </tr>
+  </table>
+
+  <div class="info-box warn">
+    <strong>Fault co-occurrence as a confounder:</strong> When agent A is tested on fault f1 alongside
+    {f2, f3} in Experiment 1, and alongside {f5} in Experiment 2, the agent's resource allocation,
+    reasoning path, and timing on f1 may be influenced by co-occurring faults. This makes the
+    experiment context a confounder &mdash; correlated with both the treatment (fault injection)
+    and the outcome (agent metrics). Pooling without adjustment produces estimates that
+    <strong>&ldquo;may not actually exist in any population&rdquo;</strong>
+    (<a href="https://training.cochrane.org/handbook" style="color:#2563eb">Cochrane Handbook, 2024</a>,
+    Mandatory Expectation C62).
+  </div>
+
+  <h3>Meta-Analytic Combination: How It Works</h3>
+
+  <p>The combined certificate uses <strong>random-effects meta-analysis</strong>
+  (<a href="https://doi.org/10.1016/0197-2456(86)90046-2" style="color:#2563eb">DerSimonian &amp; Laird, 1986</a>)
+  to combine per-experiment estimates while accounting for between-experiment heterogeneity:</p>
+
+  <div class="card-grid two">
+    <div class="card">
+      <div class="card-title">Step 1: Assess Heterogeneity</div>
+      <p>For each shared fault, compute the <strong>I&sup2; statistic</strong>
+      (<a href="https://doi.org/10.1002/sim.1186" style="color:#2563eb">Higgins &amp; Thompson, 2002</a>)
+      &mdash; the proportion of total variation due to between-experiment differences rather than sampling error.</p>
+      <ul>
+        <li><strong>I&sup2; &lt; 40%:</strong> Low heterogeneity &mdash; pooling may be acceptable</li>
+        <li><strong>I&sup2; = 40&ndash;75%:</strong> Moderate heterogeneity &mdash; random-effects model required</li>
+        <li><strong>I&sup2; &gt; 75%:</strong> Substantial heterogeneity &mdash; do not pool, report separately</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Step 2: Combine or Report Separately</div>
+      <p>If I&sup2; is acceptable, combine per-experiment effect estimates using inverse-variance weighting
+      with the DerSimonian-Laird &tau;&sup2; estimator. The random-effects model yields
+      <strong>wider confidence intervals</strong> than naive pooling
+      (<a href="https://doi.org/10.1002/jrsm.12" style="color:#2563eb">Borenstein et al., 2010</a>),
+      properly reflecting between-experiment uncertainty.</p>
+      <p>If I&sup2; is high: report per-experiment results side-by-side and flag
+      <strong>context-dependent fault response</strong> &mdash; this itself is a certification finding.</p>
+    </div>
+  </div>
+
+  <h3>Combined Certificate Structure</h3>
+
+  <div class="schema-block"><span class="comment">// Combined Certificate with Two-Level Architecture</span>
+{
+  <span class="key">"combined_certificate"</span>: {
+    <span class="key">"agent_id"</span>: <span class="str">"agent-abc"</span>,
+
+    <span class="key">"per_experiment_evidence"</span>: [
+      {
+        <span class="key">"experiment_id"</span>: <span class="str">"exp_001"</span>,
+        <span class="key">"faults"</span>: [<span class="str">"f1"</span>, <span class="str">"f2"</span>, <span class="str">"f3"</span>],
+        <span class="key">"runs"</span>: <span class="num">30</span>,
+        <span class="key">"statistical_evidence"</span>: { ... }       <span class="comment">// H-01 through H-05 (scoped)</span>
+      },
+      {
+        <span class="key">"experiment_id"</span>: <span class="str">"exp_002"</span>,
+        <span class="key">"faults"</span>: [<span class="str">"f1"</span>, <span class="str">"f5"</span>],
+        <span class="key">"runs"</span>: <span class="num">20</span>,
+        <span class="key">"statistical_evidence"</span>: { ... }       <span class="comment">// H-01 through H-05 (scoped)</span>
+      }
+    ],
+
+    <span class="key">"cross_experiment_analysis"</span>: {
+      <span class="key">"shared_faults"</span>: {
+        <span class="key">"f1"</span>: {
+          <span class="key">"total_observations"</span>: <span class="num">50</span>,           <span class="comment">// 30 + 20</span>
+          <span class="key">"sources"</span>: [<span class="str">"exp_001"</span>, <span class="str">"exp_002"</span>],
+          <span class="key">"homogeneity_test"</span>: {
+            <span class="key">"test"</span>: <span class="str">"mann_whitney_u"</span>,
+            <span class="key">"p_value"</span>: <span class="num">0.34</span>,
+            <span class="key">"result"</span>: <span class="str">"homogeneous"</span>         <span class="comment">// p > 0.05: same distribution</span>
+          },
+          <span class="key">"i_squared"</span>: <span class="num">22.4</span>,                  <span class="comment">// low heterogeneity</span>
+          <span class="key">"poolable"</span>: <span class="bool">true</span>,
+          <span class="key">"combined_ci"</span>: {                    <span class="comment">// tighter CI from n=50</span>
+            <span class="key">"method"</span>: <span class="str">"random_effects_dsl"</span>,
+            <span class="key">"time_to_detect_iqm"</span>: { <span class="key">"ci_95"</span>: [<span class="num">245.2</span>, <span class="num">418.7</span>], <span class="key">"ci_width"</span>: <span class="num">173.5</span> }
+          }
+        }
+      },
+      <span class="key">"unique_faults"</span>: {
+        <span class="key">"f2"</span>: { <span class="key">"source"</span>: <span class="str">"exp_001"</span>, <span class="key">"runs"</span>: <span class="num">30</span> },
+        <span class="key">"f3"</span>: { <span class="key">"source"</span>: <span class="str">"exp_001"</span>, <span class="key">"runs"</span>: <span class="num">30</span> },
+        <span class="key">"f5"</span>: { <span class="key">"source"</span>: <span class="str">"exp_002"</span>, <span class="key">"runs"</span>: <span class="num">20</span>, <span class="key">"adequacy"</span>: <span class="str">"marginal"</span> }
+      }
+    },
+
+    <span class="key">"fault_coverage_summary"</span>: {
+      <span class="key">"f1"</span>: { <span class="key">"total_runs"</span>: <span class="num">50</span>, <span class="key">"status"</span>: <span class="str">"sufficient"</span> },
+      <span class="key">"f2"</span>: { <span class="key">"total_runs"</span>: <span class="num">30</span>, <span class="key">"status"</span>: <span class="str">"sufficient"</span> },
+      <span class="key">"f3"</span>: { <span class="key">"total_runs"</span>: <span class="num">30</span>, <span class="key">"status"</span>: <span class="str">"sufficient"</span> },
+      <span class="key">"f5"</span>: { <span class="key">"total_runs"</span>: <span class="num">20</span>, <span class="key">"status"</span>: <span class="str">"marginal"</span> }
+    }
+  }
+}</div>
+
+  <h3>Research Grounding (10 Papers)</h3>
+
+  <table>
+    <tr>
+      <th style="width:50px">Category</th>
+      <th style="width:280px">Paper</th>
+      <th>Key Finding Supporting Per-Experiment Analysis</th>
+    </tr>
+    <tr>
+      <td>Simpson's Paradox</td>
+      <td><a href="https://doi.org/10.1126/science.187.4175.398" style="color:#2563eb">Bickel, Hammel &amp; O'Connell (Science, 1975)</a></td>
+      <td>Pooling across heterogeneous subgroups reversed the direction of observed gender bias. The aggregate told the opposite story from every individual department.</td>
+    </tr>
+    <tr>
+      <td>Causal Inference</td>
+      <td><a href="https://doi.org/10.1017/CBO9780511803161" style="color:#2563eb">Pearl, <em>Causality</em> (Cambridge UP, 2009)</a></td>
+      <td>Proved Simpson's Paradox arises from conflating P(S|T) with P(S|do(T)). When confounders exist, the pooled association diverges from the causal effect. The back-door criterion defines when conditioning eliminates confounding.</td>
+    </tr>
+    <tr>
+      <td>Batch Effects</td>
+      <td><a href="https://doi.org/10.1093/biostatistics/kxj037" style="color:#2563eb">Johnson, Li &amp; Rabinovic (Biostatistics, 2007)</a></td>
+      <td>&ldquo;It is inappropriate to combine data sets without adjusting for batch effects.&rdquo; Proposed ComBat empirical Bayes framework for cross-batch adjustment.</td>
+    </tr>
+    <tr>
+      <td>Batch Effects</td>
+      <td><a href="https://doi.org/10.1038/nrg2825" style="color:#2563eb">Leek et al. (Nature Reviews Genetics, 2010)</a></td>
+      <td>Correlations reverse sign across batches. The most dangerous case: batch effects correlated with outcome of interest. Standard normalization does not fix this.</td>
+    </tr>
+    <tr>
+      <td>Ecological Fallacy</td>
+      <td><a href="https://doi.org/10.1093/ije/dyn357" style="color:#2563eb">Robinson (American Sociological Review, 1950)</a></td>
+      <td>Group-level correlations cannot approximate individual-level correlations. Inferences from aggregated data about individual behavior are fundamentally invalid.</td>
+    </tr>
+    <tr>
+      <td>Meta-Analysis</td>
+      <td><a href="https://doi.org/10.1016/0197-2456(86)90046-2" style="color:#2563eb">DerSimonian &amp; Laird (Controlled Clinical Trials, 1986)</a></td>
+      <td>Published meta-analyses &ldquo;lack consistent assessment of homogeneity before pooling.&rdquo; Proposed random-effects approach incorporating between-study variance.</td>
+    </tr>
+    <tr>
+      <td>Heterogeneity</td>
+      <td><a href="https://doi.org/10.1002/sim.1186" style="color:#2563eb">Higgins &amp; Thompson (Statistics in Medicine, 2002)</a></td>
+      <td>Introduced I&sup2; statistic: proportion of variation due to heterogeneity rather than sampling error. High I&sup2; = between-study differences are real, not noise.</td>
+    </tr>
+    <tr>
+      <td>Meta-Analysis</td>
+      <td><a href="https://doi.org/10.1002/jrsm.12" style="color:#2563eb">Borenstein, Hedges, Higgins &amp; Rothstein (Research Synthesis Methods, 2010)</a></td>
+      <td>Fixed-effect and random-effects models are not interchangeable. Ignoring between-study heterogeneity (as naive pooling does) systematically underestimates uncertainty.</td>
+    </tr>
+    <tr>
+      <td>Guidelines</td>
+      <td><a href="https://training.cochrane.org/handbook" style="color:#2563eb">Cochrane Handbook Ch.10 (Deeks, Higgins et al., 2024)</a></td>
+      <td>&ldquo;Undertake a meta-analysis only if participants, interventions, comparisons and outcomes are judged sufficiently similar.&rdquo; A pooled estimate under heterogeneity &ldquo;may be an intervention effect that does not actually exist in any population.&rdquo;</td>
+    </tr>
+    <tr>
+      <td>ML Evaluation</td>
+      <td><a href="https://jmlr.org/papers/v7/demsar06a.html" style="color:#2563eb">Dem&scaron;ar (JMLR, 2006)</a></td>
+      <td>ML&rsquo;s canonical argument against aggregating performance across heterogeneous conditions. Recommends per-dataset non-parametric comparisons (Friedman, Wilcoxon) over pooled analysis.</td>
+    </tr>
+  </table>
+
+  <div class="info-box green">
+    <strong>Total research grounding: 25 peer-reviewed papers.</strong>
+    The original framework cites 15 papers (Sections D&ndash;E). This section adds 10 papers
+    from clinical trials, causal inference, genomics, epidemiology, and ML evaluation methodology,
+    all converging on the same conclusion: per-experiment analysis with meta-analytic combination
+    is the only statistically valid approach when experimental contexts differ.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION G — AGG.JSON EXTENSION + RENDERING
+     ════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-num">SECTION G</span>
+  <h2>Advanced Strategy — <code>aggregated_scorecard_output.json</code> Extension</h2>
+
+  <p>The advanced strategy extends each <code>fault_category_scorecards[]</code> entry
+  with a new <code>statistical_evidence</code> block. Since no SLA exists, the schema
+  focuses on confidence intervals, cross-category comparison results, and stability flags:</p>
+
+  <div class="schema-block"><span class="comment">// Inside each fault_category_scorecards[] entry:</span>
+{
+  <span class="key">"fault_category"</span>: <span class="str">"application_fault"</span>,
+  <span class="key">"total_runs"</span>: <span class="num">30</span>,
+  <span class="key">"numeric_metrics"</span>: { ... },      <span class="comment">// existing</span>
+  <span class="key">"derived_metrics"</span>: { ... },       <span class="comment">// existing</span>
+  <span class="key">"boolean_status_metrics"</span>: { ... }, <span class="comment">// existing</span>
+  <span class="key">"textual_metrics"</span>: { ... },        <span class="comment">// existing</span>
+
+  <span class="comment">// ── NEW: Statistical Evidence Block (No-SLA Mode) ──</span>
+  <span class="key">"statistical_evidence"</span>: {
+    <span class="key">"mode"</span>: <span class="str">"no_sla"</span>,                    <span class="comment">// "no_sla" | "sla_defined"</span>
+    <span class="key">"assessment"</span>: <span class="str">"FLAGGED"</span>,               <span class="comment">// "CONSISTENT" | "FLAGGED" | "ALERT"</span>
+    <span class="key">"consistency_flag"</span>: <span class="str">"variable"</span>,        <span class="comment">// "stable" | "variable" | "unstable"</span>
+    <span class="key">"sample_adequacy"</span>: <span class="str">"sufficient"</span>,    <span class="comment">// "sufficient" (n&#8805;30) | "marginal" (n=15-29) | "insufficient" (n&lt;15)</span>
+
+    <span class="key">"confidence_intervals"</span>: {
+      <span class="key">"time_to_detect_iqm"</span>:    { <span class="key">"ci_95"</span>: [<span class="num">220.5</span>, <span class="num">480.1</span>], <span class="key">"method"</span>: <span class="str">"stratified_bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">50000</span>, <span class="key">"ci_width"</span>: <span class="num">259.6</span> },
+      <span class="key">"time_to_detect_mean"</span>:   { <span class="key">"ci_95"</span>: [<span class="num">180.2</span>, <span class="num">552.4</span>], <span class="key">"method"</span>: <span class="str">"stratified_bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">50000</span>, <span class="key">"ci_width"</span>: <span class="num">372.2</span> },
+      <span class="key">"time_to_detect_p95"</span>:    { <span class="key">"ci_95"</span>: [<span class="num">520.0</span>, <span class="num">584.6</span>], <span class="key">"method"</span>: <span class="str">"stratified_bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">50000</span>, <span class="key">"ci_width"</span>: <span class="num">64.6</span> },
+      <span class="key">"time_to_mitigate_iqm"</span>:  { <span class="key">"ci_95"</span>: [<span class="num">280.1</span>, <span class="num">620.5</span>], <span class="key">"method"</span>: <span class="str">"stratified_bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">50000</span>, <span class="key">"ci_width"</span>: <span class="num">340.4</span> },
+      <span class="key">"fault_detection_success_rate"</span>: { <span class="key">"ci_95"</span>: [<span class="num">0.04</span>, <span class="num">0.62</span>], <span class="key">"method"</span>: <span class="str">"wilson"</span>, <span class="key">"ci_width"</span>: <span class="num">0.58</span> },
+      <span class="key">"reasoning_score_iqm"</span>:   { <span class="key">"ci_95"</span>: [<span class="num">8.0</span>, <span class="num">8.8</span>], <span class="key">"method"</span>: <span class="str">"stratified_bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">50000</span>, <span class="key">"ci_width"</span>: <span class="num">0.8</span> },
+      <span class="key">"hallucination_score"</span>:   { <span class="key">"ci_95"</span>: [<span class="num">0.0</span>, <span class="num">0.0</span>], <span class="key">"method"</span>: <span class="str">"stratified_bootstrap_bca"</span>, <span class="key">"B"</span>: <span class="num">50000</span>, <span class="key">"ci_width"</span>: <span class="num">0.0</span> }
+    },
+
+    <span class="key">"cross_category_tests"</span>: {
+      <span class="key">"shapiro_wilk"</span>: { <span class="key">"test"</span>: <span class="str">"shapiro_wilk_per_group"</span>, <span class="key">"app_pval"</span>: <span class="num">0.32</span>, <span class="key">"net_pval"</span>: <span class="num">0.08</span>, <span class="key">"res_pval"</span>: <span class="num">0.41</span>, <span class="key">"result"</span>: <span class="str">"normality_not_confirmed_use_nonparametric"</span> },
+      <span class="key">"kruskal_wallis_ttd"</span>: { <span class="key">"test"</span>: <span class="str">"kruskal_wallis"</span>, <span class="key">"H_stat"</span>: <span class="num">9.8</span>, <span class="key">"p_value"</span>: <span class="num">0.007</span>, <span class="key">"epsilon_sq"</span>: <span class="num">0.28</span>, <span class="key">"result"</span>: <span class="str">"significant_disparity"</span> },
+      <span class="key">"mann_whitney_posthoc"</span>: [
+        { <span class="key">"pair"</span>: <span class="str">"app_vs_net"</span>, <span class="key">"U"</span>: <span class="num">8</span>, <span class="key">"p_value"</span>: <span class="num">0.31</span>, <span class="key">"a12"</span>: <span class="num">0.64</span>, <span class="key">"effect"</span>: <span class="str">"medium"</span> },
+        { <span class="key">"pair"</span>: <span class="str">"app_vs_res"</span>, <span class="key">"U"</span>: <span class="num">2</span>, <span class="key">"p_value"</span>: <span class="num">0.008</span>, <span class="key">"a12"</span>: <span class="num">0.92</span>, <span class="key">"effect"</span>: <span class="str">"large"</span> },
+        { <span class="key">"pair"</span>: <span class="str">"net_vs_res"</span>, <span class="key">"U"</span>: <span class="num">3</span>, <span class="key">"p_value"</span>: <span class="num">0.016</span>, <span class="key">"a12"</span>: <span class="num">0.88</span>, <span class="key">"effect"</span>: <span class="str">"large"</span> }
+      ],
+      <span class="key">"fisher_exact_detection"</span>: { <span class="key">"test"</span>: <span class="str">"fisher_freeman_halton"</span>, <span class="key">"p_value"</span>: <span class="num">0.014</span>, <span class="key">"cramers_v"</span>: <span class="num">0.53</span>, <span class="key">"result"</span>: <span class="str">"non_uniform"</span> },
+      <span class="key">"levene_ttd"</span>: { <span class="key">"test"</span>: <span class="str">"levene"</span>, <span class="key">"f_stat"</span>: <span class="num">5.8</span>, <span class="key">"p_value"</span>: <span class="num">0.018</span>, <span class="key">"result"</span>: <span class="str">"unequal_variance"</span> },
+      <span class="key">"worst_category"</span>: { <span class="key">"metric"</span>: <span class="str">"fault_detection_success_rate"</span>, <span class="key">"worst_cat"</span>: <span class="str">"network_fault"</span>, <span class="key">"value"</span>: <span class="num">0.0</span>, <span class="key">"ci_lower"</span>: <span class="num">0.0</span>, <span class="key">"transfer_risk"</span>: <span class="num">0.20</span> },
+      <span class="key">"correction_method"</span>: <span class="str">"holm_bonferroni"</span>
+    },
+
+    <span class="key">"hypothesis_results"</span>: [
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-01"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"Continuous Metric CI Estimation"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Stratified Bootstrap CI (BCa, B=50000)"</span>,
+        <span class="key">"metrics"</span>: [<span class="str">"time_to_detect"</span>, <span class="str">"time_to_mitigate"</span>, <span class="str">"reasoning_score"</span>, <span class="str">"hallucination_score"</span>],
+        <span class="key">"iqm"</span>: <span class="num">350.2</span>,
+        <span class="key">"ci_95"</span>: [<span class="num">280.5</span>, <span class="num">420.1</span>],
+        <span class="key">"ci_width"</span>: <span class="num">139.6</span>,
+        <span class="key">"assessment"</span>: <span class="str">"precise_at_n30"</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-02"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"Binary Rate CI Estimation"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Wilson CI"</span>,
+        <span class="key">"metrics"</span>: [<span class="str">"fault_detection_success_rate"</span>, <span class="str">"fault_mitigation_success_rate"</span>],
+        <span class="key">"rate"</span>: <span class="num">0.80</span>,
+        <span class="key">"ci_95"</span>: [<span class="num">0.62</span>, <span class="num">0.91</span>],
+        <span class="key">"assessment"</span>: <span class="str">"actionable"</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-03"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"Cross-Category Comparison (Continuous)"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Kruskal-Wallis H"</span>,
+        <span class="key">"normality_check"</span>: <span class="str">"shapiro_wilk_failed"</span>,
+        <span class="key">"p_value"</span>: <span class="num">0.007</span>,
+        <span class="key">"p_value_adjusted"</span>: <span class="num">0.021</span>,
+        <span class="key">"epsilon_squared"</span>: <span class="num">0.28</span>,
+        <span class="key">"posthoc"</span>: <span class="str">"mann_whitney_u_holm"</span>,
+        <span class="key">"effect_sizes"</span>: { <span class="key">"app_vs_res"</span>: <span class="num">0.92</span>, <span class="key">"net_vs_res"</span>: <span class="num">0.88</span> },
+        <span class="key">"assessment"</span>: <span class="str">"significant_category_disparity"</span>
+      }
+    ],
+
+    <span class="comment">// ── Decision Logic (not hypothesis tests) ──</span>
+    <span class="key">"worst_category"</span>: {
+      <span class="key">"binding_metric"</span>: <span class="str">"fault_detection_success_rate"</span>,
+      <span class="key">"worst_cat"</span>: <span class="str">"network_fault"</span>,
+      <span class="key">"worst_value"</span>: <span class="num">0.0</span>,
+      <span class="key">"worst_ci_lower"</span>: <span class="num">0.0</span>,
+      <span class="key">"transfer_risk"</span>: <span class="num">0.20</span>
+    },
+    <span class="key">"tiered_assessment"</span>: {
+      <span class="key">"tier1_status"</span>: <span class="str">"FLAGGED"</span>,
+      <span class="key">"tier2_status"</span>: <span class="str">"CONSISTENT"</span>,
+      <span class="key">"tier1_correction"</span>: <span class="str">"holm_bonferroni"</span>,
+      <span class="key">"tier2_correction"</span>: <span class="str">"bh_fdr"</span>
+    }
+  }
+}</div>
+
+  <h3>Certification Report Rendering (HTML Page Extension)</h3>
+  <p>The advanced strategy extends the certification HTML report with the following visual elements
+  per fault category section. In no-SLA mode, CI bars replace pass/fail badges:</p>
+
+  <div class="render-preview">
+    <h4 style="color:#1e3a5f;margin-bottom:14px">Example: application_fault — Statistical Evidence Panel (No-SLA)</h4>
+
+    <div class="render-row">
+      <div class="render-label">Assessment</div>
+      <div><span class="badge warn">FLAGGED</span> &nbsp; <span class="badge info">NO SLA DEFINED</span> &nbsp; <span class="badge pass">n=30 (SUFFICIENT)</span></div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label">Consistency</div>
+      <div><span class="badge warn">VARIABLE</span> &nbsp; <span class="badge pass">NO DRIFT</span></div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label"><code>time_to_detect</code> (95% CI)</div>
+      <div>
+        <div class="ci-bar" style="width:300px">
+          <div class="ci-fill" style="width:70%;margin-left:15%"></div>
+          <div class="ci-marker" style="left:45%"></div>
+        </div>
+        <div class="ci-text">280.1s &mdash;&mdash; [366.3s] &mdash;&mdash; 452.5s &nbsp;&nbsp; (CI width: 172.4s &mdash; precise at n=30)</div>
+      </div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label"><code>fault_detection_success_rate</code> (95% Wilson CI)</div>
+      <div>
+        <div class="ci-bar" style="width:300px">
+          <div class="ci-fill" style="width:58%;margin-left:4%"></div>
+          <div class="ci-marker" style="left:20%"></div>
+        </div>
+        <div class="ci-text">0.62 &mdash;&mdash; [0.80] &mdash;&mdash; 0.91 &nbsp;&nbsp; (CI width: 0.29 &mdash; actionable at n=30)</div>
+      </div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label"><code>hallucination_score</code></div>
+      <div><span class="badge pass">0.00</span> &nbsp; CI [0.0, 0.0] — no hallucination detected &nbsp; <span class="badge info">HOLM-BONFERRONI APPLIED</span> &nbsp; <span class="badge info">TIER 1</span></div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label">Cross-Category</div>
+      <div style="font-size:.82rem;color:#475569">
+        Shapiro-Wilk: normality not confirmed &rarr; non-parametric path &nbsp;|&nbsp;
+        Kruskal-Wallis (TTD): H = 9.8, p = 0.007 — <strong>significant disparity</strong> &nbsp;|&nbsp;
+        Post-hoc: app_vs_res A&sub1;&sub2; = 0.92 (large) &nbsp;|&nbsp;
+        Fisher's Exact (detection rate): p = 0.014 — <strong>non-uniform</strong> &nbsp;|&nbsp;
+        <span class="badge fail">WORST-CAT: network_fault (detection = 0.0)</span>
+      </div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label">Tiered Assessment</div>
+      <div style="font-size:.82rem;color:#475569">
+        <strong>Tier 1 (Safety):</strong> detection, mitigation, hallucination — Holm-Bonferroni applied &nbsp;|&nbsp;
+        <strong>Tier 2 (Quality):</strong> reasoning, RCA accuracy — BH-FDR applied &nbsp;|&nbsp;
+        Tier 1 status: <span class="badge warn">FLAGGED</span> (worst-cat detection = 0.0) &nbsp;|&nbsp;
+        Tier 2 status: <span class="badge pass">CONSISTENT</span>
+      </div>
+    </div>
+
+    <div class="render-row">
+      <div class="render-label">Hypothesis Summary</div>
+      <div style="font-size:.82rem;color:#475569">
+        4 CIs estimated (IQM + mean + P95) &nbsp;|&nbsp; 3/6 comparative tests flagged &nbsp;|&nbsp; Holm-adjusted &alpha; = 0.05
+        &nbsp;|&nbsp; Worst-category: network_fault (binding) &nbsp;|&nbsp; Sample size: n=30 per category (sufficient)
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART PLACEHOLDERS -->
+  <div id="chart_distribution" class="chart-placeholder">
+    <div class="chart-icon">&#128202;</div>
+    <div class="chart-label">Confidence Interval Forest Plot</div>
+    <div class="chart-sub">Each metric as a row: point estimate (diamond) with 95% CI whiskers.<br>
+    Grouped by fault_category. Color intensity indicates CI width (wider = more uncertain).</div>
+  </div>
+
+  <div id="chart_hypothesis_outcomes" class="chart-placeholder">
+    <div class="chart-icon">&#128200;</div>
+    <div class="chart-label">Cross-Category Comparison Summary</div>
+    <div class="chart-sub">Bar chart: p-values for ANOVA, Chi-Square, Levene's tests.<br>
+    Horizontal dashed line at &alpha; = 0.05. Bars below line are significant (flagged). Color: green=OK, yellow=FLAGGED.</div>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="footer">
+  AgentCert — Statistical Hypothesis Framework (No-SLA Mode) &nbsp;|&nbsp; Generated 2026-04-10 &nbsp;|&nbsp;
+  Methods: Wilson CI, Bootstrap CI, IQM, Shapiro-Wilk, Kruskal-Wallis, Mann-Whitney U, A&sub1;&sub2;, Welch's ANOVA, Fisher's Exact, Levene's &nbsp;|&nbsp;
+  Corrections: Holm-Bonferroni, BH-FDR &nbsp;|&nbsp; Grounded in 25 research papers
+</div>
+
+</div><!-- /page -->
+</body>
+</html>
