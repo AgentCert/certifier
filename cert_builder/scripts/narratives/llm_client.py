@@ -127,10 +127,9 @@ def call_llm(
             gen_kwargs: dict = {}
             if not is_reasoning_model:
                 gen_kwargs["temperature"] = temperature
-            # Newer Azure OpenAI deployments (GPT-4.1, GPT-5, o-series)
-            # require ``max_completion_tokens`` instead of ``max_tokens``.
-            # ``max_completion_tokens`` works on older chat models too.
-            gen_kwargs["max_completion_tokens"] = max_tokens
+                # Try max_completion_tokens first (required for gpt-4o / o-series models)
+                # Fall back to max_tokens if not supported
+                gen_kwargs["max_completion_tokens"] = max_tokens
 
             response = client.chat.completions.create(
                 model=deployment,

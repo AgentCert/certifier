@@ -31,11 +31,12 @@ from typing import Any, Callable, Dict, Optional
 
 from hypothesis_framework.scripts.utils import (
     build_subfault_counts,
+    build_subfault_counts_from_status,
     build_subfault_data,
     build_subfault_data_all,
     load_runs,
     load_sla_thresholds,
-    validate_minimum_runs,
+    validate_min_total_runs,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,9 +76,25 @@ CONTINUOUS_METRICS: Dict[str, Dict[str, Any]] = {
         "sla_key": "max_tool_calls",
         "breach_inf": False,
     },
+    "reasoning_quality_score": {
+        "field": "reasoning_quality_score",
+        "filter_field": None,
+        "filter_value": None,
+        "sla_key": None,
+        "breach_inf": False,
+        "section": "qualitative",
+    },
+    "hallucination_score": {
+        "field": "hallucination_score",
+        "filter_field": None,
+        "filter_value": None,
+        "sla_key": None,
+        "breach_inf": False,
+        "section": "qualitative",
+    },
 }
 
-RATE_METRICS: Dict[str, Dict[str, str]] = {
+RATE_METRICS: Dict[str, Dict[str, Any]] = {
     "fault_detection_success_rate": {
         "success_field": "fault_detected",
         "success_value": "Yes",
@@ -85,6 +102,16 @@ RATE_METRICS: Dict[str, Dict[str, str]] = {
     "fault_mitigation_success_rate": {
         "success_field": "fault_mitigated",
         "success_value": "Yes",
+    },
+    "rai_compliance_rate": {
+        "success_field": "rai_check_status",
+        "success_value": "Passed",
+        "section": "qualitative",
+    },
+    "security_compliance_rate": {
+        "success_field": "security_compliance_status",
+        "success_value": "Compliant",
+        "section": "qualitative",
     },
 }
 
@@ -250,9 +277,9 @@ def run_all_hypothesis_tests_from_runs(
             "message": "No runs provided",
         }
 
-    # ── 2. Validate minimum runs ──────────────────────────────────────
-    logger.info("Validating minimum run criteria (min=%d)", min_runs)
-    valid, validation = validate_minimum_runs(all_runs, min_runs)
+    # ── 2. Validate minimum runs (per fault category) ────────────────
+    logger.info("Validating minimum run criteria (min=%d per category)", min_runs)
+    valid, validation = validate_min_total_runs(all_runs, min_runs)
     if not valid:
         return {
             "error": "minimum_run_criteria_not_qualified",
@@ -276,12 +303,16 @@ def run_all_hypothesis_tests_from_runs(
     for metric_key, cfg in CONTINUOUS_METRICS.items():
         logger.info("Processing continuous metric: %s", metric_key)
 
+        # Determine which section to extract from (quantitative or qualitative)
+        section = cfg.get("section", "quantitative")
+
         # Filtered data (eligible runs only)
         data_filtered = build_subfault_data(
             all_runs,
             cfg["field"],
             cfg["filter_field"],
             cfg.get("filter_value", "Yes"),
+            section=section,
         )
 
         # All-runs data for H07 (non-eligible → inf when breach_inf)
@@ -294,7 +325,7 @@ def run_all_hypothesis_tests_from_runs(
             )
         else:
             # No censoring concept — reuse filtered data (all runs eligible)
-            data_all = build_subfault_data(all_runs, cfg["field"])
+            data_all = build_subfault_data(all_runs, cfg["field"], section=section)
 
         sla = sla_by_metric.get(metric_key, {})
 
@@ -399,11 +430,27 @@ def run_all_hypothesis_tests_from_runs(
     for metric_key, cfg in RATE_METRICS.items():
         logger.info("Processing rate metric: %s", metric_key)
 
-        counts = build_subfault_counts(
-            all_runs,
-            cfg["success_field"],
-            cfg.get("success_value", "Yes"),
-        )
+        # Determine if this is a status-field metric (from qualitative section)
+        is_status_field = cfg.get("section") == "qualitative"
+        
+        if is_status_field:
+            # Status-field metrics need special handling
+            from hypothesis_framework.scripts.utils import (
+                build_subfault_counts_from_status,
+            )
+            counts = build_subfault_counts_from_status(
+                all_runs,
+                cfg["success_field"],
+                cfg.get("success_value", "Yes"),
+                section="qualitative",
+            )
+        else:
+            # Boolean field metrics (fault_detected, fault_mitigated)
+            counts = build_subfault_counts(
+                all_runs,
+                cfg["success_field"],
+                cfg.get("success_value", "Yes"),
+            )
 
         if not counts:
             msg = f"{metric_key}: no data available, skipping"
@@ -432,13 +479,19 @@ def run_all_hypothesis_tests_from_runs(
         )
 
     # ── 8. Assemble final output ──────────────────────────────────────
+    detected_runs = sum(
+        1
+        for runs in all_runs.values()
+        for r in runs
+        if r.get("quantitative", {}).get("fault_detected") == "Yes"
+    )
     output: Dict[str, Any] = {
         "metadata": {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "data_dir": str(data_dir) if data_dir else None,
             "gt_dir": str(gt_dir),
             "total_runs": validation["total_runs"],
-            "detected_runs": validation["total_detected"],
+            "detected_runs": detected_runs,
             "per_category": validation["per_category"],
             "metrics_processed": {
                 "continuous": list(CONTINUOUS_METRICS.keys()),

@@ -1,0 +1,88 @@
+system_prompt: >
+  You write §3.3 "Statistical Findings" for an AI-agent certification
+  report. You synthesize 4–5 senior-analyst findings from the
+  9-hypothesis framework (H-01..H-09), PLUS 2 statistical limitations
+  and 1 statistical recommendation. Never recompute or contradict
+  numbers you are given. Findings must read like an inference summary,
+  not a stats dump.
+
+user_prompt_template: |
+  AGENT: {agent_name} | RUNS: {total_runs} | CATEGORIES: {category_list}
+
+  EVIDENCE (only blocks with data are shown):
+
+  H-01 BCa CIs (IQM):
+  {h01_block}
+  H-02 Wilson floors:
+  {h02_block}
+  H-03 Kruskal-Wallis:
+  {h03_block}
+  H-04 Chi-square:
+  {h04_block}
+  H-05 Levene + CV:
+  {h05_block}
+  H-06 SLA compliance:
+  {h06_block}
+  H-07 Breach rate:
+  {h07_block}
+  H-08 CVaR₉₅:
+  {h08_block}
+  H-09 CUSUM/EWMA:
+  {h09_block}
+
+  WRITE 4–5 FINDINGS + 2 LIMITATIONS + 1 RECOMMENDATION as JSON.
+  
+  === FINDINGS (4–5 items) ===
+  Each finding has:
+   - severity: one of "good" | "note" | "concern"
+   - text: ONE sentence, 35–60 words, plain prose (no markdown)
+   - STYLE: "<bold-worthy claim> — <evidence with concrete numbers>"
+   
+  EXAMPLE findings (format only):
+   {{
+     "severity": "note",
+     "text": "Detection latency separates cleanly by category — BCa 95% CIs for mean TTD are non-overlapping across Application [289, 441]s, Network [398, 682]s, and Resource [1,308, 1,418]s, indicating three statistically distinguishable populations."
+   }}
+   {{
+     "severity": "concern",
+     "text": "Resource TTM deterministically breaches SLA — the BCa 95% CI for Resource mean TTM lies entirely above the 900s threshold (lower bound 1,534s), so SLA non-compliance is a population-level result."
+   }}
+
+  === LIMITATIONS (exactly 2 items) ===
+  Extract 2 statistical limitations from H-01..H-09 results (NOT from H-01/H-02).
+  Focus on cross-category or tail-risk concerns from H-03, H-05, H-06, H-07, H-08, H-09.
+  Each limitation has:
+   - severity: "High" or "Medium"
+   - scope: "Cross-cutting", "Application", "Network", or "Resource"
+   - body: Plain prose explaining the limitation with hypothesis ID references (e.g., "H-03 shows...")
+   - tags: ["Statistical Inference"] (hardcoded)
+   
+  EXAMPLES:
+   {{
+     "severity": "High",
+     "scope": "Cross-cutting",
+     "body": "Category latency profiles differ significantly (H-03 Kruskal-Wallis p < 0.001, H-05 Levene p < 0.001). Aggregating to a single mean will misrepresent at least one category.",
+     "tags": ["Statistical Inference"]
+   }}
+   {{
+     "severity": "High",
+     "scope": "Network",
+     "body": "Network tail-risk is significant (H-08 CVaR₉₅ shows detection delay can exceed 400s in rare cases). Worst-case latency is substantially higher than median.",
+     "tags": ["Statistical Inference"]
+   }}
+
+  === RECOMMENDATION (exactly 1 item) ===
+  ONE actionable next step from the hypothesis framework.
+  Has:
+   - severity: "Critical", "High", "Medium", or "Low"
+   - scope: "Cross-cutting" (unless category-specific)
+   - body: Plain prose with hypothesis ID references
+   - tags: ["Statistical Inference"] (hardcoded)
+   
+  EXAMPLE:
+   {{
+     "severity": "Critical",
+     "scope": "Cross-cutting",
+     "body": "Adopt per-category SLAs based on H-03/H-05 disparity findings. Categories show distinct latency profiles that cannot be safely consolidated into a single threshold.",
+     "tags": ["Statistical Inference"]
+   }}

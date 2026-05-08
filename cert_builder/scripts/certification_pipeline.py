@@ -14,6 +14,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from utils.custom_errors import CertBuilderError, MyCustomError
+
 from cert_builder.scripts.ingestion.ingestor import ingest_from_file, save_context
 from cert_builder.scripts.computation.assembler import ComputationAssembler
 from cert_builder.scripts.narratives.assembler import NarrativeAssembler
@@ -22,12 +24,20 @@ from cert_builder.scripts.report_assembler import ReportAssembler
 
 def _save_json(data, path):
     """Write dict to JSON file."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, indent=2, default=str, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    try:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(data, indent=2, default=str, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except MyCustomError:
+        raise
+    except Exception as exc:
+        raise CertBuilderError(
+            f"Failed to write JSON to '{path}'",
+            original_exception=exc,
+        ) from exc
 
 
 class CertificationPipeline:
@@ -62,36 +72,74 @@ class CertificationPipeline:
 
             # ── Phase 1: Ingestion ────────────────────────────────
             print("[pipeline] Phase 1: Ingestion")
-            parsed_context = ingest_from_file(self.input_path)
-            phase1_path = workdir / "parsed_context.json"
-            save_context(parsed_context, phase1_path)
+            try:
+                parsed_context = ingest_from_file(self.input_path)
+                phase1_path = workdir / "parsed_context.json"
+                save_context(parsed_context, phase1_path)
+            except MyCustomError:
+                raise
+            except Exception as exc:
+                raise CertBuilderError(
+                    f"Phase 1 (Ingestion) failed for input '{self.input_path}'",
+                    original_exception=exc,
+                ) from exc
 
             # ── Phase 2: Computation ──────────────────────────────
             print("[pipeline] Phase 2: Computation")
-            computation = ComputationAssembler(phase1_path)
-            computed_content = computation.assemble()
-            phase2_path = workdir / "computed_content.json"
-            _save_json(computed_content, phase2_path)
+            try:
+                computation = ComputationAssembler(phase1_path)
+                computed_content = computation.assemble()
+                phase2_path = workdir / "computed_content.json"
+                _save_json(computed_content, phase2_path)
+            except MyCustomError:
+                raise
+            except Exception as exc:
+                raise CertBuilderError(
+                    "Phase 2 (Computation) failed",
+                    original_exception=exc,
+                ) from exc
 
             # ── Phase 3: Narratives ───────────────────────────────
             print("[pipeline] Phase 3: Narratives")
-            narrative = NarrativeAssembler(phase1_path, phase2_path)
-            narratives = await narrative.assemble()
-            phase3_path = workdir / "narratives.json"
-            _save_json(narratives, phase3_path)
+            try:
+                narrative = NarrativeAssembler(phase1_path, phase2_path)
+                narratives = await narrative.assemble()
+                phase3_path = workdir / "narratives.json"
+                _save_json(narratives, phase3_path)
+            except MyCustomError:
+                raise
+            except Exception as exc:
+                raise CertBuilderError(
+                    "Phase 3 (Narratives) failed",
+                    original_exception=exc,
+                ) from exc
 
             # ── Phase 4: Assembly ─────────────────────────────────
             print("[pipeline] Phase 4: Assembly")
-            assembly = ReportAssembler(phase1_path, phase2_path, phase3_path)
-            report = assembly.assemble()
+            try:
+                assembly = ReportAssembler(phase1_path, phase2_path, phase3_path)
+                report = assembly.assemble()
+            except MyCustomError:
+                raise
+            except Exception as exc:
+                raise CertBuilderError(
+                    "Phase 4 (Assembly) failed",
+                    original_exception=exc,
+                ) from exc
 
             # Persist intermediates only when debugging
             if self.debug:
-                intermediate = self._data_dir / "intermediate"
-                intermediate.mkdir(parents=True, exist_ok=True)
-                for f in workdir.glob("*.json"):
-                    shutil.copy2(f, intermediate / f.name)
-                print(f"[pipeline] Intermediates saved to {intermediate}")
+                try:
+                    intermediate = self._data_dir / "intermediate"
+                    intermediate.mkdir(parents=True, exist_ok=True)
+                    for f in workdir.glob("*.json"):
+                        shutil.copy2(f, intermediate / f.name)
+                    print(f"[pipeline] Intermediates saved to {intermediate}")
+                except Exception as exc:
+                    # Non-fatal: log and continue so the final report still saves.
+                    print(
+                        f"[pipeline] WARNING: Failed to copy intermediates: {exc}"
+                    )
 
         # Final report always saved
         _save_json(report, self.output_path)

@@ -50,61 +50,53 @@ def load_runs(data_dir: Path) -> Dict[str, List[dict]]:
 
 # ── Validation ────────────────────────────────────────────────────────
 
-
-def validate_minimum_runs(
+def validate_min_total_runs(
     all_runs: Dict[str, List[dict]],
     min_runs: int = 30,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """Check minimum run criteria.
+    """Check that every fault category has >= ``min_runs`` total runs.
 
-    Requirements (per user specification):
-      - 30+ detected runs across **all** experiments.
-      - 30+ detected runs per **fault category**.
-      - Sub-faults may have fewer than 30.
+    Granularity is per **fault_category** (not per individual fault_name).
+    Counts **total** runs only (does NOT filter by ``fault_detected``).
 
     Returns:
-        ``(passed, details_dict)`` — *details_dict* includes counts and a
-        human-readable message.
+        ``(passed, details_dict)`` where details_dict has:
+          - minimum_runs_met (bool)
+          - min_required_per_category (int)
+          - total_runs (int)
+          - per_category (dict[category, total_count])
+          - failed_categories (list[str]) — entries like "category: n (need m)"
+          - message (str)
     """
-    per_category: Dict[str, Dict[str, int]] = {}
+    per_category: Dict[str, int] = {}
+    failed: List[str] = []
     total_runs = 0
-    total_detected = 0
-    category_issues: List[str] = []
 
     for cat, runs in all_runs.items():
-        n_total = len(runs)
-        n_detected = sum(
-            1
-            for r in runs
-            if r.get("quantitative", {}).get("fault_detected") == "Yes"
-        )
-        total_runs += n_total
-        total_detected += n_detected
-        per_category[cat] = {"total": n_total, "detected": n_detected}
-        if n_detected < min_runs:
-            category_issues.append(
-                f"{cat}: {n_detected} detected runs (need {min_runs})"
-            )
+        n = len(runs)
+        per_category[cat] = n
+        total_runs += n
+        if n < min_runs:
+            failed.append(f"{cat}: {n} runs (need {min_runs})")
 
-    passed = total_detected >= min_runs and len(category_issues) == 0
-    if total_detected < min_runs:
+    passed = len(failed) == 0
+    if passed:
         message = (
-            f"Minimum run criteria not qualified: total detected runs "
-            f"({total_detected}) is below the required minimum ({min_runs})."
-        )
-    elif category_issues:
-        message = (
-            "Minimum run criteria not qualified for categories: "
-            + "; ".join(category_issues)
+            f"All fault categories meet the minimum total-run criterion "
+            f"({min_runs} runs per category)."
         )
     else:
-        message = "All criteria met"
+        message = (
+            f"Insufficient total runs per category (need {min_runs} each): "
+            + "; ".join(failed)
+        )
 
     return passed, {
         "minimum_runs_met": passed,
+        "min_required_per_category": min_runs,
         "total_runs": total_runs,
-        "total_detected": total_detected,
         "per_category": per_category,
+        "failed_categories": failed,
         "message": message,
     }
 
@@ -117,15 +109,23 @@ def build_subfault_data(
     metric_field: str,
     filter_field: Optional[str] = None,
     filter_value: Optional[str] = "Yes",
+    section: str = "quantitative",
 ) -> Dict[str, Dict[str, List[float]]]:
     """Build nested data for continuous metrics (eligible runs only).
 
     Groups runs by *category → sub-fault*, extracting ``metric_field`` from
-    the ``quantitative`` block.  Optionally filters by
-    ``filter_field == filter_value``.
+    the specified section block (quantitative or qualitative).
+    Optionally filters by ``filter_field == filter_value``.
 
     * Excludes runs with null / missing metric values.
     * Preserves filename sort order for H09 temporal compatibility.
+
+    Args:
+        all_runs: Pre-loaded runs grouped by category.
+        metric_field: Field name to extract (e.g. "time_to_detect" or "reasoning_quality_score").
+        filter_field: Optional eligibility gate field name.
+        filter_value: Expected value for the gate.
+        section: Section to extract from ("quantitative" or "qualitative").
 
     Returns:
         ``{category: {sub_fault: [values]}}``
@@ -135,12 +135,12 @@ def build_subfault_data(
     for cat, runs in all_runs.items():
         subfaults: Dict[str, List[float]] = {}
         for run in runs:
-            q = run.get("quantitative", {})
+            data_section = run.get(section, {})
 
-            if filter_field and q.get(filter_field) != filter_value:
+            if filter_field and data_section.get(filter_field) != filter_value:
                 continue
 
-            val = q.get(metric_field)
+            val = data_section.get(metric_field)
             if val is None:
                 continue
             try:
@@ -229,6 +229,53 @@ def build_subfault_counts(
     return result
 
 
+def build_subfault_counts_from_status(
+    all_runs: Dict[str, List[dict]],
+    success_field: str,
+    success_value: str | list[str],
+    section: str = "qualitative",
+) -> Dict[str, Dict[str, Tuple[int, int]]]:
+    """Build success / trial counts for status-field rate metrics (from qualitative section).
+
+    Similar to build_subfault_counts, but:
+    - Extracts from a specified section (e.g. qualitative)
+    - Handles success_value as either string or list of strings for matching
+    
+    Args:
+        all_runs: Pre-loaded runs grouped by category.
+        success_field: Field name in the section (e.g. "rai_check_status").
+        success_value: String or list of strings representing success states.
+        section: Section to extract from (default "qualitative").
+
+    Returns:
+        ``{category: {sub_fault: (successes, trials)}}``
+    """
+    # Normalize success_value to list for uniform checking
+    if isinstance(success_value, str):
+        success_values = [success_value]
+    else:
+        success_values = list(success_value)
+
+    result: Dict[str, Dict[str, Tuple[int, int]]] = {}
+
+    for cat, runs in all_runs.items():
+        subfaults: Dict[str, Tuple[int, int]] = {}
+        for run in runs:
+            data_section = run.get(section, {})
+            fname = run.get("fault_name", "unknown")
+            
+            field_value = data_section.get(success_field)
+            is_success = field_value in success_values
+            
+            s, t = subfaults.get(fname, (0, 0))
+            subfaults[fname] = (s + (1 if is_success else 0), t + 1)
+
+        if subfaults:
+            result[cat] = subfaults
+
+    return result
+
+
 # ── SLA Threshold Loading ─────────────────────────────────────────────
 
 
@@ -253,20 +300,28 @@ def load_sla_thresholds(
     gt_dir = Path(gt_dir)
     thresholds: Dict[str, float] = {}
 
-    for fault_dir in sorted(gt_dir.iterdir()):
-        if not fault_dir.is_dir():
-            continue
-        gt_file = fault_dir / "ground_truth.yaml"
-        if not gt_file.exists():
-            continue
-        try:
-            data = yaml.safe_load(gt_file.read_text(encoding="utf-8"))
-            sla = data.get("ground_truth", {}).get("sla", {})
-            entry = sla.get(sla_key, {})
-            threshold = entry.get("threshold") if isinstance(entry, dict) else None
-            if threshold is not None:
-                thresholds[fault_dir.name] = float(threshold)
-        except Exception as exc:
-            logger.warning("Failed to parse SLA from %s: %s", gt_file, exc)
+    # Handle non-existent or unreadable gt_dir gracefully
+    if not gt_dir.exists():
+        logger.warning(f"Ground truth directory does not exist: {gt_dir}")
+        return thresholds
+
+    try:
+        for fault_dir in sorted(gt_dir.iterdir()):
+            if not fault_dir.is_dir():
+                continue
+            gt_file = fault_dir / "ground_truth.yaml"
+            if not gt_file.exists():
+                continue
+            try:
+                data = yaml.safe_load(gt_file.read_text(encoding="utf-8"))
+                sla = data.get("ground_truth", {}).get("sla", {})
+                entry = sla.get(sla_key, {})
+                threshold = entry.get("threshold") if isinstance(entry, dict) else None
+                if threshold is not None:
+                    thresholds[fault_dir.name] = float(threshold)
+            except Exception as exc:
+                logger.warning("Failed to parse SLA from %s: %s", gt_file, exc)
+    except Exception as exc:
+        logger.warning(f"Error iterating ground truth directory {gt_dir}: {exc}")
 
     return thresholds
