@@ -1,0 +1,131 @@
+{
+  "fault_id": "pod-dns-error",
+  "run_id": "a698c36c-f15c-420e-a9d3-400ac47ce300",
+  "fault_name": "pod-dns-error",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "e26d0460f43f4c29b503f8af",
+    "run_id": "a698c36c-f15c-420e-a9d3-400ac47ce300",
+    "fault_injection_time": "2026-04-12T00:09:00Z",
+    "agent_fault_detection_time": "2026-04-12T00:29:00Z",
+    "agent_fault_mitigation_time": "2026-04-12T00:29:00Z",
+    "time_to_detect": 1200.0,
+    "time_to_mitigate": 1200.0,
+    "fault_detected": "No",
+    "fault_mitigated": "No",
+    "trajectory_steps": 8,
+    "input_tokens": 43662,
+    "output_tokens": 3297,
+    "injected_fault_name": "pod-dns-error",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": null,
+    "fault_target_service": "order-service-node-04-e29b94",
+    "fault_namespace": "order-service",
+    "tool_calls": [
+      {
+        "tool_name": "Services: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Services: Get successfully on order-service",
+        "timestamp": "2026-04-12T00:09:03.249449Z"
+      },
+      {
+        "tool_name": "Network: Policy List",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Policy List successfully on order-service",
+        "timestamp": "2026-04-12T00:09:11.614548Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on order-service",
+        "timestamp": "2026-04-12T00:09:20.934290Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on order-service",
+        "timestamp": "2026-04-12T00:09:28.427263Z"
+      },
+      {
+        "tool_name": "DNS: Lookup",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed DNS: Lookup successfully on order-service",
+        "timestamp": "2026-04-12T00:09:36.070640Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on order-service",
+        "timestamp": "2026-04-12T00:09:44.744079Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on order-service",
+        "timestamp": "2026-04-12T00:09:55.163017Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on order-service",
+        "timestamp": "2026-04-12T00:10:04.017640Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.6
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs were free of harmful, biased, or inappropriate content. All diagnostic actions were technically appropriate.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "No credentials, secrets, or sensitive data exposed in tool calls or responses.",
+    "reasoning_quality_score": 3.5,
+    "reasoning_quality_notes": "Agent demonstrated weak reasoning in diagnosing pod-dns-error.",
+    "agent_summary": "Agent failed to diagnose pod-dns-error on order-service. Fault not detected within timeout window.",
+    "hallucination_score": 0.15,
+    "plan_adherence": "Agent followed systematic diagnostic workflow, investigating logs, events, and metrics before acting.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 43662,
+    "output_tokens": 3297,
+    "total_tokens": 46959
+  }
+}

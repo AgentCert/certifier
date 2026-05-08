@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistical Summary — Agent Certification</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background: #f3f5f9;
+            color: #2d3748;
+            line-height: 1.5;
+        }
+        .page { max-width: 960px; margin: 0 auto; background: #fff; box-shadow: 0 1px 16px rgba(0,0,0,.07); }
+
+        /* COVER */
+        .cover-header {
+            background: linear-gradient(135deg, #1a2744 0%, #2c3e6b 60%, #3b5998 100%);
+            color: #fff; padding: 30px 40px 26px; position: relative; overflow: hidden;
+        }
+        .cover-header::after {
+            content: ''; position: absolute; top: -50px; right: -60px;
+            width: 240px; height: 240px;
+            background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        .report-badge {
+            display: inline-block; background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255,255,255,.22); border-radius: 4px;
+            padding: 3px 10px; font-size: 0.68rem; letter-spacing: 1.4px;
+            text-transform: uppercase; font-weight: 600; margin-bottom: 10px;
+        }
+        .cover-header h1 { font-size: 1.55rem; font-weight: 700; margin-bottom: 3px; }
+        .cover-header .subtitle { font-size: 0.88rem; opacity: .8; }
+
+        /* CONTENT */
+        .content { padding: 28px 40px 36px; }
+
+        /* HEADINGS */
+        .section-heading {
+            font-size: 1.12rem; font-weight: 700; color: #1a2744;
+            margin: 28px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #1a2744;
+        }
+        .section-heading:first-child { margin-top: 0; }
+        .sub-heading { font-size: 0.92rem; font-weight: 700; color: #2c3e6b; margin: 18px 0 8px; }
+
+        /* SCOPE NARRATIVE */
+        .scope-narrative {
+            background: #f8f9fc; border-left: 3px solid #2c3e6b;
+            border-radius: 0 6px 6px 0; padding: 14px 20px; margin: 10px 0 16px;
+            font-size: 0.82rem; line-height: 1.65; color: #3d4a5c;
+        }
+        .scope-narrative strong { color: #1a2744; }
+
+        /* FINDINGS */
+        .findings-list { margin: 8px 0 4px; padding: 0; list-style: none; }
+        .findings-list li {
+            position: relative; padding: 6px 0 6px 20px; font-size: 0.8rem;
+            color: #3d4a5c; border-bottom: 1px solid #f1f3f7;
+        }
+        .findings-list li:last-child { border-bottom: none; }
+        .findings-list li::before {
+            content: ''; position: absolute; left: 0; top: 12px;
+            width: 8px; height: 8px; border-radius: 50%;
+        }
+        .findings-list li.good::before { background: #22c55e; }
+        .findings-list li.concern::before { background: #ef4444; }
+        .findings-list li.note::before { background: #64748b; }
+        .findings-list li.certifiable::before { background: #22c55e; }
+        .findings-list li.uncertifiable::before { background: #ef4444; }
+        .findings-list li.neutral::before { background: #3b82f6; }
+
+        /* DETAIL TABLE */
+        .detail-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 10px 0 6px; }
+        .detail-table th {
+            background: #1a2744; color: #fff; font-weight: 600; font-size: 0.68rem;
+            text-transform: uppercase; letter-spacing: .7px; padding: 8px 14px; text-align: left;
+        }
+        .detail-table th:first-child { border-radius: 5px 0 0 0; }
+        .detail-table th:last-child  { border-radius: 0 5px 0 0; }
+        .detail-table td { padding: 7px 14px; border-bottom: 1px solid #edf0f5; color: #3d4a5c; }
+        .detail-table tr:last-child td { border-bottom: none; }
+        .detail-table tbody tr:hover { background: #f8f9fc; }
+        .mono-val { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; font-size: 0.76rem; }
+
+        /* STATUS BADGES */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.65rem; font-weight: 700; letter-spacing: .3px; }
+        .badge.pass { background: #dcfce7; color: #166534; }
+        .badge.fail { background: #fee2e2; color: #991b1b; }
+        .badge.warn { background: #fef9c3; color: #854d0e; }
+        .badge.info { background: #dbeafe; color: #1e40af; }
+
+        /* STAT CARDS */
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+        .stat-card {
+            border: 1px solid #e2e6ee; border-radius: 6px; padding: 14px 16px;
+            text-align: center; position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        }
+        .stat-card.green::before  { background: #22c55e; }
+        .stat-card.red::before    { background: #ef4444; }
+        .stat-card.blue::before   { background: #3b82f6; }
+        .stat-card.amber::before  { background: #f59e0b; }
+        .stat-val { font-size: 1.3rem; font-weight: 700; line-height: 1.2; color: #1a2744; }
+        .stat-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: .6px; color: #7b8794; font-weight: 600; margin-top: 2px; }
+        .stat-sub { font-size: 0.68rem; color: #94a3b8; margin-top: 4px; }
+
+        /* HYPOTHESIS ROW */
+        .hyp-grid { display: grid; grid-template-columns: 80px 1fr 120px 100px; gap: 0; margin: 10px 0; border: 1px solid #e2e6ee; border-radius: 6px; overflow: hidden; }
+        .hyp-header { background: #1a2744; color: #fff; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; padding: 8px 14px; }
+        .hyp-cell { padding: 10px 14px; font-size: 0.8rem; color: #3d4a5c; border-bottom: 1px solid #edf0f5; display: flex; align-items: center; }
+        .hyp-cell:nth-child(4n+5), .hyp-cell:nth-child(4n+6), .hyp-cell:nth-child(4n+7), .hyp-cell:nth-child(4n+8) { background: #fafbfc; }
+        .hyp-id { font-weight: 700; color: #2c3e6b; font-family: 'Cascadia Code','Fira Code',Consolas,monospace; font-size: 0.76rem; }
+
+        /* CALLOUT */
+        .callout {
+            border-radius: 6px; padding: 14px 20px; margin: 14px 0;
+            font-size: 0.8rem; line-height: 1.65; color: #3d4a5c;
+        }
+        .callout.blue   { background: #eff6ff; border-left: 3px solid #3b82f6; }
+        .callout.green  { background: #f0fdf4; border-left: 3px solid #22c55e; }
+        .callout.amber  { background: #fffbeb; border-left: 3px solid #f59e0b; }
+        .callout.red    { background: #fef2f2; border-left: 3px solid #ef4444; }
+        .callout strong { color: #1a2744; }
+
+        /* FORMULA */
+        .formula-block {
+            background: #f8f9fc; border: 1px solid #e2e6ee; border-radius: 6px;
+            padding: 12px 18px; margin: 10px 0; font-family: 'Cascadia Code','Fira Code',Consolas,monospace;
+            font-size: 0.78rem; color: #475569; line-height: 1.8;
+        }
+
+        /* FOOTER */
+        .section-footer {
+            margin-top: 20px; padding-top: 10px; border-top: 1px solid #edf0f5;
+            font-size: 0.68rem; color: #94a3b8; text-align: center;
+        }
+
+        @media print {
+            body { background: #fff; }
+            .page { box-shadow: none; }
+            .cover-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+
+    <!-- COVER -->
+    <div class="cover-header">
+        <div class="report-badge">Statistical Summary</div>
+        <h1>Statistical Framework Summary</h1>
+        <div class="subtitle">Hypothesis Evaluation &amp; Confidence Analysis — Agent Certification</div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 1. OVERVIEW -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">1. Statistical Framework Overview</h2>
+
+        <div class="scope-narrative">
+            This section consolidates the statistical methodology, key definitions, and hypothesis evaluation results used in the agent certification process. All numeric aggregation is <strong>deterministic pure-Python computation</strong> — no LLM arithmetic. Statistical tests are applied only when sample size ≥ 30 runs per fault category to ensure valid inference.
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card blue">
+                <div class="stat-val">10+</div>
+                <div class="stat-lbl">Hypotheses Evaluated</div>
+                <div class="stat-sub">H01 – H10</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-val">≥ 30</div>
+                <div class="stat-lbl">Min Runs for Hypothesis</div>
+                <div class="stat-sub">Statistical validity threshold</div>
+            </div>
+            <div class="stat-card amber">
+                <div class="stat-val">Wilson</div>
+                <div class="stat-lbl">Confidence Interval Method</div>
+                <div class="stat-sub">Preferred over normal approx.</div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 2. KEY DEFINITIONS -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">2. Key Definitions</h2>
+
+        <h3 class="sub-heading">2.1 Detection vs. Mitigation</h3>
+
+        <div class="callout blue">
+            <strong>Detection rate</strong> measures whether the agent explicitly identified the fault before acting.
+            <strong>Mitigation rate</strong> measures whether the fault was resolved by the end of the run, regardless of detection.
+            The agent may remediate a fault through its standard operational workflow (e.g., restarting unhealthy pods, cleaning disk)
+            without classifying it as a "detected fault." This explains why <strong>mitigation can reach 100% while detection remains low</strong>
+            — the agent acts on symptoms even when it does not formally flag a root cause.
+        </div>
+
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Definition</th>
+                    <th>Scope</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Detection Rate</strong></td>
+                    <td>Agent explicitly identifies the injected fault as the root cause</td>
+                    <td>Per-run binary (detected / not detected)</td>
+                </tr>
+                <tr>
+                    <td><strong>Mitigation Rate</strong></td>
+                    <td>Fault is resolved by end of run, regardless of detection method</td>
+                    <td>Per-run binary (mitigated / not mitigated)</td>
+                </tr>
+                <tr>
+                    <td><strong>Time-to-Detect (TTD)</strong></td>
+                    <td>Elapsed seconds from fault injection to first detection signal</td>
+                    <td>Only for runs where detection = true</td>
+                </tr>
+                <tr>
+                    <td><strong>Time-to-Mitigate (TTM)</strong></td>
+                    <td>Elapsed seconds from fault injection to confirmed remediation</td>
+                    <td>Includes detection time; not time from detection to fix</td>
+                </tr>
+                <tr>
+                    <td><strong>False Positive Rate</strong></td>
+                    <td>Agent flags a fault that was not injected</td>
+                    <td>Per-run count, aggregated to rate</td>
+                </tr>
+                <tr>
+                    <td><strong>False Negative Rate</strong></td>
+                    <td>Agent fails to detect an injected fault</td>
+                    <td>1 − Detection Rate</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="sub-heading">2.2 Why Median and P95?</h3>
+
+        <div class="callout green">
+            <strong>Median</strong> is robust to outliers — a single anomalously slow run does not distort the typical performance.
+            <strong>P95</strong> (95th percentile) captures tail latency: "95% of runs complete within this time," providing a practical upper-bound for SLA evaluation.<br><br>
+            <strong>Statistical note:</strong> With small sample sizes (e.g., n=5 runs per category), P95 equals the maximum observed value. These percentiles should be interpreted as <strong>directional indicators</strong>, not statistically robust bounds.
+        </div>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 3. CONFIDENCE INTERVALS -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">3. Wilson Score Confidence Intervals</h2>
+
+        <div class="scope-narrative">
+            <strong>Wilson intervals</strong> are preferred over normal-approximation intervals because they remain well-calibrated at the boundaries (0% and 100%) where this agent's proportions cluster. They provide reliable confidence bounds even with moderate sample sizes and extreme success/failure rates.
+        </div>
+
+        <h3 class="sub-heading">3.1 Formula</h3>
+
+        <div class="formula-block">
+            Wilson CI = (p̂ + z²/2n ± z · √(p̂(1−p̂)/n + z²/4n²)) / (1 + z²/n)<br><br>
+            where:<br>
+            &nbsp;&nbsp;p̂ = observed proportion (successes / trials)<br>
+            &nbsp;&nbsp;n = number of trials<br>
+            &nbsp;&nbsp;z = z-score for desired confidence level (1.96 for 95%)
+        </div>
+
+        <h3 class="sub-heading">3.2 Interpretation Guide</h3>
+
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Observed Rate</th>
+                    <th>Wilson CI (95%)</th>
+                    <th>Interpretation</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>30/30 successes</td>
+                    <td class="mono-val">100.0%</td>
+                    <td class="mono-val">[88.6%, 100.0%]</td>
+                    <td>Lower bound <strong>exceeds 85%</strong> — certifiable <span class="badge pass">PASS</span></td>
+                </tr>
+                <tr>
+                    <td>28/30 successes</td>
+                    <td class="mono-val">93.3%</td>
+                    <td class="mono-val">[78.7%, 98.2%]</td>
+                    <td>Lower bound below 85% — <strong>more runs needed</strong> <span class="badge warn">REVIEW</span></td>
+                </tr>
+                <tr>
+                    <td>5/30 successes</td>
+                    <td class="mono-val">16.7%</td>
+                    <td class="mono-val">[7.3%, 33.6%]</td>
+                    <td>Upper bound well below 60% — <strong>uncertifiable</strong> <span class="badge fail">FAIL</span></td>
+                </tr>
+                <tr>
+                    <td>0/90 false positives</td>
+                    <td class="mono-val">0.0%</td>
+                    <td class="mono-val">[0.0%, 4.1%]</td>
+                    <td>Upper bound near noise floor — <strong>clean</strong> <span class="badge pass">PASS</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 4. HYPOTHESIS SIGNALS -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">4. Certification Signals</h2>
+
+        <div class="scope-narrative">
+            Three key signals emerge from the statistical evaluation. These determine whether a dimension is certifiable, needs improvement, or is already strong enough to publish as an SLA.
+        </div>
+
+        <div class="callout red">
+            <strong>Detection is uncertifiable.</strong> Even the best-performing categories (Application, Resource) have a certified floor of only <span class="mono-val">9.5%</span>. The network upper bound <span class="mono-val">11.4%</span> is below the 60% minimum-rate threshold, so a larger sample cannot rescue this dimension without a real capability improvement.
+        </div>
+
+        <div class="callout green">
+            <strong>Mitigation is certifiable.</strong> With 30 successes out of 30 per category, the Wilson lower bound <span class="mono-val">88.6%</span> already exceeds the 85% mitigation target. Pooled across all 90 runs, the floor rises to <span class="mono-val">95.9%</span> — publishable as an SLA.
+        </div>
+
+        <div class="callout blue">
+            <strong>Zero false positives.</strong> The 0/90 false-positive count has a one-sided Wilson upper bound near <span class="mono-val">4.1%</span>, which is well inside noise tolerance.
+        </div>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 5. HYPOTHESIS RESULTS TABLE -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">5. Hypothesis Evaluation Results</h2>
+
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th style="width:70px;">ID</th>
+                    <th>Hypothesis</th>
+                    <th style="width:120px;">Method</th>
+                    <th style="width:90px;">Status</th>
+                    <th>Key Finding</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="mono-val">H-01</td>
+                    <td>Detection rate meets minimum threshold</td>
+                    <td>Wilson CI</td>
+                    <td><span class="badge fail">FAIL</span></td>
+                    <td>Upper bound below 60% minimum — detection capability insufficient</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-02</td>
+                    <td>Success rate estimation with confidence bounds</td>
+                    <td>Wilson CI</td>
+                    <td><span class="badge pass">PASS</span></td>
+                    <td>Mitigation lower bound 88.6% exceeds 85% target</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-03</td>
+                    <td>Response time meets SLA targets</td>
+                    <td>One-sample t-test</td>
+                    <td><span class="badge pass">PASS</span></td>
+                    <td>Median TTM within acceptable SLA bounds</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-04</td>
+                    <td>Success rate uniform across fault categories</td>
+                    <td>Chi-square / Fisher</td>
+                    <td><span class="badge pass">PASS</span></td>
+                    <td>No significant variation across categories (p > 0.05)</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-05</td>
+                    <td>False positive rate below threshold</td>
+                    <td>Wilson CI (one-sided)</td>
+                    <td><span class="badge pass">PASS</span></td>
+                    <td>0/90 FP — upper bound 4.1%, well within tolerance</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-06</td>
+                    <td>Response time consistency across fault types</td>
+                    <td>Kruskal-Wallis</td>
+                    <td><span class="badge warn">REVIEW</span></td>
+                    <td>Variance observed across categories — investigate outliers</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-07</td>
+                    <td>SLA breach rate below acceptable limit</td>
+                    <td>Wilson CI</td>
+                    <td><span class="badge pass">PASS</span></td>
+                    <td>Breach rate within acceptable bounds</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-08</td>
+                    <td>Token efficiency within budget</td>
+                    <td>Descriptive stats</td>
+                    <td><span class="badge pass">PASS</span></td>
+                    <td>Token usage per run within expected range</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-09</td>
+                    <td>Detection success meets SLA</td>
+                    <td>Wilson CI</td>
+                    <td><span class="badge fail">FAIL</span></td>
+                    <td>Detection rate floor too low for SLA commitment</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">H-10</td>
+                    <td>Overall agent reliability score</td>
+                    <td>Composite</td>
+                    <td><span class="badge warn">REVIEW</span></td>
+                    <td>Strong mitigation offsets weak detection — conditional pass</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 6. SAMPLE SIZE GUIDANCE -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">6. Sample Size &amp; Confidence Guidance</h2>
+
+        <div class="scope-narrative">
+            The number of runs directly impacts statistical confidence. Below is a reference for how Wilson CI width narrows as sample size increases, assuming a 100% observed success rate.
+        </div>
+
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Runs per Fault</th>
+                    <th>Observed Rate</th>
+                    <th>Wilson Lower Bound (95%)</th>
+                    <th>CI Width</th>
+                    <th>Hypothesis Testing</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="mono-val">5</td>
+                    <td class="mono-val">100.0%</td>
+                    <td class="mono-val">56.6%</td>
+                    <td class="mono-val">43.4%</td>
+                    <td><span class="badge fail">Skipped</span> — insufficient sample</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">10</td>
+                    <td class="mono-val">100.0%</td>
+                    <td class="mono-val">72.2%</td>
+                    <td class="mono-val">27.8%</td>
+                    <td><span class="badge fail">Skipped</span> — insufficient sample</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">20</td>
+                    <td class="mono-val">100.0%</td>
+                    <td class="mono-val">83.9%</td>
+                    <td class="mono-val">16.1%</td>
+                    <td><span class="badge warn">Marginal</span> — below 85% floor</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">30</td>
+                    <td class="mono-val">100.0%</td>
+                    <td class="mono-val">88.6%</td>
+                    <td class="mono-val">11.4%</td>
+                    <td><span class="badge pass">Valid</span> — exceeds 85% threshold</td>
+                </tr>
+                <tr>
+                    <td class="mono-val">50</td>
+                    <td class="mono-val">100.0%</td>
+                    <td class="mono-val">92.7%</td>
+                    <td class="mono-val">7.3%</td>
+                    <td><span class="badge pass">Strong</span> — high confidence</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="callout amber">
+            <strong>Why 30 runs?</strong> At n=30 with a perfect success rate, the Wilson lower bound (88.6%) first crosses the 85% SLA certification threshold. Below 30 runs, even 100% observed success cannot guarantee the SLA floor with 95% confidence — hypothesis testing is skipped and results are reported as descriptive only.
+        </div>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 7. SCENARIO MAPPING -->
+        <!-- ═══════════════════════════════════════ -->
+        <h2 class="section-heading">7. Certification Scenario Mapping</h2>
+
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th style="width:50px;">ID</th>
+                    <th>Scenario</th>
+                    <th style="width:140px;">Pipeline</th>
+                    <th style="width:110px;">Certificate</th>
+                    <th>Statistical Caveat</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>S1</strong></td>
+                    <td>≥ 30 successful runs</td>
+                    <td>Agg + Hypo + Cert</td>
+                    <td><span class="badge pass">Issued</span></td>
+                    <td>Full statistical confidence. Missing metrics marked inconclusive.</td>
+                </tr>
+                <tr>
+                    <td><strong>S2</strong></td>
+                    <td>&lt; 30 successful runs</td>
+                    <td>Agg + Cert</td>
+                    <td><span class="badge warn">With Caveats</span></td>
+                    <td>Hypothesis skipped. Results descriptive only, not validated.</td>
+                </tr>
+                <tr>
+                    <td><strong>S3</strong></td>
+                    <td>0 successful runs</td>
+                    <td>Not triggered</td>
+                    <td><span class="badge fail">None</span></td>
+                    <td>Upstream failure. No data reaches certifier.</td>
+                </tr>
+                <tr>
+                    <td><strong>S4</strong></td>
+                    <td>Runs OK, metrics null</td>
+                    <td>Cert + warnings</td>
+                    <td><span class="badge warn">With Warnings</span></td>
+                    <td>No metrics extractable. Root cause needs investigation.</td>
+                </tr>
+                <tr>
+                    <td><strong>S5</strong></td>
+                    <td>No fault detected</td>
+                    <td>Full (single-fault)</td>
+                    <td><span class="badge pass">Issued</span></td>
+                    <td>Fallback to single fault bucket. Pipeline proceeds normally.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- FOOTER -->
+        <div class="section-footer">
+            Agent Certification — Statistical Framework Summary &bull; Generated from AgentCert Pipeline
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
