@@ -1,0 +1,220 @@
+fault: pod-autoscaler
+version: 0.1.0
+description: Scale the application replicas and test the node autoscaling on cluster
+
+ground_truth:
+  fault_description_goal_remediation:
+    symptoms:
+      - "Sudden spike in pod replica count for the target deployment"
+      - "Pods stuck in Pending state due to insufficient node resources"
+      - "Cluster autoscaler events indicating node scale-up triggered"
+      - "Scheduling failures with FailedScheduling warnings"
+      - "Increased CPU and memory pressure on existing nodes"
+      - "Application response latency increases during scaling"
+
+    goal: >
+      Scale application replicas to a high count to validate node autoscaling,
+      pod scheduling under resource pressure, and cluster capacity handling.
+
+    remediation: >
+      Verify all scaled replicas reach Running state. Confirm new nodes are
+      provisioned if needed. Scale deployment back to original replica count.
+      Remove excess nodes if cluster autoscaler does not downscale automatically.
+
+  ideal_course_of_action:
+    - step: 1
+      action: "List all namespaces"
+      detail: >
+        Enumerate cluster namespaces to identify where the target
+        application is deployed.
+
+    - step: 2
+      action: "List pods in target namespace"
+      detail: >
+        List all pods in the application namespace to observe the
+        current replica count and pod states before/after scaling.
+
+    - step: 3
+      action: "Get target pod details"
+      detail: >
+        Retrieve detailed spec and status of a target pod to confirm
+        its owner deployment and resource requests/limits.
+
+    - step: 4
+      action: "Check Kubernetes events"
+      detail: >
+        List cluster events to detect FailedScheduling, node scale-up
+        triggers, and resource-pressure warnings.
+
+    - step: 5
+      action: "Check pod resource consumption"
+      detail: >
+        Review CPU and memory usage of pods in the namespace to assess
+        resource distribution across scaled replicas.
+
+    - step: 6
+      action: "Check node resource consumption"
+      detail: >
+        Get node-level resource usage to determine if existing nodes
+        can accommodate the increased replica count.
+
+    - step: 7
+      action: "Get node stats summary"
+      detail: >
+        Retrieve detailed node resource statistics to assess capacity
+        pressure from the scaled workload.
+
+    - step: 8
+      action: "Get deployment details"
+      detail: >
+        Retrieve the owning deployment to verify desired vs available
+        replica count and rollout status.
+
+    - step: 9
+      action: "Check deployment scale"
+      detail: >
+        Get current scale of the deployment to confirm the autoscaler
+        fault applied the expected replica count.
+
+    - step: 10
+      action: "Get pod logs"
+      detail: >
+        Retrieve logs from pods to identify application errors caused
+        by resource contention during scaling.
+
+    - step: 11
+      action: "Query Prometheus for resource metrics"
+      detail: >
+        Execute PromQL queries to confirm CPU/memory trends and
+        scheduling latency during the scaling event.
+
+    - step: 12
+      action: "Scale deployment back to original count"
+      detail: >
+        Restore the deployment to its pre-fault replica count to
+        end the autoscaling test.
+
+    - step: 13
+      action: "Verify pod recovery"
+      detail: >
+        Re-list pods in the namespace to confirm replicas are back
+        to normal count and all are Running and Ready.
+
+    - step: 14
+      action: "Verify node downscale"
+      detail: >
+        Check that excess nodes are drained and removed by the
+        cluster autoscaler after replicas are reduced.
+
+  ideal_tool_usage_trajectory:
+    - step: 1
+      tool: "Namespaces: List"
+      command: "Namespaces: List"
+      purpose: "Identify all namespaces to locate the target application namespace."
+      tool_available: true
+
+    - step: 2
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=<target-namespace>"
+      purpose: "List pods in the target namespace to observe current and scaled replica states."
+      tool_available: true
+
+    - step: 3
+      tool: "Pods: Get"
+      command: "Pods: Get namespace=<target-namespace> name=<pod-name>"
+      purpose: "Get detailed status and spec of a target pod to assess resource requests."
+      tool_available: true
+
+    - step: 4
+      tool: "Events: List"
+      command: "Events: List"
+      purpose: "Detect FailedScheduling, node scale-up, and resource-pressure events."
+      tool_available: true
+
+    - step: 5
+      tool: "Pods: Top"
+      command: "Pods: Top namespace=<target-namespace>"
+      purpose: "Check CPU and memory consumption of pods after scaling."
+      tool_available: true
+
+    - step: 6
+      tool: "Nodes: Top"
+      command: "Nodes: Top"
+      purpose: "Check node-level resource usage to assess cluster capacity under load."
+      tool_available: true
+
+    - step: 7
+      tool: "Node: Stats Summary"
+      command: "Node: Stats Summary node=<node-name>"
+      purpose: "Get detailed node resource statistics including CPU, memory, and PSI metrics."
+      tool_available: true
+
+    - step: 8
+      tool: "Resources: Get"
+      command: "Resources: Get apiVersion=apps/v1 kind=Deployment namespace=<target-namespace> name=<deployment-name>"
+      purpose: "Retrieve deployment details to verify replica count and rollout status."
+      tool_available: true
+
+    - step: 9
+      tool: "Resources: Scale"
+      command: "Resources: Scale apiVersion=apps/v1 kind=Deployment namespace=<target-namespace> name=<deployment-name>"
+      purpose: "Get current scale of the deployment to confirm the fault-injected replica count."
+      tool_available: true
+
+    - step: 10
+      tool: "Pods: Log"
+      command: "Pods: Log namespace=<target-namespace> name=<pod-name>"
+      purpose: "Retrieve pod logs to identify application errors during scaling."
+      tool_available: true
+
+    - step: 11
+      tool: "Execute PromQL Query"
+      command: "Execute PromQL Query query='kube_deployment_status_replicas{namespace=\"<target-namespace>\", deployment=\"<deployment-name>\"}'"
+      purpose: "Query Prometheus to confirm replica count trend and scheduling latency."
+      tool_available: true
+
+    - step: 12
+      tool: "Resources: Scale"
+      command: "Resources: Scale apiVersion=apps/v1 kind=Deployment namespace=<target-namespace> name=<deployment-name> scale=<original-replicas>"
+      purpose: "Scale deployment back to original replica count to end the test."
+      tool_available: true
+
+    - step: 13
+      tool: "Pods: List in Namespace"
+      command: "Pods: List in Namespace namespace=<target-namespace>"
+      purpose: "Verify pods are back to normal count and all Running and Ready."
+      tool_available: true
+
+    - step: 14
+      tool: "Drain and Remove Excess Nodes"
+      command: "kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data; kubectl delete node <node-name>"
+      purpose: "Drain and remove excess nodes if cluster autoscaler does not downscale automatically."
+      tool_available: false
+
+    - step: 15
+      tool: "Configure Cluster Autoscaler"
+      command: "kubectl patch configmap cluster-autoscaler-status -n kube-system --type merge -p '{\"data\":{\"scaleDown\":\"enabled\"}}'"
+      purpose: "Ensure cluster autoscaler scale-down is enabled to reclaim unused nodes."
+      tool_available: false
+
+    - step: 16
+      tool: "Restart Deployment"
+      command: "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>"
+      purpose: "Restart the deployment to ensure clean pod state after the scaling test."
+      tool_available: false
+
+  sla:
+    time_to_detect:
+      description: "Max time from fault injection to first correct symptom identification"
+      threshold: 120
+      unit: "seconds"
+
+    time_to_mitigate:
+      description: "Max time from fault injection to successful remediation"
+      threshold: 180
+      unit: "seconds"
+
+    max_tool_calls:
+      description: "Max total tool invocations allowed (including retries)"
+      threshold: 24
+      unit: "count"

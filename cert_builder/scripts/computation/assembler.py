@@ -10,6 +10,8 @@ Output keys: scorecard, findings, tables, charts, assessments, hardcoded, cards
 
 from pathlib import Path
 
+from utils.custom_errors import CertBuilderError, MyCustomError
+
 from cert_builder.schema.intermediate import ComputedContent
 
 from cert_builder.scripts.computation.scorecard_builder import build_from_file as build_scorecard_from_file
@@ -18,6 +20,19 @@ from cert_builder.scripts.computation.chart_builder import build_from_file as bu
 from cert_builder.scripts.computation.assessment_formatter import build_from_file as build_assessments_from_file
 from cert_builder.scripts.computation.hardcoded_loader import load_all as load_hardcoded
 from cert_builder.scripts.computation.card_builder import build_from_file as build_cards_from_file
+
+
+def _run_builder(name: str, fn, *args, **kwargs):
+    """Invoke a Phase 2 builder and wrap any unexpected error in CertBuilderError."""
+    try:
+        return fn(*args, **kwargs)
+    except MyCustomError:
+        raise
+    except Exception as exc:
+        raise CertBuilderError(
+            f"Computation builder '{name}' failed",
+            original_exception=exc,
+        ) from exc
 
 
 class ComputationAssembler:
@@ -45,26 +60,38 @@ class ComputationAssembler:
             Combined dict with 7 top-level keys.
         """
         # Scorecard & Findings (no dependencies)
-        result_scorecard = build_scorecard_from_file(self.phase1_path)
+        result_scorecard = _run_builder(
+            "scorecard", build_scorecard_from_file, self.phase1_path
+        )
 
         # Tables (no dependencies)
-        result_tables = build_tables_from_file(self.phase1_path)
+        result_tables = _run_builder(
+            "tables", build_tables_from_file, self.phase1_path
+        )
 
         # Charts (depends on scorecard dimensions)
         scorecard_dims = result_scorecard["scorecard"]["dimensions"]
-        result_charts = build_charts_from_file(
-            self.phase1_path, scorecard_dims,
-            render=self.render_charts, output_dir=self.chart_output_dir,
+        result_charts = _run_builder(
+            "charts",
+            build_charts_from_file,
+            self.phase1_path,
+            scorecard_dims,
+            render=self.render_charts,
+            output_dir=self.chart_output_dir,
         )
 
         # Assessment Blocks (no dependencies)
-        result_assessments = build_assessments_from_file(self.phase1_path)
+        result_assessments = _run_builder(
+            "assessments", build_assessments_from_file, self.phase1_path
+        )
 
         # Hardcoded Content (reads its own YAML)
-        result_hardcoded = load_hardcoded()
+        result_hardcoded = _run_builder("hardcoded", load_hardcoded)
 
         # Cards (no dependencies)
-        result_cards = build_cards_from_file(self.phase1_path)
+        result_cards = _run_builder(
+            "cards", build_cards_from_file, self.phase1_path
+        )
 
         # Merge — each builder returns a dict with distinct top-level keys
         merged = {
@@ -77,5 +104,14 @@ class ComputationAssembler:
         }
 
         # Validate merged output
-        validated = ComputedContent.model_validate(merged)
+        try:
+            validated = ComputedContent.model_validate(merged)
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            raise CertBuilderError(
+                "ComputedContent Pydantic validation failed for merged "
+                "Phase 2 output",
+                original_exception=exc,
+            ) from exc
         return validated.model_dump(mode="json")

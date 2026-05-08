@@ -137,7 +137,9 @@ def call_llm(
                 gen_kwargs["max_completion_tokens"] = max_tokens
             else:
                 gen_kwargs["temperature"] = temperature
-                gen_kwargs["max_tokens"] = max_tokens
+                # Try max_completion_tokens first (required for gpt-4o / o-series models)
+                # Fall back to max_tokens if not supported
+                gen_kwargs["max_completion_tokens"] = max_tokens
 
             response = client.chat.completions.create(
                 model=deployment,

@@ -1,0 +1,198 @@
+---
+# Ground Truth for node-restart fault
+# Used by the metrics extraction pipeline to evaluate agent behaviour.
+# This file is never exposed to the agent under test.
+
+ground_truth:
+
+  fault_description_goal_remediation:
+    symptoms:
+      - "Node enters NotReady state"
+      - "Pods on the restarted node move to Terminating or Unknown status"
+      - "Workloads rescheduled to other nodes by the scheduler"
+      - "NodeNotReady and NodeRebooted events in cluster events"
+      - "Application downtime or HTTP errors for pods hosted on the target node"
+      - "kubelet and kube-proxy logs unavailable during node reboot window"
+
+    goal: >
+      Restart a target Kubernetes node via SSH to validate cluster resilience,
+      pod rescheduling behaviour, and node auto-recovery.
+
+    remediation: >
+      Identify the NotReady node and affected pods. Verify node recovery and
+      readiness. Delete stuck Terminating pods. Confirm workloads are rescheduled
+      and running. Uncordon node if cordoned. Validate deployment replica health.
+
+  ideal_course_of_action:
+    - step: 1
+      action: "List cluster events"
+      detail: >
+        List Kubernetes events across all namespaces to detect NodeNotReady,
+        NodeRebooted, and pod eviction warnings triggered by the node restart.
+
+    - step: 2
+      action: "List all nodes"
+      detail: >
+        List cluster nodes to identify which node is in NotReady or
+        SchedulingDisabled state after the restart fault injection.
+
+    - step: 3
+      action: "Get target node details"
+      detail: >
+        Retrieve the full spec and status of the affected node to inspect
+        conditions (Ready, DiskPressure, MemoryPressure) and taints.
+
+    - step: 4
+      action: "Check node resource stats"
+      detail: >
+        Get node-level stats summary to verify resource usage and confirm
+        whether the kubelet is reporting metrics after reboot.
+
+    - step: 5
+      action: "Check node logs"
+      detail: >
+        Retrieve kubelet or system logs from the node to confirm the reboot
+        event and identify any post-restart errors.
+
+    - step: 6
+      action: "List pods in affected namespace"
+      detail: >
+        List pods in the target namespace to identify those in Terminating,
+        Unknown, or Pending state due to the node restart.
+
+    - step: 7
+      action: "Get affected pod details"
+      detail: >
+        Retrieve the full spec and status of affected pods to confirm
+        scheduling status, node assignment, and container readiness.
+
+    - step: 8
+      action: "Get pod logs"
+      detail: >
+        Retrieve logs from affected pods to identify application-level errors
+        caused by the abrupt node shutdown.
+
+    - step: 9
+      action: "Check pod resource consumption"
+      detail: >
+        Check CPU and memory usage of pods in the namespace to confirm
+        rescheduled pods are operating within normal bounds.
+
+    - step: 10
+      action: "Query Prometheus for node availability"
+      detail: >
+        Execute a PromQL query for node readiness metrics (e.g., kube_node_status_condition)
+        to confirm the node recovery timeline.
+
+    - step: 11
+      action: "Delete stuck Terminating pods"
+      detail: >
+        Delete pods stuck in Terminating or Unknown state so the controller
+        can recreate them on healthy nodes.
+
+    - step: 12
+      action: "Uncordon node if cordoned"
+      detail: >
+        Remove the SchedulingDisabled taint from the recovered node to allow
+        new pods to be scheduled on it again.
+
+    - step: 13
+      action: "Verify deployment health"
+      detail: >
+        Get the deployment resource to confirm desired replicas are running
+        and the rollout is healthy after remediation.
+
+  ideal_tool_usage_trajectory:
+    - step: 1
+      tool: "Events: List"
+      command: "events list --all-namespaces"
+      purpose: "Detect NodeNotReady, NodeRebooted, and pod eviction events"
+      tool_available: true
+
+    - step: 2
+      tool: "Resources: List"
+      command: "resources list --apiVersion v1 --kind Node"
+      purpose: "Identify the node in NotReady or SchedulingDisabled state"
+      tool_available: true
+
+    - step: 3
+      tool: "Resources: Get"
+      command: "resources get --apiVersion v1 --kind Node --name <node-name>"
+      purpose: "Inspect node conditions, taints, and status after restart"
+      tool_available: true
+
+    - step: 4
+      tool: "Node: Stats Summary"
+      command: "node stats-summary --node <node-name>"
+      purpose: "Verify node-level resource metrics and kubelet health post-reboot"
+      tool_available: true
+
+    - step: 5
+      tool: "Node: Log"
+      command: "node log --node <node-name> --log kubelet"
+      purpose: "Retrieve kubelet logs to confirm reboot event and post-restart errors"
+      tool_available: true
+
+    - step: 6
+      tool: "Pods: List in Namespace"
+      command: "pods list --namespace <target-namespace>"
+      purpose: "Identify pods in Terminating, Unknown, or Pending state"
+      tool_available: true
+
+    - step: 7
+      tool: "Pods: Get"
+      command: "pods get --namespace <target-namespace> --name <pod-name>"
+      purpose: "Inspect pod scheduling status and container readiness"
+      tool_available: true
+
+    - step: 8
+      tool: "Pods: Log"
+      command: "pods log --namespace <target-namespace> --name <pod-name>"
+      purpose: "Retrieve application logs to find errors from abrupt shutdown"
+      tool_available: true
+
+    - step: 9
+      tool: "Pods: Top"
+      command: "pods top --namespace <target-namespace>"
+      purpose: "Confirm rescheduled pods are consuming resources normally"
+      tool_available: true
+
+    - step: 10
+      tool: "Execute PromQL Query"
+      command: "promql query --query 'kube_node_status_condition{node=\"<node-name>\", condition=\"Ready\"}'"
+      purpose: "Query node readiness metric to confirm recovery timeline"
+      tool_available: true
+
+    - step: 11
+      tool: "Pods: Delete"
+      command: "pods delete --namespace <target-namespace> --name <stuck-pod-name>"
+      purpose: "Remove stuck Terminating pods so controllers can recreate them"
+      tool_available: true
+
+    - step: 12
+      tool: "Uncordon Node"
+      command: "kubectl uncordon <node-name>"
+      purpose: "Re-enable scheduling on the recovered node"
+      tool_available: false
+
+    - step: 13
+      tool: "Resources: Get"
+      command: "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>"
+      purpose: "Verify deployment health and confirm all replicas are running"
+      tool_available: true
+
+  sla:
+    time_to_detect:
+      description: "Max time from fault injection to first correct symptom identification"
+      threshold: 30
+      unit: "seconds"
+
+    time_to_mitigate:
+      description: "Max time from fault injection to successful remediation"
+      threshold: 300
+      unit: "seconds"
+
+    max_tool_calls:
+      description: "Max total tool invocations allowed (including retries)"
+      threshold: 20
+      unit: "count"

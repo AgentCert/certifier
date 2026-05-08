@@ -1,0 +1,211 @@
+{
+  "fault_id": "pod-network-rate-limit",
+  "run_id": "5fb247fd-73bf-44a7-bb15-184c9ba150de",
+  "fault_name": "pod-network-rate-limit",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "b32b16572bce945d5557b651",
+    "run_id": "5fb247fd-73bf-44a7-bb15-184c9ba150de",
+    "fault_injection_time": "2026-04-14T14:45:41.328768Z",
+    "agent_fault_detection_time": "2026-04-14T14:47:32.708768Z",
+    "agent_fault_mitigation_time": "2026-04-14T14:47:42.708768Z",
+    "time_to_detect": 111.38,
+    "time_to_mitigate": 121.38,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 16,
+    "input_tokens": 51005,
+    "output_tokens": 8412,
+    "injected_fault_name": "pod-network-rate-limit",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": "pod-network-rate-limit",
+    "fault_target_service": "ingress-service-node-04-a6695c",
+    "fault_namespace": "ingress-service",
+    "tool_calls": [
+      {
+        "tool_name": "Network: Diagnose",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Diagnose successfully on ingress-service",
+        "timestamp": "2026-04-14T14:45:50.375416+00:00Z"
+      },
+      {
+        "tool_name": "Network: Rate Limit Check",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Rate Limit Check successfully on ingress-service",
+        "timestamp": "2026-04-14T14:45:54.491148+00:00Z"
+      },
+      {
+        "tool_name": "Network: Diagnose",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-01"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Network: Diagnose successfully on ingress-service",
+        "timestamp": "2026-04-14T14:46:07.353892+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on ingress-service",
+        "timestamp": "2026-04-14T14:46:10.668972+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on ingress-service",
+        "timestamp": "2026-04-14T14:46:13.876821+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on ingress-service",
+        "timestamp": "2026-04-14T14:46:27.686578+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on ingress-service",
+        "timestamp": "2026-04-14T14:46:39.519808+00:00Z"
+      },
+      {
+        "tool_name": "Network: Rate Limit Check",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Rate Limit Check successfully on ingress-service",
+        "timestamp": "2026-04-14T14:46:54.382860+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:07.495998+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:13.297967+00:00Z"
+      },
+      {
+        "tool_name": "Network: Diagnose",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Diagnose successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:21.888999+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:27.494322+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-01"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Pods: Log successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:41.596664+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:53.596531+00:00Z"
+      },
+      {
+        "tool_name": "Network: Rate Limit Check",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Rate Limit Check successfully on ingress-service",
+        "timestamp": "2026-04-14T14:47:57.068737+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "ingress-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on ingress-service",
+        "timestamp": "2026-04-14T14:48:06.767590+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.61
+  },
+  "qualitative": {
+    "rai_check_status": "Passed with minor notes",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-network-rate-limit diagnosis.",
+    "security_compliance_status": "Compliant with notes",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 7.5,
+    "reasoning_quality_notes": "Agent demonstrated adequate reasoning in diagnosing pod-network-rate-limit.",
+    "agent_summary": "Agent successfully diagnosed pod-network-rate-limit on ingress-service. Remediation applied and verified.",
+    "hallucination_score": 0.04,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 51005,
+    "output_tokens": 8412,
+    "total_tokens": 59417
+  }
+}

@@ -1,9 +1,12 @@
 """
-End-to-end pipeline: Aggregation → Certification.
+End-to-end pipeline: Aggregation → (optional) Statistical Hypothesis → Certification.
 
 Reads per-run *metrics.json files from a directory, aggregates them into a
-fault-category and agent-level scorecard, then feeds the aggregated scorecard
-into the certification framework to produce the final certification report.
+fault-category and agent-level scorecard, optionally runs the H01–H09
+statistical hypothesis framework against the same metrics (merged into the
+scorecard under the ``statistical_hypothesis`` key), then feeds the
+aggregated scorecard into the certification framework to produce the final
+certification report.
 
 Usage:
     python -m agentcert.run_aggregation_and_certification_pipeline \
@@ -13,6 +16,11 @@ Usage:
         --agent-name <agent_name> \
         [--certification-run-id <run_id>] \
         [--runs-per-fault 30] \
+        [--advanced-analysis] \
+        [--ground-truth-dir <gt_dir>] \
+        [--fault-categories-config <path>] \
+        [--min-runs 30] [--alpha 0.05] [--n-resamples 10000] \
+        [--random-state <int>] \
         [--debug]
 """
 
@@ -24,6 +32,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from utils.custom_errors import MyCustomError, OrchestratorError, ConfigLoaderError
 import sys
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 try:
     from utils.azure_openai_util import AzureLLMClient
@@ -40,6 +54,15 @@ from aggregator.scripts.aggregation import (
     DirectoryQueryService,
 )
 from cert_builder.scripts.certification_pipeline import CertificationPipeline
+
+# Reuse hypothesis-grouping helpers from the agg+hypothesis pipeline to keep
+# the two pipelines in lockstep without duplicating logic.
+from run_aggregation_and_hypothesis_pipeline import (
+    _DEFAULT_FAULT_CATEGORIES_CONFIG,
+    _group_docs_by_category,
+    _load_fault_categories_config,
+    _run_hypothesis_safely,
+)
 
 
 def _save_json(data: dict, path: Path) -> None:
@@ -66,8 +89,15 @@ async def run_pipeline(
     runs_per_fault: int = 30,
     debug: bool = False,
     config: Optional[Dict[str, Any]] = None,
+    advanced_analysis: bool = False,
+    ground_truth_dir: Optional[str] = None,
+    fault_categories_config: Optional[str] = None,
+    min_runs: int = 30,
+    alpha: float = 0.05,
+    n_resamples: int = 10000,
+    random_state: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Run the full pipeline: aggregation then certification.
+    """Run the full pipeline: aggregation, optional hypothesis testing, certification.
 
     Args:
         metrics_dir: Directory containing per-run *metrics.json files.
@@ -78,6 +108,15 @@ async def run_pipeline(
         runs_per_fault: Expected number of runs per fault.
         debug: If True, persist intermediate outputs.
         config: Optional configuration dict. Loaded from ConfigLoader if None.
+        advanced_analysis: If True, run the H01–H09 hypothesis framework
+            and merge its output into the aggregated scorecard under the
+            ``statistical_hypothesis`` key (before certification).
+        ground_truth_dir: Ground truth directory required when
+            ``advanced_analysis`` is True. Missing/invalid GT logs a warning
+            and skips the hypothesis step (does not fail the pipeline).
+        fault_categories_config: Optional path to fault categories JSON
+            (defaults to ``configs/fault_categories.json``).
+        min_runs / alpha / n_resamples / random_state: Hypothesis parameters.
 
     Returns:
         The final certification report dict.
@@ -156,8 +195,6 @@ async def run_pipeline(
         _save_json(aggregated_scorecard, scorecard_path)
         logger.info(f"Aggregated scorecard written to {scorecard_path}")
 
-        _print_aggregation_summary(aggregated_scorecard, agent_id, agent_name)
-
         # ------------------------------------------------------------------
         # Step 2: Certification
         # ------------------------------------------------------------------
@@ -195,6 +232,12 @@ async def run_pipeline(
             "total_documents": len(agent_docs),
             "total_fault_categories": len(categories),
             "fault_categories": categories,
+            "advanced_analysis": advanced_analysis,
+            "ground_truth_dir": str(Path(ground_truth_dir).resolve())
+            if ground_truth_dir
+            else None,
+            "statistical_hypothesis_included": "statistical_hypothesis"
+            in aggregated_scorecard,
             "aggregated_scorecard_path": str(scorecard_path),
             "certification_report_path": str(report_path),
         }
@@ -256,7 +299,7 @@ def _print_aggregation_summary(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="End-to-end pipeline: Aggregation → Certification"
+        description="End-to-end pipeline: Aggregation -> (optional Hypothesis) -> Certification"
     )
     parser.add_argument(
         "--metrics-dir",
@@ -294,6 +337,51 @@ def main():
         "--debug",
         action="store_true",
         help="Persist intermediate outputs for debugging.",
+    )
+    parser.add_argument(
+        "--advanced-analysis",
+        action="store_true",
+        help="If set, run the H01-H09 statistical hypothesis framework "
+             "between aggregation and certification, merging results into "
+             "the aggregated scorecard under the 'statistical_hypothesis' key.",
+    )
+    parser.add_argument(
+        "--ground-truth-dir",
+        type=str,
+        default=None,
+        help="Ground truth directory (per-fault YAMLs). Required when "
+             "--advanced-analysis is set; otherwise hypothesis is skipped.",
+    )
+    parser.add_argument(
+        "--fault-categories-config",
+        type=str,
+        default=None,
+        help="Path to fault categories JSON (defaults to "
+             "configs/fault_categories.json).",
+    )
+    parser.add_argument(
+        "--min-runs",
+        type=int,
+        default=30,
+        help="Hypothesis: minimum detected runs per category (default 30).",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.05,
+        help="Hypothesis: significance level (default 0.05).",
+    )
+    parser.add_argument(
+        "--n-resamples",
+        type=int,
+        default=10000,
+        help="Hypothesis: bootstrap resamples (default 10000).",
+    )
+    parser.add_argument(
+        "--random-state",
+        type=int,
+        default=None,
+        help="Hypothesis: random seed (default None).",
     )
     args = parser.parse_args()
 

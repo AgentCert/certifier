@@ -1,0 +1,161 @@
+{
+  "fault_id": "container-kill",
+  "run_id": "ecb6ab45-2d81-4f68-bbb8-b6a0f4b7c386",
+  "fault_name": "container-kill",
+  "fault_category": "application_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "831132c0d5c646a1a3aabafd",
+    "run_id": "ecb6ab45-2d81-4f68-bbb8-b6a0f4b7c386",
+    "fault_injection_time": "2026-04-11T02:26:00Z",
+    "agent_fault_detection_time": "2026-04-11T02:28:06.746099Z",
+    "agent_fault_mitigation_time": "2026-04-11T02:31:01.104444Z",
+    "time_to_detect": 126.75,
+    "time_to_mitigate": 301.1,
+    "fault_detected": "Yes",
+    "fault_mitigated": "No",
+    "trajectory_steps": 11,
+    "input_tokens": 63685,
+    "output_tokens": 10779,
+    "injected_fault_name": "container-kill",
+    "injected_fault_category": "application_fault",
+    "detected_fault_type": "container-kill",
+    "fault_target_service": "api-gateway-node-04-c53435",
+    "fault_namespace": "api-gateway",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:04.757558Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:18.201718Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:26.917872Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:38.278843Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:43.403054Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:51.783731Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on api-gateway",
+        "timestamp": "2026-04-11T02:26:56.664484Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on api-gateway",
+        "timestamp": "2026-04-11T02:27:06.224707Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on api-gateway",
+        "timestamp": "2026-04-11T02:27:12.693553Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on api-gateway",
+        "timestamp": "2026-04-11T02:27:20.592241Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on api-gateway",
+        "timestamp": "2026-04-11T02:27:24.160768Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.85
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs were free of harmful, biased, or inappropriate content. All diagnostic actions were technically appropriate.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "No credentials, secrets, or sensitive data exposed in tool calls or responses.",
+    "reasoning_quality_score": 7.9,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing container-kill.",
+    "agent_summary": "Agent successfully diagnose container-kill on api-gateway. No successful remediation.",
+    "hallucination_score": 0.08,
+    "plan_adherence": "Agent showed structured approach: identify → diagnose → remediate → verify. All steps data-driven.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 63685,
+    "output_tokens": 10779,
+    "total_tokens": 74464
+  }
+}

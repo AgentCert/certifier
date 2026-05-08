@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentCert — SLA-Aware Statistical Hypothesis Framework</title>
+<style>
+/* GLOBAL / RESET */
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:15px;scroll-behavior:smooth}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  color:#1e293b;background:#f0f4f8;line-height:1.55;
+}
+
+/* PAGE FRAME */
+.page{max-width:1200px;margin:0 auto;background:#fff;
+      box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+/* COVER */
+.cover{
+  background:linear-gradient(135deg,#1a0a2e 0%,#2d1b69 35%,#7c3aed 70%,#a855f7 100%);
+  color:#fff;padding:48px 56px 40px;position:relative;overflow:hidden;
+}
+.cover::after{
+  content:'';position:absolute;top:-60px;right:-80px;
+  width:320px;height:320px;border-radius:50%;
+  background:rgba(255,255,255,.04);
+}
+.cover h1{font-size:2.1rem;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
+.cover .subtitle{font-size:1.05rem;opacity:.85;margin-bottom:20px}
+.cover .badge-row{display:flex;gap:10px;flex-wrap:wrap}
+.cover .badge-row span{
+  font-size:.72rem;padding:4px 12px;border-radius:20px;
+  background:rgba(255,255,255,.15);backdrop-filter:blur(4px);
+  letter-spacing:.3px;text-transform:uppercase;font-weight:600;
+}
+
+/* CONTENT AREA */
+.content{padding:40px 56px 56px}
+
+/* SECTION */
+.section{margin-bottom:42px}
+.section-num{
+  display:inline-block;font-size:.7rem;font-weight:700;
+  color:#7c3aed;background:#f5f3ff;padding:3px 10px;
+  border-radius:12px;margin-bottom:8px;letter-spacing:.4px;
+}
+.section h2{font-size:1.35rem;font-weight:700;color:#0f172a;margin-bottom:14px}
+.section h3{font-size:1.05rem;font-weight:600;color:#2d1b69;margin:18px 0 10px}
+
+p{margin-bottom:12px;color:#334155}
+ul{margin:8px 0 16px 22px}
+li{margin-bottom:6px;color:#334155}
+
+/* CARDS / GRID */
+.card-grid{display:grid;gap:16px;margin:16px 0}
+.card-grid.two{grid-template-columns:1fr 1fr}
+.card-grid.three{grid-template-columns:1fr 1fr 1fr}
+.card-grid.four{grid-template-columns:1fr 1fr 1fr 1fr}
+
+.card{
+  border:1px solid #e2e8f0;border-radius:10px;padding:20px 22px;
+  background:#fafbfc;transition:box-shadow .15s;
+}
+.card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card .card-title{font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;
+  color:#64748b;font-weight:600;margin-bottom:6px}
+.card .card-value{font-size:1.6rem;font-weight:700;color:#0f172a}
+.card p{font-size:.88rem}
+
+/* INFO BOX */
+.info-box{
+  background:#f5f3ff;border-left:4px solid #7c3aed;
+  padding:16px 20px;border-radius:0 8px 8px 0;margin:16px 0;
+}
+.info-box.warn{background:#fef9c3;border-left-color:#eab308}
+.info-box.green{background:#f0fdf4;border-left-color:#22c55e}
+.info-box.blue{background:#eff6ff;border-left-color:#2563eb}
+.info-box.red{background:#fef2f2;border-left-color:#ef4444}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.82rem}
+th{
+  background:#1a0a2e;color:#fff;padding:10px 12px;
+  text-align:left;font-weight:600;letter-spacing:.3px;
+  position:sticky;top:0;
+}
+td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+tr:nth-child(even){background:#f8fafc}
+tr:hover{background:#f5f3ff}
+td code{
+  background:#f1f5f9;padding:1px 5px;border-radius:3px;
+  font-size:.78rem;color:#7c3aed;
+}
+
+/* SCHEMA BLOCK */
+.schema-block{
+  background:#1e293b;color:#e2e8f0;padding:20px 24px;
+  border-radius:10px;font-family:'Cascadia Code','Fira Code',monospace;
+  font-size:.78rem;line-height:1.65;overflow-x:auto;margin:14px 0;
+  white-space:pre;
+}
+.schema-block .key{color:#c4b5fd}
+.schema-block .str{color:#86efac}
+.schema-block .num{color:#fde68a}
+.schema-block .bool{color:#f9a8d4}
+.schema-block .comment{color:#64748b;font-style:italic}
+
+/* COMPARISON COLUMNS */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.compare .col{border-radius:10px;padding:22px 24px}
+.compare .col.old{background:#f8fafc;border:1px solid #e2e8f0}
+.compare .col.new{background:#f5f3ff;border:2px solid #7c3aed}
+.compare .col h4{font-size:1rem;margin-bottom:10px}
+.compare .col.old h4{color:#64748b}
+.compare .col.new h4{color:#7c3aed}
+
+/* SLA STATUS BADGES */
+.sla-pass{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#dcfce7;color:#15803d}
+.sla-cond{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#fef9c3;color:#a16207}
+.sla-fail{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#fee2e2;color:#dc2626}
+.sla-new{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700;background:#f5f3ff;color:#7c3aed}
+
+/* DECISION GRID */
+.decision-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:20px 0}
+.decision-card{border-radius:10px;padding:22px 24px;text-align:center}
+.decision-card.pass{background:#f0fdf4;border:2px solid #22c55e}
+.decision-card.cond{background:#fefce8;border:2px solid #eab308}
+.decision-card.fail{background:#fef2f2;border:2px solid #ef4444}
+.decision-card .icon{font-size:2rem;margin-bottom:6px}
+.decision-card .label{font-weight:700;font-size:1.1rem;margin-bottom:6px}
+.decision-card.pass .label{color:#15803d}
+.decision-card.cond .label{color:#a16207}
+.decision-card.fail .label{color:#dc2626}
+.decision-card p{font-size:.82rem;color:#475569}
+
+/* FOOTER */
+.footer{
+  background:#f8fafc;border-top:1px solid #e2e8f0;
+  padding:20px 56px;text-align:center;
+  font-size:.76rem;color:#94a3b8;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- COVER -->
+<div class="cover">
+  <h1>SLA-Aware Statistical Hypothesis Framework</h1>
+  <div class="subtitle">Advanced Inference Strategy for AgentCert Certification Pipeline — With Per-Fault SLA Thresholds</div>
+  <div class="badge-row">
+    <span>AgentCert v2 — SLA Mode</span>
+    <span>Single Agent &middot; SLA-Defined &middot; n &ge; 30</span>
+    <span>&alpha; = 0.05</span>
+    <span>8 Hypothesis Tests</span>
+    <span>20 Research Papers</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- SECTION A — WHAT CHANGES WITH SLA? -->
+<div class="section">
+  <span class="section-num">SECTION A</span>
+  <h2>What Changes When SLAs Are Defined?</h2>
+
+  <p>The <strong>No-SLA framework</strong> (H-01 through H-05) estimates performance and compares across categories without predefined thresholds. When <strong>SLAs are defined per fault type</strong>, we gain concrete pass/fail criteria, enabling stronger statistical claims and three entirely new hypothesis categories.</p>
+
+  <div class="compare">
+    <div class="col old">
+      <h4>No-SLA Mode (H-01 to H-05)</h4>
+      <ul style="font-size:0.88rem">
+        <li><strong>Estimation-only:</strong> "What is the CI for TTD?"</li>
+        <li><strong>Relative comparison:</strong> "Is category A different from B?"</li>
+        <li><strong>No pass/fail threshold:</strong> Assessment is descriptive</li>
+        <li><strong>5 hypotheses:</strong> CI, Rate, Cross-Compare, Uniformity, Variance</li>
+      </ul>
+    </div>
+    <div class="col new">
+      <h4>SLA Mode (H-SLA-01 to H-SLA-08)</h4>
+      <ul style="font-size:0.88rem">
+        <li><strong>Threshold testing:</strong> "Does TTD meet the 300s SLA?"</li>
+        <li><strong>Equivalence proving:</strong> "Is performance within SLA bounds?"</li>
+        <li><strong>Formal pass/fail:</strong> Statistical evidence for compliance</li>
+        <li><strong>8 hypotheses:</strong> +Tail Risk, +Survival, +Drift, +Composite</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>Key Principle:</strong> SLA mode doesn't replace the No-SLA hypotheses — it <strong>extends and sharpens</strong> them. H-01's CI estimation becomes H-SLA-01's threshold comparison. H-02's rate floor becomes H-SLA-02's breach rate test. Three new hypotheses (Tail Risk, Survival Analysis, Drift Detection) address SLA-specific concerns that don't exist without thresholds.
+  </div>
+
+  <h3>SLA Input Schema</h3>
+  <p>Each fault type can define its own SLA thresholds:</p>
+
+  <div class="schema-block"><span class="comment">// SLA definitions per fault type</span>
+{
+  <span class="key">"sla_definitions"</span>: {
+    <span class="key">"application_fault"</span>: {
+      <span class="key">"time_to_detect"</span>:       { <span class="key">"threshold"</span>: <span class="num">180</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"time_to_mitigate"</span>:      { <span class="key">"threshold"</span>: <span class="num">300</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"detection_rate"</span>:         { <span class="key">"threshold"</span>: <span class="num">0.90</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> },
+      <span class="key">"max_breach_rate"</span>:        { <span class="key">"threshold"</span>: <span class="num">0.05</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"reasoning_score"</span>:        { <span class="key">"threshold"</span>: <span class="num">7.0</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> }
+    },
+    <span class="key">"network_fault"</span>: {
+      <span class="key">"time_to_detect"</span>:       { <span class="key">"threshold"</span>: <span class="num">300</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"time_to_mitigate"</span>:      { <span class="key">"threshold"</span>: <span class="num">600</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"detection_rate"</span>:         { <span class="key">"threshold"</span>: <span class="num">0.80</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> },
+      <span class="key">"max_breach_rate"</span>:        { <span class="key">"threshold"</span>: <span class="num">0.10</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"reasoning_score"</span>:        { <span class="key">"threshold"</span>: <span class="num">6.0</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> }
+    },
+    <span class="key">"resource_fault"</span>: {
+      <span class="key">"time_to_detect"</span>:       { <span class="key">"threshold"</span>: <span class="num">600</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"time_to_mitigate"</span>:      { <span class="key">"threshold"</span>: <span class="num">900</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"detection_rate"</span>:         { <span class="key">"threshold"</span>: <span class="num">0.75</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> },
+      <span class="key">"max_breach_rate"</span>:        { <span class="key">"threshold"</span>: <span class="num">0.10</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"reasoning_score"</span>:        { <span class="key">"threshold"</span>: <span class="num">6.5</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> }
+    }
+  }
+}</div>
+</div>
+
+<!-- SECTION B — THE EIGHT SLA-AWARE HYPOTHESES -->
+<div class="section">
+  <span class="section-num">SECTION B</span>
+  <h2>The Eight SLA-Aware Hypotheses</h2>
+
+  <p>SLA mode defines <strong>8 hypotheses</strong> — 5 evolved from the No-SLA framework and 3 entirely new. Each hypothesis now has a concrete SLA threshold to test against.</p>
+
+  <!-- MAPPING TABLE -->
+  <div class="info-box blue" style="margin-bottom:2rem">
+    <strong>Hypothesis Evolution Map</strong>
+    <table style="margin-top:0.8rem">
+      <tr style="background:#1e40af">
+        <th style="width:12%">SLA Test</th>
+        <th style="width:12%">From</th>
+        <th style="width:28%">Question</th>
+        <th style="width:20%">Method</th>
+        <th style="width:28%">SLA Decision</th>
+      </tr>
+      <tr>
+        <td><strong>H-SLA-01</strong></td>
+        <td>H-01</td>
+        <td>Does typical performance meet SLA threshold?</td>
+        <td>Bootstrap CI vs SLA + Wilcoxon signed-rank</td>
+        <td>CI upper bound vs SLA threshold</td>
+      </tr>
+      <tr>
+        <td><strong>H-SLA-02</strong></td>
+        <td>H-02</td>
+        <td>Is the SLA breach rate acceptable?</td>
+        <td>Exact binomial test + Wilson CI on breach rate</td>
+        <td>Breach rate upper bound vs max allowed</td>
+      </tr>
+      <tr>
+        <td><strong>H-SLA-03</strong></td>
+        <td>H-03</td>
+        <td>Is performance provably within SLA bounds?</td>
+        <td>TOST (Two One-Sided Tests)</td>
+        <td>Both one-sided tests must reject</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#7c3aed">H-SLA-04</strong></td>
+        <td><span class="sla-new">NEW</span></td>
+        <td>How severe are SLA violations?</td>
+        <td>CVaR (Conditional Value-at-Risk)</td>
+        <td>Expected overshoot magnitude</td>
+      </tr>
+      <tr>
+        <td><strong>H-SLA-05</strong></td>
+        <td>H-04</td>
+        <td>Do all faults meet their individual SLAs?</td>
+        <td>Per-fault Wilcoxon/TOST + BH-FDR</td>
+        <td>Each fault vs its own SLA</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#7c3aed">H-SLA-06</strong></td>
+        <td><span class="sla-new">NEW</span></td>
+        <td>What is time-dependent SLA compliance?</td>
+        <td>Kaplan-Meier survival + Log-rank</td>
+        <td>S(SLA_threshold) &ge; target</td>
+      </tr>
+      <tr>
+        <td><strong>H-SLA-07</strong></td>
+        <td>H-05</td>
+        <td>Is SLA compliance stable or drifting?</td>
+        <td>CUSUM + EWMA control charts</td>
+        <td>No drift signal detected</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#7c3aed">H-SLA-08</strong></td>
+        <td><span class="sla-new">NEW</span></td>
+        <td>Overall SLA compliance composite</td>
+        <td>Error budget + weighted composite</td>
+        <td>All budgets within limits</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- H-SLA-01 -->
+  <div class="card-grid two" style="margin:1.5rem 0">
+    <div class="card" style="border-left:4px solid #16a34a">
+      <div class="card-title">H-SLA-01: SLA Threshold Compliance Test <span class="sla-pass" style="float:right">from H-01</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> Does the agent's typical performance reliably meet the SLA threshold?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>H&#8320;:</strong> median(TTD) &ge; SLA_threshold (agent does NOT meet SLA)<br>
+      <strong>H&#8336;:</strong> median(TTD) &lt; SLA_threshold (agent meets SLA)</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Compute IQM + Bootstrap BCa CI (same as H-01)</li>
+        <li>Compare <strong>CI upper bound</strong> against SLA threshold</li>
+        <li>Run one-sample Wilcoxon signed-rank test against SLA threshold</li>
+        <li>Compute SLA margin: SLA_threshold - CI_upper_bound</li>
+      </ol>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#f0fdf4; padding:0.6rem; border-radius:4px; border-left:3px solid #16a34a">
+        <p style="margin:0; color:#166534"><strong>Decision Rules:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-size:0.78rem; color:#065f46">
+          <span class="sla-pass">PASS</span> CI upper bound &lt; SLA AND Wilcoxon p &lt; 0.05<br>
+          <span class="sla-cond">CONDITIONAL</span> CI contains SLA threshold (uncertain)<br>
+          <span class="sla-fail">FAIL</span> CI lower bound &gt; SLA threshold
+        </p>
+      </div>
+
+      <div style="font-size:0.8rem; margin-top:0.8rem; background:#f0fdf4; padding:0.6rem; border-radius:4px; border-left:3px solid #16a34a">
+        <p style="margin:0; color:#166534"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#065f46">App TTD: IQM=143s [128s, 159s] vs SLA=180s | Margin: +21s | Wilcoxon p=0.001 <span class="sla-pass">PASS</span><br>
+Net TTD: IQM=266s [127s, 418s] vs SLA=300s | Margin: -118s | Wilcoxon p=0.42 <span class="sla-fail">FAIL</span><br>
+Res TTD: IQM=258s [221s, 301s] vs SLA=600s | Margin: +299s | Wilcoxon p=0.001 <span class="sla-pass">PASS</span></p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Wilcoxon (1945), Efron (1979), Agarwal et al. (2021)
+      </p>
+    </div>
+
+    <!-- H-SLA-02 -->
+    <div class="card" style="border-left:4px solid #0284c7">
+      <div class="card-title">H-SLA-02: SLA Breach Rate Test <span class="sla-pass" style="float:right">from H-02</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> Is the proportion of SLA-violating runs within acceptable limits?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>H&#8320;:</strong> breach_rate &ge; max_allowed_breach_rate<br>
+      <strong>H&#8336;:</strong> breach_rate &lt; max_allowed_breach_rate</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Count runs where metric exceeds SLA threshold</li>
+        <li>Exact binomial test: is breach rate &lt; max allowed?</li>
+        <li>Clopper-Pearson exact CI on breach rate</li>
+        <li>Wilson CI on compliance rate (1 - breach_rate)</li>
+        <li>Report minimum n needed to certify at given breach rate</li>
+      </ol>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#eff6ff; padding:0.6rem; border-radius:4px; border-left:3px solid #0284c7">
+        <p style="margin:0; color:#1e40af"><strong>Decision Rules:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-size:0.78rem; color:#0369a1">
+          <span class="sla-pass">PASS</span> Breach CI upper bound &lt; max_allowed AND binomial p &lt; 0.05<br>
+          <span class="sla-cond">CONDITIONAL</span> Breach CI contains max_allowed threshold<br>
+          <span class="sla-fail">FAIL</span> Breach CI lower bound &gt; max_allowed
+        </p>
+      </div>
+
+      <div style="font-size:0.8rem; margin-top:0.8rem; background:#eff6ff; padding:0.6rem; border-radius:4px; border-left:3px solid #0284c7">
+        <p style="margin:0; color:#1e40af"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#0369a1">App TTD breaches: 2/30 (6.7%) vs SLA max 5% | Clopper-Pearson CI: [0.8%, 22.1%] <span class="sla-cond">CONDITIONAL</span><br>
+Net TTD breaches: 12/30 (40.0%) vs SLA max 10% | Clopper-Pearson CI: [22.5%, 59.4%] <span class="sla-fail">FAIL</span><br>
+Res TTD breaches: 1/30 (3.3%) vs SLA max 10% | Clopper-Pearson CI: [0.1%, 17.2%] <span class="sla-pass">PASS</span></p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Clopper & Pearson (1934), Wilson (1927), Wald (1945)
+      </p>
+    </div>
+
+    <!-- H-SLA-03 -->
+    <div class="card" style="border-left:4px solid #8b5cf6">
+      <div class="card-title">H-SLA-03: TOST Equivalence Testing <span class="sla-new" style="float:right">ENHANCED</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> Can we <em>prove</em> the agent's performance is within SLA bounds (not just "not different")?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Key Distinction:</strong> Standard tests prove "different from SLA." TOST proves the <em>opposite</em>: "demonstrably within SLA bounds." This is the gold standard for certification claims.</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>H&#8320;:</strong> Performance is OUTSIDE equivalence bounds [0, SLA_threshold]<br>
+      <strong>H&#8336;:</strong> Performance is WITHIN equivalence bounds [0, SLA_threshold]</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Define equivalence margin: [0, SLA_threshold]</li>
+        <li>Test 1: H&#8320;: &mu; &le; 0 vs H&#8336;: &mu; &gt; 0 (lower bound check)</li>
+        <li>Test 2: H&#8320;: &mu; &ge; SLA vs H&#8336;: &mu; &lt; SLA (upper bound check)</li>
+        <li>Both must reject at &alpha;=0.05 for equivalence to be declared</li>
+      </ol>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#f5f3ff; padding:0.6rem; border-radius:4px; border-left:3px solid #8b5cf6">
+        <p style="margin:0; color:#6b21a8"><strong>Decision Rules:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-size:0.78rem; color:#7c3aed">
+          <span class="sla-pass">PROVEN WITHIN</span> Both one-sided tests reject (p1 &lt; 0.05 AND p2 &lt; 0.05)<br>
+          <span class="sla-cond">INCONCLUSIVE</span> Only one test rejects<br>
+          <span class="sla-fail">OUTSIDE BOUNDS</span> Neither test rejects
+        </p>
+      </div>
+
+      <div style="font-size:0.8rem; margin-top:0.8rem; background:#f5f3ff; padding:0.6rem; border-radius:4px; border-left:3px solid #8b5cf6">
+        <p style="margin:0; color:#6b21a8"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#7c3aed">App TTD vs [0, 180s]: TOST p1=0.001, p2=0.008 | max(p1,p2)=0.008 <span class="sla-pass">PROVEN WITHIN</span><br>
+Net TTD vs [0, 300s]: TOST p1=0.001, p2=0.312 | max(p1,p2)=0.312 <span class="sla-cond">INCONCLUSIVE</span><br>
+Res TTD vs [0, 600s]: TOST p1=0.001, p2=0.001 | max(p1,p2)=0.001 <span class="sla-pass">PROVEN WITHIN</span></p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Schuirmann (1987), Lakens (2017), Munk & Czado (1998)
+      </p>
+    </div>
+
+    <!-- H-SLA-04 -->
+    <div class="card" style="border-left:4px solid #dc2626">
+      <div class="card-title">H-SLA-04: SLA Violation Severity (Tail Risk) <span class="sla-new" style="float:right">NEW</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> When SLA is breached, how bad is the violation?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Why new:</strong> No-SLA mode has no threshold, so "violation severity" is undefined. With SLA, we can measure: "When TTD exceeds 300s, the average overshoot is 150s" — critical for incident response planning.</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Metrics:</strong></p>
+      <ul style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li><strong>CVaR&#8325;&#8309; (Conditional Value-at-Risk):</strong> Average of the worst 5% of outcomes</li>
+        <li><strong>Expected overshoot:</strong> E[X - SLA | X &gt; SLA] — average amount by which violations exceed threshold</li>
+        <li><strong>Max violation:</strong> Worst observed SLA breach</li>
+        <li><strong>Violation ratio:</strong> CVaR / SLA_threshold (how many times worse than SLA)</li>
+      </ul>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fef2f2; padding:0.6rem; border-radius:4px; border-left:3px solid #dc2626">
+        <p style="margin:0; color:#991b1b"><strong>Decision Rules:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-size:0.78rem; color:#b91c1c">
+          <span class="sla-pass">MINOR</span> Expected overshoot &lt; 20% of SLA threshold<br>
+          <span class="sla-cond">MODERATE</span> Expected overshoot 20-100% of SLA threshold<br>
+          <span class="sla-fail">SEVERE</span> Expected overshoot &gt; 100% of SLA threshold (violations are 2x+ the limit)
+        </p>
+      </div>
+
+      <div style="font-size:0.8rem; margin-top:0.8rem; background:#fef2f2; padding:0.6rem; border-radius:4px; border-left:3px solid #dc2626">
+        <p style="margin:0; color:#991b1b"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#b91c1c">Net TTD (SLA=300s): CVaR95=891s | E[overshoot]=545s (182% of SLA) | Max=944s <span class="sla-fail">SEVERE</span><br>
+App TTD (SLA=180s): CVaR95=287s | E[overshoot]=107s (59% of SLA) | Max=287s <span class="sla-cond">MODERATE</span><br>
+Res TTD (SLA=600s): CVaR95=539s | No violations (0% breach) | Max=539s &lt; SLA <span class="sla-pass">N/A</span></p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Rockafellar & Uryasev (2000), Artzner et al. (1999)
+      </p>
+    </div>
+
+    <!-- H-SLA-05 -->
+    <div class="card" style="border-left:4px solid #f59e0b">
+      <div class="card-title">H-SLA-05: Per-Fault Individual SLA Compliance <span class="sla-pass" style="float:right">from H-04</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> Does each fault type individually meet its own specific SLA?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Evolution from H-04:</strong> H-04 tested uniformity across categories (are rates equal?). H-SLA-05 tests each category against its own SLA (does each pass its own bar?). Different faults can have different SLAs.</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>For each fault type, run H-SLA-01 against its specific SLA threshold</li>
+        <li>Apply BH-FDR correction for multiple testing (k fault types)</li>
+        <li>Identify the <strong>binding constraint</strong> (fault type closest to SLA violation)</li>
+        <li>Compute per-fault error budget consumption</li>
+      </ol>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fffbeb; padding:0.6rem; border-radius:4px; border-left:3px solid #f59e0b">
+        <p style="margin:0; color:#92400e"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#b45309">
+          container-kill:    TTD IQM=98s  vs SLA=180s | Margin: +82s  <span class="sla-pass">PASS</span> | Budget: 46% used<br>
+          pod-delete:        TTD IQM=178s vs SLA=180s | Margin: +2s   <span class="sla-cond">TIGHT</span> | Budget: 99% used<br>
+          pod-network-loss:  TTD IQM=312s vs SLA=300s | Margin: -12s  <span class="sla-fail">FAIL</span> | Budget: EXCEEDED<br>
+          disk-fill:         TTD IQM=245s vs SLA=600s | Margin: +355s <span class="sla-pass">PASS</span> | Budget: 41% used<br>
+          <br>Binding constraint: pod-network-loss (SLA exceeded by 12s)
+          BH-FDR correction applied across 10 fault types</p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Benjamini & Hochberg (1995), Cochran (1977), Google SRE Book (2016)
+      </p>
+    </div>
+
+    <!-- H-SLA-06 -->
+    <div class="card" style="border-left:4px solid #0ea5e9">
+      <div class="card-title">H-SLA-06: Survival Analysis at SLA Threshold <span class="sla-new" style="float:right">NEW</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> What fraction of runs complete detection/mitigation <em>before</em> the SLA deadline?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Why new:</strong> Survival analysis properly handles <strong>censored data</strong> — runs where detection never occurred. Simple breach counting treats these as "infinite TTD," but survival analysis models them correctly as right-censored observations.</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Construct Kaplan-Meier survival curve S(t) per fault category</li>
+        <li>Evaluate S(SLA_threshold) = P(TTD &gt; SLA) = breach probability</li>
+        <li>Compare curves across categories with Log-rank test</li>
+        <li>Compute median survival time (time at which 50% of runs complete)</li>
+      </ol>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#f0f9ff; padding:0.6rem; border-radius:4px; border-left:3px solid #0ea5e9">
+        <p style="margin:0; color:#0c4a6e"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#0369a1">
+          App: S(180s)=0.07 | 93% detect before SLA deadline | Median survival: 141s <span class="sla-pass">PASS</span><br>
+          Net: S(300s)=0.60 | Only 40% detect before SLA deadline | Median survival: &infin; (censored) <span class="sla-fail">FAIL</span><br>
+          Res: S(600s)=0.03 | 97% detect before SLA deadline | Median survival: 252s <span class="sla-pass">PASS</span><br>
+          Log-rank test: &chi;&sup2;=24.3, p&lt;0.001 | Survival curves differ significantly</p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Kaplan & Meier (1958), Mantel (1966)
+      </p>
+    </div>
+
+    <!-- H-SLA-07 -->
+    <div class="card" style="border-left:4px solid #ea580c">
+      <div class="card-title">H-SLA-07: SLA Compliance Drift Detection <span class="sla-pass" style="float:right">from H-05</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> Is the agent's SLA compliance stable over time, or is it drifting toward violation?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Evolution from H-05:</strong> H-05 measured variance stability (CV). H-SLA-07 tracks <em>directional drift</em> toward SLA violation using control chart methods.</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Workflow:</strong></p>
+      <ol style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li>Compute SLA margin per run: margin_i = SLA_threshold - observed_value_i</li>
+        <li>Apply CUSUM chart on margin sequence (track cumulative drift)</li>
+        <li>Apply EWMA smoothing (detect gradual degradation)</li>
+        <li>Flag if CUSUM exceeds decision boundary or EWMA trend crosses zero</li>
+        <li>Also report CV (retained from H-05) for variance stability</li>
+      </ol>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#fff7ed; padding:0.6rem; border-radius:4px; border-left:3px solid #ea580c">
+        <p style="margin:0; color:#9a3412"><strong>Decision Rules:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-size:0.78rem; color:#c2410c">
+          <span class="sla-pass">STABLE</span> CUSUM within bounds AND CV &lt; 0.30 AND EWMA margin &gt; 0<br>
+          <span class="sla-cond">DRIFTING</span> CUSUM approaching boundary OR EWMA trend decreasing<br>
+          <span class="sla-fail">ALERT</span> CUSUM exceeded boundary OR EWMA margin &lt; 0
+        </p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Page (1954), Roberts (1959), Peters et al. (2016)
+      </p>
+    </div>
+
+    <!-- H-SLA-08 -->
+    <div class="card" style="border-left:4px solid #059669">
+      <div class="card-title">H-SLA-08: Composite SLA Score & Error Budget <span class="sla-new" style="float:right">NEW</span></div>
+
+      <p style="font-size:0.88rem; margin-top:0.5rem"><strong>Question:</strong> Across all SLA dimensions and fault types, what is the overall compliance posture?</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Why new:</strong> Individual hypothesis results need to be aggregated into a final certification decision. Error budgets (from Google SRE) provide a natural framework for tracking SLA consumption.</p>
+
+      <p style="font-size:0.85rem; margin-top:0.5rem"><strong>Components:</strong></p>
+      <ul style="font-size:0.8rem; line-height:1.5; margin:0.2rem 0 0 1rem; color:#475569">
+        <li><strong>Error budget consumption:</strong> (observed_breach_rate / allowed_breach_rate) &times; 100%</li>
+        <li><strong>Weighted composite:</strong> Per-SLA scores weighted by fault severity &times; frequency</li>
+        <li><strong>Binding constraint:</strong> The single SLA dimension closest to (or past) violation</li>
+        <li><strong>Overall verdict:</strong> ALL dimensions must pass for full certification</li>
+      </ul>
+
+      <div style="font-size:0.8rem; margin-top:0.5rem; background:#ecfdf5; padding:0.6rem; border-radius:4px; border-left:3px solid #059669">
+        <p style="margin:0; color:#065f46"><strong>Output Example:</strong></p>
+        <p style="margin:0.3rem 0 0 0; font-family:monospace; font-size:0.75rem; color:#047857">
+          Error Budget Consumption:<br>
+          &nbsp;&nbsp;App detection_rate: 11% consumed (90% vs SLA 90%) <span class="sla-pass">OK</span><br>
+          &nbsp;&nbsp;Net detection_rate: 400% consumed (50% vs SLA 80%) <span class="sla-fail">EXCEEDED</span><br>
+          &nbsp;&nbsp;Res detection_rate: 67% consumed (70% vs SLA 75%) <span class="sla-cond">WARNING</span><br>
+          <br>
+          Weighted Composite Score: 0.62 / 1.00 (weights: App=0.3, Net=0.4, Res=0.3)<br>
+          Binding Constraint: Network detection_rate (50% vs SLA 80%)<br>
+          Overall Verdict: <span class="sla-fail">CONDITIONAL — Network excluded from certification</span></p>
+      </div>
+
+      <p style="font-size:0.75rem; color:#64748b; margin-top:0.5rem; font-style:italic">
+        <strong>Papers:</strong> Beyer et al. (2016) Google SRE, Benjamini & Hochberg (1995)
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION C — STATISTICAL FOUNDATION (SLA-AWARE) -->
+<div class="section">
+  <span class="section-num">SECTION C</span>
+  <h2>Statistical Foundation — SLA-Aware Methods</h2>
+
+  <div class="info-box" style="margin-top:1.5rem; background:#f8fafc; border-left:4px solid #64748b">
+    <strong style="font-size:1.05rem">Hypothesis Framework: SLA-Aware Questions, Formal Tests & Certification Use</strong>
+    <table style="width:100%; margin-top:0.8rem; font-size:0.8rem; border-collapse:collapse">
+      <tr style="background:#1a0a2e; color:white">
+        <th style="padding:0.5rem; text-align:left; width:8%">Test</th>
+        <th style="padding:0.5rem; text-align:left; width:18%">Question</th>
+        <th style="padding:0.5rem; text-align:left; width:24%">H&#8320; (Null Hypothesis)</th>
+        <th style="padding:0.5rem; text-align:left; width:24%">H&#8336; (Alternative)</th>
+        <th style="padding:0.5rem; text-align:left; width:12%">Method</th>
+        <th style="padding:0.5rem; text-align:left; width:14%">SLA Decision</th>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:white">
+        <td style="padding:0.6rem; vertical-align:top"><strong>H-SLA-01</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>Meets SLA threshold?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top">median(metric) &ge; SLA_threshold<br><em style="color:#64748b; font-size:0.75rem">Agent does NOT meet SLA</em></td>
+        <td style="padding:0.6rem; vertical-align:top">median(metric) &lt; SLA_threshold<br><em style="color:#64748b; font-size:0.75rem">Agent meets SLA</em></td>
+        <td style="padding:0.6rem; vertical-align:top">Wilcoxon signed-rank + Bootstrap CI</td>
+        <td style="padding:0.6rem; vertical-align:top">CI upper &lt; SLA</td>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:#f8fafc">
+        <td style="padding:0.6rem; vertical-align:top"><strong>H-SLA-02</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>Breach rate acceptable?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top">breach_rate &ge; max_allowed<br><em style="color:#64748b; font-size:0.75rem">Too many SLA violations</em></td>
+        <td style="padding:0.6rem; vertical-align:top">breach_rate &lt; max_allowed<br><em style="color:#64748b; font-size:0.75rem">Violations within budget</em></td>
+        <td style="padding:0.6rem; vertical-align:top">Exact binomial + Clopper-Pearson CI</td>
+        <td style="padding:0.6rem; vertical-align:top">Breach CI upper &lt; max</td>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:white">
+        <td style="padding:0.6rem; vertical-align:top"><strong>H-SLA-03</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>Provably within bounds?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top">&mu; is OUTSIDE [0, SLA]<br><em style="color:#64748b; font-size:0.75rem">Performance not within equivalence band</em></td>
+        <td style="padding:0.6rem; vertical-align:top">&mu; is WITHIN [0, SLA]<br><em style="color:#64748b; font-size:0.75rem">Proven compliant</em></td>
+        <td style="padding:0.6rem; vertical-align:top">TOST (Two One-Sided Tests)</td>
+        <td style="padding:0.6rem; vertical-align:top">Both tests reject</td>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:#f5f3ff">
+        <td style="padding:0.6rem; vertical-align:top"><strong style="color:#7c3aed">H-SLA-04</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>How severe are violations?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top" colspan="2"><em>Descriptive analysis — no formal H&#8320;/H&#8336;</em><br>Quantifies tail risk when SLA breaches occur</td>
+        <td style="padding:0.6rem; vertical-align:top">CVaR, Expected overshoot</td>
+        <td style="padding:0.6rem; vertical-align:top">Overshoot severity</td>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:white">
+        <td style="padding:0.6rem; vertical-align:top"><strong>H-SLA-05</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>All faults pass own SLA?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top">&exist; fault: metric &ge; SLA<sub>fault</sub><br><em style="color:#64748b; font-size:0.75rem">At least one fault fails its SLA</em></td>
+        <td style="padding:0.6rem; vertical-align:top">&forall; faults: metric &lt; SLA<sub>fault</sub><br><em style="color:#64748b; font-size:0.75rem">All faults pass</em></td>
+        <td style="padding:0.6rem; vertical-align:top">Per-fault Wilcoxon + BH-FDR</td>
+        <td style="padding:0.6rem; vertical-align:top">All faults pass</td>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:#f5f3ff">
+        <td style="padding:0.6rem; vertical-align:top"><strong style="color:#7c3aed">H-SLA-06</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>Time-dependent compliance?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top">S(SLA) is high (many breaches)<br><em style="color:#64748b; font-size:0.75rem">Survival at SLA time is high = bad</em></td>
+        <td style="padding:0.6rem; vertical-align:top">S(SLA) is low (few breaches)<br><em style="color:#64748b; font-size:0.75rem">Most runs complete before SLA</em></td>
+        <td style="padding:0.6rem; vertical-align:top">Kaplan-Meier + Log-rank</td>
+        <td style="padding:0.6rem; vertical-align:top">1-S(SLA) &ge; target</td>
+      </tr>
+
+      <tr style="border-bottom:1px solid #cbd5e1; background:white">
+        <td style="padding:0.6rem; vertical-align:top"><strong>H-SLA-07</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>SLA compliance drifting?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top">SLA margin is stable<br><em style="color:#64748b; font-size:0.75rem">No drift toward violation</em></td>
+        <td style="padding:0.6rem; vertical-align:top">SLA margin is decreasing<br><em style="color:#64748b; font-size:0.75rem">Performance degrading toward SLA</em></td>
+        <td style="padding:0.6rem; vertical-align:top">CUSUM + EWMA</td>
+        <td style="padding:0.6rem; vertical-align:top">No drift signal</td>
+      </tr>
+
+      <tr style="background:#f5f3ff">
+        <td style="padding:0.6rem; vertical-align:top"><strong style="color:#7c3aed">H-SLA-08</strong></td>
+        <td style="padding:0.6rem; vertical-align:top; color:#059669"><strong>Overall SLA posture?</strong></td>
+        <td style="padding:0.6rem; vertical-align:top" colspan="2"><em>Aggregation — combines all hypothesis results</em><br>Error budget consumption + weighted composite</td>
+        <td style="padding:0.6rem; vertical-align:top">Error budget model</td>
+        <td style="padding:0.6rem; vertical-align:top">All budgets OK</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION D — REMOVED / MODIFIED / ADDED HYPOTHESES -->
+<div class="section">
+  <span class="section-num">SECTION D</span>
+  <h2>What Changed: Removed, Modified, and Added Hypotheses</h2>
+
+  <div class="card-grid three" style="margin:1.5rem 0">
+    <div class="card" style="border-top:4px solid #f59e0b; background:#fffbeb">
+      <div class="card-title" style="color:#92400e">Modified (5 Hypotheses)</div>
+      <ul style="font-size:0.82rem; line-height:1.7; margin:0.5rem 0 0 1rem">
+        <li><strong>H-01 &rarr; H-SLA-01:</strong> CI estimation gains SLA threshold comparison + Wilcoxon one-sample test</li>
+        <li><strong>H-02 &rarr; H-SLA-02:</strong> Rate estimation gains breach rate testing via exact binomial</li>
+        <li><strong>H-03 &rarr; H-SLA-03:</strong> Cross-category comparison replaced by TOST equivalence proving</li>
+        <li><strong>H-04 &rarr; H-SLA-05:</strong> Uniformity test replaced by per-fault individual SLA testing</li>
+        <li><strong>H-05 &rarr; H-SLA-07:</strong> Variance stability extended with CUSUM/EWMA drift detection</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:4px solid #22c55e; background:#f0fdf4">
+      <div class="card-title" style="color:#15803d">Added (3 New Hypotheses)</div>
+      <ul style="font-size:0.82rem; line-height:1.7; margin:0.5rem 0 0 1rem">
+        <li><strong>H-SLA-04 (Tail Risk):</strong> CVaR and expected overshoot — measures violation severity</li>
+        <li><strong>H-SLA-06 (Survival):</strong> Kaplan-Meier analysis — handles censored data, time-dependent compliance</li>
+        <li><strong>H-SLA-08 (Composite):</strong> Error budget aggregation — overall SLA posture across all dimensions</li>
+      </ul>
+    </div>
+    <div class="card" style="border-top:4px solid #64748b; background:#f8fafc">
+      <div class="card-title" style="color:#475569">No-SLA Tests Not Needed in SLA Mode</div>
+      <ul style="font-size:0.82rem; line-height:1.7; margin:0.5rem 0 0 1rem">
+        <li><strong>Kruskal-Wallis (H-03):</strong> Replaced by per-SLA testing. "Are categories different?" is less relevant when each has its own threshold</li>
+        <li><strong>Fisher's Exact (H-04):</strong> Uniformity across categories is less relevant when SLAs are heterogeneous</li>
+        <li><strong>These tests can still be run as supplementary analysis</strong> but are not part of the core SLA verdict</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box warn">
+    <strong>Design Decision:</strong> The cross-category comparison tests (Kruskal-Wallis, Fisher's Exact) are demoted to supplementary in SLA mode because the question changes. Without SLA: "Is network worse than application?" (relative). With SLA: "Does network meet its own SLA?" (absolute). An agent can have dramatically different TTD across categories and still pass — if each meets its own SLA. The relative comparison becomes informational rather than gating.
+  </div>
+</div>
+
+<!-- SECTION E — JSON SCHEMA -->
+<div class="section">
+  <span class="section-num">SECTION E</span>
+  <h2><code>aggregated_scorecard_output.json</code> — SLA Statistical Evidence Block</h2>
+
+  <p>The SLA mode extends each <code>fault_category_scorecards[]</code> entry with a comprehensive <code>statistical_evidence</code> block that includes SLA thresholds, compliance results, and all 8 hypothesis test outcomes:</p>
+
+  <div class="schema-block"><span class="comment">// Inside each fault_category_scorecards[] entry:</span>
+{
+  <span class="key">"fault_category"</span>: <span class="str">"network_fault"</span>,
+  <span class="key">"total_runs"</span>: <span class="num">30</span>,
+  <span class="key">"numeric_metrics"</span>: { ... },
+  <span class="key">"derived_metrics"</span>: { ... },
+
+  <span class="comment">// ── SLA-Aware Statistical Evidence Block ──</span>
+  <span class="key">"statistical_evidence"</span>: {
+    <span class="key">"mode"</span>: <span class="str">"sla_defined"</span>,
+    <span class="key">"assessment"</span>: <span class="str">"FAIL"</span>,
+    <span class="key">"sample_adequacy"</span>: <span class="str">"sufficient"</span>,
+
+    <span class="key">"sla_thresholds"</span>: {
+      <span class="key">"time_to_detect"</span>: { <span class="key">"value"</span>: <span class="num">300</span>, <span class="key">"unit"</span>: <span class="str">"seconds"</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> },
+      <span class="key">"detection_rate"</span>: { <span class="key">"value"</span>: <span class="num">0.80</span>, <span class="key">"direction"</span>: <span class="str">"greater_than"</span> },
+      <span class="key">"max_breach_rate"</span>: { <span class="key">"value"</span>: <span class="num">0.10</span>, <span class="key">"direction"</span>: <span class="str">"less_than"</span> }
+    },
+
+    <span class="key">"hypothesis_results"</span>: [
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-SLA-01"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"SLA Threshold Compliance"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Wilcoxon signed-rank + Bootstrap CI"</span>,
+        <span class="key">"metric"</span>: <span class="str">"time_to_detect"</span>,
+        <span class="key">"sla_threshold"</span>: <span class="num">300</span>,
+        <span class="key">"iqm"</span>: <span class="num">266</span>,
+        <span class="key">"ci_95"</span>: [<span class="num">127</span>, <span class="num">418</span>],
+        <span class="key">"sla_margin"</span>: <span class="num">-118</span>,
+        <span class="key">"wilcoxon_p"</span>: <span class="num">0.42</span>,
+        <span class="key">"assessment"</span>: <span class="str">"FAIL"</span>,
+        <span class="key">"narrative"</span>: <span class="str">"CI upper bound (418s) exceeds SLA (300s). Cannot certify compliance."</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-SLA-02"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"SLA Breach Rate"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Exact binomial + Clopper-Pearson CI"</span>,
+        <span class="key">"breaches"</span>: <span class="num">12</span>,
+        <span class="key">"total"</span>: <span class="num">30</span>,
+        <span class="key">"breach_rate"</span>: <span class="num">0.40</span>,
+        <span class="key">"max_allowed"</span>: <span class="num">0.10</span>,
+        <span class="key">"breach_ci_95"</span>: [<span class="num">0.225</span>, <span class="num">0.594</span>],
+        <span class="key">"binomial_p"</span>: <span class="num">0.999</span>,
+        <span class="key">"assessment"</span>: <span class="str">"FAIL"</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-SLA-03"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"TOST Equivalence"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Two One-Sided Tests"</span>,
+        <span class="key">"equivalence_bounds"</span>: [<span class="num">0</span>, <span class="num">300</span>],
+        <span class="key">"tost_p1"</span>: <span class="num">0.001</span>,
+        <span class="key">"tost_p2"</span>: <span class="num">0.312</span>,
+        <span class="key">"tost_p_max"</span>: <span class="num">0.312</span>,
+        <span class="key">"assessment"</span>: <span class="str">"INCONCLUSIVE"</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-SLA-04"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"Violation Severity (Tail Risk)"</span>,
+        <span class="key">"cvar_95"</span>: <span class="num">891</span>,
+        <span class="key">"expected_overshoot"</span>: <span class="num">545</span>,
+        <span class="key">"overshoot_ratio"</span>: <span class="num">1.82</span>,
+        <span class="key">"max_violation"</span>: <span class="num">944</span>,
+        <span class="key">"assessment"</span>: <span class="str">"SEVERE"</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-SLA-06"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"Survival Analysis"</span>,
+        <span class="key">"test_name"</span>: <span class="str">"Kaplan-Meier + Log-rank"</span>,
+        <span class="key">"survival_at_sla"</span>: <span class="num">0.60</span>,
+        <span class="key">"compliance_at_sla"</span>: <span class="num">0.40</span>,
+        <span class="key">"median_survival"</span>: <span class="str">"censored"</span>,
+        <span class="key">"log_rank_p"</span>: <span class="num">0.001</span>,
+        <span class="key">"assessment"</span>: <span class="str">"FAIL"</span>
+      },
+      {
+        <span class="key">"hypothesis_id"</span>: <span class="str">"H-SLA-07"</span>,
+        <span class="key">"scenario"</span>: <span class="str">"SLA Drift Detection"</span>,
+        <span class="key">"cusum_status"</span>: <span class="str">"no_signal"</span>,
+        <span class="key">"ewma_trend"</span>: <span class="str">"decreasing"</span>,
+        <span class="key">"cv"</span>: <span class="num">1.40</span>,
+        <span class="key">"assessment"</span>: <span class="str">"DRIFTING"</span>
+      }
+    ],
+
+    <span class="key">"error_budget"</span>: {
+      <span class="key">"detection_rate"</span>: { <span class="key">"consumed"</span>: <span class="num">4.0</span>, <span class="key">"status"</span>: <span class="str">"EXCEEDED"</span> },
+      <span class="key">"ttd_breach_rate"</span>: { <span class="key">"consumed"</span>: <span class="num">4.0</span>, <span class="key">"status"</span>: <span class="str">"EXCEEDED"</span> }
+    },
+
+    <span class="key">"overall_sla_verdict"</span>: {
+      <span class="key">"status"</span>: <span class="str">"FAIL"</span>,
+      <span class="key">"binding_constraint"</span>: <span class="str">"detection_rate"</span>,
+      <span class="key">"failing_tests"</span>: [<span class="str">"H-SLA-01"</span>, <span class="str">"H-SLA-02"</span>, <span class="str">"H-SLA-04"</span>, <span class="str">"H-SLA-06"</span>],
+      <span class="key">"passing_tests"</span>: [],
+      <span class="key">"conditional_tests"</span>: [<span class="str">"H-SLA-03"</span>, <span class="str">"H-SLA-07"</span>]
+    }
+  }
+}</div>
+</div>
+
+<!-- SECTION F — RESEARCH GROUNDING -->
+<div class="section">
+  <span class="section-num">SECTION F</span>
+  <h2>Research Grounding — 20 Peer-Reviewed Papers</h2>
+
+  <p>This SLA-aware framework extends the original 15-paper foundation with 5 additional papers covering SLA-specific statistical methods.</p>
+
+  <h3>New Papers for SLA-Aware Methods</h3>
+  <table>
+    <tr>
+      <th style="width:220px">Paper</th>
+      <th style="width:180px">Key Contribution</th>
+      <th>Application in SLA Framework</th>
+    </tr>
+    <tr>
+      <td><a href="https://doi.org/10.1177/1948550617697177" style="color:#7c3aed">Lakens (2017)</a></td>
+      <td>TOST Equivalence Testing Primer</td>
+      <td><strong>H-SLA-03:</strong> Two One-Sided Tests procedure for proving performance is within SLA bounds. Practical primer with power analysis and sample size calculations.</td>
+    </tr>
+    <tr>
+      <td>Schuirmann (1987)</td>
+      <td>TOST Procedure (Original)</td>
+      <td><strong>H-SLA-03:</strong> Original formulation of TOST for bioequivalence testing. Establishes the two one-sided tests framework for proving equivalence within bounds.</td>
+    </tr>
+    <tr>
+      <td><a href="https://doi.org/10.1023/A:1007818022258" style="color:#7c3aed">Rockafellar & Uryasev (2000)</a></td>
+      <td>Conditional Value-at-Risk Optimization</td>
+      <td><strong>H-SLA-04:</strong> CVaR as coherent risk measure for tail analysis. Quantifies expected loss (SLA overshoot) in the worst cases.</td>
+    </tr>
+    <tr>
+      <td>Kaplan & Meier (1958)</td>
+      <td>Nonparametric Survival Estimation</td>
+      <td><strong>H-SLA-06:</strong> Kaplan-Meier estimator for time-to-event analysis. Handles right-censored observations (faults never detected). Survival probability at SLA threshold gives breach probability.</td>
+    </tr>
+    <tr>
+      <td>Page (1954)</td>
+      <td>CUSUM Control Charts</td>
+      <td><strong>H-SLA-07:</strong> Cumulative sum control chart for detecting drift in SLA compliance over time. Tracks cumulative deviation from target performance.</td>
+    </tr>
+  </table>
+
+  <h3>Retained Papers from No-SLA Framework</h3>
+  <table>
+    <tr>
+      <th style="width:220px">Paper</th>
+      <th style="width:180px">Key Contribution</th>
+      <th>SLA Application</th>
+    </tr>
+    <tr>
+      <td><a href="https://arxiv.org/abs/2108.13264" style="color:#7c3aed">Agarwal et al. (NeurIPS 2021)</a></td>
+      <td>IQM, Bootstrap B=50k</td>
+      <td><strong>H-SLA-01:</strong> IQM + Bootstrap CI retained as primary estimation. Now compared against SLA threshold.</td>
+    </tr>
+    <tr>
+      <td>Wilson (1927)</td>
+      <td>Wilson Score Interval</td>
+      <td><strong>H-SLA-02:</strong> Wilson CI on compliance rate. Lower bound checked against SLA detection rate target.</td>
+    </tr>
+    <tr>
+      <td>Clopper & Pearson (1934)</td>
+      <td>Exact Binomial CI</td>
+      <td><strong>H-SLA-02:</strong> Exact CI on breach rate. Upper bound checked against max allowed breach rate.</td>
+    </tr>
+    <tr>
+      <td>Wilcoxon (1945)</td>
+      <td>Signed-Rank Test</td>
+      <td><strong>H-SLA-01:</strong> One-sample test against SLA threshold. Non-parametric — robust to skewed agent data.</td>
+    </tr>
+    <tr>
+      <td>Benjamini & Hochberg (1995)</td>
+      <td>FDR Correction</td>
+      <td><strong>H-SLA-05:</strong> BH-FDR correction when testing multiple fault types against individual SLAs.</td>
+    </tr>
+    <tr>
+      <td><a href="https://arxiv.org/abs/1911.08731" style="color:#7c3aed">Sagawa et al. (ICLR 2020)</a></td>
+      <td>Worst-Group Evaluation</td>
+      <td><strong>H-SLA-08:</strong> Binding constraint principle — worst SLA dimension determines overall verdict.</td>
+    </tr>
+    <tr>
+      <td>Beyer et al. (2016)</td>
+      <td>Google SRE: Error Budgets</td>
+      <td><strong>H-SLA-08:</strong> Error budget consumption model for tracking SLA margin across dimensions.</td>
+    </tr>
+  </table>
+
+  <div class="info-box green" style="margin-top:1.5rem">
+    <strong>Full bibliography:</strong> 20 papers total (15 retained + 5 new). New methods are from established statistical methodology (TOST: FDA-approved for bioequivalence, CVaR: standard in financial risk, Kaplan-Meier: gold standard in survival analysis, CUSUM: SPC industry standard). Full reference list in <a href="../temp/RESEARCH_FINDINGS_SLA_HYPOTHESIS_FRAMEWORK.md" style="color:#7c3aed">RESEARCH_FINDINGS_SLA_HYPOTHESIS_FRAMEWORK.md</a>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<!-- FOOTER -->
+<div class="footer">
+  AgentCert — SLA-Aware Statistical Hypothesis Framework &nbsp;|&nbsp; Generated 2026-04-15 &nbsp;|&nbsp;
+  Methods: Wilcoxon, TOST, CVaR, Kaplan-Meier, CUSUM, EWMA, Exact Binomial, Bootstrap CI, Wilson CI, IQM &nbsp;|&nbsp;
+  Corrections: Holm-Bonferroni, BH-FDR &nbsp;|&nbsp; Grounded in 20 research papers
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

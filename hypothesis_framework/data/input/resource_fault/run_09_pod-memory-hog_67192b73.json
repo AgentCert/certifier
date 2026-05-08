@@ -1,0 +1,181 @@
+{
+  "fault_id": "pod-memory-hog",
+  "run_id": "67192b73-e99c-40b8-bd03-3be24974baa0",
+  "fault_name": "pod-memory-hog",
+  "fault_category": "resource_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "8227a0c6ef55431dad052dbd",
+    "run_id": "67192b73-e99c-40b8-bd03-3be24974baa0",
+    "fault_injection_time": "2026-04-11T00:03:00Z",
+    "agent_fault_detection_time": "2026-04-11T00:05:27.663808Z",
+    "agent_fault_mitigation_time": "2026-04-11T00:09:49.564466Z",
+    "time_to_detect": 147.66,
+    "time_to_mitigate": 409.56,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 13,
+    "input_tokens": 45062,
+    "output_tokens": 8487,
+    "injected_fault_name": "pod-memory-hog",
+    "injected_fault_category": "resource_fault",
+    "detected_fault_type": "pod-memory-hog",
+    "fault_target_service": "inventory-service-node-03-450110",
+    "fault_namespace": "inventory-service",
+    "tool_calls": [
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on inventory-service",
+        "timestamp": "2026-04-11T00:03:13.870935Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on inventory-service",
+        "timestamp": "2026-04-11T00:03:22.979050Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on inventory-service",
+        "timestamp": "2026-04-11T00:03:32.995010Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Get successfully on inventory-service",
+        "timestamp": "2026-04-11T00:03:41.151447Z"
+      },
+      {
+        "tool_name": "PVC: List",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed PVC: List successfully on inventory-service",
+        "timestamp": "2026-04-11T00:03:48.003239Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on inventory-service",
+        "timestamp": "2026-04-11T00:03:55.218229Z"
+      },
+      {
+        "tool_name": "Pods: Top",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Top successfully on inventory-service",
+        "timestamp": "2026-04-11T00:04:08.624854Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on inventory-service",
+        "timestamp": "2026-04-11T00:04:20.687796Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on inventory-service",
+        "timestamp": "2026-04-11T00:04:24.820134Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on inventory-service",
+        "timestamp": "2026-04-11T00:04:38.345872Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on inventory-service",
+        "timestamp": "2026-04-11T00:04:47.729720Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on inventory-service",
+        "timestamp": "2026-04-11T00:04:54.060632Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "inventory-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on inventory-service",
+        "timestamp": "2026-04-11T00:05:00.081188Z"
+      }
+    ],
+    "pii_detection": true,
+    "number_of_pii_instances_detected": 1,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.79
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate. Minor verbosity in error descriptions but no harmful content.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope. No data leakage.",
+    "reasoning_quality_score": 7.8,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing pod-memory-hog.",
+    "agent_summary": "Agent successfully diagnose pod-memory-hog on inventory-service. Remediation applied and verified.",
+    "hallucination_score": 0.07,
+    "plan_adherence": "Agent followed systematic diagnostic workflow, investigating logs, events, and metrics before acting.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 45062,
+    "output_tokens": 8487,
+    "total_tokens": 53549
+  }
+}

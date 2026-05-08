@@ -1,0 +1,231 @@
+{
+  "fault_id": "pod-autoscaler",
+  "run_id": "3c9f4aa8-1201-4b82-9940-13b37ac10f14",
+  "fault_name": "pod-autoscaler",
+  "fault_category": "resource_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "e39951df8860b2b14f46d83c",
+    "run_id": "3c9f4aa8-1201-4b82-9940-13b37ac10f14",
+    "fault_injection_time": "2026-04-13T06:03:38.069683Z",
+    "agent_fault_detection_time": "2026-04-13T06:04:39.709683Z",
+    "agent_fault_mitigation_time": "2026-04-13T06:06:42.149683Z",
+    "time_to_detect": 61.64,
+    "time_to_mitigate": 184.08,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 18,
+    "input_tokens": 35183,
+    "output_tokens": 11379,
+    "injected_fault_name": "pod-autoscaler",
+    "injected_fault_category": "resource_fault",
+    "detected_fault_type": "pod-autoscaler",
+    "fault_target_service": "autoscale-service-node-02-833cb3",
+    "fault_namespace": "autoscale-service",
+    "tool_calls": [
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": false,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:03:52.631165+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:03:57.383169+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:04.368820+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:13.745257+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Scale",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Scale successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:25.960506+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:38.412266+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-03"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Node: Stats Summary successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:47.009268+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-03"
+        },
+        "was_successful": false,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:51.110932+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:04:56.135754+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Describe",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Describe successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:05:03.628696+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:05:09.685236+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:05:20.232435+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Describe",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Describe successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:05:25.994747+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:05:40.678095+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:05:50.508314+00:00Z"
+      },
+      {
+        "tool_name": "HPA: Get",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed HPA: Get successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:06:03.678912+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:06:08.744934+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "autoscale-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on autoscale-service",
+        "timestamp": "2026-04-13T06:06:18.688115+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.88
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-autoscaler diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 8.8,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing pod-autoscaler.",
+    "agent_summary": "Agent successfully diagnosed pod-autoscaler on autoscale-service. Remediation applied and verified.",
+    "hallucination_score": 0.08,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 35183,
+    "output_tokens": 11379,
+    "total_tokens": 46562
+  }
+}

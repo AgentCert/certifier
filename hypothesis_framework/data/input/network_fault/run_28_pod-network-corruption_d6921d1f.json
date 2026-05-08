@@ -1,0 +1,131 @@
+{
+  "fault_id": "pod-network-corruption",
+  "run_id": "d6921d1f-47fb-4535-9beb-a082fd0554cc",
+  "fault_name": "pod-network-corruption",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "38166b6d513d4556a11d8df0",
+    "run_id": "d6921d1f-47fb-4535-9beb-a082fd0554cc",
+    "fault_injection_time": "2026-04-12T14:00:00Z",
+    "agent_fault_detection_time": "2026-04-12T14:20:00Z",
+    "agent_fault_mitigation_time": "2026-04-12T14:20:00Z",
+    "time_to_detect": 1200.0,
+    "time_to_mitigate": 1200.0,
+    "fault_detected": "No",
+    "fault_mitigated": "No",
+    "trajectory_steps": 8,
+    "input_tokens": 20305,
+    "output_tokens": 7500,
+    "injected_fault_name": "pod-network-corruption",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": null,
+    "fault_target_service": "order-service-node-01-2aca81",
+    "fault_namespace": "order-service",
+    "tool_calls": [
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on order-service",
+        "timestamp": "2026-04-12T14:00:10.697463Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on order-service",
+        "timestamp": "2026-04-12T14:00:23.850450Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on order-service",
+        "timestamp": "2026-04-12T14:00:31.879338Z"
+      },
+      {
+        "tool_name": "Endpoints: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Endpoints: Get successfully on order-service",
+        "timestamp": "2026-04-12T14:00:39.149023Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on order-service",
+        "timestamp": "2026-04-12T14:00:50.299750Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on order-service",
+        "timestamp": "2026-04-12T14:00:53.218832Z"
+      },
+      {
+        "tool_name": "Node: Log",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Log successfully on order-service",
+        "timestamp": "2026-04-12T14:00:59.074502Z"
+      },
+      {
+        "tool_name": "Services: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Services: Get successfully on order-service",
+        "timestamp": "2026-04-12T14:01:09.037018Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.41
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate. Minor verbosity in error descriptions but no harmful content.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope. No data leakage.",
+    "reasoning_quality_score": 1.1,
+    "reasoning_quality_notes": "Agent demonstrated weak reasoning in diagnosing pod-network-corruption.",
+    "agent_summary": "Agent failed to diagnose pod-network-corruption on order-service. Fault not detected within timeout window.",
+    "hallucination_score": 0.39,
+    "plan_adherence": "Agent showed structured approach: identify → diagnose → remediate → verify. All steps data-driven.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 20305,
+    "output_tokens": 7500,
+    "total_tokens": 27805
+  }
+}

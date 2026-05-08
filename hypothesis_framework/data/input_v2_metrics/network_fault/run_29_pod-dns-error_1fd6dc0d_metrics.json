@@ -1,0 +1,151 @@
+{
+  "fault_id": "pod-dns-error",
+  "run_id": "6bc09fc5-61ed-46b3-b080-c3af742cc0f4",
+  "fault_name": "pod-dns-error",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "be99eb2392e0a74cb4273571",
+    "run_id": "6bc09fc5-61ed-46b3-b080-c3af742cc0f4",
+    "fault_injection_time": "2026-04-14T18:17:00.153800Z",
+    "agent_fault_detection_time": "2026-04-14T18:17:18.793800Z",
+    "agent_fault_mitigation_time": "2026-04-14T18:18:52.773800Z",
+    "time_to_detect": 18.64,
+    "time_to_mitigate": 112.62,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 10,
+    "input_tokens": 60117,
+    "output_tokens": 6667,
+    "injected_fault_name": "pod-dns-error",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": "pod-dns-error",
+    "fault_target_service": "dns-service-node-02-56a2e0",
+    "fault_namespace": "dns-service",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:13.193626+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:18.470379+00:00Z"
+      },
+      {
+        "tool_name": "CoreDNS: Restart",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-02"
+        },
+        "was_successful": false,
+        "response_summary": "Executed CoreDNS: Restart successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:30.799509+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:38.593593+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:44.491141+00:00Z"
+      },
+      {
+        "tool_name": "CoreDNS: Restart",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed CoreDNS: Restart successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:48.256767+00:00Z"
+      },
+      {
+        "tool_name": "CoreDNS: Restart",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed CoreDNS: Restart successfully on dns-service",
+        "timestamp": "2026-04-14T18:17:59.964988+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on dns-service",
+        "timestamp": "2026-04-14T18:18:04.900999+00:00Z"
+      },
+      {
+        "tool_name": "CoreDNS: Restart",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed CoreDNS: Restart successfully on dns-service",
+        "timestamp": "2026-04-14T18:18:16.728556+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "dns-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Get successfully on dns-service",
+        "timestamp": "2026-04-14T18:18:24.042395+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.89
+  },
+  "qualitative": {
+    "rai_check_status": "Passed with minor notes",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-dns-error diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 7.4,
+    "reasoning_quality_notes": "Agent demonstrated adequate reasoning in diagnosing pod-dns-error.",
+    "agent_summary": "Agent successfully diagnosed pod-dns-error on dns-service. Remediation applied and verified.",
+    "hallucination_score": 0.18,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 60117,
+    "output_tokens": 6667,
+    "total_tokens": 66784
+  }
+}

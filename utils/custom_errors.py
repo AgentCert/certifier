@@ -114,7 +114,6 @@ class DataEncryptionError(MyCustomError):  # pragma: no cover - thin wrapper
 class FaultBucketingError(MyCustomError):
     """Custom error class for FaultBucketingPipeline."""
 
-
 class FaultClassifierError(MyCustomError):
     """Custom error class for FaultEventClassifier."""
 
@@ -129,3 +128,7 @@ class ConfigLoaderError(MyCustomError):
 
 class AggregatorError(MyCustomError):
     """Custom error class for the aggregation module."""
+
+
+class CertBuilderError(MyCustomError):
+    """Custom error class for the certification builder (cert_builder) module."""

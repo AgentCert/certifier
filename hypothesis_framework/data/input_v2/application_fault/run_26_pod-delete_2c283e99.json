@@ -1,0 +1,121 @@
+{
+  "fault_id": "pod-delete",
+  "run_id": "c72930ab-01bd-4fcc-83da-b9fc7c599203",
+  "fault_name": "pod-delete",
+  "fault_category": "application_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "805ce92b3146914d066a3160",
+    "run_id": "c72930ab-01bd-4fcc-83da-b9fc7c599203",
+    "fault_injection_time": "2026-04-14T12:47:48.332730Z",
+    "agent_fault_detection_time": "2026-04-14T12:48:48.072730Z",
+    "agent_fault_mitigation_time": "2026-04-14T12:49:16.162730Z",
+    "time_to_detect": 59.74,
+    "time_to_mitigate": 87.83,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 7,
+    "input_tokens": 31907,
+    "output_tokens": 14080,
+    "injected_fault_name": "pod-delete",
+    "injected_fault_category": "application_fault",
+    "detected_fault_type": "pod-delete",
+    "fault_target_service": "order-service-node-01-e67cda",
+    "fault_namespace": "order-service",
+    "tool_calls": [
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on order-service",
+        "timestamp": "2026-04-14T12:47:55.107487+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on order-service",
+        "timestamp": "2026-04-14T12:48:05.450319+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Scale",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Scale successfully on order-service",
+        "timestamp": "2026-04-14T12:48:19.957171+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on order-service",
+        "timestamp": "2026-04-14T12:48:23.292706+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on order-service",
+        "timestamp": "2026-04-14T12:48:27.675644+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on order-service",
+        "timestamp": "2026-04-14T12:48:32.013555+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "order-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on order-service",
+        "timestamp": "2026-04-14T12:48:40.155225+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.76
+  },
+  "qualitative": {
+    "rai_check_status": "Passed with minor notes",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-delete diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 8.7,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing pod-delete.",
+    "agent_summary": "Agent successfully diagnosed pod-delete on order-service. Remediation applied and verified.",
+    "hallucination_score": 0.06,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 31907,
+    "output_tokens": 14080,
+    "total_tokens": 45987
+  }
+}

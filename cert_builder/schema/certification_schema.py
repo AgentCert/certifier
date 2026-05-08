@@ -94,6 +94,12 @@ class SectionPart(str, Enum):
     fault_injection = "Fault Injection Analysis"
 
 
+class NoticeSeverity(str, Enum):
+    """Visual emphasis for a NoticeBlock banner."""
+    info = "info"
+    warning = "warning"
+
+
 # ── Leaf Models ──────────────────────────────────────────────────────
 
 class ScorecardDimension(BaseModel):
@@ -131,6 +137,19 @@ class BarSeries(BaseModel):
     """Named data series for grouped/stacked bar charts."""
     name: str = Field(..., min_length=1)
     values: list[float] = Field(..., min_length=1)
+
+
+class CIBarPoint(BaseModel):
+    """One bar in a CI bar chart with optional 95% confidence interval whiskers.
+
+    `group` enables paired/multi-series whiskers per category (e.g. Detection vs.
+    Mitigation rate plotted side-by-side under the same category label).
+    """
+    label: str = Field(..., min_length=1)
+    value: float
+    ci_low: float | None = None
+    ci_high: float | None = None
+    group: str | None = None
 
 
 # ── Top-Level: Meta ──────────────────────────────────────────────────
@@ -236,6 +255,16 @@ class HeatmapChartData(BaseModel):
     scale: list[float] = Field(..., min_length=1)
 
 
+class CIBarChartData(BaseModel):
+    """Bar chart with per-bar 95% confidence-interval whiskers."""
+    chart_type: Literal["ci_bar"] = "ci_bar"
+    title: str = Field(..., min_length=1)
+    y_label: str | None = None
+    x_label: str | None = None
+    points: list[CIBarPoint] = Field(..., min_length=1)
+    reference_lines: list[ReferenceLine] = Field(default_factory=list)
+
+
 # ── Content Blocks (report-level: add type discriminators) ──────────
 
 class HeadingBlock(BaseModel):
@@ -293,6 +322,148 @@ class HeatmapChartBlock(HeatmapChartData):
     type: Literal["chart"] = "chart"
 
 
+class CIBarChartBlock(CIBarChartData):
+    """CI bar chart content block (used for hypothesis findings)."""
+    type: Literal["chart"] = "chart"
+
+
+class NoticeBlock(BaseModel):
+    """Boxed notice/banner used for skip messages, caveats, scope notes."""
+    type: Literal["notice"]
+    severity: NoticeSeverity = NoticeSeverity.info
+    title: str | None = None
+    body: str = Field(..., min_length=1)
+
+
+class HypothesisFact(BaseModel):
+    """One per-category fact span inside the deterministic one-line strip.
+
+    Mirrors a `<span class="hyp-strip__facts">` chunk in the HTML: a label
+    (category name) plus a short formatted text built from raw numbers,
+    coloured by tone. Always deterministic — never LLM-written.
+    """
+    label: str = Field(..., min_length=1)                  # e.g. "Application"
+    text: str = Field(..., min_length=1)                   # e.g. "IQM 358 s, CI [289, 441] (±21% — STABLE)"
+    tone: Literal["good", "flag", "warn"] = "good"
+
+
+class ScopeStat(BaseModel):
+    """One stat card in a scope-grid (value + label, optional sublabel/tone)."""
+    value: str = Field(..., min_length=1)                  # e.g. "30" or "Sufficient"
+    label: str = Field(..., min_length=1)                  # e.g. "Total Runs"
+    sublabel: str | None = None                            # optional caption
+    tone: Literal["neutral", "good", "flag"] = "neutral"
+
+
+class ScopeStatsBlock(BaseModel):
+    """Grid of headline stat cards used in the Experiment Scope (§1.2)."""
+    type: Literal["scope_stats"]
+    items: list[ScopeStat] = Field(..., min_length=1)
+
+
+class FaultPill(BaseModel):
+    """One pill summarising a fault category (icon + category + fault + runs)."""
+    category: str = Field(..., min_length=1)               # e.g. "Application"
+    fault: str = Field(..., min_length=1)                  # e.g. "container-kill"
+    runs: int = Field(..., ge=0)
+    icon: str | None = None                                # optional emoji/short label
+
+
+class FaultPillRowBlock(BaseModel):
+    """Row of fault-category pills beneath the scope grid."""
+    type: Literal["fault_pills"]
+    title: str | None = None
+    items: list[FaultPill] = Field(..., min_length=1)
+
+
+class PartBannerBlock(BaseModel):
+    """Part-divider banner ('Part I' / 'Part II')."""
+    type: Literal["part_banner"]
+    label: str = Field(..., min_length=1)                  # e.g. "Part I"
+    title: str = Field(..., min_length=1)                  # e.g. "Agent Capability Assessment"
+
+
+class InterpretationScaleBlock(BaseModel):
+    """Inline interpretation-scale chip row (e.g. 0-3 Weak | 4-6 Adequate ...)."""
+    type: Literal["interpretation_scale"]
+    title: str | None = None
+    bands: list[str] = Field(..., min_length=1)            # short chip labels
+
+
+class TaxonomyTableBlock(TableData):
+    """Methodology taxonomy table (H-01..H-09) with optional footnote.
+
+    Distinct from TableBlock so renderers can style the §2.2 framework
+    table differently from data tables.
+    """
+    type: Literal["taxonomy_table"] = "taxonomy_table"
+    footnote: str | None = None
+
+
+class CategoryPanelDimension(BaseModel):
+    """One dimension block inside a fault-category panel (§11)."""
+    title: str = Field(..., min_length=1)                  # e.g. "Agent Summary"
+    rating: Rating | None = None
+    confidence: Confidence
+    agreement: float | str
+    body: str = Field(..., min_length=1)
+
+
+class CategoryPanelBlock(BaseModel):
+    """Per-category panel for §11 Fault Category Analysis.
+
+    Holds the meta-pill row (fault, runs, detection, mitigation, reasoning,
+    response quality) plus 4 dimension blocks.
+    """
+    type: Literal["category_panel"]
+    category: str = Field(..., min_length=1)
+    fault: str = Field(..., min_length=1)
+    runs: int = Field(..., ge=0)
+    detection_rate_pct: float | None = None
+    mitigation_rate_pct: float | None = None
+    reasoning_score: float | None = None
+    response_quality_score: float | None = None
+    dimensions: list[CategoryPanelDimension] = Field(..., min_length=1)
+
+
+class EnumeratedItemBlock(BaseModel):
+    """One numbered item used for Limitations (§12) and Recommendations (§13).
+
+    Carries severity/urgency band, scope (category or 'Cross-cutting'),
+    optional tags ('Statistical Inference', 'Data Quality') and frequency.
+    """
+    type: Literal["enumerated_item"]
+    kind: Literal["limitation", "recommendation"]
+    index: int = Field(..., ge=1)                          # 1-based label index (L1, R1, ...)
+    severity: Literal["High", "Medium", "Low", "Critical"]
+    scope: str = Field(..., min_length=1)                  # e.g. "Application", "Cross-cutting"
+    body: str = Field(..., min_length=1)
+    tags: list[str] = Field(default_factory=list)          # e.g. ["Statistical Inference"]
+    frequency: str | None = None                           # e.g. "4/5 runs (80%)"
+
+
+class HypothesisStripBlock(BaseModel):
+    """Verdict strip rendered below a metric chart-pair.
+
+    Mirrors `<div class="hyp-strip pass|flag">` in the framework HTML:
+
+    * `verdict`, `hypothesis_id`, `metric_label`, `facts`, `method` are all
+      DETERMINISTIC — derived from the upstream hypothesis-test results by
+      pure-Python formatting/threshold rules.
+    * `summary` (≤ 25 words) and `findings` (3–6 sentences) are LLM-written
+      explanations that interpret the deterministic facts.
+    """
+    type: Literal["hypothesis_strip"]
+    verdict: Literal["pass", "flag", "inconclusive"]
+    hypothesis_id: str = Field(..., min_length=1)          # e.g. "H-01"
+    metric_label: str | None = None                        # e.g. "Time-to-Detect"
+    facts: list[HypothesisFact] = Field(default_factory=list)
+    method: str | None = None                              # e.g. "IQM (25% trimmed mean) + Bootstrap BCa 95% CI, B = 10,000."
+    summary: str | None = None                             # legacy one-liner — not rendered; retained for back-compat
+    findings: str | None = None                            # multi-sentence "Statistical findings" body (LLM-written)
+    detail: str | None = None                              # legacy optional second line, retained for back-compat
+
+
 # ── ContentBlock Union ───────────────────────────────────────────────
 
 def _content_block_discriminator(v: Any) -> str:
@@ -325,6 +496,16 @@ ContentBlock = Annotated[
         Annotated[GroupedBarChartBlock, Tag("chart.grouped_bar")],
         Annotated[StackedBarChartBlock, Tag("chart.stacked_bar")],
         Annotated[HeatmapChartBlock, Tag("chart.heatmap")],
+        Annotated[CIBarChartBlock, Tag("chart.ci_bar")],
+        Annotated[NoticeBlock, Tag("notice")],
+        Annotated[HypothesisStripBlock, Tag("hypothesis_strip")],
+        Annotated[ScopeStatsBlock, Tag("scope_stats")],
+        Annotated[FaultPillRowBlock, Tag("fault_pills")],
+        Annotated[PartBannerBlock, Tag("part_banner")],
+        Annotated[InterpretationScaleBlock, Tag("interpretation_scale")],
+        Annotated[TaxonomyTableBlock, Tag("taxonomy_table")],
+        Annotated[CategoryPanelBlock, Tag("category_panel")],
+        Annotated[EnumeratedItemBlock, Tag("enumerated_item")],
     ],
     Discriminator(_content_block_discriminator),
 ]
@@ -340,7 +521,9 @@ class Section(BaseModel):
     None for ungrouped sections.
     """
     id: str = Field(..., min_length=1)
-    number: int = Field(..., ge=1)
+    # 0 is reserved for unnumbered banner / divider sections (e.g. "Part I —
+    # Agent Capability Assessment"). Numbered sections use 1, 2, 3, ...
+    number: int = Field(..., ge=0)
     part: SectionPart | None = None
     title: str = Field(..., min_length=1)
     intro: str
@@ -359,7 +542,7 @@ class CertificationReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     meta: Meta
-    header: Header
+    header: Header | None = None  # OPTIONAL: Can be disabled via --no-header
     sections: list[Section] = Field(..., min_length=1)
     footer: str = Field(..., min_length=1)
 
