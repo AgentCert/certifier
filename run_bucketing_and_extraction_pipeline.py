@@ -13,6 +13,7 @@ Usage:
         [--store]
 """
 
+import sys
 import argparse
 import asyncio
 import json
@@ -20,6 +21,7 @@ import logging
 import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils.custom_errors import MyCustomError, OrchestratorError
 
 try:
     from utils.load_config import ConfigLoader
@@ -76,13 +78,23 @@ async def run_pipeline(
     # Run bucketing to a temporary location; experiment_id is only known
     # after the pipeline parses the trace.
     temp_buckets_dir = base_output / "fault_buckets"
-    pipeline = FaultBucketingPipeline(
-        trace_file_path=trace_file,
-        output_dir=str(temp_buckets_dir),
-        config=config,
-        batch_size=batch_size,
-    )
-    buckets = await pipeline.run()
+    
+    try:
+        pipeline = FaultBucketingPipeline(
+            trace_file_path=trace_file,
+            output_dir=str(temp_buckets_dir),
+            config=config,
+            batch_size=batch_size,
+        )
+        buckets = await pipeline.run()
+    except MyCustomError:
+        # Already logged by the custom error; re-raise to abort the pipeline
+        raise
+    except Exception as exc:
+        logger.error(f"Fault bucketing step failed: {exc}", exc_info=True)
+        raise OrchestratorError(
+            "Fault bucketing step failed", original_exception=exc
+        ) from exc
 
     if not buckets:
         logger.warning("No fault buckets produced. Nothing to extract.")
@@ -142,21 +154,41 @@ async def run_pipeline(
         run_id = bucket_dict.get("run_id", "")
         safe_name = f"{fault_id}_{run_id}".replace("/", "_").replace(" ", "_") if run_id else fault_id.replace("/", "_").replace(" ", "_")
         trace_tmp = metrics_dir / f"{safe_name}_trace.json"
-        with open(trace_tmp, "w", encoding="utf-8") as f:
-            json.dump(bucket_dict, f, indent=2, default=str)
+        
+        try:
+            with open(trace_tmp, "w", encoding="utf-8") as f:
+                json.dump(bucket_dict, f, indent=2, default=str)
+        except (OSError, TypeError) as exc:
+            logger.error(
+                f"Failed to write temp trace for '{fault_id}': {exc}. Skipping.",
+                exc_info=True,
+            )
+            continue
 
         # Run metric extraction — bucket metadata is read from the trace file
-        extractor = TraceMetricsExtractor(
-            config=config,
-        )
         try:
-            extraction_result: ExtractionResult = (
-                await extractor.extract_metrics_async(
-                    str(trace_tmp), store_to_mongodb=store_to_mongodb
-                )
-            )
+            extractor = TraceMetricsExtractor(config=config)
+        except MyCustomError as exc:
+            logger.error(f"Extractor init failed for '{fault_id}': {exc}. Skipping.")
+            continue
         except Exception as exc:
-            logger.error(f"Metric extraction failed for '{fault_id}': {exc}")
+            logger.error(
+                f"Unexpected extractor init error for '{fault_id}': {exc}. Skipping.",
+                exc_info=True,
+            )
+            continue
+        try:
+            extraction_result: ExtractionResult = await extractor.extract_metrics_async(
+                str(trace_tmp), store_to_mongodb=store_to_mongodb
+            )
+        except MyCustomError as exc:
+            logger.error(f"Metric extraction failed for '{fault_id}' (custom): {exc}. Skipping.")
+            continue
+        except Exception as exc:
+            logger.error(
+                f"Metric extraction failed for '{fault_id}': {exc}. Skipping.",
+                exc_info=True,
+            )
             continue
 
         # Persist per-fault metrics to disk
@@ -172,8 +204,16 @@ async def run_pipeline(
             result_dict["mongodb_document_id"] = extraction_result.mongodb_document_id
 
         metrics_file = metrics_dir / f"{safe_name}_metrics.json"
-        with open(metrics_file, "w", encoding="utf-8") as f:
-            json.dump(result_dict, f, indent=2, default=str)
+        
+        try:
+            with open(metrics_file, "w", encoding="utf-8") as f:
+                json.dump(result_dict, f, indent=2, default=str)
+        except (OSError, TypeError) as exc:
+            logger.error(
+                f"Failed to write metrics file for '{fault_id}': {exc}. Skipping.",
+                exc_info=True,
+            )
+            continue
 
         logger.info(
             f"Metrics for '{fault_id}' written to {metrics_file.name}. "
@@ -209,8 +249,15 @@ async def run_pipeline(
             for r in results
         ],
     }
-    with open(summary_file, "w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, default=str)
+
+    try:
+        with open(summary_file, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2, default=str)
+    except (OSError, TypeError) as exc:
+        raise OrchestratorError(
+            f"Failed to write pipeline summary: {summary_file}",
+            original_exception=exc,
+        ) from exc
 
     logger.info("=" * 60)
     logger.info("Pipeline Complete")
@@ -250,14 +297,21 @@ def main():
     )
     args = parser.parse_args()
 
-    results = asyncio.run(
-        run_pipeline(
-            trace_file=args.trace_file,
-            output_dir=args.output_dir,
-            batch_size=args.batch_size,
-            store_to_mongodb=args.store,
+    try:
+        results = asyncio.run(
+            run_pipeline(
+                trace_file=args.trace_file,
+                output_dir=args.output_dir,
+                batch_size=args.batch_size,
+                store_to_mongodb=args.store,
+            )
         )
-    )
+    except MyCustomError as exc:
+        logger.error(f"Pipeline aborted: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        logger.error(f"Unexpected pipeline error: {exc}", exc_info=True)
+        sys.exit(1)
 
     # Print summary to console
     print(f"\nPipeline Complete")

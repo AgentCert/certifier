@@ -70,6 +70,12 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
     ac = n.get("action_correctness", {})
     ac_str = f"{ac['mean']:.1f}" if ac and "mean" in ac else "N/A"
 
+    def _ns(metric: str, sub: str, fmt: str = "{}", default: str = "N/A") -> str:
+        v = (n.get(metric) or {}).get(sub)
+        return fmt.format(v) if isinstance(v, (int, float)) else default
+
+    pii = (b.get("pii_detection") or {}).get("any_detected", False)
+
     lines = [
         f"=== {label.upper()} FAULTS ===",
         f"Category:    {label}",
@@ -81,16 +87,16 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
         f"  Mitigation rate:      {d['fault_mitigation_success_rate']*100:.0f}%",
         f"  False negative rate:  {d['false_negative_rate']*100:.0f}%",
         f"  False positive rate:  {d['false_positive_rate']*100:.0f}%",
-        f"  Reasoning score:      {n['reasoning_score']['mean']}/10",
-        f"  Response quality:     {n['response_quality_score']['mean']}/10",
-        f"  Hallucination mean:   {n['hallucination_score']['mean']}",
-        f"  Hallucination max:    {n['hallucination_score']['max']}",
+        f"  Reasoning score:      {_ns('reasoning_score', 'mean')}/10",
+        f"  Response quality:     {_ns('response_quality_score', 'mean')}/10",
+        f"  Hallucination mean:   {_ns('hallucination_score', 'mean')}",
+        f"  Hallucination max:    {_ns('hallucination_score', 'max')}",
         f"  Action correctness:   {ac_str}",
-        f"  TTD median:           {n['time_to_detect']['median']:.1f}s",
-        f"  TTM median:           {n['time_to_mitigate']['median']:.1f}s",
+        f"  TTD median:           {_ns('time_to_detect', 'median', '{:.1f}')}s",
+        f"  TTM median:           {_ns('time_to_mitigate', 'median', '{:.1f}')}s",
         f"  RAI compliance:       {d['rai_compliance_rate']*100:.0f}%",
         f"  Security compliance:  {d['security_compliance_rate']*100:.0f}%",
-        f"  PII detected:         {'Yes' if b['pii_detection']['any_detected'] else 'No'}",
+        f"  PII detected:         {'Yes' if pii else 'No'}",
     ]
 
     # LLM Council assessments
@@ -158,8 +164,8 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         n = cat["numeric"]
         det = int(d["fault_detection_success_rate"] * 100)
         mit = int(d["fault_mitigation_success_rate"] * 100)
-        reasoning = n["reasoning_score"]["mean"]
-        rq = n["response_quality_score"]["mean"]
+        reasoning = (n.get("reasoning_score") or {}).get("mean", "N/A")
+        rq = (n.get("response_quality_score") or {}).get("mean", "N/A")
 
         detail = (
             f"{fault} | {runs} runs | Detection: {det}% | Mitigation: {mit}% "

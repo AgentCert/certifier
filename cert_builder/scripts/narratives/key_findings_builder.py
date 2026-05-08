@@ -86,6 +86,13 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     ]:
         rows.append(_row(label, [fmt(c["derived"][key]) for c in cats]))
 
+    def _safe(c, key, sub, fmt):
+        # Aggregator omits whole metric blocks when no run produced the
+        # underlying value (e.g. time_to_detect when nothing was detected),
+        # so guard against the missing key/sub combination.
+        v = (c.get("numeric", {}).get(key) or {}).get(sub)
+        return fmt(v) if v is not None else "N/A"
+
     for key, sub, label, fmt in [
         ("time_to_detect", "median", "TTD median", lambda v: f"{v:.0f}s"),
         ("time_to_mitigate", "median", "TTM median", lambda v: f"{v:.0f}s"),
@@ -93,7 +100,7 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         ("hallucination_score", "mean", "Halluc mean", lambda v: f"{v:.3f}"),
         ("hallucination_score", "max", "Halluc max", lambda v: f"{v:.2f}"),
     ]:
-        rows.append(_row(label, [fmt(c["numeric"][key][sub]) for c in cats]))
+        rows.append(_row(label, [_safe(c, key, sub, fmt) for c in cats]))
 
     for key, sub, label in [
         ("rai_compliance_rate", None, "RAI rate"),
@@ -109,9 +116,13 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     runs_per = [c["total_runs"] for c in cats]
     detected_count = sum(int(r * n) for r, n in zip(det_rates, runs_per))
     overall_det = (detected_count / total_runs * 100) if total_runs else 0
-    avg_reasoning = sum(
-        c["numeric"]["reasoning_score"]["mean"] for c in cats
-    ) / len(cats)
+    reasoning_means = [
+        (c.get("numeric", {}).get("reasoning_score") or {}).get("mean")
+        for c in cats
+    ]
+    reasoning_means = [v for v in reasoning_means if v is not None]
+    avg_reasoning = (sum(reasoning_means) / len(reasoning_means)
+                     if reasoning_means else 0.0)
 
     context = (
         f"SCORECARD (7 dimensions):\n{sc_lines}\n\n"

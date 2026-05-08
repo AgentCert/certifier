@@ -18,6 +18,11 @@ from typing import Type
 from openai import AzureOpenAI
 from pydantic import BaseModel
 
+# Azure returns these fragments when a reasoning model rejects legacy params.
+_UNSUPPORTED_PARAM_CODE = "unsupported_parameter"
+_MAX_TOKENS_UNSUPPORTED = "max_tokens"
+_TEMPERATURE_UNSUPPORTED = "temperature"
+
 
 def get_client() -> AzureOpenAI:
     """Create and return an Azure OpenAI client from env vars."""
@@ -119,13 +124,18 @@ def call_llm(
     else:
         response_format = None
 
+        # Starts from caller's hint; auto-flips to True on 400 'unsupported_parameter'.
+    detected_reasoning = is_reasoning_model
+
     last_error = None
     for attempt in range(retries):
         try:
-            # Reasoning models (o-series, GPT-5) don't support
-            # temperature / max_tokens parameters.
             gen_kwargs: dict = {}
-            if not is_reasoning_model:
+            if detected_reasoning:
+                # Reasoning models (o-series, GPT-5): use max_completion_tokens,
+                # no temperature.
+                gen_kwargs["max_completion_tokens"] = max_tokens
+            else:
                 gen_kwargs["temperature"] = temperature
                 # Try max_completion_tokens first (required for gpt-4o / o-series models)
                 # Fall back to max_tokens if not supported
@@ -158,6 +168,23 @@ def call_llm(
 
         except Exception as e:
             last_error = e
+
+            # Auto-fallback: if Azure reports max_tokens/temperature unsupported
+            # for this deployment, switch to reasoning-model params and retry
+            # immediately (without consuming the backoff).
+            err_str = str(e).lower()
+            if (
+                not detected_reasoning
+                and _UNSUPPORTED_PARAM_CODE in err_str
+                and (_MAX_TOKENS_UNSUPPORTED in err_str or _TEMPERATURE_UNSUPPORTED in err_str)
+            ):
+                print(
+                    f"[llm_client] Deployment '{deployment}' rejected max_tokens/temperature; "
+                    f"switching to reasoning-model parameters (max_completion_tokens)."
+                )
+                detected_reasoning = True
+                continue
+
             if attempt < retries - 1:
                 wait = 2 ** attempt  # 1s, 2s, 4s
                 time.sleep(wait)

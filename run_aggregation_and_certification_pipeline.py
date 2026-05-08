@@ -30,6 +30,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+from utils.custom_errors import MyCustomError, OrchestratorError, ConfigLoaderError
+import sys
 
 try:
     from dotenv import load_dotenv
@@ -65,11 +67,17 @@ from run_aggregation_and_hypothesis_pipeline import (
 
 def _save_json(data: dict, path: Path) -> None:
     """Write dict to JSON file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, indent=4, default=str, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(data, indent=4, default=str, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        raise OrchestratorError(
+            f"Failed to write JSON file: {path}",
+            original_exception=exc,
+        ) from exc
 
 
 async def run_pipeline(
@@ -124,7 +132,13 @@ async def run_pipeline(
     output_path = (Path(output_dir) / certification_run_id) if certification_run_id else Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    llm_client = AzureLLMClient(config=config) if AzureLLMClient else None
+    try:
+        llm_client = AzureLLMClient(config=config) if AzureLLMClient else None
+    except Exception as exc:
+        raise OrchestratorError(
+            "Failed to initialize AzureLLMClient",
+            original_exception=exc,
+        ) from exc
 
     try:
         # ------------------------------------------------------------------
@@ -133,86 +147,50 @@ async def run_pipeline(
         logger.info("=" * 60)
         logger.info("STEP 1: Aggregation")
         logger.info("=" * 60)
+        try:
+            query_service = DirectoryQueryService(metrics_dir)
 
-        query_service = DirectoryQueryService(metrics_dir)
-
-        # Verify documents exist
-        agent_docs = query_service.query_runs_by_agent(agent_id)
-        if not agent_docs:
-            logger.error(
-                f"No per-run metric documents found for agent_id='{agent_id}' "
-                f"in directory '{metrics_dir}'. "
-                "Ensure per-run metrics have been generated first."
-            )
-            return {}
-
-        logger.info(f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'")
-
-        categories = query_service.get_all_fault_categories(agent_id=agent_id)
-        if not categories:
-            logger.error(f"No fault categories found for agent_id='{agent_id}'.")
-            return {}
-
-        logger.info(f"Found fault categories: {categories}")
-
-        orchestrator = AggregationOrchestrator(
-            llm_client=llm_client,
-            query_service=query_service,
-            db_client=None,  # No MongoDB storage; output goes to file
-        )
-
-        aggregated_scorecard = await orchestrator.aggregate_all(
-            agent_id=agent_id,
-            agent_name=agent_name,
-            certification_run_id=certification_run_id,
-            runs_per_fault=runs_per_fault,
-            store_results=False,
-        )
-
-        _print_aggregation_summary(aggregated_scorecard, agent_id, agent_name)
-
-        # ------------------------------------------------------------------
-        # Step 1b (optional): Statistical Hypothesis Analysis
-        # ------------------------------------------------------------------
-        if advanced_analysis:
-            logger.info("=" * 60)
-            logger.info("STEP 1b: Statistical Hypothesis Analysis")
-            logger.info("=" * 60)
-
-            cfg_path = (
-                Path(fault_categories_config)
-                if fault_categories_config
-                else _DEFAULT_FAULT_CATEGORIES_CONFIG
-            )
-            fault_cats = _load_fault_categories_config(cfg_path)
-            grouped_runs = _group_docs_by_category(agent_docs, fault_cats)
-
-            gt_path = Path(ground_truth_dir) if ground_truth_dir else None
-            hypothesis_result = _run_hypothesis_safely(
-                grouped_runs=grouped_runs,
-                gt_dir=gt_path,
-                min_runs=min_runs,
-                alpha=alpha,
-                n_resamples=n_resamples,
-                random_state=random_state,
-                metrics_dir=Path(metrics_dir),
-            )
-
-            if hypothesis_result is not None:
-                aggregated_scorecard["statistical_hypothesis"] = hypothesis_result
-                logger.info(
-                    "Merged statistical_hypothesis into aggregated scorecard."
+            # Verify documents exist
+            agent_docs = query_service.query_runs_by_agent(agent_id)
+            if not agent_docs:
+                logger.error(
+                    f"No per-run metric documents found for agent_id='{agent_id}' "
+                    f"in directory '{metrics_dir}'. "
+                    "Ensure per-run metrics have been generated first."
                 )
-            else:
-                logger.info(
-                    "statistical_hypothesis key omitted (analysis skipped or failed)."
-                )
-        else:
-            logger.info(
-                "Advanced analysis disabled; skipping statistical hypothesis step."
+                return {}
+
+            logger.info(f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'")
+
+            categories = query_service.get_all_fault_categories(agent_id=agent_id)
+            if not categories:
+                logger.error(f"No fault categories found for agent_id='{agent_id}'.")
+                return {}
+
+            logger.info(f"Found fault categories: {categories}")
+
+            orchestrator = AggregationOrchestrator(
+                llm_client=llm_client,
+                query_service=query_service,
+                db_client=None,  # No MongoDB storage; output goes to file
             )
 
-        # Persist aggregated scorecard (after optional hypothesis enrichment)
+            aggregated_scorecard = await orchestrator.aggregate_all(
+                agent_id=agent_id,
+                agent_name=agent_name,
+                certification_run_id=certification_run_id,
+                runs_per_fault=runs_per_fault,
+                store_results=False,
+            )
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            logger.error(f"Aggregation step failed: {exc}", exc_info=True)
+            raise OrchestratorError(
+                "Aggregation step failed",
+                original_exception=exc,
+            ) from exc
+        # Persist aggregated scorecard
         scorecard_path = output_path / f"aggregated_scorecard_output_{agent_id}.json"
         _save_json(aggregated_scorecard, scorecard_path)
         logger.info(f"Aggregated scorecard written to {scorecard_path}")
@@ -225,13 +203,21 @@ async def run_pipeline(
         logger.info("=" * 60)
 
         report_path = output_path / f"certification_report_{agent_id}.json"
-
-        cert_pipeline = CertificationPipeline(
-            input_path=scorecard_path,
-            output_path=report_path,
-            debug=debug,
-        )
-        report = await cert_pipeline.run()
+        try:
+            cert_pipeline = CertificationPipeline(
+                input_path=scorecard_path,
+                output_path=report_path,
+                debug=debug,
+            )
+            report = await cert_pipeline.run()
+        except MyCustomError:
+            raise
+        except Exception as exc:
+            logger.error(f"Certification step failed: {exc}", exc_info=True)
+            raise OrchestratorError(
+                "Certification step failed",
+                original_exception=exc,
+            ) from exc
 
         logger.info(f"Certification report written to {report_path}")
 
@@ -399,30 +385,24 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.advanced_analysis and not args.ground_truth_dir:
-        logger.warning(
-            "--advanced-analysis is set but --ground-truth-dir was not provided. "
-            "Statistical hypothesis analysis will be skipped."
+    try:
+        report = asyncio.run(
+            run_pipeline(
+                metrics_dir=args.metrics_dir,
+                output_dir=args.output_dir,
+                agent_id=args.agent_id,
+                agent_name=args.agent_name,
+                certification_run_id=args.certification_run_id,
+                runs_per_fault=args.runs_per_fault,
+                debug=args.debug,
+            )
         )
-
-    report = asyncio.run(
-        run_pipeline(
-            metrics_dir=args.metrics_dir,
-            output_dir=args.output_dir,
-            agent_id=args.agent_id,
-            agent_name=args.agent_name,
-            certification_run_id=args.certification_run_id,
-            runs_per_fault=args.runs_per_fault,
-            debug=args.debug,
-            advanced_analysis=args.advanced_analysis,
-            ground_truth_dir=args.ground_truth_dir,
-            fault_categories_config=args.fault_categories_config,
-            min_runs=args.min_runs,
-            alpha=args.alpha,
-            n_resamples=args.n_resamples,
-            random_state=args.random_state,
-        )
-    )
+    except MyCustomError as exc:
+        logger.error(f"Pipeline aborted: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        logger.error(f"Unexpected pipeline error: {exc}", exc_info=True)
+        sys.exit(1)
 
     if report:
         print(f"\nPipeline Complete")

@@ -58,10 +58,6 @@ class Settings:
     agg_category_collection: str = field(
         default_factory=lambda: os.getenv("AGG_CATEGORY_COLLECTION", "aggregated_category_metadata")
     )
-    # Root directory for per-cert aggregated scorecard + report output
-    cert_workspace_dir: Path = field(
-        default_factory=lambda: Path(os.getenv("CERT_WORKSPACE_DIR", "workspace/cert")).resolve()
-    )
     # Maximum simultaneous aggregation-certification pipeline executions
     # (lower default than bucketing because cert runs are significantly heavier)
     max_concurrent_cert_tasks: int = field(

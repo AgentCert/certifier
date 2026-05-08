@@ -17,9 +17,9 @@ GET  /api/v1/<poll_url>   →  task document with status / result / error
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/v1/bucketing-extraction` | Submit a fault bucketing + metrics extraction job (Phase 0+1) |
-| `GET` | `/api/v1/tasks/{task_id}` | Poll Phase 0+1 task status |
+| `GET` | `/api/v1/tasks` | Poll Phase 0+1 task status |
 | `POST` | `/api/v1/aggregation-certification` | Submit an aggregation + certification job (Phase 2+3) |
-| `GET` | `/api/v1/cert-tasks/{cert_task_id}` | Poll Phase 2+3 task status |
+| `GET` | `/api/v1/cert-tasks` | Poll Phase 2+3 task status |
 
 ---
 
@@ -78,9 +78,11 @@ Accepts a trace source, runs fault bucketing (Phase 0) and metrics extraction (P
 {
   "status":   "accepted",
   "task_id":  "550e8400-e29b-41d4-a716-446655440000",
-  "poll_url": "/api/v1/tasks/550e8400-e29b-41d4-a716-446655440000"
+  "poll_url": "/api/v1/tasks?experiment_id=606f617e-...&experiment_run_id=0268f649-..."
 }
 ```
+
+`task_id` is returned for reference (logging, direct DB lookup) but is not required for polling.
 
 ### Error responses
 
@@ -90,18 +92,33 @@ Accepts a trace source, runs fault bucketing (Phase 0) and metrics extraction (P
 
 ---
 
-## GET /api/v1/tasks/{task_id}
+## GET /api/v1/tasks
 
-Poll the status of a bucketing-extraction task.
+Poll the status of the most-recent bucketing-extraction task for an experiment run.
+
+### Query parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `experiment_id` | yes | The `experiment_id` supplied at submission |
+| `experiment_run_id` | yes | The `run_id` supplied at submission |
+
+### Example
+
+```
+GET /api/v1/tasks?experiment_id=606f617e-9a3f-4d00-9a4c-909f8d3b7ec5&experiment_run_id=0268f649-e7ee-460a-b6a8-17b1b807ce0d
+```
+
+If the same run was attempted more than once (e.g. after a failure and retry), the most recent task is returned.
 
 ### Response — 200 OK
 
 ```jsonc
 {
   "task_id":       "550e8400-...",
-  "agent_id":      "my-agent",
-  "experiment_id": "exp-001",
-  "run_id":        "run-42",
+  "agent_id":      "flash-agent",
+  "experiment_id": "606f617e-9a3f-4d00-9a4c-909f8d3b7ec5",
+  "run_id":        "0268f649-e7ee-460a-b6a8-17b1b807ce0d",
   "status":        "PENDING | RUNNING | COMPLETED | FAILED",
   "stage":         "pending | acquiring_trace | running_pipeline | done",
   "created_at":    "2024-01-15T10:00:00Z",
@@ -125,11 +142,11 @@ Poll the status of a bucketing-extraction task.
       }
     ],
     "storage_paths": {
-      "traces_dir":      "workspace/my-agent/exp-001/fault-bucketing/run-42/traces/",
-      "fault_buckets_dir":"workspace/my-agent/exp-001/fault-bucketing/run-42/fault_buckets/",
-      "metrics_dir":     "workspace/my-agent/exp-001/fault-bucketing/run-42/metrics/",
-      "summary":         "workspace/my-agent/exp-001/fault-bucketing/run-42/pipeline_summary.json",
-      "log":             "workspace/my-agent/exp-001/fault-bucketing/run-42/pipeline.log"
+      "traces_dir":      "workspace/flash-agent/606f617e-.../fault-bucketing/0268f649-.../traces/",
+      "fault_buckets_dir":"workspace/flash-agent/606f617e-.../fault-bucketing/0268f649-.../fault_buckets/",
+      "metrics_dir":     "workspace/flash-agent/606f617e-.../fault-bucketing/0268f649-.../metrics/",
+      "summary":         "workspace/flash-agent/606f617e-.../fault-bucketing/0268f649-.../pipeline_summary.json",
+      "log":             "workspace/flash-agent/606f617e-.../fault-bucketing/0268f649-.../pipeline.log"
     },
     "token_usage": {
       "bucketing_input_tokens":  1200,
@@ -162,7 +179,7 @@ pending  →  acquiring_trace  →  running_pipeline  →  done (COMPLETED)
 
 | Code | `error_code` | Cause |
 |---|---|---|
-| 404 | `TASK_NOT_FOUND` | No task with this `task_id` |
+| 404 | `TASK_NOT_FOUND` | No task found for this `(experiment_id, experiment_run_id)` |
 
 ---
 
@@ -200,9 +217,11 @@ Supply `metrics_dir` explicitly only when the metrics files live outside the def
 {
   "status":       "accepted",
   "cert_task_id": "7c4a8d64-...",
-  "poll_url":     "/api/v1/cert-tasks/7c4a8d64-..."
+  "poll_url":     "/api/v1/cert-tasks?experiment_id=606f617e-..."
 }
 ```
+
+`cert_task_id` is returned for reference but is not required for polling.
 
 ### Error responses
 
@@ -215,18 +234,30 @@ Supply `metrics_dir` explicitly only when the metrics files live outside the def
 
 ---
 
-## GET /api/v1/cert-tasks/{cert_task_id}
+## GET /api/v1/cert-tasks
 
-Poll the status of an aggregation-certification task.
+Poll the status of the most-recent aggregation-certification task for an experiment.
+
+### Query parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `experiment_id` | yes | The `experiment_id` supplied at submission |
+
+### Example
+
+```
+GET /api/v1/cert-tasks?experiment_id=606f617e-9a3f-4d00-9a4c-909f8d3b7ec5
+```
 
 ### Response — 200 OK
 
 ```jsonc
 {
   "cert_task_id":         "7c4a8d64-...",
-  "agent_id":             "my-agent",
-  "agent_name":           "My Agent v1.0",
-  "experiment_id":        "exp-001",
+  "agent_id":             "flash-agent",
+  "agent_name":           "Flash Agent v1.0",
+  "experiment_id":        "606f617e-9a3f-4d00-9a4c-909f8d3b7ec5",
   "certification_run_id": "v1.0.0",
   "status":               "PENDING | RUNNING | COMPLETED | FAILED",
   "stage":                "pending | fetching_metrics | running_pipeline | storing_metadata | done",
@@ -241,11 +272,11 @@ Poll the status of an aggregation-certification task.
     "total_documents":        90,
     "total_fault_categories": 3,
     "fault_categories":       ["compute", "network", "storage"],
-    "certification_id":       "d290f1ee-...",   // UUID linking MongoDB docs
+    "certification_id":       "d290f1ee-...",
     "storage_paths": {
-      "aggregated_scorecard": "workspace/cert/my-agent/exp-001/aggregation/aggregation.json",
-      "certification_report": "workspace/cert/my-agent/exp-001/cert-builder/certification.json",
-      "summary":              "workspace/cert/my-agent/exp-001/pipeline_summary.json"
+      "aggregated_scorecard": "workspace/cert/flash-agent/606f617e-.../aggregation/aggregation.json",
+      "certification_report": "workspace/cert/flash-agent/606f617e-.../cert-builder/certification.json",
+      "summary":              "workspace/cert/flash-agent/606f617e-.../pipeline_summary.json"
     },
     "processing_time_seconds": 312.6
   },
@@ -271,7 +302,7 @@ pending  →  fetching_metrics  →  running_pipeline  →  storing_metadata  �
 
 | Code | `error_code` | Cause |
 |---|---|---|
-| 404 | `TASK_NOT_FOUND` | No task with this `cert_task_id` |
+| 404 | `TASK_NOT_FOUND` | No task found for this `experiment_id` |
 
 ---
 
@@ -279,47 +310,48 @@ pending  →  fetching_metrics  →  running_pipeline  →  storing_metadata  �
 
 ```bash
 # ── Step 1: Run Phase 0+1 for each agent run ──────────────────────────────────
-TASK=$(curl -s -X POST http://localhost:8000/api/v1/bucketing-extraction \
+curl -s -X POST http://localhost:8000/api/v1/bucketing-extraction \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id":      "k8s-agent-v2",
-    "experiment_id": "chaos-exp-may",
-    "run_id":        "run-001",
+    "agent_id":      "flash-agent",
+    "experiment_id": "606f617e-9a3f-4d00-9a4c-909f8d3b7ec5",
+    "run_id":        "0268f649-e7ee-460a-b6a8-17b1b807ce0d",
     "trace_source": {
       "type":      "file",
       "file_path": "/workspace/traces/run001.json"
     },
     "storage_config": { "type": "local" }
-  }')
-
-TASK_ID=$(echo $TASK | jq -r '.task_id')
+  }'
+# → { "status": "accepted", "task_id": "...", "poll_url": "/api/v1/tasks?experiment_id=606f617e-...&experiment_run_id=0268f649-..." }
 
 # ── Step 2: Poll until COMPLETED ──────────────────────────────────────────────
+EXP_ID="606f617e-9a3f-4d00-9a4c-909f8d3b7ec5"
+RUN_ID="0268f649-e7ee-460a-b6a8-17b1b807ce0d"
+
 while true; do
-  STATUS=$(curl -s http://localhost:8000/api/v1/tasks/$TASK_ID | jq -r '.status')
+  STATUS=$(curl -s "http://localhost:8000/api/v1/tasks?experiment_id=$EXP_ID&experiment_run_id=$RUN_ID" | jq -r '.status')
   echo "Status: $STATUS"
   [ "$STATUS" = "COMPLETED" ] || [ "$STATUS" = "FAILED" ] && break
   sleep 10
 done
 
-# ── Step 3: (repeat Step 1 for run-002, run-003, ... run-N) ───────────────────
+# ── Step 3: (repeat Step 1 for additional runs) ───────────────────────────────
 
 # ── Step 4: Submit Phase 2+3 after all runs are complete ─────────────────────
-CERT=$(curl -s -X POST http://localhost:8000/api/v1/aggregation-certification \
+curl -s -X POST http://localhost:8000/api/v1/aggregation-certification \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id":             "k8s-agent-v2",
-    "agent_name":           "K8s Agent v2.0",
-    "experiment_id":        "chaos-exp-may",
-    "certification_run_id": "v2.0.0-rc1",
+    "agent_id":             "flash-agent",
+    "agent_name":           "Flash Agent v1.0",
+    "experiment_id":        "606f617e-9a3f-4d00-9a4c-909f8d3b7ec5",
+    "certification_run_id": "v1.0.0-rc1",
     "runs_per_fault":       30
-  }')
-
-CERT_ID=$(echo $CERT | jq -r '.cert_task_id')
+  }'
+# → { "status": "accepted", "cert_task_id": "...", "poll_url": "/api/v1/cert-tasks?experiment_id=606f617e-..." }
 
 # ── Step 5: Poll until COMPLETED ──────────────────────────────────────────────
 while true; do
-  RESULT=$(curl -s http://localhost:8000/api/v1/cert-tasks/$CERT_ID)
+  RESULT=$(curl -s "http://localhost:8000/api/v1/cert-tasks?experiment_id=$EXP_ID")
   STATUS=$(echo $RESULT | jq -r '.status')
   echo "Status: $STATUS"
   [ "$STATUS" = "COMPLETED" ] || [ "$STATUS" = "FAILED" ] && break
@@ -371,7 +403,7 @@ pipeline_summary.json                  # agent, categories, paths
 | Error code | Meaning |
 |---|---|
 | `TASK_ALREADY_ACTIVE` | Duplicate submission for the same identifiers |
-| `TASK_NOT_FOUND` | Poll for a non-existent task_id |
+| `TASK_NOT_FOUND` | No task found for the supplied query parameters |
 | `TRACE_NOT_FOUND` | File path does not exist or Langfuse fetch failed |
 | `PIPELINE_FAILED` | Unclassified error inside Phase 0 or Phase 1 |
 | `STORAGE_ERROR` | Filesystem write or MongoDB write failure |

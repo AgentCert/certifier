@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 
 from main.models.bucket_requests import BucketingExtractionRequest
 from main.models.bucket_responses import TaskAcceptedResponse
@@ -70,12 +70,6 @@ async def submit_bucketing_extraction(
 
     task_id = str(uuid.uuid4())
 
-    # Strip the Langfuse secret_key before persisting the request snapshot to MongoDB;
-    # we never want credentials stored at rest in the task collection.
-    snapshot = body.model_dump()
-    if snapshot.get("trace_source", {}).get("type") == "langfuse":
-        snapshot["trace_source"].pop("secret_key", None)
-
     # Persist the task document BEFORE dispatching the background worker so that
     # the poll endpoint can return the task immediately after this response is sent.
     await session_svc.create_task(
@@ -83,7 +77,7 @@ async def submit_bucketing_extraction(
         agent_id=body.agent_id,
         experiment_id=body.experiment_id,
         run_id=body.run_id,
-        request_snapshot=snapshot,
+        request_snapshot=body.model_dump(),
     )
 
     background_tasks.add_task(
@@ -100,24 +94,25 @@ async def submit_bucketing_extraction(
 
     return TaskAcceptedResponse(
         task_id=task_id,
-        poll_url=f"/api/v1/tasks/{task_id}",
+        poll_url=f"/api/v1/tasks?experiment_id={body.experiment_id}&experiment_run_id={body.run_id}",
     )
 
 
-@router.get("/tasks/{task_id}")
+@router.get("/tasks")
 async def get_task_status(
-    task_id: str,
+    experiment_id: str = Query(..., description="Experiment ID supplied at submission"),
+    experiment_run_id: str = Query(..., description="Run ID supplied at submission"),
     session_svc: SessionService = Depends(_session_svc),
 ):
-    """Poll the status of a bucketing-extraction task by its UUID."""
-    task = await session_svc.get_task(task_id)
+    """Poll the status of the most-recent bucketing-extraction task for an experiment run."""
+    task = await session_svc.get_task_by_run(experiment_id, experiment_run_id)
     if task is None:
         raise HTTPException(
             status_code=404,
             detail={
                 "status": "error",
                 "error_code": "TASK_NOT_FOUND",
-                "message": f"No task found with id {task_id}",
+                "message": f"No task found for experiment_id={experiment_id} experiment_run_id={experiment_run_id}",
             },
         )
     return task

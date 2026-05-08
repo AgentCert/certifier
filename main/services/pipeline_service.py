@@ -208,7 +208,7 @@ class BucketPipelineService:
 
             extractor = TraceMetricsExtractor(
                 config=config,
-                fault_config_path=str(fault_cfg_tmp),
+                bucket_metadata=fault_cfg,
             )
             try:
                 extraction_result: ExtractionResult = (

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,14 +26,18 @@ class TraceService:
 
     async def acquire_trace(
         self,
-        trace_source,   # FileTraceSource | LangfuseTraceSource
+        trace_source,       # FileTraceSource | LangfuseTraceSource
         dest_dir: Path,
+        experiment_id: str = "",
+        run_id: str = "",
     ) -> Tuple[Path, int]:
         """Copy or fetch a trace to ``dest_dir/raw_trace.json`` and validate its structure.
 
         Args:
-            trace_source: A ``FileTraceSource`` or ``LangfuseTraceSource`` discriminated union.
-            dest_dir:     Directory where ``raw_trace.json`` will be written.
+            trace_source:  A ``FileTraceSource`` or ``LangfuseTraceSource`` discriminated union.
+            dest_dir:      Directory where ``raw_trace.json`` will be written.
+            experiment_id: Used for Langfuse source — matched against trace metadata.
+            run_id:        Used for Langfuse source — matched against trace metadata.
 
         Returns:
             ``(path_to_raw_trace, observation_count)``
@@ -47,7 +52,7 @@ class TraceService:
         if trace_source.type == "file":
             await self._fetch_from_file(trace_source.file_path, dest)
         else:
-            await self._fetch_from_langfuse(trace_source, dest)
+            await self._fetch_from_langfuse(trace_source, dest, experiment_id, run_id)
 
         # Validate in a thread to avoid blocking the event loop on I/O + JSON parse
         data = await asyncio.to_thread(_load_and_validate, str(dest))
@@ -71,19 +76,42 @@ class TraceService:
 
     # ── Langfuse source ───────────────────────────────────────────────────────
 
-    async def _fetch_from_langfuse(self, source, dest: Path) -> None:
+    async def _fetch_from_langfuse(
+        self, source, dest: Path, experiment_id: str, run_id: str
+    ) -> None:
         """Fetch observations from the Langfuse API and write them to *dest* as a JSON array.
 
-        The Langfuse SDK is synchronous, so the entire fetch is offloaded to a
-        thread via ``asyncio.to_thread``.
+        Two queries are run against Langfuse metadata and results merged by trace ID:
+        chaos/OTel traces (keys ``experiment.id`` / ``experiment.run_id``) and
+        LiteLLM/agent traces (keys ``experiment_id`` / ``experiment_run_id``).
+
+        Credentials are read from LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, and
+        LANGFUSE_SECRET_KEY environment variables set at application launch.
+        The Langfuse SDK is synchronous, so the entire fetch is offloaded to a thread.
         """
+        base_url = os.environ.get("LANGFUSE_HOST", "").strip()
+        public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "").strip()
+        secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "").strip()
+
+        missing = [name for name, val in (
+            ("LANGFUSE_HOST", base_url),
+            ("LANGFUSE_PUBLIC_KEY", public_key),
+            ("LANGFUSE_SECRET_KEY", secret_key),
+        ) if not val]
+        if missing:
+            raise TraceIngestionError(
+                "LANGFUSE_FETCH_ERROR",
+                f"Missing required environment variable(s): {', '.join(missing)}",
+            )
+
         try:
             observations = await asyncio.to_thread(
                 _fetch_langfuse_observations,
-                base_url=source.base_url,
-                public_key=source.public_key,
-                secret_key=source.secret_key,
-                from_timestamp=source.from_timestamp,
+                base_url=base_url,
+                public_key=public_key,
+                secret_key=secret_key,
+                experiment_id=experiment_id,
+                run_id=run_id,
                 page_size=source.page_size,
                 max_pages=source.max_pages,
                 include_observations=source.include_observations,
@@ -104,12 +132,17 @@ def _fetch_langfuse_observations(
     base_url: str,
     public_key: str,
     secret_key: str,
-    from_timestamp: str,
+    experiment_id: str,
+    run_id: str,
     page_size: int,
     max_pages: int,
     include_observations: bool,
 ) -> List[Dict[str, Any]]:
-    """Fetch all Langfuse traces + their observations from *from_timestamp* onward.
+    """Fetch all observations for the given experiment run from Langfuse.
+
+    Covers both chaos/OTel traces (metadata keys ``experiment.id`` / ``experiment.run_id``)
+    and LiteLLM/agent traces (metadata keys ``experiment_id`` / ``experiment_run_id``).
+    Results are deduped by trace ID before observations are fetched.
 
     Returns observations normalised into the pipeline's expected flat-list format
     (see ``_format_observations``).
@@ -122,30 +155,26 @@ def _fetch_langfuse_observations(
             "langfuse package is not installed (pip install langfuse)",
         )
 
-    from_utc = _parse_iso_to_utc(from_timestamp)
+    # 120s timeout: 39+ traces × per-trace observation fetches can take a while
+    client = Langfuse(public_key=public_key, secret_key=secret_key, host=base_url, timeout=120)
 
-    client = Langfuse(
-        public_key=public_key,
-        secret_key=secret_key,
-        host=base_url,
-    )
-
-    raw_traces = _list_traces(client, from_utc, page_size, max_pages)
+    raw_traces = _list_traces(client, experiment_id, run_id, page_size, max_pages)
 
     if not raw_traces:
         raise TraceIngestionError(
             "TRACE_NOT_FOUND",
-            f"No traces found in Langfuse after {from_timestamp}",
+            f"No traces found in Langfuse for experiment_id={experiment_id!r}, "
+            f"run_id={run_id!r} — checked both chaos (experiment.id/experiment.run_id) "
+            f"and LiteLLM (experiment_id/experiment_run_id) metadata keys",
         )
 
     all_observations: List[Dict[str, Any]] = []
     for trace in raw_traces:
         if include_observations:
-            # Fetch up to 500 observations per trace (Langfuse API max per request)
-            obs_resp = client.api.legacy.observations_v1.get_many(
-                trace_id=trace.id, limit=500
-            )
-            raw_obs = [o.model_dump() for o in obs_resp.data]
+            # trace.get returns observations inline — one HTTP call per trace
+            # instead of multiple paginated observation-endpoint pages
+            full = client.api.trace.get(trace.id)
+            raw_obs = [o.model_dump() for o in (full.observations or [])]
         else:
             raw_obs = []
         all_observations.extend(_format_observations(raw_obs))
@@ -153,45 +182,97 @@ def _fetch_langfuse_observations(
     return all_observations
 
 
-def _list_traces(client, from_utc: datetime, page_size: int, max_pages: int):
-    """Paginate through the Langfuse trace list API up to *max_pages* pages."""
+def _list_traces(
+    client, experiment_id: str, run_id: str, page_size: int, max_pages: int
+) -> List[Any]:
+    """Return all Langfuse traces for the given experiment run across both trace types.
+
+    Two types of traces are emitted into Langfuse for the same run:
+
+    1. Chaos/OTel spans — metadata keys: ``experiment.id``, ``experiment.run_id``
+    2. LiteLLM/Agent generations — metadata keys: ``experiment_id``, ``experiment_run_id``
+
+    Each type is queried separately via the Langfuse ``filter`` API and the
+    results are merged, deduplicating by trace ID.
+    """
+    chaos_filter = json.dumps([
+        {"type": "stringObject", "column": "metadata", "key": "experiment.id",   "operator": "=", "value": experiment_id},
+        {"type": "stringObject", "column": "metadata", "key": "experiment.run_id", "operator": "=", "value": run_id},
+    ])
+    litellm_filter = json.dumps([
+        {"type": "stringObject", "column": "metadata", "key": "experiment_id",     "operator": "=", "value": experiment_id},
+        {"type": "stringObject", "column": "metadata", "key": "experiment_run_id", "operator": "=", "value": run_id},
+    ])
+
+    seen: Dict[str, Any] = {}
+    for filter_json in (chaos_filter, litellm_filter):
+        for page in range(1, max_pages + 1):
+            resp = client.api.trace.list(filter=filter_json, page=page, limit=page_size)
+            for t in resp.data:
+                seen[t.id] = t
+            if not resp.data or page >= resp.meta.total_pages:
+                break
+
+    return list(seen.values())
+
+
+def _list_observations(client, trace_id: str) -> List[Any]:
+    """Paginate all observations for a single trace (Langfuse API max 100 per page)."""
     results = []
-    for page in range(1, max_pages + 1):
-        resp = client.api.trace.list(
-            from_timestamp=from_utc,
-            page=page,
-            limit=page_size,
+    page = 1
+    while True:
+        resp = client.api.legacy.observations_v1.get_many(
+            trace_id=trace_id, limit=100, page=page
         )
         results.extend(resp.data)
-        # Stop if the API returned an empty page or we've consumed all pages
         if not resp.data or page >= resp.meta.total_pages:
             break
+        page += 1
     return results
 
 
 def _format_observations(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Normalise Langfuse observation dicts into the pipeline's expected format.
 
-    The pipeline expects observations sorted by (depth, startTime) so that
-    parent spans always precede their children in the event list.
+    Output is sorted strictly by ``startTime`` so the on-disk dump matches
+    real chronological event order regardless of tree depth.  ``depth`` and
+    ``parentObservationId`` are still emitted so consumers that need the
+    parent-child hierarchy can reconstruct it.
+
+    Fields preserved beyond the bucketing pipeline's strict needs (e.g.
+    ``model``, ``usage``, ``latency``) are kept so downstream metric
+    extraction and qualitative analysis don't lose information that the
+    Langfuse SDK already returned.  Fields that are universally null/zero
+    or constant per project (``projectId``, ``environment``, pricing
+    tiers, etc.) are intentionally dropped to keep the dump compact.
     """
-    # Pre-compute tree depth so we can sort parent-before-child
     depth_map = _compute_depths(raw)
     out = []
     for o in raw:
         out.append({
             "id": o.get("id"),
+            "traceId": o.get("trace_id"),
+            "parentObservationId": o.get("parent_observation_id"),
             "type": o.get("type"),
             "name": o.get("name"),
+            "level": o.get("level"),
+            "statusMessage": o.get("status_message"),
             "startTime": _fmt_ts(o.get("start_time")),
             "endTime": _fmt_ts(o.get("end_time")),
+            "completionStartTime": _fmt_ts(o.get("completion_start_time")),
             "depth": depth_map.get(o.get("id", ""), 0),
+            "model": o.get("model"),
+            "modelParameters": _to_json_str(o.get("model_parameters")),
+            "usage": _to_json_str(o.get("usage")),
+            "usageDetails": _to_json_str(o.get("usage_details")),
+            "costDetails": _to_json_str(o.get("cost_details")),
+            "latency": o.get("latency"),
+            "timeToFirstToken": o.get("time_to_first_token"),
             "input": _to_json_str(o.get("input")),
             "output": _to_json_str(o.get("output")),
             "metadata": _to_json_str(o.get("metadata")),
         })
-    # Primary sort: depth (root first); secondary: startTime for stable ordering within a level
-    out.sort(key=lambda x: (x["depth"], x["startTime"] or ""))
+    out.sort(key=lambda x: x["startTime"] or "")
     return out
 
 
@@ -242,25 +323,6 @@ def _to_json_str(val: Any) -> str | None:
     if isinstance(val, str):
         return val
     return json.dumps(val, ensure_ascii=False)
-
-
-def _parse_iso_to_utc(ts: str) -> datetime:
-    """Parse an ISO-8601 string to a timezone-aware UTC ``datetime``.
-
-    Raises:
-        TraceIngestionError: If the string cannot be parsed.
-    """
-    try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            # Treat naive datetimes as UTC
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except ValueError as exc:
-        raise TraceIngestionError(
-            "LANGFUSE_FETCH_ERROR",
-            f"Invalid from_timestamp '{ts}': {exc}",
-        )
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────

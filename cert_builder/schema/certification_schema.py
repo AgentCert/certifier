@@ -63,8 +63,18 @@ class TextStyle(str, Enum):
 
 
 class Rating(str, Enum):
-    """Qualitative assessment rating. Field is nullable for unrated assessments."""
+    """Qualitative assessment rating. Field is nullable for unrated assessments.
+
+    Two producers feed this field, with disjoint vocabularies, so the enum
+    must cover the union:
+      * LLM Council quality scale (response quality, RAI, security):
+        Strong / Adequate / Weak — defined in aggregator/prompt/prompt.yml.
+      * Impact-band logic in cert_builder/scripts/computation/table_builder.py:
+        Clean / Minor / Moderate / Significant.
+    """
     strong = "Strong"
+    adequate = "Adequate"
+    weak = "Weak"
     clean = "Clean"
     moderate = "Moderate"
     minor = "Minor"
