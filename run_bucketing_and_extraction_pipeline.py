@@ -9,8 +9,12 @@ Usage:
     python -m agentcert.run_pipeline \
         --trace-file <trace.json> \
         --output-dir <output_directory> \
-        [--batch-size 10] \
-        [--store]
+        [--batch-size 1] \
+        [--store] \
+        [--fault-pruning | --no-fault-pruning] \
+        [--cache | --no-cache] \
+        [--include-input | --no-include-input] \
+        [--prompt PROMPT_PATH]
 """
 
 import sys
@@ -41,18 +45,39 @@ from metrics_extractor import (
 async def run_pipeline(
     trace_file: str,
     output_dir: str,
-    batch_size: int = 10,
+    batch_size: Optional[int] = None,
     store_to_mongodb: bool = False,
     config: Optional[Dict[str, Any]] = None,
+    fault_pruning: Optional[bool] = None,
+    cache_enabled: Optional[bool] = None,
+    include_event_input: Optional[bool] = None,
+    prompt_path: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Run the full pipeline: fault bucketing then per-bucket metric extraction.
 
     Args:
         trace_file: Path to the raw Langfuse trace JSON file.
         output_dir: Directory for all pipeline outputs (buckets + metrics).
-        batch_size: Batch size for the fault bucketing LLM classifier.
+        batch_size: Batch size for the fault bucketing LLM classifier. If
+            ``None`` (default), defers to ``pipeline.default_batch_size`` in
+            ``fault_bucketing_config.json``.
         store_to_mongodb: Whether to store extracted metrics to MongoDB.
         config: Optional configuration dict. Loaded from ConfigLoader if None.
+        fault_pruning: Override for the classifier's `fault_pruning` setting.
+            ``True``  -> compact ## Known Faults block (~84% smaller).
+            ``False`` -> legacy verbose payload.
+            ``None``  -> defer to ``classifier.fault_pruning`` in
+            ``fault_bucketing_config.json``.
+        cache_enabled: Override for the classifier's `cache_enabled` setting.
+            ``True``  -> system prompt in system role, GPT-4o auto-cache active.
+            ``False`` -> system prompt inlined into user message, no caching.
+            ``None``  -> defer to ``classifier.cache_enabled`` in config.
+        include_event_input: Override for the classifier's
+            `include_event_input` setting. ``True`` -> render both
+            ``event.input`` and ``event.output``. ``False`` -> output-only.
+            ``None`` -> defer to ``classifier.include_event_input`` in config.
+        prompt_path: Optional path to a prompt YAML to override
+            ``classifier.prompt_path`` in config.
 
     Returns:
         List of per-fault result dicts, each containing the fault_id and
@@ -85,6 +110,10 @@ async def run_pipeline(
             output_dir=str(temp_buckets_dir),
             config=config,
             batch_size=batch_size,
+            fault_pruning=fault_pruning,
+            cache_enabled=cache_enabled,
+            include_event_input=include_event_input,
+            prompt_path=prompt_path,
         )
         buckets = await pipeline.run()
     except MyCustomError:
@@ -287,13 +316,83 @@ def main():
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=10,
-        help="Number of events per LLM classification batch (default: 10).",
+        default=None,
+        help=(
+            "Number of events per LLM classification batch. Default falls "
+            "back to pipeline.default_batch_size in fault_bucketing_config.json "
+            "(currently 1)."
+        ),
     )
     parser.add_argument(
         "--store",
         action="store_true",
         help="Store extracted metrics to MongoDB.",
+    )
+    pruning_group = parser.add_mutually_exclusive_group()
+    pruning_group.add_argument(
+        "--fault-pruning",
+        dest="fault_pruning",
+        action="store_true",
+        default=None,
+        help=(
+            "Force the classifier to use the COMPACT '## Known Faults' block "
+            "(~84%% smaller per call). Default if neither flag is given falls "
+            "back to classifier.fault_pruning in fault_bucketing_config.json."
+        ),
+    )
+    pruning_group.add_argument(
+        "--no-fault-pruning",
+        dest="fault_pruning",
+        action="store_false",
+        help="Force the classifier to emit the legacy VERBOSE payload (debug only).",
+    )
+    cache_group = parser.add_mutually_exclusive_group()
+    cache_group.add_argument(
+        "--cache",
+        dest="cache_enabled",
+        action="store_true",
+        default=None,
+        help=(
+            "Send the system prompt in the system role so Azure GPT-4o "
+            "auto-cache hits the stable >=1024-token prefix. Default falls "
+            "back to classifier.cache_enabled in fault_bucketing_config.json."
+        ),
+    )
+    cache_group.add_argument(
+        "--no-cache",
+        dest="cache_enabled",
+        action="store_false",
+        help=(
+            "Inline the system prompt into the user message — system role "
+            "left empty, auto-cache cannot hit. Worst-case token cost."
+        ),
+    )
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        "--include-input",
+        dest="include_event_input",
+        action="store_true",
+        default=None,
+        help=(
+            "Render BOTH event.input AND event.output in the per-event block "
+            "sent to the LLM. Default falls back to "
+            "classifier.include_event_input in fault_bucketing_config.json."
+        ),
+    )
+    input_group.add_argument(
+        "--no-include-input",
+        dest="include_event_input",
+        action="store_false",
+        help="Render only event.output (cheaper but discards agent reasoning).",
+    )
+    parser.add_argument(
+        "--prompt",
+        dest="prompt_path",
+        default=None,
+        help=(
+            "Path to a prompt YAML to override classifier.prompt_path in "
+            "fault_bucketing_config.json (currently 'prompt/v1/prompt.yml')."
+        ),
     )
     args = parser.parse_args()
 
@@ -304,6 +403,10 @@ def main():
                 output_dir=args.output_dir,
                 batch_size=args.batch_size,
                 store_to_mongodb=args.store,
+                fault_pruning=args.fault_pruning,
+                cache_enabled=args.cache_enabled,
+                include_event_input=args.include_event_input,
+                prompt_path=args.prompt_path,
             )
         )
     except MyCustomError as exc:

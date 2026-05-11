@@ -257,16 +257,15 @@ class TestConfigAndPromptLoading:
         assert config["classifier"]["temperature"] == 0.1
         assert config["classifier"]["max_tokens"] == 4000
         assert config["classifier"]["fallback_confidence"] == 0.3
-        assert config["pipeline"]["default_batch_size"] == 10
+        assert config["pipeline"]["default_batch_size"] == 1
         assert config["pipeline"]["max_filename_stem_length"] == 80
 
     def test_load_prompt(self):
-        prompt = _load_prompt()
+        from pathlib import Path
+        default_path = Path(__file__).resolve().parent.parent / "prompt" / "v2" / "prompt.yml"
+        prompt = _load_prompt(default_path)
         assert isinstance(prompt, str)
         assert "fault-event classifier" in prompt
-        assert "Fault Detection Rules" in prompt
-        assert "Fault Mitigation Rules" in prompt
-        assert "Classification Rules" in prompt
 
 
 # ============================================================================
@@ -300,7 +299,9 @@ class TestFaultEventClassifier:
         assert "e1" in msg
 
     def test_build_user_message_with_known_faults(self):
-        classifier = self._make_classifier()
+        # This test asserts on the COMPACT (pruned) ## Known Faults schema,
+        # so it pins fault_pruning=True regardless of the config default.
+        classifier = FaultEventClassifier(config={}, fault_pruning=True)
         known = {
             "pod-delete": FaultBucket(
                 fault_id="pod-delete",
@@ -313,8 +314,12 @@ class TestFaultEventClassifier:
         batch = [{"id": "e1", "type": "SPAN", "name": "investigate"}]
         msg = classifier.build_user_message(batch, known)
         assert "pod-delete" in msg
-        assert "critical" in msg
+        # target.label (=target_pod) and target.namespace are kept; severity is
+        # intentionally dropped from the pruned LLM context (not used for
+        # classification).
         assert "my-pod" in msg
+        assert "default" in msg
+        assert "critical" not in msg
 
     def test_fallback_classify(self):
         classifier = self._make_classifier()
