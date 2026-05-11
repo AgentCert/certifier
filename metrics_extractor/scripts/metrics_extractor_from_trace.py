@@ -326,6 +326,7 @@ class TraceMetricsExtractor:
             "input": span.get("input", ""),
             "output": span.get("output", ""),
             "metadata": span.get("metadata", ""),
+            "usage": span.get("usage", ""),
         }
 
     async def _identify_detection_mitigation_spans(
@@ -337,56 +338,21 @@ class TraceMetricsExtractor:
 
         sorted_spans = sorted(spans, key=lambda x: x.get("startTime", ""))
 
-        span_summaries = []
         span_start_times: Dict[str, str] = {}
         span_end_times: Dict[str, str] = {}
+        full_spans = []
         for span in sorted_spans:
             span_id = span.get("id", "")
-            start_time = span.get("startTime", "")
-            end_time = span.get("endTime", "")
-            span_start_times[span_id] = start_time
-            span_end_times[span_id] = end_time
-
-            metadata_raw = span.get("metadata", "")
-            try:
-                metadata = (
-                    json.loads(metadata_raw)
-                    if isinstance(metadata_raw, str)
-                    else (metadata_raw or {})
-                )
-            except (json.JSONDecodeError, TypeError):
-                metadata = {}
-
-            input_raw = span.get("input", "")
-            try:
-                input_data = (
-                    json.loads(input_raw)
-                    if isinstance(input_raw, str)
-                    else (input_raw or {})
-                )
-            except (json.JSONDecodeError, TypeError):
-                input_data = {}
-
-            output_raw = span.get("output", "")
-            output_summary = str(output_raw)[:300] if output_raw else ""
-
-            span_summaries.append({
-                "id": span_id,
-                "name": span.get("name", ""),
-                "type": span.get("type", ""),
-                "startTime": start_time,
-                "action": metadata.get("action", ""),
-                "method": metadata.get("method", ""),
-                "input_summary": str(input_data)[:400],
-                "output_summary": output_summary,
-            })
+            span_start_times[span_id] = span.get("startTime", "")
+            span_end_times[span_id] = span.get("endTime", "")
+            full_spans.append(self._prepare_span_for_llm(span))
 
         user_message = (
-            f"Analyze these {len(span_summaries)} trace spans (chronologically ordered) "
+            f"Analyze these {len(full_spans)} trace spans (chronologically ordered) "
             f"and identify:\n"
             f"1. The span where the agent FIRST detected/confirmed the fault\n"
             f"2. The span where the agent completed the FINAL remediation/mitigation\n\n"
-            f"Span summaries:\n```json\n{json.dumps(span_summaries, indent=2)}\n```\n\n"
+            f"Spans:\n```json\n{json.dumps(full_spans, indent=2)}\n```\n\n"
             f'Return a JSON object with "detection_span_id" and "mitigation_span_id".'
         )
 
@@ -612,27 +578,32 @@ class TraceMetricsExtractor:
 
         user_message = f"""Analyze batch {batch_number} of {total_batches} and extract quantitative metrics.
 
-Remember: each span's `input`, `output`, and `metadata` fields are JSON strings that must be parsed to access nested fields like `action`, `tokens_consumed`, `detected_at`, `experiment_type`, `pod`, `recovery_time_seconds`, etc.
+Remember: 
+- Each span's `input`, `output`, and `metadata` fields are JSON strings that must be parsed to access nested fields like `action`, `tokens_consumed`, `detected_at`, `experiment_type`, `pod`, `recovery_time_seconds`, etc.
+- Each span may have a `usage` field (JSON string) containing token counts. For GENERATION spans, parse the usage field to extract `input` (input tokens) and `output` (output tokens) values.
 
 Trace spans:
 ```json
 {json.dumps(prepared_spans, indent=2)}
 ```
 
-Extract all quantitative metrics from this batch as a JSON object. Parse every span's input, output, and metadata JSON strings to find timestamps, token counts, tool calls, and fault information."""
+Extract all quantitative metrics from this batch as a JSON object. Parse every span's input, output, metadata, and usage JSON strings to find timestamps, token counts, tool calls, and fault information."""
 
         prompt = self._build_quantitative_batch_prompt(batch_number, total_batches)
 
         try:
-            result, token_usage = await self.llm_client.call_llm(
+            result, token_usage = await self.llm_client.with_structured_output(
                 model_name="gpt-4o",
                 messages=user_message,
+                output_format=LLMQuantitativeExtraction,
                 max_tokens=3000,
                 system_prompt=prompt,
             )
             self.token_usage.add(token_usage)
 
-            if isinstance(result, dict):
+            if isinstance(result, LLMQuantitativeExtraction):
+                return result.model_dump(exclude_none=True, mode="json")
+            elif isinstance(result, dict):
                 return result
             return {"response": str(result)}
 
@@ -651,18 +622,27 @@ Extract all quantitative metrics from this batch as a JSON object. Parse every s
         logger.info("Identifying detection and mitigation spans using LLM...")
         span_times = await self._identify_detection_mitigation_spans(spans)
 
-        # Step 0.5: Validate bucket timestamps against event content using LLM
-        validated_bucket_timestamps: Optional[Dict[str, Optional[str]]] = None
-        if self.bucket_metadata:
-            logger.info("Validating bucket timestamps against event content using LLM...")
-            validated_bucket_timestamps = await self._validate_bucket_timestamps_with_llm(spans)
-
         # Step 1: Aggregate all numeric fields in code
+        prescan = self.quant_aggregator.prescan_spans_for_sensitive_data(spans)
+        logger.info(
+            "PII pre-scan: detected=%s, count=%d",
+            prescan["pii_detected"],
+            prescan["pii_instance_count"],
+        )
+
+        span_metrics = self.quant_aggregator.extract_token_and_tool_metrics(spans)
+        logger.info(
+            "Code-extracted metrics: input_tokens=%d output_tokens=%d tool_calls=%d",
+            span_metrics["input_tokens"],
+            span_metrics["output_tokens"],
+            len(span_metrics["tool_calls"]),
+        )
 
         try:
+            self.quant_aggregator._prescan_result = prescan
+            self.quant_aggregator._span_metrics = span_metrics
             code_aggregated = self.quant_aggregator.aggregate(
                 partial_metrics, total_spans, span_times, self.bucket_metadata,
-                validated_bucket_timestamps,
             )
         except MetricsExtractorError:
             raise
@@ -755,15 +735,18 @@ Extract any qualitative observations you can make from this batch."""
         prompt = self._build_qualitative_batch_prompt(batch_number, total_batches)
 
         try:
-            result, token_usage = await self.llm_client.call_llm(
+            result, token_usage = await self.llm_client.with_structured_output(
                 model_name="gpt-4o",
                 messages=user_message,
+                output_format=LLMQualitativeExtraction,
                 max_tokens=10000,
                 system_prompt=prompt,
             )
             self.token_usage.add(token_usage)
 
-            if isinstance(result, dict):
+            if isinstance(result, LLMQualitativeExtraction):
+                return result.model_dump(exclude_none=True, mode="json")
+            elif isinstance(result, dict):
                 return result
             return {"response": str(result)}
 

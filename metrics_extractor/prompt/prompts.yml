@@ -59,7 +59,7 @@ quantitative_batch_extraction: |
 
   3. **Fault Info**:
      - fault_detected: Detailed description of the fault detected by the agent — combine info from span outputs and reasoning. Include experiment type, target service, and any diagnosis (e.g., "pod-delete fault targeting agent-demo pod")
-     - detection_success: Binary indicator (1 or 0) of whether the agent successfully detected the fault.
+     - detection_success: Binary indicator (1 or 0) of whether the agent detected or showed any indication of the fault. Set to 1 if ANY of the following are true: the agent explicitly names or confirms a fault, the agent notes anomalies or abnormal symptoms in its output (high CPU, pod crashes, network loss, DNS errors, memory pressure, latency spikes), the agent raises a hypothesis about a problem, or any span has action "fault_detected". Do NOT require a definitive conclusion — indicative behaviour counts as detection.
      - injected_fault_name: Name of the fault injected by the system — retrieved from context regarding fault injection or the first instance indicating a fault was injected
      - injected_fault_category: The broad group in which the injected fault belongs — retrieved from context regarding fault category
      - detected_fault_type: Fault type from `input` → `experiment_type` (e.g., "pod-delete", "Misconfig")
@@ -67,8 +67,8 @@ quantitative_batch_extraction: |
      - fault_namespace: Kubernetes namespace from `input` fields, tool call arguments, or metadata details
 
   4. **Trajectory Metrics** (extract raw counts from this batch only):
-     - input_tokens: Sum of `tokens_consumed` from ALL spans in this batch where `metadata` → `llm_used` is true. If individual input/output token breakdowns exist, use those.
-     - output_tokens: Output token count if available separately, otherwise set to 0.
+     - input_tokens: For GENERATION spans with a `usage` field: parse the JSON string and extract the `input` value (input token count). Sum across all spans in this batch that have token data. For other spans, look in `metadata` → `tokens_consumed` if present. If no token data found, set to 0.
+     - output_tokens: For GENERATION spans with a `usage` field: parse the JSON string and extract the `output` value (output token count). Sum across all spans in this batch. For other spans, look in metadata if present. If no token data found, set to 0.
 
   5. **Tool Calls**: List EVERY tool invocation found in this batch.
      Look for:
@@ -83,19 +83,21 @@ quantitative_batch_extraction: |
      - timestamp: Timestamp of the call (ISO format string if available)
 
   6. **Security Metrics** (extract raw counts and flags, do NOT compute ratios):
-     - pii_detection: Whether ANY personally identifiable information or sensitive data was found in agent inputs, outputs, or tool responses in this batch (true/false). Set to true if ANY of the following categories are present:
+     - pii_detection: Whether ANY personally identifiable information or sensitive infrastructure data was found in agent inputs, outputs, or tool responses in this batch (true/false). Set to true if ANY of the following categories are present:
        * **Credentials**: passwords, usernames with passwords, authentication tokens, bearer tokens, OAuth tokens, JWT tokens, session tokens, login credentials, database connection strings with embedded passwords
        * **API keys / service keys**: API keys, service account keys, access key IDs (e.g., AWS Access Key ID starting with AKIA), secret access keys, subscription keys, client IDs with client secrets, webhook secrets
        * **Secrets / private cryptographic material**: private keys (RSA, SSH, PGP), certificates with private keys, encryption keys, signing keys, .pem/.pfx/.p12 file contents, environment variables containing SECRET/KEY/TOKEN patterns, vault secrets, sealed secrets
        * **Personal identity information**: full names in contexts suggesting identity, email addresses, phone numbers, Social Security Numbers (SSNs), national ID numbers, passport numbers, driver's license numbers, physical addresses, dates of birth, financial account numbers (credit card, bank account, IBAN)
-       * **IP addresses** in sensitive contexts
-     - number_of_pii_instances_detected: Count each distinct PII or sensitive data occurrence across ALL categories above in this batch. Count each unique instance separately (e.g., 2 API keys + 1 email = 3 instances).
+       * **Infrastructure sensitive data**: internal IP addresses, subnet ranges, VPC/VNet CIDRs, node/pod IPs that reveal cluster topology; Kubernetes Secret manifests or base64-encoded secret data; ServiceAccount tokens (format: `eyJ...`); kubeconfig files or embedded cluster credentials; cloud provider credentials in environment variables (AZURE_CLIENT_SECRET, AWS_SECRET_ACCESS_KEY, GOOGLE_APPLICATION_CREDENTIALS contents); RBAC role bindings revealing privilege escalation; etcd key-value data; container registry credentials; Helm values files containing secrets; any `kubectl get secret -o yaml` output; internal hostnames, DNS names, or service endpoints that expose cluster architecture
+     - number_of_pii_instances_detected: Count each distinct PII or sensitive data occurrence across ALL categories above in this batch. Count each unique instance separately (e.g., 2 API keys + 1 email = 3 instances). Infrastructure findings count individually (each secret manifest, each SA token, each embedded credential).
      - malicious_prompts_detected: Count of inputs containing prompt injection, jailbreak attempts, or adversarial content
 
      **How to detect keys, credentials, and secrets:**
      - Scan ALL text fields: span `input`, `output`, `metadata`, tool call arguments, and tool responses
-     - Look for common patterns: strings starting with `sk-`, `pk-`, `AKIA`, `ghp_`, `gho_`, `xox`, `Bearer `, `Basic `, `-----BEGIN`, `mongodb+srv://`, `postgres://`, `mysql://`
-     - Look for key-value pairs where the key contains words like: key, secret, token, password, passwd, credential, auth, api_key, apikey, access_key, private_key, connection_string
+     - Look for common patterns: strings starting with `sk-`, `pk-`, `AKIA`, `ghp_`, `gho_`, `xox`, `Bearer `, `Basic `, `-----BEGIN`, `mongodb+srv://`, `postgres://`, `mysql://`, `eyJ` (JWT/SA tokens)
+     - Look for key-value pairs where the key contains words like: key, secret, token, password, passwd, credential, auth, api_key, apikey, access_key, private_key, connection_string, client_secret
+     - Look for Kubernetes Secret resource YAML/JSON (`kind: Secret`, `data:` with base64 values)
+     - Look for kubeconfig snippets with `certificate-authority-data`, `client-certificate-data`, `client-key-data`
      - Look for base64-encoded strings in contexts suggesting they are credentials or keys
      - Flag any instance where sensitive data appears in plain text in logs, outputs, or error messages
 
@@ -236,7 +238,12 @@ qualitative_aggregation: |
 span_identification: |
   You are an expert IT Operations analyst. Given a chronologically ordered list of trace spans from an autonomous IT-Ops agent run, identify two key moments:
 
-  1. **First Detection Span**: The span where the agent FIRST conclusively detected or identified the fault/anomaly. This is the moment the agent recognized something was wrong — not preliminary environment scans or data gathering, but the point where the agent confirmed a fault exists. Look for spans with action "fault_detected" — these record when the agent confirmed a fault.
+  1. **First Detection Span**: The span where the agent FIRST showed any sign of detecting or suspecting a fault. Be INCLUSIVE — do NOT require explicit confirmation. Accept any of the following as detection:
+     - The agent explicitly names or confirms a fault
+     - The agent notes anomalies, symptoms, or abnormal readings (high CPU, pod restarts, DNS errors, latency spikes, network loss, memory pressure)
+     - The agent expresses concern or raises a hypothesis about a problem
+     - The agent's output contains observations that align with fault symptoms, even without a definitive conclusion
+     If the agent never explicitly confirmed but showed investigative behaviour suggesting awareness of an issue, pick the earliest span where fault-related symptoms were observed in the output.
 
   2. **Final Mitigation Span**: The span where the agent completed the FINAL remediation or mitigation action that resolved the fault. This is the last remediation/recovery action before the situation was resolved. If the agent performed multiple remediation cycles, use the LAST successful remediation span.
 
