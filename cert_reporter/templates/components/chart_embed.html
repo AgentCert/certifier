@@ -1,0 +1,14 @@
+{# components/chart_embed.html — embeds an SVG chart inline #}
+{# Expects chart_result (ChartResult) in scope #}
+<div class="chart-block">
+  <div class="chart-title">{{ chart_result.title | default('') }}</div>
+  {% if chart_result.error %}
+    <div style="color:#e74c3c; font-size:0.78rem; padding:8px;">⚠ {{ chart_result.error }}</div>
+  {% elif chart_result.svg %}
+    <div role="img" aria-label="{{ chart_result.alt_text | default('') }}">
+      {{ chart_result.svg | safe }}
+    </div>
+  {% else %}
+    <div style="color:#aaa; font-size:0.8rem; padding:12px;">No chart data</div>
+  {% endif %}
+</div>

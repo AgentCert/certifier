@@ -1,0 +1,14 @@
+{# blocks/card.html — renders a card content block as scope-card grid #}
+{# Expects `block` dict: {type:"card", items:[{label, value}], title} #}
+{% set card_items = block["items"] | default([]) %}
+{% if block.title %}
+<div class="sub-section-title">{{ block.title }}</div>
+{% endif %}
+<div class="kv-grid">
+  {% for item in card_items %}
+  <div class="kv-item">
+    <div class="kv-key">{{ item.label | default('') | replace_underscore }}</div>
+    <div class="kv-val">{{ item.value | fmt_num if item.value is number else item.value | default('') }}</div>
+  </div>
+  {% endfor %}
+</div>

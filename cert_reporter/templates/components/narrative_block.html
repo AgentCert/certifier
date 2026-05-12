@@ -1,0 +1,26 @@
+{# components/narrative_block.html — renders a narrative_block object #}
+{# Handles two shapes:
+     Fault-category: {block_id, title, assessment, confidence, inter_judge_agreement, narrative}
+     Qualitative-summary: {category, confidence, inter_judge_agreement, narrative}
+   Expects `block` in scope #}
+{% set block_title = block.title | default(block.category | default('')) %}
+{% set assess = (block.assessment | default('') | lower) %}
+<div class="narrative-block assessment-{{ assess }}">
+  <div class="narrative-block-header">
+    {% if block_title %}
+    <span class="narrative-block-title">{{ block_title }}</span>
+    {% endif %}
+    {% if block.assessment %}
+    <span class="badge-assessment badge-{{ assess }}">{{ block.assessment }}</span>
+    {% endif %}
+    {% if block.confidence %}
+    <span class="narrative-meta">Confidence: {{ block.confidence }}</span>
+    {% endif %}
+    {% if block.inter_judge_agreement is defined and block.inter_judge_agreement %}
+    <span class="narrative-meta">Agreement: {{ (block.inter_judge_agreement * 100) | int }}%</span>
+    {% endif %}
+  </div>
+  {% if block.narrative %}
+  <div class="narrative-text">{{ block.narrative }}</div>
+  {% endif %}
+</div>

@@ -1,0 +1,36 @@
+{# blocks/fault_group.html — a heading + its assessment blocks as one fault-card
+   (matches design: one card per fault category with nested fault-block sub-items)
+   Expects `block` dict: {type:"fault_group", title, detail, assessments:[{assessment}]} #}
+<div class="fault-card">
+  <div class="fault-card-header">
+    <span class="fault-card-title">{{ block.title | default('') }}</span>
+  </div>
+  {% if block.detail %}
+  <div class="narrative" style="margin-top:0;margin-bottom:10px;">{{ block.detail | md }}</div>
+  {% endif %}
+  {% for item in block.assessments | default([]) %}
+  {% set rating = item.rating | default('') %}
+  {% if rating is not string %}{% set rating = rating.value | default('') %}{% endif %}
+  {% set rating_lower = rating | lower %}
+  {% set confidence = item.confidence | default('') %}
+  {% if confidence is not string %}{% set confidence = confidence.value | default('') %}{% endif %}
+  {% set assess_cls = 'assess-strong' if rating_lower in ('strong', 'pass', 'excellent', 'good') else 'assess-weak' if rating_lower in ('weak', 'fail', 'poor', 'critical') else 'assess-adequate' %}
+  <div class="fault-block">
+    <div class="fault-block-header">
+      {% if item.title %}<span class="fault-block-label">{{ item.title }}</span>{% endif %}
+      {% if rating %}<span class="assessment-badge {{ assess_cls }}">{{ rating }}</span>{% endif %}
+      {% if confidence or (item.agreement is defined and item.agreement is not none) %}
+      <span class="fault-card-meta" style="margin-left:auto;">
+        {%- if confidence %}Confidence: {{ confidence }}{% endif -%}
+        {%- if item.agreement is defined and item.agreement is not none -%}
+          &nbsp;|&nbsp; Agreement: {%- if item.agreement is number %} {{ (item.agreement * 100) | int }}%{%- else %} {{ item.agreement }}{%- endif -%}
+        {%- endif -%}
+      </span>
+      {% endif %}
+    </div>
+    {% if item.body %}
+    <p>{{ item.body | md }}</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

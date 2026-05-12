@@ -3,22 +3,24 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-class LocalCertStorageConfig(BaseModel):
+class CertStorageConfig(BaseModel):
     """Storage configuration for the aggregation-certification pipeline.
 
-    Only ``type="local"`` is supported in iteration 1.
+    ``type="local"``   — read metrics from the filesystem workspace written by
+    the bucketing pipeline; write HTML/PDF reports to the same workspace.
 
-    ``metrics_dir`` is optional.  When omitted (or set to ``""``), the router
-    derives it automatically as ``workspace/{experiment_id}/`` — the parent
-    directory written by the bucketing pipeline.  The recursive glob inside
-    ``DirectoryQueryService`` then finds all ``*metrics.json`` files across
-    every ``{run_id}`` subdirectory for that experiment.
+    ``type="mongodb"`` — read metrics from MongoDB (``agent_run_metrics``
+    collection via ``MetricsQueryService``); store HTML/PDF reports in GridFS
+    (``cert_reports`` bucket).  Intermediate files use a temp directory that is
+    cleaned up after the task completes.
 
-    Supply ``metrics_dir`` explicitly only when the metrics live outside the
-    default workspace (e.g. a merged export directory).
+    ``metrics_dir`` is used only for ``type="local"``.  When omitted (or set to
+    ``""``), the router derives it automatically as
+    ``workspace/{agent_id}/{experiment_id}/fault-bucketing/``.  Supply it
+    explicitly only when metrics live outside the default workspace.
     """
-    type: Literal["local"] = "local"
-    # Empty string signals "derive from experiment_id + workspace_dir"
+    type: Literal["local", "mongodb"] = "local"
+    # Empty string signals "derive from experiment_id + workspace_dir" (local mode)
     metrics_dir: str = Field(default="")
     container_name: str = ""     # Reserved for future blob-storage support
 
@@ -32,7 +34,7 @@ class AggregationCertificationRequest(BaseModel):
     certification_run_id: str = Field(default="", max_length=128)
     # Expected number of runs per fault; used for statistical significance in the aggregator
     runs_per_fault: int = Field(default=30, ge=1, le=1000)
-    storage_config: LocalCertStorageConfig = Field(default_factory=LocalCertStorageConfig)
+    storage_config: CertStorageConfig = Field(default_factory=CertStorageConfig)
 
     @field_validator("agent_id", "experiment_id")
     @classmethod

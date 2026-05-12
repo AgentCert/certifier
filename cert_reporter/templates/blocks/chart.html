@@ -1,0 +1,16 @@
+{# blocks/chart.html — renders a chart content block in a chart-card wrapper #}
+{# Expects `block` dict with _chart_id, and `charts` dict in scope #}
+{% set chart_id = block._chart_id | default('') %}
+{% set chart_result = charts[chart_id] if chart_id in charts else None %}
+<div class="chart-card">
+  <div class="chart-card-title">{{ block.title | default('') }}</div>
+  {% if chart_result and chart_result.error %}
+    <div class="chart-error">{{ chart_result.error }}</div>
+  {% elif chart_result and chart_result.svg %}
+    <div role="img" aria-label="{{ block.title | default('Chart') }}">
+      {{ chart_result.svg | safe }}
+    </div>
+  {% else %}
+    <div class="chart-placeholder">Chart unavailable</div>
+  {% endif %}
+</div>
