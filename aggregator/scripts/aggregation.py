@@ -517,44 +517,6 @@ class AggregationOrchestrator:
                 f"(tokens: {textual_usage})"
             )
 
-        try:
-            # Step 1: Query
-            docs = self.query_service.query_runs_by_fault_category(
-                fault_category, agent_id=agent_id
-            )
-            if not docs:
-                logger.warning(f"No per-run documents found for fault_category='{fault_category}'")
-                return {
-                    "fault_category": fault_category,
-                    "faults_tested": [],
-                    "total_runs": 0,
-                    "numeric_metrics": {},
-                    "derived_metrics": {},
-                    "boolean_status_metrics": {},
-                    "textual_metrics": {},
-                }
-
-            # Step 2: Numeric aggregates
-            numeric_aggs = compute_numeric_aggregates(docs)
-            logger.info(f"Computed numeric aggregates for {len(numeric_aggs)} metrics")
-
-            # Step 3: Derived rates
-            derived_rates = compute_derived_rates(docs)
-            logger.info(f"Computed derived rates: {derived_rates}")
-
-            # Step 4: Boolean aggregates
-            boolean_aggs = compute_boolean_aggregates(docs)
-            logger.info(f"Computed boolean aggregates: {boolean_aggs}")
-
-            # Step 5: Textual aggregates via LLM Council
-            textual_aggs, textual_usage = await self.council.compute_textual_aggregates(
-                docs, fault_category
-            )
-            logger.info(
-                f"Completed LLM Council synthesis for {len(textual_aggs)} textual metrics "
-                f"(tokens: {textual_usage})"
-            )
-
             # Step 5b: Synthesize known_limitations & recommendations
             fault_names = set()
             for doc in docs:
