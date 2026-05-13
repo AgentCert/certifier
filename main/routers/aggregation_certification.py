@@ -7,7 +7,7 @@ from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 
-from main.models.cert_requests import AggregationCertificationRequest
+from main.models.cert_requests import AggregationCertificationRequest, CertStorageConfig
 from main.models.cert_responses import CertTaskAcceptedResponse
 from main.services.pipeline_service import CertPipelineService
 from main.services.session_service import CertSessionService
@@ -115,50 +115,32 @@ async def submit_aggregation_certification(
     cert_session_svc: CertSessionService = Depends(_cert_session_svc),
     cert_pipeline_svc: CertPipelineService = Depends(_cert_pipeline_svc),
 ):
-    # 1. Validate storage type — only "local" is supported in iteration 1
-    if body.storage_config.type != "local":
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "status": "error",
-                "error_code": "INVALID_REQUEST",
-                "message": (
-                    f"storage_config.type '{body.storage_config.type}' is not supported "
-                    "in iteration 1. Use 'local'."
-                ),
-                "details": {
-                    "failed_stage": "validation",
-                    "error": f"storage_type={body.storage_config.type}",
+    storage_type = body.storage_config.type
+
+    if storage_type == "local":
+        # Resolve metrics_dir: if not supplied, derive from workspace layout
+        if not body.storage_config.metrics_dir:
+            settings = request.app.state.settings
+            body.storage_config.metrics_dir = str(
+                settings.workspace_dir / body.agent_id / body.experiment_id / "fault-bucketing"
+            )
+
+        # Pre-flight: verify the directory exists and contains matching documents
+        try:
+            await asyncio.to_thread(
+                _discover_and_validate, body.storage_config.metrics_dir, body.agent_id
+            )
+        except MetricsValidationError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "status": "error",
+                    "error_code": exc.error_code,
+                    "message": str(exc),
+                    "details": {"failed_stage": "metrics_validation", "error": str(exc)},
                 },
-            },
-        )
-
-    # 1b. Resolve metrics_dir: if the caller did not supply one, derive it from
-    #     the bucketing workspace layout: workspace/{experiment_id}/
-    #     The DirectoryQueryService glob recurses into every {run_id}/metrics/
-    #     subdirectory under that path, so all runs for the experiment are picked up.
-    if not body.storage_config.metrics_dir:
-        settings = request.app.state.settings
-        body.storage_config.metrics_dir = str(
-            settings.workspace_dir / body.agent_id / body.experiment_id / "fault-bucketing"
-        )
-
-    # 2. Metrics pre-flight: directory existence + agent_id match
-    #    Runs in a thread because _discover_and_validate does blocking filesystem I/O
-    try:
-        await asyncio.to_thread(
-            _discover_and_validate, body.storage_config.metrics_dir, body.agent_id
-        )
-    except MetricsValidationError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "status": "error",
-                "error_code": exc.error_code,
-                "message": str(exc),
-                "details": {"failed_stage": "metrics_validation", "error": str(exc)},
-            },
-        )
+            )
+    # mongodb mode: metrics are queried from MongoDB at pipeline time; no pre-flight needed
 
     # 3. Duplicate submission guard: reject if a task for this (agent, experiment) is already active
     existing = await cert_session_svc.find_active_task(body.agent_id, body.experiment_id)
@@ -216,6 +198,7 @@ async def submit_aggregation_certification(
         agg_cat_col=request.app.state.agg_cat_col,
         settings=request.app.state.settings,
         app_config=request.app.state.config,
+        gridfs_bucket=request.app.state.gridfs_bucket,
     )
 
     return CertTaskAcceptedResponse(

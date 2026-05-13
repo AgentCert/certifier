@@ -1,0 +1,27 @@
+{# components/kv_pairs.html — renders key-value pairs as a flex grid.
+   After schema normalisation every item has canonical `key` and `value` fields.
+   The fallbacks below only fire if someone bypasses normalisation.              #}
+<div class="kv-grid">
+  {% for item in subsection.key_value_pairs | default([]) %}
+  {% if item is mapping %}
+    {# Prefer normalised 'key'/'value'; fall back to first/last dict entry only
+       when both are undefined (not on falsy: 0, False, "" are valid values).  #}
+    {% set kv_key = item.key if item.key is defined and item.key is not none
+                    else (item.keys() | list | first | default('')) %}
+    {% set kv_val = item.value if item.value is defined and item.value is not none
+                    else (item.values() | list | last | default('')) %}
+    <div class="kv-item">
+      <div class="kv-key">{{ kv_key | string | replace_underscore }}</div>
+      <div class="kv-val">{{ kv_val | fmt_num if kv_val is number else kv_val }}</div>
+    </div>
+  {% elif item is iterable and item is not string %}
+    {% set kv_list = item | list %}
+    {% if kv_list | length >= 2 %}
+    <div class="kv-item">
+      <div class="kv-key">{{ kv_list[0] | string | replace_underscore }}</div>
+      <div class="kv-val">{{ kv_list[1] | fmt_num if kv_list[1] is number else kv_list[1] }}</div>
+    </div>
+    {% endif %}
+  {% endif %}
+  {% endfor %}
+</div>

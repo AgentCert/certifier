@@ -1,0 +1,44 @@
+{# sections/section.html — collapsible section using details/summary #}
+{% set section_id = section.id | default('') %}
+{% set section_num = section.number | default('') %}
+<details{% if section_num == 1 %} open{% endif %} id="section-{{ section_id }}">
+  <summary>
+    <span class="section-num">{{ section_num }}</span>
+    {{ section.title | default('') }}
+  </summary>
+  <div class="section-body">
+
+    {% if section.intro %}
+    <div class="narrative">{{ section.intro | md }}</div>
+    {% endif %}
+
+    {# Render each content block by type #}
+    {% for block in section.content | default([]) %}
+      {% set block_type = block.type | default('') %}
+      {% if block_type == 'chart' %}
+        {% include "blocks/chart.html" %}
+      {% elif block_type == 'heading' %}
+        {% include "blocks/heading.html" %}
+      {% elif block_type == 'text' %}
+        {% include "blocks/text.html" %}
+      {% elif block_type == 'table' %}
+        {% include "blocks/table.html" %}
+      {% elif block_type == 'findings' %}
+        {% include "blocks/findings.html" %}
+      {% elif block_type == 'assessment' %}
+        {% include "blocks/assessment.html" %}
+      {% elif block_type == 'fault_group' %}
+        {% include "blocks/fault_group.html" %}
+      {% elif block_type == 'card' %}
+        {% include "blocks/card.html" %}
+      {% elif block_type %}
+        {# Unknown block type — show raw JSON so no data is silently lost #}
+        <details class="unknown-block">
+          <summary style="font-size:0.8rem;color:#888;">Unknown block: {{ block_type }}</summary>
+          <pre style="font-size:0.75rem;overflow-x:auto;background:#f5f5f5;padding:8px;border-radius:4px;">{{ block | tojson(indent=2) }}</pre>
+        </details>
+      {% endif %}
+    {% endfor %}
+
+  </div>
+</details>
