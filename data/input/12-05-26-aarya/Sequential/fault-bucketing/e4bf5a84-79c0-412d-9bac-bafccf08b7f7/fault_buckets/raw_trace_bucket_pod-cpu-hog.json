@@ -1,0 +1,394 @@
+{
+  "fault_id": "pod-cpu-hog",
+  "fault_name": "pod-cpu-hog",
+  "severity": null,
+  "target_pod": "name=carts",
+  "namespace": "sock-shop",
+  "detection_signals": [],
+  "status": "active",
+  "detected_at": null,
+  "mitigated_at": null,
+  "injection_timestamp": "2026-05-12T05:44:01.000Z",
+  "injection_end_timestamp": "2026-05-12T05:51:04.000Z",
+  "injection_metadata": {
+    "name": "pod-cpu-hog",
+    "engine_name": "pod-cpu-hog26pgc",
+    "namespace": "litmus",
+    "status": "injected",
+    "injection_timestamp": "2026-05-12T05:44:01.000Z",
+    "injection_end_timestamp": "2026-05-12T05:51:04.000Z",
+    "target": {
+      "namespace": "sock-shop",
+      "label": "name=carts",
+      "kind": "deployment",
+      "workload_ref": "Deployment/carts",
+      "degraded": false
+    },
+    "timing": {
+      "total_chaos_duration_sec": 300,
+      "ramp_time_sec": 30
+    },
+    "injection": {
+      "verdict": "Pass",
+      "phase": "Completed",
+      "probe_success_pct": "100"
+    },
+    "probes": [
+      {
+        "description": "The URL http://front-end.sock-shop.svc.cluster.local:80 did respond with correct status code. Actual code: '200'. Expected code: '200'",
+        "mode": "Edge",
+        "name": "check-frontend-access-url-SBLgU6DPRyq9ehEZ7o-pGg",
+        "type": "httpProbe",
+        "verdict": "Passed"
+      }
+    ],
+    "workflow": {
+      "sequence_mode": "sequential"
+    }
+  },
+  "ground_truth": {
+    "fault_description_goal_remediation": {
+      "goal": "Inject CPU stress on target pod containers to validate application resilience and auto-scaling behaviour under high CPU load.\n",
+      "remediation": "Identify pods with abnormal CPU consumption, kill stress processes inside affected containers, restart degraded pods, and adjust CPU limits or HPA thresholds to handle future CPU pressure.\n",
+      "symptoms": [
+        "High CPU usage on targeted pod containers",
+        "Application latency spikes or request timeouts",
+        "Pod CPU throttling observed in metrics",
+        "Warning events related to resource pressure in namespace",
+        "Container CPU usage reaches 100% on stressed cores"
+      ]
+    },
+    "ideal_course_of_action": [
+      {
+        "action": "List cluster events",
+        "detail": "List Kubernetes events across all namespaces to detect warnings related to CPU pressure, throttling, or pod scheduling failures.\n",
+        "step": 1
+      },
+      {
+        "action": "List pods in affected namespace",
+        "detail": "List all pods in the target namespace to identify pods in degraded, CrashLoopBackOff, or unhealthy state due to CPU exhaustion.\n",
+        "step": 2
+      },
+      {
+        "action": "Get affected pod details",
+        "detail": "Retrieve the full spec and status of the affected pod to confirm CPU resource limits, requests, and current conditions.\n",
+        "step": 3
+      },
+      {
+        "action": "Check pod resource consumption",
+        "detail": "Use metrics to check CPU and memory usage of pods in the namespace to identify which pods have abnormally high CPU consumption.\n",
+        "step": 4
+      },
+      {
+        "action": "Check node resource consumption",
+        "detail": "Get node-level resource usage to determine if the CPU hog is causing node-wide resource contention.\n",
+        "step": 5
+      },
+      {
+        "action": "Exec into pod to inspect processes",
+        "detail": "Execute 'top' or 'ps aux' inside the affected container to identify the stress process consuming CPU.\n",
+        "step": 6
+      },
+      {
+        "action": "Get pod logs",
+        "detail": "Retrieve logs from the affected pod to identify application-level errors caused by CPU starvation (e.g., timeouts, slow responses).\n",
+        "step": 7
+      },
+      {
+        "action": "Query Prometheus for CPU metrics",
+        "detail": "Execute a PromQL query for container CPU usage metrics (e.g., container_cpu_usage_seconds_total) to confirm CPU spike trend.\n",
+        "step": 8
+      },
+      {
+        "action": "Kill stress process in container",
+        "detail": "Exec into the affected container and kill the stress-ng or md5sum process to stop the CPU hog injection.\n",
+        "step": 9
+      },
+      {
+        "action": "Delete degraded pods",
+        "detail": "Delete pods stuck in unhealthy state so the controller can recreate them cleanly.\n",
+        "step": 10
+      },
+      {
+        "action": "Verify deployment health",
+        "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+        "step": 11
+      },
+      {
+        "action": "Adjust CPU limits or scaling policy",
+        "detail": "Update the workload spec to adjust CPU limits/requests or configure HPA to handle future CPU pressure scenarios.\n",
+        "step": 12
+      }
+    ],
+    "ideal_tool_usage_trajectory": [
+      {
+        "command": "events list --all-namespaces",
+        "purpose": "Detect CPU pressure, throttling, and resource-related warning events",
+        "step": 1,
+        "tool": "Events: List",
+        "tool_available": true
+      },
+      {
+        "command": "pods list --namespace <target-namespace>",
+        "purpose": "Identify pods in degraded or error state in the affected namespace",
+        "step": 2,
+        "tool": "Pods: List in Namespace",
+        "tool_available": true
+      },
+      {
+        "command": "pods get --namespace <target-namespace> --name <pod-name>",
+        "purpose": "Inspect pod spec, status conditions, and CPU resource limits",
+        "step": 3,
+        "tool": "Pods: Get",
+        "tool_available": true
+      },
+      {
+        "command": "pods top --namespace <target-namespace>",
+        "purpose": "Check CPU and memory consumption of pods to pinpoint the CPU hog",
+        "step": 4,
+        "tool": "Pods: Top",
+        "tool_available": true
+      },
+      {
+        "command": "nodes top",
+        "purpose": "Check node-level CPU usage to assess cluster-wide impact",
+        "step": 5,
+        "tool": "Nodes: Top",
+        "tool_available": true
+      },
+      {
+        "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'top -bn1'",
+        "purpose": "Identify stress processes consuming CPU inside the container",
+        "step": 6,
+        "tool": "Pods: Exec",
+        "tool_available": true
+      },
+      {
+        "command": "pods log --namespace <target-namespace> --name <pod-name>",
+        "purpose": "Retrieve application logs to find CPU-related errors (timeouts, slow responses)",
+        "step": 7,
+        "tool": "Pods: Log",
+        "tool_available": true
+      },
+      {
+        "command": "promql query --query 'rate(container_cpu_usage_seconds_total{namespace=\"<target-namespace>\", pod=\"<pod-name>\"}[5m])'",
+        "purpose": "Query container CPU usage rate to confirm the CPU spike and its duration",
+        "step": 8,
+        "tool": "Execute PromQL Query",
+        "tool_available": true
+      },
+      {
+        "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'kill -9 $(pgrep -f stress)'",
+        "purpose": "Kill the stress process to stop CPU consumption and restore normal operation",
+        "step": 9,
+        "tool": "Pods: Exec",
+        "tool_available": true
+      },
+      {
+        "command": "pods delete --namespace <target-namespace> --name <pod-name>",
+        "purpose": "Delete degraded pods so the controller recreates them in a healthy state",
+        "step": 10,
+        "tool": "Pods: Delete",
+        "tool_available": true
+      },
+      {
+        "command": "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>",
+        "purpose": "Verify deployment health and confirm all replicas are running",
+        "step": 11,
+        "tool": "Resources: Get",
+        "tool_available": true
+      },
+      {
+        "command": "resources update --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name> --cpu-limit <new-limit>",
+        "purpose": "Adjust CPU limits in the workload spec to handle future CPU pressure",
+        "step": 12,
+        "tool": "Resources: Create or Update",
+        "tool_available": true
+      },
+      {
+        "command": "kubectl autoscale deployment/<deployment-name> --namespace <target-namespace> --cpu-percent=70 --min=2 --max=10",
+        "purpose": "Set up horizontal pod autoscaler to auto-scale under CPU pressure",
+        "step": 13,
+        "tool": "Configure HPA",
+        "tool_available": false
+      },
+      {
+        "command": "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>",
+        "purpose": "Restart the deployment to apply updated CPU limits and ensure clean pod state",
+        "step": 14,
+        "tool": "Restart Deployment",
+        "tool_available": false
+      }
+    ]
+  },
+  "sla": null,
+  "ideal_course_of_action": [
+    {
+      "action": "List cluster events",
+      "detail": "List Kubernetes events across all namespaces to detect warnings related to CPU pressure, throttling, or pod scheduling failures.\n",
+      "step": 1
+    },
+    {
+      "action": "List pods in affected namespace",
+      "detail": "List all pods in the target namespace to identify pods in degraded, CrashLoopBackOff, or unhealthy state due to CPU exhaustion.\n",
+      "step": 2
+    },
+    {
+      "action": "Get affected pod details",
+      "detail": "Retrieve the full spec and status of the affected pod to confirm CPU resource limits, requests, and current conditions.\n",
+      "step": 3
+    },
+    {
+      "action": "Check pod resource consumption",
+      "detail": "Use metrics to check CPU and memory usage of pods in the namespace to identify which pods have abnormally high CPU consumption.\n",
+      "step": 4
+    },
+    {
+      "action": "Check node resource consumption",
+      "detail": "Get node-level resource usage to determine if the CPU hog is causing node-wide resource contention.\n",
+      "step": 5
+    },
+    {
+      "action": "Exec into pod to inspect processes",
+      "detail": "Execute 'top' or 'ps aux' inside the affected container to identify the stress process consuming CPU.\n",
+      "step": 6
+    },
+    {
+      "action": "Get pod logs",
+      "detail": "Retrieve logs from the affected pod to identify application-level errors caused by CPU starvation (e.g., timeouts, slow responses).\n",
+      "step": 7
+    },
+    {
+      "action": "Query Prometheus for CPU metrics",
+      "detail": "Execute a PromQL query for container CPU usage metrics (e.g., container_cpu_usage_seconds_total) to confirm CPU spike trend.\n",
+      "step": 8
+    },
+    {
+      "action": "Kill stress process in container",
+      "detail": "Exec into the affected container and kill the stress-ng or md5sum process to stop the CPU hog injection.\n",
+      "step": 9
+    },
+    {
+      "action": "Delete degraded pods",
+      "detail": "Delete pods stuck in unhealthy state so the controller can recreate them cleanly.\n",
+      "step": 10
+    },
+    {
+      "action": "Verify deployment health",
+      "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+      "step": 11
+    },
+    {
+      "action": "Adjust CPU limits or scaling policy",
+      "detail": "Update the workload spec to adjust CPU limits/requests or configure HPA to handle future CPU pressure scenarios.\n",
+      "step": 12
+    }
+  ],
+  "ideal_tool_usage_trajectory": [
+    {
+      "command": "events list --all-namespaces",
+      "purpose": "Detect CPU pressure, throttling, and resource-related warning events",
+      "step": 1,
+      "tool": "Events: List",
+      "tool_available": true
+    },
+    {
+      "command": "pods list --namespace <target-namespace>",
+      "purpose": "Identify pods in degraded or error state in the affected namespace",
+      "step": 2,
+      "tool": "Pods: List in Namespace",
+      "tool_available": true
+    },
+    {
+      "command": "pods get --namespace <target-namespace> --name <pod-name>",
+      "purpose": "Inspect pod spec, status conditions, and CPU resource limits",
+      "step": 3,
+      "tool": "Pods: Get",
+      "tool_available": true
+    },
+    {
+      "command": "pods top --namespace <target-namespace>",
+      "purpose": "Check CPU and memory consumption of pods to pinpoint the CPU hog",
+      "step": 4,
+      "tool": "Pods: Top",
+      "tool_available": true
+    },
+    {
+      "command": "nodes top",
+      "purpose": "Check node-level CPU usage to assess cluster-wide impact",
+      "step": 5,
+      "tool": "Nodes: Top",
+      "tool_available": true
+    },
+    {
+      "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'top -bn1'",
+      "purpose": "Identify stress processes consuming CPU inside the container",
+      "step": 6,
+      "tool": "Pods: Exec",
+      "tool_available": true
+    },
+    {
+      "command": "pods log --namespace <target-namespace> --name <pod-name>",
+      "purpose": "Retrieve application logs to find CPU-related errors (timeouts, slow responses)",
+      "step": 7,
+      "tool": "Pods: Log",
+      "tool_available": true
+    },
+    {
+      "command": "promql query --query 'rate(container_cpu_usage_seconds_total{namespace=\"<target-namespace>\", pod=\"<pod-name>\"}[5m])'",
+      "purpose": "Query container CPU usage rate to confirm the CPU spike and its duration",
+      "step": 8,
+      "tool": "Execute PromQL Query",
+      "tool_available": true
+    },
+    {
+      "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'kill -9 $(pgrep -f stress)'",
+      "purpose": "Kill the stress process to stop CPU consumption and restore normal operation",
+      "step": 9,
+      "tool": "Pods: Exec",
+      "tool_available": true
+    },
+    {
+      "command": "pods delete --namespace <target-namespace> --name <pod-name>",
+      "purpose": "Delete degraded pods so the controller recreates them in a healthy state",
+      "step": 10,
+      "tool": "Pods: Delete",
+      "tool_available": true
+    },
+    {
+      "command": "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>",
+      "purpose": "Verify deployment health and confirm all replicas are running",
+      "step": 11,
+      "tool": "Resources: Get",
+      "tool_available": true
+    },
+    {
+      "command": "resources update --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name> --cpu-limit <new-limit>",
+      "purpose": "Adjust CPU limits in the workload spec to handle future CPU pressure",
+      "step": 12,
+      "tool": "Resources: Create or Update",
+      "tool_available": true
+    },
+    {
+      "command": "kubectl autoscale deployment/<deployment-name> --namespace <target-namespace> --cpu-percent=70 --min=2 --max=10",
+      "purpose": "Set up horizontal pod autoscaler to auto-scale under CPU pressure",
+      "step": 13,
+      "tool": "Configure HPA",
+      "tool_available": false
+    },
+    {
+      "command": "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>",
+      "purpose": "Restart the deployment to apply updated CPU limits and ensure clean pod state",
+      "step": 14,
+      "tool": "Restart Deployment",
+      "tool_available": false
+    }
+  ],
+  "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+  "agent_name": "demoinfra2",
+  "agent_version": "3.0.0",
+  "experiment_id": "e8650990-3905-4e56-b458-1ddb84d3972e",
+  "run_id": "e4bf5a84-79c0-412d-9bac-bafccf08b7f7",
+  "event_count": 0,
+  "events": []
+}

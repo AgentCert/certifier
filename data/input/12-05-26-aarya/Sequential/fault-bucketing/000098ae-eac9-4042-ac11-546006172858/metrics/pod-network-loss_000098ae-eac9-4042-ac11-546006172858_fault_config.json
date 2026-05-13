@@ -1,0 +1,203 @@
+{
+  "fault_id": "pod-network-loss",
+  "fault_name": "pod-network-loss",
+  "fault_category": null,
+  "experiment_id": "e8650990-3905-4e56-b458-1ddb84d3972e",
+  "run_id": "000098ae-eac9-4042-ac11-546006172858",
+  "injection_timestamp": "2026-05-12T11:53:53.000Z",
+  "fault_configuration": {
+    "target_service": "name=user-db",
+    "target_namespace": "sock-shop"
+  },
+  "ground_truth": {
+    "fault_description_goal_remediation": {
+      "goal": "Inject network packet loss on target pods to validate application resilience to degraded network conditions, retry logic, circuit breakers, and failover mechanisms.\n",
+      "remediation": "Identify pods experiencing packet loss. Inspect pod network configuration and container states. Delete affected pods to restore clean network state. Verify deployment health and confirm network connectivity resumes after chaos ends.\n",
+      "symptoms": [
+        "High packet loss or dropped connections to target pods",
+        "HTTP 5xx errors and request timeouts from dependent services",
+        "Increased latency and retransmissions on pod network interface",
+        "Warning events on target pods indicating network degradation",
+        "Service mesh or load balancer health checks failing for affected pods",
+        "Application logs showing connection timeouts and socket errors"
+      ]
+    },
+    "ideal_course_of_action": [
+      {
+        "action": "List cluster events",
+        "detail": "List Kubernetes events across all namespaces to detect network-related warnings, pod failures, or unhealthy endpoints triggered by the packet loss injection.\n",
+        "step": 1
+      },
+      {
+        "action": "List pods in affected namespace",
+        "detail": "List all pods in the target namespace to identify pods in degraded, Error, or CrashLoopBackOff state due to network loss.\n",
+        "step": 2
+      },
+      {
+        "action": "Get affected pod details",
+        "detail": "Retrieve the full spec and status of the affected pod to inspect container states, restart counts, and network configuration.\n",
+        "step": 3
+      },
+      {
+        "action": "Get pod logs",
+        "detail": "Retrieve logs from the affected pod to identify network-related errors such as connection timeouts, socket resets, and I/O errors.\n",
+        "step": 4
+      },
+      {
+        "action": "Exec into pod to check network connectivity",
+        "detail": "Execute network diagnostic commands (ping, curl) inside the pod to confirm packet loss on the network interface.\n",
+        "step": 5
+      },
+      {
+        "action": "Check pod resource consumption",
+        "detail": "Check CPU and memory usage of pods in the target namespace to correlate network issues with resource pressure.\n",
+        "step": 6
+      },
+      {
+        "action": "Check node-level network stats",
+        "detail": "Get node stats summary to inspect network usage at the node level and identify abnormal transmit/receive error counts.\n",
+        "step": 7
+      },
+      {
+        "action": "Query Prometheus for network error metrics",
+        "detail": "Execute a PromQL query for network-related metrics (e.g., container_network_transmit_errors_total) to quantify packet loss during the chaos window.\n",
+        "step": 8
+      },
+      {
+        "action": "Query Prometheus for HTTP error rate",
+        "detail": "Execute a PromQL query for HTTP 5xx error rates to measure application-level impact of the network packet loss.\n",
+        "step": 9
+      },
+      {
+        "action": "Delete affected pods",
+        "detail": "Delete pods stuck in error or degraded state so the controller recreates them with clean network configuration after chaos ends.\n",
+        "step": 10
+      },
+      {
+        "action": "Verify deployment health",
+        "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+        "step": 11
+      },
+      {
+        "action": "Scale deployment if needed",
+        "detail": "Scale the deployment to ensure sufficient healthy replicas are available to handle traffic after network recovery.\n",
+        "step": 12
+      },
+      {
+        "action": "Validate network connectivity restored",
+        "detail": "Exec into a pod and run connectivity checks (ping, curl) to confirm network packet loss has ceased.\n",
+        "step": 13
+      },
+      {
+        "action": "Confirm application recovery via Prometheus",
+        "detail": "Query Prometheus for HTTP error rates and latency to verify the application has fully recovered.\n",
+        "step": 14
+      }
+    ],
+    "ideal_tool_usage_trajectory": [
+      {
+        "command": "Events: List",
+        "purpose": "Detect network-related warnings, pod failures, and unhealthy endpoint events",
+        "step": 1,
+        "tool": "Events: List",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: List in Namespace namespace=<target-namespace>",
+        "purpose": "Identify pods in degraded or error state due to network packet loss",
+        "step": 2,
+        "tool": "Pods: List in Namespace",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: Get name=<affected-pod-name> namespace=<target-namespace>",
+        "purpose": "Inspect container states, restart counts, and network configuration of the affected pod",
+        "step": 3,
+        "tool": "Pods: Get",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: Log name=<affected-pod-name> namespace=<target-namespace>",
+        "purpose": "Retrieve application logs to find connection timeouts, socket errors, and I/O failures",
+        "step": 4,
+        "tool": "Pods: Log",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: Exec name=<affected-pod-name> namespace=<target-namespace> command='ping -c 4 <target-service> && curl -s -o /dev/null -w %{http_code} <target-service-url>'",
+        "purpose": "Verify packet loss and connectivity degradation from inside the affected pod",
+        "step": 5,
+        "tool": "Pods: Exec",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: Top namespace=<target-namespace>",
+        "purpose": "Check resource consumption of affected pods to rule out resource pressure",
+        "step": 6,
+        "tool": "Pods: Top",
+        "tool_available": true
+      },
+      {
+        "command": "Node: Stats Summary name=<node-name>",
+        "purpose": "Inspect node-level network stats to identify abnormal transmit/receive error counts",
+        "step": 7,
+        "tool": "Node: Stats Summary",
+        "tool_available": true
+      },
+      {
+        "command": "Execute PromQL Query query=sum(rate(container_network_transmit_errors_total{namespace='<target-namespace>'}[5m])) by (pod)",
+        "purpose": "Quantify network transmit errors during chaos injection window",
+        "step": 8,
+        "tool": "Execute PromQL Query",
+        "tool_available": true
+      },
+      {
+        "command": "Execute PromQL Query query=sum(rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m]))",
+        "purpose": "Measure HTTP 5xx error rate to assess application-level impact of packet loss",
+        "step": 9,
+        "tool": "Execute PromQL Query",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: Delete name=<affected-pod-name> namespace=<target-namespace>",
+        "purpose": "Delete error-state pods so the controller recreates them with clean network state",
+        "step": 10,
+        "tool": "Pods: Delete",
+        "tool_available": true
+      },
+      {
+        "command": "Resources: Get apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace>",
+        "purpose": "Verify deployment health and confirm all replicas are running after remediation",
+        "step": 11,
+        "tool": "Resources: Get",
+        "tool_available": true
+      },
+      {
+        "command": "Resources: Scale apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace> scale=<desired-replicas>",
+        "purpose": "Scale deployment to ensure sufficient healthy replicas after network recovery",
+        "step": 12,
+        "tool": "Resources: Scale",
+        "tool_available": true
+      },
+      {
+        "command": "Pods: Exec name=<pod-name> namespace=<target-namespace> command='ping -c 4 <target-service>'",
+        "purpose": "Validate network connectivity has recovered after chaos injection ends",
+        "step": 13,
+        "tool": "Pods: Exec",
+        "tool_available": true
+      },
+      {
+        "command": "Execute PromQL Query query=sum(rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m]))",
+        "purpose": "Confirm application recovery by verifying HTTP 5xx error rate has returned to zero",
+        "step": 14,
+        "tool": "Execute PromQL Query",
+        "tool_available": true
+      }
+    ]
+  },
+  "agent": {
+    "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+    "agent_name": "demoinfra2",
+    "agent_version": "3.0.0"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "fault_id": "single_fault",
+  "run_id": "5f68e4a6-f599-412b-81cb-0e557682b729",
+  "fault_name": "unknown",
+  "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+  "quantitative": {
+    "agent_name": null,
+    "agent_id": null,
+    "agent_version": null,
+    "experiment_id": "e8650990-3905-4e56-b458-1ddb84d3972e",
+    "run_id": "5f68e4a6-f599-412b-81cb-0e557682b729",
+    "fault_injection_time": "2026-05-11T12:47:06.853Z",
+    "agent_fault_detection_time": "2026-05-11T12:47:07.000Z",
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": 0.15,
+    "time_to_mitigate": null,
+    "fault_detected": "Unknown",
+    "detection_success": 1,
+    "trajectory_steps": 5,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "injected_fault_name": "unknown",
+    "injected_fault_category": "experiment",
+    "detected_fault_type": null,
+    "fault_target_service": null,
+    "fault_namespace": "litmus",
+    "tool_calls": [],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": null
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "All observed spans pertain to Kubernetes chaos experiment orchestration and workflow events within an IT-operations context. The content is purely operational/technical, involving experiment triggers, context recording, workflow steps, and completion events. There is no material related to self-harm, hate or bias, sexual content, real-world harm instructions, or misinformation. Overall, the data remains within standard observability/logging practices for infrastructure experiments and presents no RAI concerns.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "The traces contain no exposed credentials, API keys, private keys, tokens, or connection strings. The metadata is limited to typical operational identifiers such as infrastructure IDs, project IDs, experiment IDs, namespaces, and a service account name, which are standard and not sensitive in this context. No personal data (such as email addresses, phone numbers, or government IDs) appears in the logs, and there is no indication of security policy violations.",
+    "reasoning_quality_score": 7.0,
+    "reasoning_quality_notes": "The batch consists solely of system-generated spans reflecting the lifecycle of a Kubernetes-based chaos experiment: triggering the experiment, recording context (including SLA parameters and fault names), executing workflow steps, and reporting a failure on a child pod step. The observable reasoning is limited to the workflow engine\u2019s state transitions and error reporting (e.g., a pod exiting with error code 1). The sequence is logically coherent and internally consistent, but there is no natural-language diagnostic reasoning by the agent, no exploration of possible root causes, and no explicit remediation strategy or explanation beyond status updates.",
+    "agent_summary": "Across the spans, the agent orchestrates a Kubernetes chaos experiment named \"demoexp-i2-5-seq-30runs\" on the \"demoinfra2\" infrastructure. It initiates the experiment, records the experiment context (including SLA parameters and the list of faults to be injected), and submits a workflow for execution. The top-level workflow step reports failure because its child \"install-application\" step, implemented as a Pod-type node, terminates with an error (exit code 1). Despite this step-level failure, a completion event indicates that the experiment workflow submission to the infrastructure completed successfully, and the overall experiment status is marked as PASS at submission time. No additional diagnostic or remediation actions are visible in this batch; the agent primarily reflects the workflow engine\u2019s orchestration and status changes.",
+    "hallucination_score": null,
+    "plan_adherence": "The observed behavior follows a simple, linear orchestration sequence: trigger the chaos experiment, record experiment context (including SLA and fault configuration), execute the main workflow step, record the failure of the child \"install-application\" pod step, and emit a completion event indicating successful workflow submission. There is no evidence of iterative diagnosis, branching decisions, or adaptive planning in response to the failure; the agent does not collect logs, inspect pods, or attempt corrective actions within this batch. Plan adherence is therefore limited to faithfully mirroring the predefined workflow engine steps rather than executing a dynamic troubleshooting plan.",
+    "collateral_damage": "No collateral damage is evident. The actions are confined to orchestrating and tracking the status of the chaos experiment workflow and the failing \"install-application\" pod step. There are no indications of unintended deletions, restarts, or modifications of unrelated resources, nor signs that the agent introduced new errors outside the intended scope of the experiment."
+  },
+  "token_usage": {
+    "input_tokens": 16912,
+    "output_tokens": 2713,
+    "total_tokens": 19625
+  }
+}

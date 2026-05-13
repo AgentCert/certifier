@@ -1,0 +1,982 @@
+2026-05-13 11:59:26,062 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 99] - INFO - ============================================================
+2026-05-13 11:59:26,063 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 100] - INFO - STEP 1: Fault Bucketing
+2026-05-13 11:59:26,063 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 101] - INFO - ============================================================
+2026-05-13 11:59:26,199 - [fault_bucketing.py : _load_trace : 493] - INFO - Loaded 65 events from raw_trace_sequential.json
+2026-05-13 11:59:26,201 - [fault_bucketing.py : _extract_agent_metadata : 223] - INFO - Agent metadata extracted: id=1960bc89-361a-4fcb-af86-699113f09ec9, name=demoinfra2, version=3.0.0, experiment_id=f6152c39-27c4-4601-a5e8-bee80da8ec78, run_id=8b35bf6c-8ec6-4d31-a970-848063cb7bf4
+2026-05-13 11:59:26,202 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-13 11:59:26,204 - [run_bucketing_and_extraction_pipeline.py : main : 413] - ERROR - Pipeline aborted: Fault bucketing pipeline failed
+2026-05-13 12:08:40,354 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 99] - INFO - ============================================================
+2026-05-13 12:08:40,355 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 100] - INFO - STEP 1: Fault Bucketing
+2026-05-13 12:08:40,355 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 101] - INFO - ============================================================
+2026-05-13 12:08:40,491 - [fault_bucketing.py : _load_trace : 493] - INFO - Loaded 65 events from raw_trace_sequential.json
+2026-05-13 12:08:40,492 - [fault_bucketing.py : _extract_agent_metadata : 223] - INFO - Agent metadata extracted: id=1960bc89-361a-4fcb-af86-699113f09ec9, name=demoinfra2, version=3.0.0, experiment_id=f6152c39-27c4-4601-a5e8-bee80da8ec78, run_id=8b35bf6c-8ec6-4d31-a970-848063cb7bf4
+2026-05-13 12:08:40,495 - [custom_errors.py : __init__ : 36] - ERROR - Fault bucketing pipeline failed. Original exception: FaultBucket.__init__() got an unexpected keyword argument 'injection_end_timestamp'. Did you mean 'injection_timestamp'?
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\fault_analyzer\scripts\fault_bucketing.py", line 836, in run
+    self._create_fault_bucket_from_span(event)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\fault_analyzer\scripts\fault_bucketing.py", line 620, in _create_fault_bucket_from_span
+    bucket = FaultBucket(
+        fault_id=fault_id,
+    ...<16 lines>...
+        run_id=self.run_id,
+    )
+TypeError: FaultBucket.__init__() got an unexpected keyword argument 'injection_end_timestamp'. Did you mean 'injection_timestamp'?
+
+2026-05-13 12:08:40,496 - [run_bucketing_and_extraction_pipeline.py : main : 413] - ERROR - Pipeline aborted: Fault bucketing pipeline failed
+2026-05-13 12:23:21,649 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 99] - INFO - ============================================================
+2026-05-13 12:23:21,649 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 100] - INFO - STEP 1: Fault Bucketing
+2026-05-13 12:23:21,649 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 101] - INFO - ============================================================
+2026-05-13 12:23:21,745 - [fault_bucketing.py : _load_trace : 493] - INFO - Loaded 65 events from raw_trace_sequential.json
+2026-05-13 12:23:21,746 - [fault_bucketing.py : _extract_agent_metadata : 223] - INFO - Agent metadata extracted: id=1960bc89-361a-4fcb-af86-699113f09ec9, name=demoinfra2, version=3.0.0, experiment_id=f6152c39-27c4-4601-a5e8-bee80da8ec78, run_id=8b35bf6c-8ec6-4d31-a970-848063cb7bf4
+2026-05-13 12:23:21,747 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-cpu-hog (target=name=carts, namespace=sock-shop)
+2026-05-13 12:23:21,747 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-network-loss (target=name=user-db, namespace=sock-shop)
+2026-05-13 12:23:21,747 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-memory-hog (target=name=orders, namespace=sock-shop)
+2026-05-13 12:23:21,748 - [fault_bucketing.py : run : 860] - INFO - Processing 62 remaining events via router (batch_size=10)
+2026-05-13 12:23:21,748 - [fault_bucketing.py : run : 1114] - INFO - Batch 1/7 processed (10 events): fault_span_skips=0, scaffolding_skips=7, deterministic_assignments=0, zero_candidate_skips=3, llm_classifications=0, tokens=0/0
+2026-05-13 12:23:21,748 - [fault_bucketing.py : run : 1114] - INFO - Batch 2/7 processed (10 events): fault_span_skips=0, scaffolding_skips=2, deterministic_assignments=8, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 12:23:22,797 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 12:23:23,523 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 12:23:24,173 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 12:23:24,173 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 12:23:24,179 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:23:36,462 - [custom_errors.py : __init__ : 36] - ERROR - Fault bucketing pipeline failed. Original exception: 'EventClassification' object has no attribute 'fault_reasoning'
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\fault_analyzer\scripts\fault_bucketing.py", line 1109, in run
+    "fault_reasoning": dict(classification.fault_reasoning),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\pydantic\main.py", line 1026, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'EventClassification' object has no attribute 'fault_reasoning'
+
+2026-05-13 12:23:36,465 - [run_bucketing_and_extraction_pipeline.py : main : 413] - ERROR - Pipeline aborted: Fault bucketing pipeline failed
+2026-05-13 12:43:45,891 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 99] - INFO - ============================================================
+2026-05-13 12:43:45,891 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 100] - INFO - STEP 1: Fault Bucketing
+2026-05-13 12:43:45,891 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 101] - INFO - ============================================================
+2026-05-13 12:43:45,947 - [fault_bucketing.py : _load_trace : 493] - INFO - Loaded 65 events from raw_trace_sequential.json
+2026-05-13 12:43:45,948 - [fault_bucketing.py : _extract_agent_metadata : 223] - INFO - Agent metadata extracted: id=1960bc89-361a-4fcb-af86-699113f09ec9, name=demoinfra2, version=3.0.0, experiment_id=f6152c39-27c4-4601-a5e8-bee80da8ec78, run_id=8b35bf6c-8ec6-4d31-a970-848063cb7bf4
+2026-05-13 12:43:45,948 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-cpu-hog (target=name=carts, namespace=sock-shop)
+2026-05-13 12:43:45,948 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-network-loss (target=name=user-db, namespace=sock-shop)
+2026-05-13 12:43:45,948 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-memory-hog (target=name=orders, namespace=sock-shop)
+2026-05-13 12:43:45,948 - [fault_bucketing.py : run : 860] - INFO - Processing 62 remaining events via router (batch_size=10)
+2026-05-13 12:43:45,948 - [fault_bucketing.py : run : 1114] - INFO - Batch 1/7 processed (10 events): fault_span_skips=0, scaffolding_skips=7, deterministic_assignments=0, zero_candidate_skips=3, llm_classifications=0, tokens=0/0
+2026-05-13 12:43:45,948 - [fault_bucketing.py : run : 1114] - INFO - Batch 2/7 processed (10 events): fault_span_skips=0, scaffolding_skips=2, deterministic_assignments=8, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 12:43:46,270 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 12:43:46,557 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 12:43:46,800 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 12:43:46,801 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 12:43:46,803 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:44:04,539 - [fault_bucketing.py : run : 1114] - INFO - Batch 3/7 processed (10 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=7, zero_candidate_skips=0, llm_classifications=2, tokens=36385/712
+2026-05-13 12:44:04,540 - [fault_bucketing.py : run : 1114] - INFO - Batch 4/7 processed (10 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=10, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 12:44:04,544 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:44:20,837 - [fault_bucketing.py : run : 1114] - INFO - Batch 5/7 processed (10 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=7, zero_candidate_skips=0, llm_classifications=2, tokens=35174/760
+2026-05-13 12:44:20,837 - [fault_bucketing.py : run : 1114] - INFO - Batch 6/7 processed (10 events): fault_span_skips=0, scaffolding_skips=2, deterministic_assignments=8, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 12:44:20,837 - [fault_bucketing.py : run : 1114] - INFO - Batch 7/7 processed (2 events): fault_span_skips=0, scaffolding_skips=2, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 12:44:20,837 - [fault_bucketing.py : run : 1163] - INFO - Bucketing complete: 3 buckets, 44 events assigned, 20 unclassified, LLM tokens used: 73031
+2026-05-13 12:44:20,841 - [fault_bucketing.py : _write_output : 1389] - INFO - Wrote bucket file: raw_trace_sequential_bucket_pod-cpu-hog.json (13 events)
+2026-05-13 12:44:20,845 - [fault_bucketing.py : _write_output : 1389] - INFO - Wrote bucket file: raw_trace_sequential_bucket_pod-network-loss.json (18 events)
+2026-05-13 12:44:20,847 - [fault_bucketing.py : _write_output : 1389] - INFO - Wrote bucket file: raw_trace_sequential_bucket_pod-memory-hog.json (13 events)
+2026-05-13 12:44:20,849 - [fault_bucketing.py : _write_output : 1423] - INFO - Wrote unclassified events: raw_trace_sequential_unclassified.json (20 events)
+2026-05-13 12:44:20,850 - [fault_bucketing.py : _write_output : 1457] - INFO - Wrote manifest: raw_trace_sequential_bucketing_manifest.json
+2026-05-13 12:44:20,851 - [fault_bucketing.py : _write_ground_truth : 1318] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-cpu-hog_ground_truth.json
+2026-05-13 12:44:20,851 - [fault_bucketing.py : _write_ground_truth : 1325] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-cpu-hog_ground_truth.json
+2026-05-13 12:44:20,862 - [fault_bucketing.py : _write_ground_truth : 1318] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-network-loss_ground_truth.json
+2026-05-13 12:44:20,862 - [fault_bucketing.py : _write_ground_truth : 1325] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-network-loss_ground_truth.json
+2026-05-13 12:44:20,863 - [fault_bucketing.py : _write_ground_truth : 1318] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-memory-hog_ground_truth.json
+2026-05-13 12:44:20,863 - [fault_bucketing.py : _write_ground_truth : 1325] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-memory-hog_ground_truth.json
+2026-05-13 12:44:20,885 - [fault_bucketing.py : _write_classification_trace : 1268] - INFO - Wrote classification trace: batch_classification_trace.json (65 events)
+2026-05-13 12:44:20,887 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 157] - INFO - Fault bucketing produced 3 bucket(s). Output at: output\pipeline1_output\sequential_single\f6152c39-27c4-4601-a5e8-bee80da8ec78\fault_buckets
+2026-05-13 12:44:20,887 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 165] - INFO - ============================================================
+2026-05-13 12:44:20,887 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 166] - INFO - STEP 2: Metric Extraction from Fault Buckets
+2026-05-13 12:44:20,887 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 167] - INFO - ============================================================
+2026-05-13 12:44:20,887 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 172] - INFO - --- Extracting metrics for fault: pod-cpu-hog ---
+2026-05-13 12:44:20,890 - [metrics_extractor_from_trace.py : extract_metrics_async : 881] - INFO - Loading trace file: output\pipeline1_output\sequential_single\f6152c39-27c4-4601-a5e8-bee80da8ec78\metrics\pod-cpu-hog_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_trace.json
+2026-05-13 12:44:20,922 - [metrics_extractor_from_trace.py : load_trace_file : 286] - INFO - Loaded bucket metadata from trace file: fault_id=pod-cpu-hog, fault_name=pod-cpu-hog
+2026-05-13 12:44:20,922 - [metrics_extractor_from_trace.py : extract_metrics_async : 883] - INFO - Loaded 13 spans
+2026-05-13 12:44:20,922 - [metrics_extractor_from_trace.py : extract_metrics_async : 886] - INFO - Using bucket metadata: fault_id=pod-cpu-hog, fault_name=pod-cpu-hog, injection_timestamp=2026-05-08T05:22:22.000Z
+2026-05-13 12:44:20,922 - [metrics_extractor_from_trace.py : extract_metrics_async : 896] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-05-13 12:44:20,922 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 12:44:20,922 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 705] - INFO - Processing 13 spans in 3 batches
+2026-05-13 12:44:20,922 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 1/3
+2026-05-13 12:44:20,924 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:45:23,666 - [azure_openai_util.py : with_structured_output : 328] - WARNING - Failed to parse structured output: Expecting property name enclosed in double quotes: line 15 column 25 (char 925). Returning raw text.
+2026-05-13 12:45:23,666 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 2/3
+2026-05-13 12:45:23,709 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:46:14,039 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 3/3
+2026-05-13 12:46:14,043 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:46:37,112 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 715] - INFO - Aggregating quantitative metrics from all batches
+2026-05-13 12:46:37,112 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 622] - INFO - Identifying detection and mitigation spans using LLM...
+2026-05-13 12:46:58,233 - [metrics_extractor_from_trace.py : _identify_detection_mitigation_spans : 386] - INFO - LLM identified detection span: time-05-22-43-105188_chatcmpl-Dd7xbi7bjr5s79GWyuBfQ2zvc6Izm at 2026-05-08T05:22:43.105Z
+2026-05-13 12:46:58,322 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 627] - INFO - PII pre-scan: detected=False, count=0
+2026-05-13 12:46:58,323 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 634] - INFO - Code-extracted metrics: input_tokens=93003 output_tokens=12024 tool_calls=46
+2026-05-13 12:46:58,323 - [span_aggregator.py : aggregate : 257] - INFO - LLM-identified detection time from spans: 2026-05-08T05:22:43.105Z
+2026-05-13 12:46:58,323 - [span_aggregator.py : aggregate : 329] - INFO - Code-extracted tokens: input=93003 output=12024 tool_calls=46
+2026-05-13 12:46:58,326 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:47:07,188 - [azure_openai_util.py : with_structured_output : 328] - WARNING - Failed to parse structured output: 3 validation errors for LLMQuantitativeExtraction
+trajectory_steps
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type
+input_tokens
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type
+output_tokens
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type. Returning raw text.
+2026-05-13 12:47:07,188 - [metrics_extractor_from_trace.py : extract_metrics_async : 899] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-05-13 12:47:07,188 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 827] - INFO - Processing 13 spans in 3 batches for qualitative analysis
+2026-05-13 12:47:07,188 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 1/3
+2026-05-13 12:47:07,189 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:47:43,436 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 2/3
+2026-05-13 12:47:43,438 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:48:16,927 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 3/3
+2026-05-13 12:48:16,931 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:48:39,564 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 839] - INFO - Aggregating qualitative observations from all batches
+2026-05-13 12:48:39,565 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:49:11,870 - [metrics_extractor_from_trace.py : extract_metrics_async : 902] - INFO - Extraction complete. Token usage - Input: 529737, Output: 12868, Total: 542605
+2026-05-13 12:49:11,871 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 247] - INFO - Metrics for 'pod-cpu-hog' written to pod-cpu-hog_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_metrics.json. Tokens used: 542605
+2026-05-13 12:49:11,871 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 172] - INFO - --- Extracting metrics for fault: pod-network-loss ---
+2026-05-13 12:49:11,876 - [metrics_extractor_from_trace.py : extract_metrics_async : 881] - INFO - Loading trace file: output\pipeline1_output\sequential_single\f6152c39-27c4-4601-a5e8-bee80da8ec78\metrics\pod-network-loss_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_trace.json
+2026-05-13 12:49:11,900 - [metrics_extractor_from_trace.py : load_trace_file : 286] - INFO - Loaded bucket metadata from trace file: fault_id=pod-network-loss, fault_name=pod-network-loss
+2026-05-13 12:49:11,900 - [metrics_extractor_from_trace.py : extract_metrics_async : 883] - INFO - Loaded 18 spans
+2026-05-13 12:49:11,900 - [metrics_extractor_from_trace.py : extract_metrics_async : 886] - INFO - Using bucket metadata: fault_id=pod-network-loss, fault_name=pod-network-loss, injection_timestamp=2026-05-08T05:29:37.000Z
+2026-05-13 12:49:11,900 - [metrics_extractor_from_trace.py : extract_metrics_async : 896] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-05-13 12:49:11,900 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 12:49:11,900 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 705] - INFO - Processing 18 spans in 3 batches
+2026-05-13 12:49:11,900 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 1/3
+2026-05-13 12:49:11,903 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:50:14,853 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 2/3
+2026-05-13 12:50:14,861 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:51:09,668 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 3/3
+2026-05-13 12:51:09,675 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:52:26,177 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 715] - INFO - Aggregating quantitative metrics from all batches
+2026-05-13 12:52:26,177 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 622] - INFO - Identifying detection and mitigation spans using LLM...
+2026-05-13 12:53:09,527 - [metrics_extractor_from_trace.py : _identify_detection_mitigation_spans : 386] - INFO - LLM identified detection span: time-05-31-33-935699_chatcmpl-Dd86Agde2YX8JfiAm7zc1dVCPZRf5 at 2026-05-08T05:31:33.935Z
+2026-05-13 12:53:09,719 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 627] - INFO - PII pre-scan: detected=False, count=0
+2026-05-13 12:53:09,720 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 634] - INFO - Code-extracted metrics: input_tokens=155960 output_tokens=13816 tool_calls=62
+2026-05-13 12:53:09,720 - [span_aggregator.py : aggregate : 257] - INFO - LLM-identified detection time from spans: 2026-05-08T05:31:33.935Z
+2026-05-13 12:53:09,720 - [span_aggregator.py : aggregate : 329] - INFO - Code-extracted tokens: input=155960 output=13816 tool_calls=62
+2026-05-13 12:53:09,732 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:53:18,830 - [metrics_extractor_from_trace.py : extract_metrics_async : 899] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-05-13 12:53:18,831 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 827] - INFO - Processing 18 spans in 3 batches for qualitative analysis
+2026-05-13 12:53:18,831 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 1/3
+2026-05-13 12:53:18,836 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:54:10,694 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 2/3
+2026-05-13 12:54:10,699 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:54:53,681 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 3/3
+2026-05-13 12:54:53,685 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:55:25,575 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 839] - INFO - Aggregating qualitative observations from all batches
+2026-05-13 12:55:25,581 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:56:14,367 - [metrics_extractor_from_trace.py : extract_metrics_async : 902] - INFO - Extraction complete. Token usage - Input: 798978, Output: 14435, Total: 813413
+2026-05-13 12:56:14,371 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 247] - INFO - Metrics for 'pod-network-loss' written to pod-network-loss_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_metrics.json. Tokens used: 813413
+2026-05-13 12:56:14,371 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 172] - INFO - --- Extracting metrics for fault: pod-memory-hog ---
+2026-05-13 12:56:14,377 - [metrics_extractor_from_trace.py : extract_metrics_async : 881] - INFO - Loading trace file: output\pipeline1_output\sequential_single\f6152c39-27c4-4601-a5e8-bee80da8ec78\metrics\pod-memory-hog_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_trace.json
+2026-05-13 12:56:14,419 - [metrics_extractor_from_trace.py : load_trace_file : 286] - INFO - Loaded bucket metadata from trace file: fault_id=pod-memory-hog, fault_name=pod-memory-hog
+2026-05-13 12:56:14,419 - [metrics_extractor_from_trace.py : extract_metrics_async : 883] - INFO - Loaded 13 spans
+2026-05-13 12:56:14,419 - [metrics_extractor_from_trace.py : extract_metrics_async : 886] - INFO - Using bucket metadata: fault_id=pod-memory-hog, fault_name=pod-memory-hog, injection_timestamp=2026-05-08T05:36:49.000Z
+2026-05-13 12:56:14,419 - [metrics_extractor_from_trace.py : extract_metrics_async : 896] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-05-13 12:56:14,420 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 12:56:14,420 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 705] - INFO - Processing 13 spans in 3 batches
+2026-05-13 12:56:14,420 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 1/3
+2026-05-13 12:56:14,424 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:58:14,302 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 2/3
+2026-05-13 12:58:14,309 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:59:12,989 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 3/3
+2026-05-13 12:59:12,997 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:59:26,973 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 715] - INFO - Aggregating quantitative metrics from all batches
+2026-05-13 12:59:26,974 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 622] - INFO - Identifying detection and mitigation spans using LLM...
+2026-05-13 12:59:48,590 - [metrics_extractor_from_trace.py : _identify_detection_mitigation_spans : 386] - INFO - LLM identified detection span: time-05-38-16-733016_chatcmpl-Dd8CeMtUth4w25jgFqJYlWD7X1vFa at 2026-05-08T05:38:16.733Z
+2026-05-13 12:59:48,821 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 627] - INFO - PII pre-scan: detected=False, count=0
+2026-05-13 12:59:48,822 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 634] - INFO - Code-extracted metrics: input_tokens=92959 output_tokens=12519 tool_calls=38
+2026-05-13 12:59:48,823 - [span_aggregator.py : aggregate : 257] - INFO - LLM-identified detection time from spans: 2026-05-08T05:38:16.733Z
+2026-05-13 12:59:48,823 - [span_aggregator.py : aggregate : 329] - INFO - Code-extracted tokens: input=92959 output=12519 tool_calls=38
+2026-05-13 12:59:48,828 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 12:59:57,815 - [metrics_extractor_from_trace.py : extract_metrics_async : 899] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-05-13 12:59:57,815 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 827] - INFO - Processing 13 spans in 3 batches for qualitative analysis
+2026-05-13 12:59:57,815 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 1/3
+2026-05-13 12:59:57,820 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:00:35,669 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 2/3
+2026-05-13 13:00:35,674 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:01:05,071 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 3/3
+2026-05-13 13:01:05,074 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:01:35,459 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 839] - INFO - Aggregating qualitative observations from all batches
+2026-05-13 13:01:35,461 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:02:17,919 - [metrics_extractor_from_trace.py : extract_metrics_async : 902] - INFO - Extraction complete. Token usage - Input: 529968, Output: 13546, Total: 543514
+2026-05-13 13:02:17,923 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 247] - INFO - Metrics for 'pod-memory-hog' written to pod-memory-hog_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_metrics.json. Tokens used: 543514
+2026-05-13 13:02:17,925 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 291] - INFO - ============================================================
+2026-05-13 13:02:17,926 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 292] - INFO - Pipeline Complete
+2026-05-13 13:02:17,926 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 293] - INFO - ============================================================
+2026-05-13 13:02:17,926 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 294] - INFO -   Faults bucketed : 3
+2026-05-13 13:02:17,926 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 295] - INFO -   Metrics extracted: 3
+2026-05-13 13:02:17,926 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 296] - INFO -   Output directory : output\pipeline1_output\sequential_single\f6152c39-27c4-4601-a5e8-bee80da8ec78
+2026-05-13 13:02:17,926 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 297] - INFO -   Summary file     : pipeline_summary.json
+2026-05-13 13:08:26,488 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 99] - INFO - ============================================================
+2026-05-13 13:08:26,489 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 100] - INFO - STEP 1: Fault Bucketing
+2026-05-13 13:08:26,489 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 101] - INFO - ============================================================
+2026-05-13 13:08:26,625 - [fault_bucketing.py : _load_trace : 493] - INFO - Loaded 65 events from raw_trace_sequential.json
+2026-05-13 13:08:26,626 - [fault_bucketing.py : _extract_agent_metadata : 223] - INFO - Agent metadata extracted: id=1960bc89-361a-4fcb-af86-699113f09ec9, name=demoinfra2, version=3.0.0, experiment_id=f6152c39-27c4-4601-a5e8-bee80da8ec78, run_id=8b35bf6c-8ec6-4d31-a970-848063cb7bf4
+2026-05-13 13:08:26,632 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-cpu-hog (target=name=carts, namespace=sock-shop)
+2026-05-13 13:08:26,634 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-network-loss (target=name=user-db, namespace=sock-shop)
+2026-05-13 13:08:26,636 - [fault_bucketing.py : _create_fault_bucket_from_span : 642] - INFO - Fault bucket created: pod-memory-hog (target=name=orders, namespace=sock-shop)
+2026-05-13 13:08:26,636 - [fault_bucketing.py : run : 860] - INFO - Processing 62 remaining events via router (batch_size=1)
+2026-05-13 13:08:26,637 - [fault_bucketing.py : run : 1114] - INFO - Batch 1/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,637 - [fault_bucketing.py : run : 1114] - INFO - Batch 2/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,637 - [fault_bucketing.py : run : 1114] - INFO - Batch 3/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,638 - [fault_bucketing.py : run : 1114] - INFO - Batch 4/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,638 - [fault_bucketing.py : run : 1114] - INFO - Batch 5/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=1, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,639 - [fault_bucketing.py : run : 1114] - INFO - Batch 6/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,639 - [fault_bucketing.py : run : 1114] - INFO - Batch 7/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,640 - [fault_bucketing.py : run : 1114] - INFO - Batch 8/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=1, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,640 - [fault_bucketing.py : run : 1114] - INFO - Batch 9/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=1, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,648 - [fault_bucketing.py : run : 1114] - INFO - Batch 10/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,650 - [fault_bucketing.py : run : 1114] - INFO - Batch 11/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,652 - [fault_bucketing.py : run : 1114] - INFO - Batch 12/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,665 - [fault_bucketing.py : run : 1114] - INFO - Batch 13/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,666 - [fault_bucketing.py : run : 1114] - INFO - Batch 14/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,667 - [fault_bucketing.py : run : 1114] - INFO - Batch 15/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,667 - [fault_bucketing.py : run : 1114] - INFO - Batch 16/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,667 - [fault_bucketing.py : run : 1114] - INFO - Batch 17/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,668 - [fault_bucketing.py : run : 1114] - INFO - Batch 18/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,669 - [fault_bucketing.py : run : 1114] - INFO - Batch 19/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,672 - [fault_bucketing.py : run : 1114] - INFO - Batch 20/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,672 - [fault_bucketing.py : run : 1114] - INFO - Batch 21/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,673 - [fault_bucketing.py : run : 1114] - INFO - Batch 22/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,673 - [fault_bucketing.py : run : 1114] - INFO - Batch 23/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:26,674 - [fault_bucketing.py : run : 1114] - INFO - Batch 24/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:27,815 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 13:08:28,736 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 13:08:29,550 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 13:08:29,550 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 13:08:29,555 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:08:42,613 - [fault_bucketing.py : run : 1114] - INFO - Batch 25/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=1, tokens=20974/436
+2026-05-13 13:08:42,632 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:08:50,850 - [fault_bucketing.py : run : 1114] - INFO - Batch 26/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=1, tokens=28387/340
+2026-05-13 13:08:50,851 - [fault_bucketing.py : run : 1114] - INFO - Batch 27/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,852 - [fault_bucketing.py : run : 1114] - INFO - Batch 28/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,853 - [fault_bucketing.py : run : 1114] - INFO - Batch 29/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,853 - [fault_bucketing.py : run : 1114] - INFO - Batch 30/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,854 - [fault_bucketing.py : run : 1114] - INFO - Batch 31/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,855 - [fault_bucketing.py : run : 1114] - INFO - Batch 32/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,855 - [fault_bucketing.py : run : 1114] - INFO - Batch 33/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,856 - [fault_bucketing.py : run : 1114] - INFO - Batch 34/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,856 - [fault_bucketing.py : run : 1114] - INFO - Batch 35/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,857 - [fault_bucketing.py : run : 1114] - INFO - Batch 36/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,858 - [fault_bucketing.py : run : 1114] - INFO - Batch 37/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,859 - [fault_bucketing.py : run : 1114] - INFO - Batch 38/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,860 - [fault_bucketing.py : run : 1114] - INFO - Batch 39/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,862 - [fault_bucketing.py : run : 1114] - INFO - Batch 40/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,862 - [fault_bucketing.py : run : 1114] - INFO - Batch 41/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,864 - [fault_bucketing.py : run : 1114] - INFO - Batch 42/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,864 - [fault_bucketing.py : run : 1114] - INFO - Batch 43/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,864 - [fault_bucketing.py : run : 1114] - INFO - Batch 44/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:08:50,870 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:09:01,024 - [fault_bucketing.py : run : 1114] - INFO - Batch 45/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=1, tokens=20395/444
+2026-05-13 13:09:01,144 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:09:08,170 - [fault_bucketing.py : run : 1114] - INFO - Batch 46/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=1, tokens=27733/307
+2026-05-13 13:09:08,176 - [fault_bucketing.py : run : 1114] - INFO - Batch 47/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,190 - [fault_bucketing.py : run : 1114] - INFO - Batch 48/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,195 - [fault_bucketing.py : run : 1114] - INFO - Batch 49/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,202 - [fault_bucketing.py : run : 1114] - INFO - Batch 50/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,212 - [fault_bucketing.py : run : 1114] - INFO - Batch 51/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,217 - [fault_bucketing.py : run : 1114] - INFO - Batch 52/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,221 - [fault_bucketing.py : run : 1114] - INFO - Batch 53/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,222 - [fault_bucketing.py : run : 1114] - INFO - Batch 54/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,223 - [fault_bucketing.py : run : 1114] - INFO - Batch 55/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,223 - [fault_bucketing.py : run : 1114] - INFO - Batch 56/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,224 - [fault_bucketing.py : run : 1114] - INFO - Batch 57/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,226 - [fault_bucketing.py : run : 1114] - INFO - Batch 58/62 processed (1 events): fault_span_skips=0, scaffolding_skips=0, deterministic_assignments=1, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,227 - [fault_bucketing.py : run : 1114] - INFO - Batch 59/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,228 - [fault_bucketing.py : run : 1114] - INFO - Batch 60/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,229 - [fault_bucketing.py : run : 1114] - INFO - Batch 61/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,230 - [fault_bucketing.py : run : 1114] - INFO - Batch 62/62 processed (1 events): fault_span_skips=0, scaffolding_skips=1, deterministic_assignments=0, zero_candidate_skips=0, llm_classifications=0, tokens=0/0
+2026-05-13 13:09:08,231 - [fault_bucketing.py : run : 1163] - INFO - Bucketing complete: 3 buckets, 44 events assigned, 20 unclassified, LLM tokens used: 99016
+2026-05-13 13:09:08,256 - [fault_bucketing.py : _write_output : 1389] - INFO - Wrote bucket file: raw_trace_sequential_bucket_pod-cpu-hog.json (13 events)
+2026-05-13 13:09:08,277 - [fault_bucketing.py : _write_output : 1389] - INFO - Wrote bucket file: raw_trace_sequential_bucket_pod-network-loss.json (18 events)
+2026-05-13 13:09:08,290 - [fault_bucketing.py : _write_output : 1389] - INFO - Wrote bucket file: raw_trace_sequential_bucket_pod-memory-hog.json (13 events)
+2026-05-13 13:09:08,299 - [fault_bucketing.py : _write_output : 1423] - INFO - Wrote unclassified events: raw_trace_sequential_unclassified.json (20 events)
+2026-05-13 13:09:08,308 - [fault_bucketing.py : _write_output : 1457] - INFO - Wrote manifest: raw_trace_sequential_bucketing_manifest.json
+2026-05-13 13:09:08,314 - [fault_bucketing.py : _write_ground_truth : 1318] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-cpu-hog_ground_truth.json
+2026-05-13 13:09:08,315 - [fault_bucketing.py : _write_ground_truth : 1325] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-cpu-hog_ground_truth.json
+2026-05-13 13:09:08,321 - [fault_bucketing.py : _write_ground_truth : 1318] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-network-loss_ground_truth.json
+2026-05-13 13:09:08,322 - [fault_bucketing.py : _write_ground_truth : 1325] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-network-loss_ground_truth.json
+2026-05-13 13:09:08,327 - [fault_bucketing.py : _write_ground_truth : 1318] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-memory-hog_ground_truth.json
+2026-05-13 13:09:08,330 - [fault_bucketing.py : _write_ground_truth : 1325] - INFO - Wrote ground truth: f6152c39-27c4-4601-a5e8-bee80da8ec78_pod-memory-hog_ground_truth.json
+2026-05-13 13:09:08,376 - [fault_bucketing.py : _write_classification_trace : 1268] - INFO - Wrote classification trace: batch_classification_trace.json (65 events)
+2026-05-13 13:09:08,394 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 157] - INFO - Fault bucketing produced 3 bucket(s). Output at: output\pipeline1_output\sequential_single\batch_1\f6152c39-27c4-4601-a5e8-bee80da8ec78\fault_buckets
+2026-05-13 13:09:08,397 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 165] - INFO - ============================================================
+2026-05-13 13:09:08,405 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 166] - INFO - STEP 2: Metric Extraction from Fault Buckets
+2026-05-13 13:09:08,407 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 167] - INFO - ============================================================
+2026-05-13 13:09:08,410 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 172] - INFO - --- Extracting metrics for fault: pod-cpu-hog ---
+2026-05-13 13:09:08,420 - [metrics_extractor_from_trace.py : extract_metrics_async : 881] - INFO - Loading trace file: output\pipeline1_output\sequential_single\batch_1\f6152c39-27c4-4601-a5e8-bee80da8ec78\metrics\pod-cpu-hog_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_trace.json
+2026-05-13 13:09:08,463 - [metrics_extractor_from_trace.py : load_trace_file : 286] - INFO - Loaded bucket metadata from trace file: fault_id=pod-cpu-hog, fault_name=pod-cpu-hog
+2026-05-13 13:09:08,463 - [metrics_extractor_from_trace.py : extract_metrics_async : 883] - INFO - Loaded 13 spans
+2026-05-13 13:09:08,464 - [metrics_extractor_from_trace.py : extract_metrics_async : 886] - INFO - Using bucket metadata: fault_id=pod-cpu-hog, fault_name=pod-cpu-hog, injection_timestamp=2026-05-08T05:22:22.000Z
+2026-05-13 13:09:08,464 - [metrics_extractor_from_trace.py : extract_metrics_async : 896] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-05-13 13:09:08,464 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 13:09:08,464 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 705] - INFO - Processing 13 spans in 3 batches
+2026-05-13 13:09:08,465 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 1/3
+2026-05-13 13:09:08,474 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:10:16,651 - [azure_openai_util.py : with_structured_output : 328] - WARNING - Failed to parse structured output: Expecting property name enclosed in double quotes: line 15 column 25 (char 841). Returning raw text.
+2026-05-13 13:10:16,656 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 2/3
+2026-05-13 13:10:16,674 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:11:09,301 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 3/3
+2026-05-13 13:11:09,309 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:11:31,111 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 715] - INFO - Aggregating quantitative metrics from all batches
+2026-05-13 13:11:31,112 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 622] - INFO - Identifying detection and mitigation spans using LLM...
+2026-05-13 13:11:52,456 - [metrics_extractor_from_trace.py : _identify_detection_mitigation_spans : 386] - INFO - LLM identified detection span: time-05-22-43-105188_chatcmpl-Dd7xbi7bjr5s79GWyuBfQ2zvc6Izm at 2026-05-08T05:22:43.105Z
+2026-05-13 13:11:52,642 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 627] - INFO - PII pre-scan: detected=False, count=0
+2026-05-13 13:11:52,649 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 634] - INFO - Code-extracted metrics: input_tokens=93003 output_tokens=12024 tool_calls=46
+2026-05-13 13:11:52,650 - [span_aggregator.py : aggregate : 257] - INFO - LLM-identified detection time from spans: 2026-05-08T05:22:43.105Z
+2026-05-13 13:11:52,652 - [span_aggregator.py : aggregate : 329] - INFO - Code-extracted tokens: input=93003 output=12024 tool_calls=46
+2026-05-13 13:11:52,657 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:12:02,046 - [azure_openai_util.py : with_structured_output : 328] - WARNING - Failed to parse structured output: 3 validation errors for LLMQuantitativeExtraction
+trajectory_steps
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type
+input_tokens
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type
+output_tokens
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type. Returning raw text.
+2026-05-13 13:12:02,164 - [metrics_extractor_from_trace.py : extract_metrics_async : 899] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-05-13 13:12:02,165 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 827] - INFO - Processing 13 spans in 3 batches for qualitative analysis
+2026-05-13 13:12:02,176 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 1/3
+2026-05-13 13:12:02,200 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:12:45,119 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 2/3
+2026-05-13 13:12:45,125 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:13:35,472 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 3/3
+2026-05-13 13:13:35,476 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:13:55,865 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 839] - INFO - Aggregating qualitative observations from all batches
+2026-05-13 13:13:55,868 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:14:32,339 - [metrics_extractor_from_trace.py : extract_metrics_async : 902] - INFO - Extraction complete. Token usage - Input: 529281, Output: 13788, Total: 543069
+2026-05-13 13:14:32,343 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 247] - INFO - Metrics for 'pod-cpu-hog' written to pod-cpu-hog_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_metrics.json. Tokens used: 543069
+2026-05-13 13:14:32,344 - [run_bucketing_and_extraction_pipeline.py : run_pipeline : 172] - INFO - --- Extracting metrics for fault: pod-network-loss ---
+2026-05-13 13:14:32,355 - [metrics_extractor_from_trace.py : extract_metrics_async : 881] - INFO - Loading trace file: output\pipeline1_output\sequential_single\batch_1\f6152c39-27c4-4601-a5e8-bee80da8ec78\metrics\pod-network-loss_8b35bf6c-8ec6-4d31-a970-848063cb7bf4_trace.json
+2026-05-13 13:14:32,389 - [metrics_extractor_from_trace.py : load_trace_file : 286] - INFO - Loaded bucket metadata from trace file: fault_id=pod-network-loss, fault_name=pod-network-loss
+2026-05-13 13:14:32,390 - [metrics_extractor_from_trace.py : extract_metrics_async : 883] - INFO - Loaded 18 spans
+2026-05-13 13:14:32,390 - [metrics_extractor_from_trace.py : extract_metrics_async : 886] - INFO - Using bucket metadata: fault_id=pod-network-loss, fault_name=pod-network-loss, injection_timestamp=2026-05-08T05:29:37.000Z
+2026-05-13 13:14:32,390 - [metrics_extractor_from_trace.py : extract_metrics_async : 896] - INFO - Extracting quantitative metrics using batched LLM processing...
+2026-05-13 13:14:32,391 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 13:14:32,391 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 705] - INFO - Processing 18 spans in 3 batches
+2026-05-13 13:14:32,392 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 1/3
+2026-05-13 13:14:32,397 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:15:32,269 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 2/3
+2026-05-13 13:15:32,279 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:16:35,472 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 709] - INFO - Processing quantitative batch 3/3
+2026-05-13 13:16:35,488 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:17:36,826 - [metrics_extractor_from_trace.py : extract_quantitative_metrics : 715] - INFO - Aggregating quantitative metrics from all batches
+2026-05-13 13:17:36,826 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 622] - INFO - Identifying detection and mitigation spans using LLM...
+2026-05-13 13:18:18,629 - [metrics_extractor_from_trace.py : _identify_detection_mitigation_spans : 386] - INFO - LLM identified detection span: time-05-31-33-935699_chatcmpl-Dd86Agde2YX8JfiAm7zc1dVCPZRf5 at 2026-05-08T05:31:33.935Z
+2026-05-13 13:18:18,925 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 627] - INFO - PII pre-scan: detected=False, count=0
+2026-05-13 13:18:18,926 - [metrics_extractor_from_trace.py : _aggregate_quantitative_metrics : 634] - INFO - Code-extracted metrics: input_tokens=155960 output_tokens=13816 tool_calls=62
+2026-05-13 13:18:18,927 - [span_aggregator.py : aggregate : 257] - INFO - LLM-identified detection time from spans: 2026-05-08T05:31:33.935Z
+2026-05-13 13:18:18,927 - [span_aggregator.py : aggregate : 329] - INFO - Code-extracted tokens: input=155960 output=13816 tool_calls=62
+2026-05-13 13:18:18,931 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:18:29,013 - [azure_openai_util.py : with_structured_output : 328] - WARNING - Failed to parse structured output: 3 validation errors for LLMQuantitativeExtraction
+trajectory_steps
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type
+input_tokens
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type
+output_tokens
+  Input should be a valid integer [type=int_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.12/v/int_type. Returning raw text.
+2026-05-13 13:18:29,014 - [metrics_extractor_from_trace.py : extract_metrics_async : 899] - INFO - Extracting qualitative metrics using batched LLM processing...
+2026-05-13 13:18:29,014 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 827] - INFO - Processing 18 spans in 3 batches for qualitative analysis
+2026-05-13 13:18:29,014 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 1/3
+2026-05-13 13:18:29,023 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:19:15,187 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 2/3
+2026-05-13 13:19:15,194 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:19:56,720 - [metrics_extractor_from_trace.py : extract_qualitative_metrics : 833] - INFO - Processing qualitative batch 3/3
+2026-05-13 13:19:56,726 - [azure_openai_util.py : _get_or_create_agent : 135] - WARNING - No specific client found for model 'gpt-4o_structured'. Using default client.
+2026-05-13 13:56:03,832 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 13:56:04,096 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 13:56:04,318 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 13:56:04,319 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 13:56:04,319 - [run_full_certification_pipeline.py : run_pipeline : 423] - INFO - ============================================================
+2026-05-13 13:56:04,319 - [run_full_certification_pipeline.py : run_pipeline : 424] - INFO - STEP 1: Aggregation
+2026-05-13 13:56:04,319 - [run_full_certification_pipeline.py : run_pipeline : 425] - INFO - ============================================================
+2026-05-13 13:56:05,827 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-25-aarya
+2026-05-13 13:56:05,828 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 0 documents for agent_id='sre-agent-v2.1' in data\input\12-05-25-aarya
+2026-05-13 13:56:05,828 - [run_full_certification_pipeline.py : run_pipeline : 432] - ERROR - No per-run metric documents found for agent_id='sre-agent-v2.1' in directory '.\data\input\12-05-25-aarya'.
+2026-05-13 13:56:05,828 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-13 13:56:05,829 - [run_full_certification_pipeline.py : run_pipeline : 657] - INFO - LLM client connection closed.
+2026-05-13 13:59:49,664 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 13:59:49,956 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 13:59:50,193 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 13:59:50,193 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 13:59:50,193 - [run_full_certification_pipeline.py : run_pipeline : 423] - INFO - ============================================================
+2026-05-13 13:59:50,193 - [run_full_certification_pipeline.py : run_pipeline : 424] - INFO - STEP 1: Aggregation
+2026-05-13 13:59:50,193 - [run_full_certification_pipeline.py : run_pipeline : 425] - INFO - ============================================================
+2026-05-13 13:59:50,322 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-25-aarya
+2026-05-13 13:59:50,322 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 13:59:50,322 - [run_full_certification_pipeline.py : run_pipeline : 438] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 13:59:50,323 - [run_full_certification_pipeline.py : run_pipeline : 447] - INFO - Found fault categories: ['CPU', 'CPU resource fault', 'experiment', 'memory', 'network', 'network-loss', 'pod-cpu-hog', 'pod-memory-hog', 'resource', 'resource (CPU) stress', 'resource (memory) fault', 'resource-exhaustion', 'resource-exhaustion-memory', 'resource-pressure', 'resource-stress', 'resource-stress-memory']
+2026-05-13 13:59:50,323 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 2 documents for fault_category='CPU', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 13:59:50,324 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-13 13:59:50,324 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-13 13:59:50,324 - [aggregation.py : aggregate_all : 592] - INFO - Found 16 fault categories: ['CPU', 'CPU resource fault', 'experiment', 'memory', 'network', 'network-loss', 'pod-cpu-hog', 'pod-memory-hog', 'resource', 'resource (CPU) stress', 'resource (memory) fault', 'resource-exhaustion', 'resource-exhaustion-memory', 'resource-pressure', 'resource-stress', 'resource-stress-memory']
+2026-05-13 13:59:50,324 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='CPU', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 13:59:50,324 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 2 documents for fault_category='CPU', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 13:59:50,325 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 13:59:50,326 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 13:59:50,326 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 13:59:55,839 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 13:59:56,501 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 13:59:56,704 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:00:06,776 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:00:08,235 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:00:08,984 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:00:18,365 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:00:18,970 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:00:20,223 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:00:30,615 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:00:30,909 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:00:32,110 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:00:38,091 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 15939, 'output_tokens': 4273, 'total_tokens': 20212})
+2026-05-13 14:01:01,433 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1780, 'output_tokens': 1239, 'total_tokens': 3019})
+2026-05-13 14:01:01,434 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'CPU': 2 runs, 1 fault types
+2026-05-13 14:01:01,435 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='CPU resource fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:01:01,438 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='CPU resource fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:01:01,441 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:01:01,443 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:01:01,448 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:01:05,881 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:01:06,494 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:01:06,866 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:01:17,441 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:01:18,126 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:01:21,588 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:01:30,250 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:01:31,261 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:01:31,658 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:01:39,114 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:01:39,429 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:01:39,567 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:01:42,846 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 10439, 'output_tokens': 3705, 'total_tokens': 14144})
+2026-05-13 14:01:54,763 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1698, 'output_tokens': 1053, 'total_tokens': 2751})
+2026-05-13 14:01:54,764 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'CPU resource fault': 1 runs, 1 fault types
+2026-05-13 14:01:54,765 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='experiment', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:01:54,765 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 7 documents for fault_category='experiment', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:01:54,766 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 7 metrics
+2026-05-13 14:01:54,766 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 0.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 1.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:01:54,767 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': False, 'detection_rate': 0.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:01:59,681 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:02:01,902 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:02:02,658 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:02:11,276 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:02:12,379 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:02:12,516 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:02:20,446 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:02:21,044 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:02:21,057 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:02:29,555 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:02:30,458 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:02:31,742 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:02:35,277 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 17368, 'output_tokens': 3946, 'total_tokens': 21314})
+2026-05-13 14:02:47,835 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1602, 'output_tokens': 974, 'total_tokens': 2576})
+2026-05-13 14:02:47,835 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'experiment': 7 runs, 1 fault types
+2026-05-13 14:02:47,837 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='memory', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:02:47,839 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 4 documents for fault_category='memory', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:02:47,840 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:02:47,840 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:02:47,841 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:02:52,299 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:02:52,755 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:02:52,994 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:02:59,971 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:03:01,732 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:03:03,021 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:03:09,100 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:03:09,430 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:03:11,193 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:03:19,031 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:03:19,514 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:03:20,078 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:03:23,365 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 22672, 'output_tokens': 4531, 'total_tokens': 27203})
+2026-05-13 14:03:37,111 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1850, 'output_tokens': 1203, 'total_tokens': 3053})
+2026-05-13 14:03:37,112 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'memory': 4 runs, 1 fault types
+2026-05-13 14:03:37,113 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:03:37,114 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 31 documents for fault_category='network', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:03:37,115 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:03:37,116 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-13 14:03:37,116 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:03:41,259 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:03:43,076 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:03:43,349 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:03:53,220 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:03:53,229 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:03:53,657 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:04:05,615 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:04:06,692 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:04:06,806 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:04:22,994 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:04:23,595 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:04:24,061 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:04:31,046 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156544, 'output_tokens': 5206, 'total_tokens': 161750})
+2026-05-13 14:05:01,618 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2077, 'output_tokens': 1424, 'total_tokens': 3501})
+2026-05-13 14:05:01,618 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network': 31 runs, 1 fault types
+2026-05-13 14:05:01,619 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network-loss', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:05:01,620 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='network-loss', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:05:01,621 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:05:01,622 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:05:01,623 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:05:06,254 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:05:07,846 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:05:08,673 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:05:16,011 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:05:17,294 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:05:19,808 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:05:27,322 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:05:27,717 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:05:32,133 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:05:38,770 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:05:39,122 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:05:39,293 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:05:45,199 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 10298, 'output_tokens': 3803, 'total_tokens': 14101})
+2026-05-13 14:05:57,324 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1719, 'output_tokens': 927, 'total_tokens': 2646})
+2026-05-13 14:05:57,331 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network-loss': 1 runs, 1 fault types
+2026-05-13 14:05:57,331 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='pod-cpu-hog', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:05:57,331 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='pod-cpu-hog', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:05:57,333 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 7 metrics
+2026-05-13 14:05:57,334 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:05:57,335 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:06:01,626 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:06:01,870 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:06:03,615 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:06:09,892 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:06:10,455 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:06:10,474 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:06:17,040 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:06:17,205 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:06:24,626 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:06:33,938 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:06:34,305 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:16:36,281 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:16:40,002 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 11419, 'output_tokens': 4073, 'total_tokens': 15492})
+2026-05-13 14:16:55,459 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1722, 'output_tokens': 1030, 'total_tokens': 2752})
+2026-05-13 14:16:55,460 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'pod-cpu-hog': 1 runs, 1 fault types
+2026-05-13 14:16:55,460 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='pod-memory-hog', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:16:55,460 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 2 documents for fault_category='pod-memory-hog', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:16:55,461 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 7 metrics
+2026-05-13 14:16:55,461 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:16:55,462 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:16:58,718 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:16:59,736 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:17:00,102 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:17:07,072 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:17:07,439 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:17:09,126 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:17:15,318 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:17:16,908 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:17:17,165 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:17:23,784 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:17:25,638 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:17:26,799 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:17:33,671 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 14031, 'output_tokens': 4191, 'total_tokens': 18222})
+2026-05-13 14:17:47,089 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1754, 'output_tokens': 1147, 'total_tokens': 2901})
+2026-05-13 14:17:47,094 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'pod-memory-hog': 2 runs, 1 fault types
+2026-05-13 14:17:47,095 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:17:47,095 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 32 documents for fault_category='resource', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:17:47,096 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:17:47,097 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:17:47,097 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9688}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:17:53,188 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:17:58,409 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:17:58,609 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:18:11,650 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:18:14,853 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:18:20,074 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:18:28,786 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:18:29,864 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:18:30,146 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:18:39,596 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:18:39,720 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:18:41,167 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:18:45,189 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 142208, 'output_tokens': 5089, 'total_tokens': 147297})
+2026-05-13 14:19:03,019 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2029, 'output_tokens': 1400, 'total_tokens': 3429})
+2026-05-13 14:19:03,019 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource': 32 runs, 2 fault types
+2026-05-13 14:19:03,020 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource (CPU) stress', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:19:03,020 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='resource (CPU) stress', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:19:03,022 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:19:03,023 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:19:03,023 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:19:06,140 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:19:06,952 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:19:07,362 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:19:15,435 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:19:16,554 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:19:16,852 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:19:23,495 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:19:23,814 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:19:23,886 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:19:30,461 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:19:30,832 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:19:30,964 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:19:34,379 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 10553, 'output_tokens': 3801, 'total_tokens': 14354})
+2026-05-13 14:19:44,027 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1729, 'output_tokens': 943, 'total_tokens': 2672})
+2026-05-13 14:19:44,028 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource (CPU) stress': 1 runs, 1 fault types
+2026-05-13 14:19:44,028 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource (memory) fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:19:44,028 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='resource (memory) fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:19:44,029 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:19:44,029 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:19:44,029 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:19:46,828 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:19:47,815 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:19:48,192 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:19:54,136 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:19:56,967 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:19:57,386 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:20:03,576 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:20:03,663 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:20:03,881 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:20:09,777 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:20:11,015 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:20:11,670 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:20:15,222 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 9972, 'output_tokens': 3646, 'total_tokens': 13618})
+2026-05-13 14:20:29,753 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1689, 'output_tokens': 1036, 'total_tokens': 2725})
+2026-05-13 14:20:29,753 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource (memory) fault': 1 runs, 1 fault types
+2026-05-13 14:20:29,754 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource-exhaustion', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:20:29,755 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 5 documents for fault_category='resource-exhaustion', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:20:29,756 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:20:29,757 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:20:29,757 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:20:33,301 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:20:34,090 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:20:37,774 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:20:45,683 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:20:45,902 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:20:46,538 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:20:54,412 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:20:55,211 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:20:55,569 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:21:02,462 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:21:03,412 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:21:03,546 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:21:07,207 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 26827, 'output_tokens': 4785, 'total_tokens': 31612})
+2026-05-13 14:21:21,728 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1987, 'output_tokens': 1326, 'total_tokens': 3313})
+2026-05-13 14:21:21,729 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource-exhaustion': 5 runs, 1 fault types
+2026-05-13 14:21:21,729 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource-exhaustion-memory', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:21:21,730 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='resource-exhaustion-memory', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:21:21,730 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:21:21,731 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:21:21,731 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:21:25,906 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:21:28,304 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:21:28,942 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:21:34,136 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:21:36,251 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:21:36,559 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:21:45,620 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:21:45,970 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:21:47,063 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:21:57,487 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:21:57,861 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:21:59,954 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:22:06,124 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 9867, 'output_tokens': 3746, 'total_tokens': 13613})
+2026-05-13 14:22:26,784 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1746, 'output_tokens': 920, 'total_tokens': 2666})
+2026-05-13 14:22:26,785 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource-exhaustion-memory': 1 runs, 1 fault types
+2026-05-13 14:22:26,785 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource-pressure', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:22:26,786 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 2 documents for fault_category='resource-pressure', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:22:26,787 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:22:26,788 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:22:26,788 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:22:32,244 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:22:32,630 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:22:32,771 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:22:42,811 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:22:43,304 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:22:43,538 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:22:54,912 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:22:54,993 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:22:57,921 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:23:08,392 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:23:08,949 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:23:10,305 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:23:19,104 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 15164, 'output_tokens': 4184, 'total_tokens': 19348})
+2026-05-13 14:23:43,894 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1836, 'output_tokens': 1123, 'total_tokens': 2959})
+2026-05-13 14:23:43,895 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource-pressure': 2 runs, 1 fault types
+2026-05-13 14:23:43,896 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource-stress', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:23:43,896 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 10 documents for fault_category='resource-stress', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:23:43,899 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:23:43,900 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:23:43,900 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.8}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:23:48,908 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:23:48,990 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:23:50,728 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:24:02,272 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:24:03,294 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:24:04,148 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:24:14,531 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:24:14,984 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:24:17,466 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:24:30,101 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:24:30,667 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:24:33,151 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:24:41,321 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 51425, 'output_tokens': 4984, 'total_tokens': 56409})
+2026-05-13 14:25:14,606 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1982, 'output_tokens': 1664, 'total_tokens': 3646})
+2026-05-13 14:25:14,607 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource-stress': 10 runs, 2 fault types
+2026-05-13 14:25:14,607 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource-stress-memory', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 14:25:14,608 - [aggregation.py : query_runs_by_fault_category : 223] - INFO - Found 1 documents for fault_category='resource-stress-memory', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 14:25:14,609 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 14:25:14,609 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 14:25:14,610 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': False, 'detection_rate': 0.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 14:25:18,877 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:25:19,002 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:25:19,110 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:25:27,214 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:25:28,364 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:25:28,391 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:25:38,086 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:25:38,103 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:25:38,759 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:25:47,671 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 14:25:48,686 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 14:25:52,803 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 14:26:00,643 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 10203, 'output_tokens': 3535, 'total_tokens': 13738})
+2026-05-13 14:26:18,256 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1679, 'output_tokens': 882, 'total_tokens': 2561})
+2026-05-13 14:26:18,257 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource-stress-memory': 1 runs, 1 fault types
+2026-05-13 14:26:18,257 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 16 fault categories
+2026-05-13 14:26:18,272 - [run_full_certification_pipeline.py : run_pipeline : 540] - INFO - ============================================================
+2026-05-13 14:26:18,272 - [run_full_certification_pipeline.py : run_pipeline : 541] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-13 14:26:18,272 - [run_full_certification_pipeline.py : run_pipeline : 542] - INFO - ============================================================
+2026-05-13 14:26:18,295 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource-exhaustion=5, resource=32, network=31, CPU=2, memory=4, pod-memory-hog=2, resource-stress=10, experiment=7, CPU resource fault=1, network-loss=1, resource-pressure=2, resource (memory) fault=1, resource-exhaustion-memory=1, pod-cpu-hog=1, resource (CPU) stress=1, resource-stress-memory=1
+2026-05-13 14:26:33,199 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 265] - INFO - Per-category min-runs gate failed: Insufficient total runs per category (need 30 each): resource-exhaustion: 5 runs (need 30); CPU: 2 runs (need 30); memory: 4 runs (need 30); pod-memory-hog: 2 runs (need 30); resource-stress: 10 runs (need 30); experiment: 7 runs (need 30); CPU resource fault: 1 runs (need 30); network-loss: 1 runs (need 30); resource-pressure: 2 runs (need 30); resource (memory) fault: 1 runs (need 30); resource-exhaustion-memory: 1 runs (need 30); pod-cpu-hog: 1 runs (need 30); resource (CPU) stress: 1 runs (need 30); resource-stress-memory: 1 runs (need 30)
+2026-05-13 14:26:33,200 - [run_full_certification_pipeline.py : run_pipeline : 565] - INFO - statistical_hypothesis status: skipped
+2026-05-13 14:26:33,202 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\pipeline2_output\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-13 14:26:33,203 - [run_full_certification_pipeline.py : run_pipeline : 593] - INFO - ============================================================
+2026-05-13 14:26:33,203 - [run_full_certification_pipeline.py : run_pipeline : 594] - INFO - STEP 3: Certification
+2026-05-13 14:26:33,203 - [run_full_certification_pipeline.py : run_pipeline : 595] - INFO - ============================================================
+2026-05-13 14:30:19,891 - [run_full_certification_pipeline.py : run_pipeline : 614] - INFO - Certification report written to data\output\12-05-26-aarya\pipeline2_output\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-13 14:30:19,893 - [run_full_certification_pipeline.py : run_pipeline : 637] - INFO - ============================================================
+2026-05-13 14:30:19,894 - [run_full_certification_pipeline.py : run_pipeline : 638] - INFO - Pipeline Complete
+2026-05-13 14:30:19,895 - [run_full_certification_pipeline.py : run_pipeline : 639] - INFO - ============================================================
+2026-05-13 14:30:19,895 - [run_full_certification_pipeline.py : run_pipeline : 640] - INFO -   Agent              : unknown (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-13 14:30:19,895 - [run_full_certification_pipeline.py : run_pipeline : 641] - INFO -   Fault categories   : 16
+2026-05-13 14:30:19,895 - [run_full_certification_pipeline.py : run_pipeline : 642] - INFO -   Per-run documents  : 102
+2026-05-13 14:30:19,895 - [run_full_certification_pipeline.py : run_pipeline : 643] - INFO -   Advanced analysis  : True
+2026-05-13 14:30:19,896 - [run_full_certification_pipeline.py : run_pipeline : 644] - INFO -   Hypothesis status  : skipped
+2026-05-13 14:30:19,896 - [run_full_certification_pipeline.py : run_pipeline : 647] - INFO -   Output directory   : data\output\12-05-26-aarya\pipeline2_output
+2026-05-13 14:30:19,896 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-13 14:30:19,896 - [run_full_certification_pipeline.py : run_pipeline : 657] - INFO - LLM client connection closed.
+2026-05-13 15:11:20,945 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 15:11:21,176 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 15:11:21,401 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 15:11:21,401 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 15:11:21,402 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-13 15:11:21,402 - [run_full_certification_pipeline.py : run_pipeline : 460] - INFO - STEP 1: Aggregation
+2026-05-13 15:11:21,402 - [run_full_certification_pipeline.py : run_pipeline : 461] - INFO - ============================================================
+2026-05-13 15:11:24,656 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-25-aarya
+2026-05-13 15:11:24,657 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 15:11:24,658 - [run_full_certification_pipeline.py : run_pipeline : 474] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:11:24,678 - [run_full_certification_pipeline.py : _group_docs_by_category : 187] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31, experiment=7, network-loss=1, pod-cpu-hog=1
+2026-05-13 15:11:24,678 - [run_full_certification_pipeline.py : run_pipeline : 495] - INFO - Found canonical fault categories: ['experiment', 'network-loss', 'network_fault', 'pod-cpu-hog', 'resource_fault']
+2026-05-13 15:11:24,700 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-13 15:11:24,700 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-13 15:11:24,700 - [aggregation.py : aggregate_all : 592] - INFO - Found 5 fault categories: ['experiment', 'network-loss', 'network_fault', 'pod-cpu-hog', 'resource_fault']
+2026-05-13 15:11:24,700 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='experiment', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:11:24,701 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 7 metrics
+2026-05-13 15:11:24,701 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 0.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 1.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 15:11:24,701 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': False, 'detection_rate': 0.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:11:29,694 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:11:29,825 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:11:30,007 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:11:35,975 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:11:36,619 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:11:36,874 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:11:43,653 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:11:44,098 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:11:46,199 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:11:53,261 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:11:53,474 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:11:54,311 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:11:57,255 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 17364, 'output_tokens': 3968, 'total_tokens': 21332})
+2026-05-13 15:12:09,000 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1630, 'output_tokens': 1081, 'total_tokens': 2711})
+2026-05-13 15:12:09,000 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'experiment': 7 runs, 1 fault types
+2026-05-13 15:12:09,001 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network-loss', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:12:09,002 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 15:12:09,002 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 15:12:09,003 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:12:12,441 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:12:12,734 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:12:13,111 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:12:19,878 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:12:20,203 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:12:20,563 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:12:27,214 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:12:27,327 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:12:27,654 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:12:33,871 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:12:34,494 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:12:34,586 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:12:37,586 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 10270, 'output_tokens': 3753, 'total_tokens': 14023})
+2026-05-13 15:12:46,073 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1709, 'output_tokens': 818, 'total_tokens': 2527})
+2026-05-13 15:12:46,073 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network-loss': 1 runs, 1 fault types
+2026-05-13 15:12:46,074 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:12:46,075 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 15:12:46,077 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-13 15:12:46,077 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:12:52,941 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:12:53,816 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:12:54,202 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:13:02,719 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:13:05,245 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:13:05,658 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:13:17,962 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:13:18,455 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:13:20,861 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:13:34,391 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:13:35,378 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:13:36,690 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:13:41,097 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156573, 'output_tokens': 5180, 'total_tokens': 161753})
+2026-05-13 15:13:58,722 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2011, 'output_tokens': 1364, 'total_tokens': 3375})
+2026-05-13 15:13:58,727 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-13 15:13:58,727 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='pod-cpu-hog', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:13:58,728 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 7 metrics
+2026-05-13 15:13:58,728 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 15:13:58,728 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 1.0}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:14:02,945 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:14:04,120 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:14:04,347 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:14:13,161 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:14:13,225 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:14:13,259 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:14:23,450 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:14:23,513 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:14:24,041 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:14:34,004 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:14:34,463 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:14:35,573 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:14:39,678 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 11263, 'output_tokens': 3957, 'total_tokens': 15220})
+2026-05-13 15:14:49,217 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1751, 'output_tokens': 875, 'total_tokens': 2626})
+2026-05-13 15:14:49,218 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'pod-cpu-hog': 1 runs, 1 fault types
+2026-05-13 15:14:49,218 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:14:49,218 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 15:14:49,219 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 15:14:49,219 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:14:53,857 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:14:56,284 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:14:56,350 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:15:04,828 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:15:05,275 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:15:07,854 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:15:16,949 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:15:17,459 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:15:17,740 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:15:26,706 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:15:26,846 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:15:27,784 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:15:31,514 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271827, 'output_tokens': 5277, 'total_tokens': 277104})
+2026-05-13 15:15:46,807 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2125, 'output_tokens': 1372, 'total_tokens': 3497})
+2026-05-13 15:15:46,808 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-13 15:15:46,808 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 5 fault categories
+2026-05-13 15:15:46,812 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-13 15:15:46,812 - [run_full_certification_pipeline.py : run_pipeline : 589] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-13 15:15:46,813 - [run_full_certification_pipeline.py : run_pipeline : 590] - INFO - ============================================================
+2026-05-13 15:16:01,746 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 301] - INFO - Per-category min-runs gate failed: Insufficient total runs per category (need 30 each): experiment: 7 runs (need 30); network-loss: 1 runs (need 30); pod-cpu-hog: 1 runs (need 30)
+2026-05-13 15:16:01,746 - [run_full_certification_pipeline.py : run_pipeline : 607] - INFO - statistical_hypothesis status: skipped
+2026-05-13 15:16:01,748 - [run_full_certification_pipeline.py : run_pipeline : 630] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\pipeline2_output\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-13 15:16:01,748 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-13 15:16:01,749 - [run_full_certification_pipeline.py : run_pipeline : 636] - INFO - STEP 3: Certification
+2026-05-13 15:16:01,749 - [run_full_certification_pipeline.py : run_pipeline : 637] - INFO - ============================================================
+2026-05-13 15:17:19,590 - [run_full_certification_pipeline.py : run_pipeline : 656] - INFO - Certification report written to data\output\12-05-26-aarya\pipeline2_output\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-13 15:17:19,591 - [run_full_certification_pipeline.py : run_pipeline : 679] - INFO - ============================================================
+2026-05-13 15:17:19,593 - [run_full_certification_pipeline.py : run_pipeline : 680] - INFO - Pipeline Complete
+2026-05-13 15:17:19,593 - [run_full_certification_pipeline.py : run_pipeline : 681] - INFO - ============================================================
+2026-05-13 15:17:19,594 - [run_full_certification_pipeline.py : run_pipeline : 682] - INFO -   Agent              : demoinfra2 (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-13 15:17:19,594 - [run_full_certification_pipeline.py : run_pipeline : 683] - INFO -   Fault categories   : 5
+2026-05-13 15:17:19,594 - [run_full_certification_pipeline.py : run_pipeline : 684] - INFO -   Per-run documents  : 102
+2026-05-13 15:17:19,595 - [run_full_certification_pipeline.py : run_pipeline : 685] - INFO -   Advanced analysis  : True
+2026-05-13 15:17:19,595 - [run_full_certification_pipeline.py : run_pipeline : 686] - INFO -   Hypothesis status  : skipped
+2026-05-13 15:17:19,595 - [run_full_certification_pipeline.py : run_pipeline : 689] - INFO -   Output directory   : data\output\12-05-26-aarya\pipeline2_output
+2026-05-13 15:17:19,595 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-13 15:17:19,595 - [run_full_certification_pipeline.py : run_pipeline : 699] - INFO - LLM client connection closed.
+2026-05-13 15:25:22,912 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-13 15:25:23,196 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-13 15:25:23,488 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-13 15:25:23,489 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-13 15:25:23,489 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-13 15:25:23,492 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-13 15:25:23,492 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-13 15:25:23,590 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-25-aarya
+2026-05-13 15:25:23,590 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-25-aarya
+2026-05-13 15:25:23,591 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-13 15:25:23,592 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,593 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,593 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-13 15:25:23,593 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-13 15:25:23,593 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-13 15:25:23,593 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-13 15:25:23,594 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-13 15:25:23,594 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-13 15:25:23,594 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-13 15:25:23,595 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:25:23,596 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 15:25:23,596 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-13 15:25:23,596 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:25:29,648 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:25:29,962 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:25:30,223 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:25:42,778 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:25:43,335 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:25:43,806 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:25:51,030 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:25:51,122 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:25:51,906 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:26:06,184 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:26:07,032 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:26:07,545 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:26:11,682 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156529, 'output_tokens': 5103, 'total_tokens': 161632})
+2026-05-13 15:26:33,546 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1971, 'output_tokens': 1226, 'total_tokens': 3197})
+2026-05-13 15:26:33,546 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-13 15:26:33,547 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-13 15:26:33,550 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-13 15:26:33,550 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-13 15:26:33,573 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-13 15:26:38,295 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:26:39,477 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:26:44,457 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:26:55,871 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:26:56,182 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:26:58,336 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:27:11,035 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:27:11,051 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:27:12,850 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:27:23,223 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-13 15:27:24,404 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-13 15:27:25,681 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-13 15:27:30,100 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271925, 'output_tokens': 5372, 'total_tokens': 277297})
+2026-05-13 15:27:43,395 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2093, 'output_tokens': 1246, 'total_tokens': 3339})
+2026-05-13 15:27:43,397 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-13 15:27:43,397 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-13 15:27:43,403 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-13 15:27:43,403 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-13 15:27:43,425 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-13 15:27:47,559 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-13 15:27:47,576 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-25-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-13 15:28:07,469 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-13 15:28:07,474 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\pipeline2_output\ofc\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-13 15:28:07,477 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-13 15:28:07,478 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-13 15:28:07,479 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-13 15:29:00,908 - [run_full_certification_pipeline.py : run_pipeline : 654] - INFO - Certification report written to data\output\12-05-26-aarya\pipeline2_output\ofc\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-13 15:29:00,911 - [run_full_certification_pipeline.py : run_pipeline : 677] - INFO - ============================================================
+2026-05-13 15:29:00,915 - [run_full_certification_pipeline.py : run_pipeline : 678] - INFO - Pipeline Complete
+2026-05-13 15:29:00,916 - [run_full_certification_pipeline.py : run_pipeline : 679] - INFO - ============================================================
+2026-05-13 15:29:00,916 - [run_full_certification_pipeline.py : run_pipeline : 680] - INFO -   Agent              : demoinfra2 (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-13 15:29:00,916 - [run_full_certification_pipeline.py : run_pipeline : 681] - INFO -   Fault categories   : 2
+2026-05-13 15:29:00,917 - [run_full_certification_pipeline.py : run_pipeline : 682] - INFO -   Per-run documents  : 102
+2026-05-13 15:29:00,918 - [run_full_certification_pipeline.py : run_pipeline : 683] - INFO -   Advanced analysis  : True
+2026-05-13 15:29:00,919 - [run_full_certification_pipeline.py : run_pipeline : 684] - INFO -   Hypothesis status  : ok
+2026-05-13 15:29:00,919 - [run_full_certification_pipeline.py : run_pipeline : 687] - INFO -   Output directory   : data\output\12-05-26-aarya\pipeline2_output\ofc
+2026-05-13 15:29:00,920 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-13 15:29:00,920 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
