@@ -78,6 +78,17 @@ class EventClassification(BaseModel):
         default=0.0,
         description="Confidence score (0-1) for the classification.",
     )
+    unclassified_reason: Optional[str] = Field(
+        default=None,
+        description="If related_faults is empty and this is not a detection, "
+        "the reason why the event could not be classified (e.g., 'scaffolding span', "
+        "'no fault in flight').",
+    )
+    fault_reasoning: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping of fault_id → reasoning explanation for why this event "
+        "relates to each fault in related_faults.",
+    )
 
 
 class BatchClassificationResult(BaseModel):
@@ -103,6 +114,8 @@ class FaultBucket:
     detected_at: Optional[str] = None
     mitigated_at: Optional[str] = None
     injection_timestamp: Optional[str] = None
+    injection_end_timestamp: Optional[str] = None
+    injection_metadata: Optional[Dict[str, Any]] = None
     ground_truth: Optional[Dict[str, Any]] = None
     sla: Optional[Dict[str, Any]] = None
     ideal_course_of_action: Optional[List[Any]] = None
@@ -126,6 +139,8 @@ class FaultBucket:
             "detected_at": self.detected_at,
             "mitigated_at": self.mitigated_at,
             "injection_timestamp": self.injection_timestamp,
+            "injection_end_timestamp": self.injection_end_timestamp,
+            "injection_metadata": self.injection_metadata,
             "ground_truth": self.ground_truth,
             "sla": self.sla,
             "ideal_course_of_action": self.ideal_course_of_action,
