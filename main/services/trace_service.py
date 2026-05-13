@@ -174,7 +174,12 @@ def _fetch_langfuse_observations(
             # trace.get returns observations inline — one HTTP call per trace
             # instead of multiple paginated observation-endpoint pages
             full = client.api.trace.get(trace.id)
-            raw_obs = [o.model_dump() for o in (full.observations or [])]
+            # langfuse SDK 3.x returns pydantic v1 models (.dict()); fall back to
+            # .model_dump() for any future v2 migration.
+            raw_obs = [
+                (o.model_dump() if hasattr(o, "model_dump") else o.dict())
+                for o in (full.observations or [])
+            ]
         else:
             raw_obs = []
         all_observations.extend(_format_observations(raw_obs))
@@ -247,27 +252,36 @@ def _format_observations(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     tiers, etc.) are intentionally dropped to keep the dump compact.
     """
     depth_map = _compute_depths(raw)
+    # langfuse SDK 3.x serialises with camelCase keys (startTime, traceId, ...);
+    # earlier SDKs (and OTel exporters) use snake_case. Read both, prefer
+    # camelCase, so the pipeline works against either version.
+    def _g(o, camel, snake=None):
+        v = o.get(camel)
+        if v is None and snake is not None:
+            v = o.get(snake)
+        return v
+
     out = []
     for o in raw:
         out.append({
             "id": o.get("id"),
-            "traceId": o.get("trace_id"),
-            "parentObservationId": o.get("parent_observation_id"),
+            "traceId": _g(o, "traceId", "trace_id"),
+            "parentObservationId": _g(o, "parentObservationId", "parent_observation_id"),
             "type": o.get("type"),
             "name": o.get("name"),
             "level": o.get("level"),
-            "statusMessage": o.get("status_message"),
-            "startTime": _fmt_ts(o.get("start_time")),
-            "endTime": _fmt_ts(o.get("end_time")),
-            "completionStartTime": _fmt_ts(o.get("completion_start_time")),
+            "statusMessage": _g(o, "statusMessage", "status_message"),
+            "startTime": _fmt_ts(_g(o, "startTime", "start_time")),
+            "endTime": _fmt_ts(_g(o, "endTime", "end_time")),
+            "completionStartTime": _fmt_ts(_g(o, "completionStartTime", "completion_start_time")),
             "depth": depth_map.get(o.get("id", ""), 0),
             "model": o.get("model"),
-            "modelParameters": _to_json_str(o.get("model_parameters")),
+            "modelParameters": _to_json_str(_g(o, "modelParameters", "model_parameters")),
             "usage": _to_json_str(o.get("usage")),
-            "usageDetails": _to_json_str(o.get("usage_details")),
-            "costDetails": _to_json_str(o.get("cost_details")),
+            "usageDetails": _to_json_str(_g(o, "usageDetails", "usage_details")),
+            "costDetails": _to_json_str(_g(o, "costDetails", "cost_details")),
             "latency": o.get("latency"),
-            "timeToFirstToken": o.get("time_to_first_token"),
+            "timeToFirstToken": _g(o, "timeToFirstToken", "time_to_first_token"),
             "input": _to_json_str(o.get("input")),
             "output": _to_json_str(o.get("output")),
             "metadata": _to_json_str(o.get("metadata")),
@@ -283,8 +297,13 @@ def _compute_depths(observations: List[Dict[str, Any]]) -> Dict[str, int]:
     deeply nested traces.  Observations whose parent is not in the set are
     treated as roots (depth 0).
     """
-    # Build a parent lookup: obs_id → parent_observation_id (or None for roots)
-    parent_map = {o["id"]: o.get("parent_observation_id") for o in observations}
+    # Build a parent lookup: obs_id → parent_observation_id (or None for roots).
+    # langfuse SDK 3.x emits camelCase (parentObservationId); older emitters
+    # use snake_case.
+    parent_map = {
+        o["id"]: (o.get("parentObservationId") or o.get("parent_observation_id"))
+        for o in observations
+    }
     cache: Dict[str, int] = {}
 
     def depth(obs_id: str) -> int:

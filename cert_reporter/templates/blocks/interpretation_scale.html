@@ -1,0 +1,11 @@
+{# blocks/interpretation_scale.html — horizontal legend of interpretation bands.
+   Expects: {type:"interpretation_scale", title?, bands:["0 – 3 Poor", "4 – 5 Fair", ...]} #}
+{% set bands = block.bands | default([]) %}
+{% if block.title %}
+<div class="interp-scale-title">{{ block.title }}</div>
+{% endif %}
+<div class="interpretation-scale">
+  {% for b in bands %}
+  <span class="interp-band">{{ b }}</span>
+  {% endfor %}
+</div>

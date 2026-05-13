@@ -1,55 +1,63 @@
 # =============================================================================
-# AgentCert — Docker Compose
+# Certifier — Docker Compose
 #
-# Services:
-#   app    – AgentCert FastAPI application
-#   mongo  – MongoDB 7 (task tracking + metrics storage)
+# Service exposed on the host:
+#   app  – Certifier FastAPI application  http://localhost:${API_PORT:-8000}/
+#          Swagger UI at /docs, OpenAPI at /openapi.json
+#
+# MongoDB is NOT bundled here. The app uses the shared monorepo mongo started
+# by `scripts/start-local-services.sh` (admin:1234 replSet rs0). Inside the
+# container the host mongo is reachable via `host.docker.internal` thanks to
+# the `extra_hosts: host-gateway` mapping below.
 #
 # Quick start:
-#   1. cp .env.example .env  && fill in Azure credentials
-#   2. docker compose up --build
-#   3. API available at http://localhost:${API_PORT:-8000}
-#      Docs at          http://localhost:${API_PORT:-8000}/docs
+#   1. Ensure /srv/projects/ace-monorepo/.env has the certifier block filled in.
+#   2. Bring up the shared mongo first:
+#        ../scripts/start-local-services.sh --only-mongo
+#   3. Then start the certifier:
+#        docker compose --env-file ../.env up --build -d
+#      (or `scripts/start-local-services.sh --only-certifier`)
+#   4. Open http://localhost:${API_PORT:-8000}/docs
 #
-# The `app` service connects to Mongo via the internal Docker network using the
-# hostname `mongo`; MONGODB_CONNECTION_STRING is overridden in the environment
-# block below, so you do NOT need to change it in your .env file.
+# Override the mongo connection string from outside via CERTIFIER_MONGODB_URI
+# if the certifier needs to talk to a different mongo (e.g. a cloud cluster).
 # =============================================================================
 
 services:
 
-  # ── AgentCert API ───────────────────────────────────────────────────────────
+  # ── Certifier API ──────────────────────────────────────────────────────────
   app:
     build:
       context: .
       dockerfile: Dockerfile
       # Target the final runtime stage (skips re-running builder on plain `up`)
       target: runtime
-    image: agentcert:latest
-    container_name: agentcert_app
+    # Override CERTIFIER_IMAGE in your env to pull a published image instead
+    # of building from this Dockerfile. e.g. CERTIFIER_IMAGE=agentcert/certifier:latest
+    image: ${CERTIFIER_IMAGE:-certifier:latest}
+    container_name: certifier_app
     restart: unless-stopped
     ports:
-      # Both sides use API_PORT so changing the variable is the only thing needed
       - "${API_PORT:-8000}:${API_PORT:-8000}"
     env_file:
-      # Load all Azure credentials and optional overrides from your .env file
-      - .env
+      # Sole source of env: the monorepo-root .env
+      - ../.env
     environment:
-      # Override the MongoDB URI so the app connects to the `mongo` service
-      # inside the Docker network, regardless of what .env says
-      MONGODB_CONNECTION_STRING: "mongodb://mongo:27017/${MONGODB_DATABASE:-agentcert}"
+      # Default points at the script-managed shared mongo (auth + replSet) over
+      # host.docker.internal so the same value works inside and outside compose.
+      # Override with CERTIFIER_MONGODB_URI if you need a different mongo.
+      # `directConnection=true` is required: the shared mongo's replica-set
+      # config advertises `host: "localhost:27017"`, which is unreachable from
+      # inside this container. Direct-connect bypasses topology discovery and
+      # uses the seed host as-is.
+      MONGODB_CONNECTION_STRING: "${CERTIFIER_MONGODB_URI:-mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASS:-1234}@host.docker.internal:27017/${MONGODB_DATABASE:-agentcert}?authSource=admin&directConnection=true}"
       PYTHONPATH: /app
-      # Expose the port to the container so settings.py picks it up via API_PORT
       API_PORT: "${API_PORT:-8000}"
-      # Workspace dirs are inside the container; bind-mounted below
       WORKSPACE_DIR: /app/workspace
       CERT_WORKSPACE_DIR: /app/workspace/cert
     volumes:
       # Persist pipeline output (traces, metrics, reports) on the host
       - ./workspace:/app/workspace
-    depends_on:
-      mongo:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "sh", "-c",
              "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${API_PORT:-8000}/docs')\""]
@@ -57,31 +65,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
-
-  # ── MongoDB ─────────────────────────────────────────────────────────────────
-  mongo:
-    image: mongo:7
-    container_name: agentcert_mongo
-    restart: unless-stopped
-    ports:
-      # Expose on host so you can connect with Compass / mongosh during development.
-      # Remove or restrict this in production.
-      - "27017:27017"
-    environment:
-      # Set credentials here for production; remove ALLOW_EMPTY_PASSWORD for prod.
-      MONGO_INITDB_DATABASE: "${MONGODB_DATABASE:-agentcert}"
-    volumes:
-      # Named volume keeps data across `docker compose down` restarts
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-
-volumes:
-  # Persistent MongoDB data — survives container restarts
-  mongo_data:
-    driver: local
+    # Allow the container to reach host-bound services (mongo, Langfuse, LiteLLM)
+    # via "host.docker.internal" on Linux too.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

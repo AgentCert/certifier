@@ -1,0 +1,52 @@
+{# blocks/category_panel.html — per-category panel with summary stats + dimension assessments.
+   Expects: {type:"category_panel",
+             category, fault, runs,
+             detection_rate_pct, mitigation_rate_pct,
+             reasoning_score, response_quality_score,
+             dimensions:[{title, rating, confidence, agreement, body}]} #}
+<div class="category-panel">
+  <div class="category-panel__header">
+    <div class="category-panel__title">{{ (block.category | default('')) | replace('_', ' ') | title }}</div>
+    {% if block.fault %}<div class="category-panel__fault">{{ block.fault }}</div>{% endif %}
+  </div>
+  <table class="category-panel__summary">
+    <tbody>
+      {% if block.runs is defined and block.runs is not none %}
+      <tr><th>Runs</th><td>{{ block.runs }}</td></tr>
+      {% endif %}
+      {% if block.detection_rate_pct is defined and block.detection_rate_pct is not none %}
+      <tr><th>Detection rate</th><td>{{ block.detection_rate_pct | fmt_num }}%</td></tr>
+      {% endif %}
+      {% if block.mitigation_rate_pct is defined and block.mitigation_rate_pct is not none %}
+      <tr><th>Mitigation rate</th><td>{{ block.mitigation_rate_pct | fmt_num }}%</td></tr>
+      {% endif %}
+      {% if block.reasoning_score is defined and block.reasoning_score is not none %}
+      <tr><th>Reasoning score</th><td>{{ block.reasoning_score | fmt_num }}</td></tr>
+      {% endif %}
+      {% if block.response_quality_score is defined and block.response_quality_score is not none %}
+      <tr><th>Response quality</th><td>{{ block.response_quality_score | fmt_num }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% for d in block.dimensions | default([]) %}
+  <div class="category-panel__dim">
+    <div class="category-panel__dim-head">
+      <span class="category-panel__dim-title">{{ d.title | default('') }}</span>
+      <span class="category-panel__dim-meta">
+        {% if d.rating %}{{ tag(d.rating, kind="severity") }}{% endif %}
+        {% if d.confidence %}<span class="dim-meta-item">Confidence: {{ d.confidence }}</span>{% endif %}
+        {% if d.agreement is defined and d.agreement is not none %}
+        <span class="dim-meta-item">Agreement:
+          {%- if d.agreement is number %} {{ (d.agreement * 100) | int }}%
+          {%- else %} {{ d.agreement }}
+          {%- endif -%}
+        </span>
+        {% endif %}
+      </span>
+    </div>
+    {% if d.body %}
+    <div class="category-panel__dim-body">{{ d.body | md }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
