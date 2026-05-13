@@ -1,0 +1,1208 @@
+{
+  "trace_file": "raw_trace.json",
+  "total_faults": 3,
+  "total_events_assigned": 71,
+  "other_detected_faults_count": 1,
+  "unclassified_event_count": 28,
+  "llm_tokens_used": {
+    "input_tokens": 86335,
+    "output_tokens": 1700,
+    "total_tokens": 88035
+  },
+  "buckets": [
+    {
+      "fault_id": "pod-cpu-hog",
+      "fault_name": "pod-cpu-hog",
+      "severity": null,
+      "target_pod": "name=carts",
+      "namespace": "sock-shop",
+      "status": "active",
+      "event_count": 19,
+      "detected_at": null,
+      "mitigated_at": null,
+      "injection_timestamp": "2026-05-11T14:54:17.000Z",
+      "injection_end_timestamp": "2026-05-11T15:01:19.000Z",
+      "injection_metadata": {
+        "name": "pod-cpu-hog",
+        "engine_name": "pod-cpu-hogxw2rx",
+        "namespace": "litmus",
+        "status": "injected",
+        "injection_timestamp": "2026-05-11T14:54:17.000Z",
+        "injection_end_timestamp": "2026-05-11T15:01:19.000Z",
+        "target": {
+          "namespace": "sock-shop",
+          "label": "name=carts",
+          "kind": "deployment",
+          "workload_ref": "Deployment/carts",
+          "degraded": false
+        },
+        "timing": {
+          "total_chaos_duration_sec": 300,
+          "ramp_time_sec": 30
+        },
+        "injection": {
+          "verdict": "Pass",
+          "phase": "Completed",
+          "probe_success_pct": "100"
+        },
+        "probes": [
+          {
+            "description": "The URL http://front-end.sock-shop.svc.cluster.local:80 did respond with correct status code. Actual code: '200'. Expected code: '200'",
+            "mode": "Edge",
+            "name": "check-frontend-access-url-SBLgU6DPRyq9ehEZ7o-pGg",
+            "type": "httpProbe",
+            "verdict": "Passed"
+          }
+        ],
+        "workflow": {
+          "sequence_mode": "sequential"
+        }
+      },
+      "ground_truth": {
+        "fault_description_goal_remediation": {
+          "goal": "Inject CPU stress on target pod containers to validate application resilience and auto-scaling behaviour under high CPU load.\n",
+          "remediation": "Identify pods with abnormal CPU consumption, kill stress processes inside affected containers, restart degraded pods, and adjust CPU limits or HPA thresholds to handle future CPU pressure.\n",
+          "symptoms": [
+            "High CPU usage on targeted pod containers",
+            "Application latency spikes or request timeouts",
+            "Pod CPU throttling observed in metrics",
+            "Warning events related to resource pressure in namespace",
+            "Container CPU usage reaches 100% on stressed cores"
+          ]
+        },
+        "ideal_course_of_action": [
+          {
+            "action": "List cluster events",
+            "detail": "List Kubernetes events across all namespaces to detect warnings related to CPU pressure, throttling, or pod scheduling failures.\n",
+            "step": 1
+          },
+          {
+            "action": "List pods in affected namespace",
+            "detail": "List all pods in the target namespace to identify pods in degraded, CrashLoopBackOff, or unhealthy state due to CPU exhaustion.\n",
+            "step": 2
+          },
+          {
+            "action": "Get affected pod details",
+            "detail": "Retrieve the full spec and status of the affected pod to confirm CPU resource limits, requests, and current conditions.\n",
+            "step": 3
+          },
+          {
+            "action": "Check pod resource consumption",
+            "detail": "Use metrics to check CPU and memory usage of pods in the namespace to identify which pods have abnormally high CPU consumption.\n",
+            "step": 4
+          },
+          {
+            "action": "Check node resource consumption",
+            "detail": "Get node-level resource usage to determine if the CPU hog is causing node-wide resource contention.\n",
+            "step": 5
+          },
+          {
+            "action": "Exec into pod to inspect processes",
+            "detail": "Execute 'top' or 'ps aux' inside the affected container to identify the stress process consuming CPU.\n",
+            "step": 6
+          },
+          {
+            "action": "Get pod logs",
+            "detail": "Retrieve logs from the affected pod to identify application-level errors caused by CPU starvation (e.g., timeouts, slow responses).\n",
+            "step": 7
+          },
+          {
+            "action": "Query Prometheus for CPU metrics",
+            "detail": "Execute a PromQL query for container CPU usage metrics (e.g., container_cpu_usage_seconds_total) to confirm CPU spike trend.\n",
+            "step": 8
+          },
+          {
+            "action": "Kill stress process in container",
+            "detail": "Exec into the affected container and kill the stress-ng or md5sum process to stop the CPU hog injection.\n",
+            "step": 9
+          },
+          {
+            "action": "Delete degraded pods",
+            "detail": "Delete pods stuck in unhealthy state so the controller can recreate them cleanly.\n",
+            "step": 10
+          },
+          {
+            "action": "Verify deployment health",
+            "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+            "step": 11
+          },
+          {
+            "action": "Adjust CPU limits or scaling policy",
+            "detail": "Update the workload spec to adjust CPU limits/requests or configure HPA to handle future CPU pressure scenarios.\n",
+            "step": 12
+          }
+        ],
+        "ideal_tool_usage_trajectory": [
+          {
+            "command": "events list --all-namespaces",
+            "purpose": "Detect CPU pressure, throttling, and resource-related warning events",
+            "step": 1,
+            "tool": "Events: List",
+            "tool_available": true
+          },
+          {
+            "command": "pods list --namespace <target-namespace>",
+            "purpose": "Identify pods in degraded or error state in the affected namespace",
+            "step": 2,
+            "tool": "Pods: List in Namespace",
+            "tool_available": true
+          },
+          {
+            "command": "pods get --namespace <target-namespace> --name <pod-name>",
+            "purpose": "Inspect pod spec, status conditions, and CPU resource limits",
+            "step": 3,
+            "tool": "Pods: Get",
+            "tool_available": true
+          },
+          {
+            "command": "pods top --namespace <target-namespace>",
+            "purpose": "Check CPU and memory consumption of pods to pinpoint the CPU hog",
+            "step": 4,
+            "tool": "Pods: Top",
+            "tool_available": true
+          },
+          {
+            "command": "nodes top",
+            "purpose": "Check node-level CPU usage to assess cluster-wide impact",
+            "step": 5,
+            "tool": "Nodes: Top",
+            "tool_available": true
+          },
+          {
+            "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'top -bn1'",
+            "purpose": "Identify stress processes consuming CPU inside the container",
+            "step": 6,
+            "tool": "Pods: Exec",
+            "tool_available": true
+          },
+          {
+            "command": "pods log --namespace <target-namespace> --name <pod-name>",
+            "purpose": "Retrieve application logs to find CPU-related errors (timeouts, slow responses)",
+            "step": 7,
+            "tool": "Pods: Log",
+            "tool_available": true
+          },
+          {
+            "command": "promql query --query 'rate(container_cpu_usage_seconds_total{namespace=\"<target-namespace>\", pod=\"<pod-name>\"}[5m])'",
+            "purpose": "Query container CPU usage rate to confirm the CPU spike and its duration",
+            "step": 8,
+            "tool": "Execute PromQL Query",
+            "tool_available": true
+          },
+          {
+            "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'kill -9 $(pgrep -f stress)'",
+            "purpose": "Kill the stress process to stop CPU consumption and restore normal operation",
+            "step": 9,
+            "tool": "Pods: Exec",
+            "tool_available": true
+          },
+          {
+            "command": "pods delete --namespace <target-namespace> --name <pod-name>",
+            "purpose": "Delete degraded pods so the controller recreates them in a healthy state",
+            "step": 10,
+            "tool": "Pods: Delete",
+            "tool_available": true
+          },
+          {
+            "command": "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>",
+            "purpose": "Verify deployment health and confirm all replicas are running",
+            "step": 11,
+            "tool": "Resources: Get",
+            "tool_available": true
+          },
+          {
+            "command": "resources update --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name> --cpu-limit <new-limit>",
+            "purpose": "Adjust CPU limits in the workload spec to handle future CPU pressure",
+            "step": 12,
+            "tool": "Resources: Create or Update",
+            "tool_available": true
+          },
+          {
+            "command": "kubectl autoscale deployment/<deployment-name> --namespace <target-namespace> --cpu-percent=70 --min=2 --max=10",
+            "purpose": "Set up horizontal pod autoscaler to auto-scale under CPU pressure",
+            "step": 13,
+            "tool": "Configure HPA",
+            "tool_available": false
+          },
+          {
+            "command": "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>",
+            "purpose": "Restart the deployment to apply updated CPU limits and ensure clean pod state",
+            "step": 14,
+            "tool": "Restart Deployment",
+            "tool_available": false
+          }
+        ]
+      },
+      "sla": null,
+      "ideal_course_of_action": [
+        {
+          "action": "List cluster events",
+          "detail": "List Kubernetes events across all namespaces to detect warnings related to CPU pressure, throttling, or pod scheduling failures.\n",
+          "step": 1
+        },
+        {
+          "action": "List pods in affected namespace",
+          "detail": "List all pods in the target namespace to identify pods in degraded, CrashLoopBackOff, or unhealthy state due to CPU exhaustion.\n",
+          "step": 2
+        },
+        {
+          "action": "Get affected pod details",
+          "detail": "Retrieve the full spec and status of the affected pod to confirm CPU resource limits, requests, and current conditions.\n",
+          "step": 3
+        },
+        {
+          "action": "Check pod resource consumption",
+          "detail": "Use metrics to check CPU and memory usage of pods in the namespace to identify which pods have abnormally high CPU consumption.\n",
+          "step": 4
+        },
+        {
+          "action": "Check node resource consumption",
+          "detail": "Get node-level resource usage to determine if the CPU hog is causing node-wide resource contention.\n",
+          "step": 5
+        },
+        {
+          "action": "Exec into pod to inspect processes",
+          "detail": "Execute 'top' or 'ps aux' inside the affected container to identify the stress process consuming CPU.\n",
+          "step": 6
+        },
+        {
+          "action": "Get pod logs",
+          "detail": "Retrieve logs from the affected pod to identify application-level errors caused by CPU starvation (e.g., timeouts, slow responses).\n",
+          "step": 7
+        },
+        {
+          "action": "Query Prometheus for CPU metrics",
+          "detail": "Execute a PromQL query for container CPU usage metrics (e.g., container_cpu_usage_seconds_total) to confirm CPU spike trend.\n",
+          "step": 8
+        },
+        {
+          "action": "Kill stress process in container",
+          "detail": "Exec into the affected container and kill the stress-ng or md5sum process to stop the CPU hog injection.\n",
+          "step": 9
+        },
+        {
+          "action": "Delete degraded pods",
+          "detail": "Delete pods stuck in unhealthy state so the controller can recreate them cleanly.\n",
+          "step": 10
+        },
+        {
+          "action": "Verify deployment health",
+          "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+          "step": 11
+        },
+        {
+          "action": "Adjust CPU limits or scaling policy",
+          "detail": "Update the workload spec to adjust CPU limits/requests or configure HPA to handle future CPU pressure scenarios.\n",
+          "step": 12
+        }
+      ],
+      "ideal_tool_usage_trajectory": [
+        {
+          "command": "events list --all-namespaces",
+          "purpose": "Detect CPU pressure, throttling, and resource-related warning events",
+          "step": 1,
+          "tool": "Events: List",
+          "tool_available": true
+        },
+        {
+          "command": "pods list --namespace <target-namespace>",
+          "purpose": "Identify pods in degraded or error state in the affected namespace",
+          "step": 2,
+          "tool": "Pods: List in Namespace",
+          "tool_available": true
+        },
+        {
+          "command": "pods get --namespace <target-namespace> --name <pod-name>",
+          "purpose": "Inspect pod spec, status conditions, and CPU resource limits",
+          "step": 3,
+          "tool": "Pods: Get",
+          "tool_available": true
+        },
+        {
+          "command": "pods top --namespace <target-namespace>",
+          "purpose": "Check CPU and memory consumption of pods to pinpoint the CPU hog",
+          "step": 4,
+          "tool": "Pods: Top",
+          "tool_available": true
+        },
+        {
+          "command": "nodes top",
+          "purpose": "Check node-level CPU usage to assess cluster-wide impact",
+          "step": 5,
+          "tool": "Nodes: Top",
+          "tool_available": true
+        },
+        {
+          "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'top -bn1'",
+          "purpose": "Identify stress processes consuming CPU inside the container",
+          "step": 6,
+          "tool": "Pods: Exec",
+          "tool_available": true
+        },
+        {
+          "command": "pods log --namespace <target-namespace> --name <pod-name>",
+          "purpose": "Retrieve application logs to find CPU-related errors (timeouts, slow responses)",
+          "step": 7,
+          "tool": "Pods: Log",
+          "tool_available": true
+        },
+        {
+          "command": "promql query --query 'rate(container_cpu_usage_seconds_total{namespace=\"<target-namespace>\", pod=\"<pod-name>\"}[5m])'",
+          "purpose": "Query container CPU usage rate to confirm the CPU spike and its duration",
+          "step": 8,
+          "tool": "Execute PromQL Query",
+          "tool_available": true
+        },
+        {
+          "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'kill -9 $(pgrep -f stress)'",
+          "purpose": "Kill the stress process to stop CPU consumption and restore normal operation",
+          "step": 9,
+          "tool": "Pods: Exec",
+          "tool_available": true
+        },
+        {
+          "command": "pods delete --namespace <target-namespace> --name <pod-name>",
+          "purpose": "Delete degraded pods so the controller recreates them in a healthy state",
+          "step": 10,
+          "tool": "Pods: Delete",
+          "tool_available": true
+        },
+        {
+          "command": "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>",
+          "purpose": "Verify deployment health and confirm all replicas are running",
+          "step": 11,
+          "tool": "Resources: Get",
+          "tool_available": true
+        },
+        {
+          "command": "resources update --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name> --cpu-limit <new-limit>",
+          "purpose": "Adjust CPU limits in the workload spec to handle future CPU pressure",
+          "step": 12,
+          "tool": "Resources: Create or Update",
+          "tool_available": true
+        },
+        {
+          "command": "kubectl autoscale deployment/<deployment-name> --namespace <target-namespace> --cpu-percent=70 --min=2 --max=10",
+          "purpose": "Set up horizontal pod autoscaler to auto-scale under CPU pressure",
+          "step": 13,
+          "tool": "Configure HPA",
+          "tool_available": false
+        },
+        {
+          "command": "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>",
+          "purpose": "Restart the deployment to apply updated CPU limits and ensure clean pod state",
+          "step": 14,
+          "tool": "Restart Deployment",
+          "tool_available": false
+        }
+      ],
+      "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+      "agent_name": "demoinfra2",
+      "agent_version": "3.0.0",
+      "output_file": "raw_trace_bucket_pod-cpu-hog.json"
+    },
+    {
+      "fault_id": "pod-network-loss",
+      "fault_name": "pod-network-loss",
+      "severity": null,
+      "target_pod": "name=user-db",
+      "namespace": "sock-shop",
+      "status": "active",
+      "event_count": 28,
+      "detected_at": null,
+      "mitigated_at": null,
+      "injection_timestamp": "2026-05-11T15:01:29.000Z",
+      "injection_end_timestamp": "2026-05-11T15:08:31.000Z",
+      "injection_metadata": {
+        "name": "pod-network-loss",
+        "engine_name": "pod-network-lossmq8rl",
+        "namespace": "litmus",
+        "status": "injected",
+        "injection_timestamp": "2026-05-11T15:01:29.000Z",
+        "injection_end_timestamp": "2026-05-11T15:08:31.000Z",
+        "target": {
+          "namespace": "sock-shop",
+          "label": "name=user-db",
+          "kind": "statefulset",
+          "workload_ref": "Statefulset/user-db",
+          "degraded": false
+        },
+        "timing": {
+          "total_chaos_duration_sec": 300,
+          "ramp_time_sec": 30
+        },
+        "injection": {
+          "verdict": "Pass",
+          "phase": "Completed",
+          "probe_success_pct": "100"
+        },
+        "probes": [
+          {
+            "description": "The URL http://front-end.sock-shop.svc.cluster.local:80/cards did respond with correct status code. Actual code: '200'. Expected code: '200'",
+            "mode": "Edge",
+            "name": "check-cards-access-url-mZD8UbzGR8uP0SyAA6LzGw",
+            "type": "httpProbe",
+            "verdict": "Passed"
+          }
+        ],
+        "workflow": {
+          "sequence_mode": "sequential"
+        }
+      },
+      "ground_truth": {
+        "fault_description_goal_remediation": {
+          "goal": "Inject network packet loss on target pods to validate application resilience to degraded network conditions, retry logic, circuit breakers, and failover mechanisms.\n",
+          "remediation": "Identify pods experiencing packet loss. Inspect pod network configuration and container states. Delete affected pods to restore clean network state. Verify deployment health and confirm network connectivity resumes after chaos ends.\n",
+          "symptoms": [
+            "High packet loss or dropped connections to target pods",
+            "HTTP 5xx errors and request timeouts from dependent services",
+            "Increased latency and retransmissions on pod network interface",
+            "Warning events on target pods indicating network degradation",
+            "Service mesh or load balancer health checks failing for affected pods",
+            "Application logs showing connection timeouts and socket errors"
+          ]
+        },
+        "ideal_course_of_action": [
+          {
+            "action": "List cluster events",
+            "detail": "List Kubernetes events across all namespaces to detect network-related warnings, pod failures, or unhealthy endpoints triggered by the packet loss injection.\n",
+            "step": 1
+          },
+          {
+            "action": "List pods in affected namespace",
+            "detail": "List all pods in the target namespace to identify pods in degraded, Error, or CrashLoopBackOff state due to network loss.\n",
+            "step": 2
+          },
+          {
+            "action": "Get affected pod details",
+            "detail": "Retrieve the full spec and status of the affected pod to inspect container states, restart counts, and network configuration.\n",
+            "step": 3
+          },
+          {
+            "action": "Get pod logs",
+            "detail": "Retrieve logs from the affected pod to identify network-related errors such as connection timeouts, socket resets, and I/O errors.\n",
+            "step": 4
+          },
+          {
+            "action": "Exec into pod to check network connectivity",
+            "detail": "Execute network diagnostic commands (ping, curl) inside the pod to confirm packet loss on the network interface.\n",
+            "step": 5
+          },
+          {
+            "action": "Check pod resource consumption",
+            "detail": "Check CPU and memory usage of pods in the target namespace to correlate network issues with resource pressure.\n",
+            "step": 6
+          },
+          {
+            "action": "Check node-level network stats",
+            "detail": "Get node stats summary to inspect network usage at the node level and identify abnormal transmit/receive error counts.\n",
+            "step": 7
+          },
+          {
+            "action": "Query Prometheus for network error metrics",
+            "detail": "Execute a PromQL query for network-related metrics (e.g., container_network_transmit_errors_total) to quantify packet loss during the chaos window.\n",
+            "step": 8
+          },
+          {
+            "action": "Query Prometheus for HTTP error rate",
+            "detail": "Execute a PromQL query for HTTP 5xx error rates to measure application-level impact of the network packet loss.\n",
+            "step": 9
+          },
+          {
+            "action": "Delete affected pods",
+            "detail": "Delete pods stuck in error or degraded state so the controller recreates them with clean network configuration after chaos ends.\n",
+            "step": 10
+          },
+          {
+            "action": "Verify deployment health",
+            "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+            "step": 11
+          },
+          {
+            "action": "Scale deployment if needed",
+            "detail": "Scale the deployment to ensure sufficient healthy replicas are available to handle traffic after network recovery.\n",
+            "step": 12
+          },
+          {
+            "action": "Validate network connectivity restored",
+            "detail": "Exec into a pod and run connectivity checks (ping, curl) to confirm network packet loss has ceased.\n",
+            "step": 13
+          },
+          {
+            "action": "Confirm application recovery via Prometheus",
+            "detail": "Query Prometheus for HTTP error rates and latency to verify the application has fully recovered.\n",
+            "step": 14
+          }
+        ],
+        "ideal_tool_usage_trajectory": [
+          {
+            "command": "Events: List",
+            "purpose": "Detect network-related warnings, pod failures, and unhealthy endpoint events",
+            "step": 1,
+            "tool": "Events: List",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: List in Namespace namespace=<target-namespace>",
+            "purpose": "Identify pods in degraded or error state due to network packet loss",
+            "step": 2,
+            "tool": "Pods: List in Namespace",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: Get name=<affected-pod-name> namespace=<target-namespace>",
+            "purpose": "Inspect container states, restart counts, and network configuration of the affected pod",
+            "step": 3,
+            "tool": "Pods: Get",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: Log name=<affected-pod-name> namespace=<target-namespace>",
+            "purpose": "Retrieve application logs to find connection timeouts, socket errors, and I/O failures",
+            "step": 4,
+            "tool": "Pods: Log",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: Exec name=<affected-pod-name> namespace=<target-namespace> command='ping -c 4 <target-service> && curl -s -o /dev/null -w %{http_code} <target-service-url>'",
+            "purpose": "Verify packet loss and connectivity degradation from inside the affected pod",
+            "step": 5,
+            "tool": "Pods: Exec",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: Top namespace=<target-namespace>",
+            "purpose": "Check resource consumption of affected pods to rule out resource pressure",
+            "step": 6,
+            "tool": "Pods: Top",
+            "tool_available": true
+          },
+          {
+            "command": "Node: Stats Summary name=<node-name>",
+            "purpose": "Inspect node-level network stats to identify abnormal transmit/receive error counts",
+            "step": 7,
+            "tool": "Node: Stats Summary",
+            "tool_available": true
+          },
+          {
+            "command": "Execute PromQL Query query=sum(rate(container_network_transmit_errors_total{namespace='<target-namespace>'}[5m])) by (pod)",
+            "purpose": "Quantify network transmit errors during chaos injection window",
+            "step": 8,
+            "tool": "Execute PromQL Query",
+            "tool_available": true
+          },
+          {
+            "command": "Execute PromQL Query query=sum(rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m]))",
+            "purpose": "Measure HTTP 5xx error rate to assess application-level impact of packet loss",
+            "step": 9,
+            "tool": "Execute PromQL Query",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: Delete name=<affected-pod-name> namespace=<target-namespace>",
+            "purpose": "Delete error-state pods so the controller recreates them with clean network state",
+            "step": 10,
+            "tool": "Pods: Delete",
+            "tool_available": true
+          },
+          {
+            "command": "Resources: Get apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace>",
+            "purpose": "Verify deployment health and confirm all replicas are running after remediation",
+            "step": 11,
+            "tool": "Resources: Get",
+            "tool_available": true
+          },
+          {
+            "command": "Resources: Scale apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace> scale=<desired-replicas>",
+            "purpose": "Scale deployment to ensure sufficient healthy replicas after network recovery",
+            "step": 12,
+            "tool": "Resources: Scale",
+            "tool_available": true
+          },
+          {
+            "command": "Pods: Exec name=<pod-name> namespace=<target-namespace> command='ping -c 4 <target-service>'",
+            "purpose": "Validate network connectivity has recovered after chaos injection ends",
+            "step": 13,
+            "tool": "Pods: Exec",
+            "tool_available": true
+          },
+          {
+            "command": "Execute PromQL Query query=sum(rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m]))",
+            "purpose": "Confirm application recovery by verifying HTTP 5xx error rate has returned to zero",
+            "step": 14,
+            "tool": "Execute PromQL Query",
+            "tool_available": true
+          }
+        ]
+      },
+      "sla": null,
+      "ideal_course_of_action": [
+        {
+          "action": "List cluster events",
+          "detail": "List Kubernetes events across all namespaces to detect network-related warnings, pod failures, or unhealthy endpoints triggered by the packet loss injection.\n",
+          "step": 1
+        },
+        {
+          "action": "List pods in affected namespace",
+          "detail": "List all pods in the target namespace to identify pods in degraded, Error, or CrashLoopBackOff state due to network loss.\n",
+          "step": 2
+        },
+        {
+          "action": "Get affected pod details",
+          "detail": "Retrieve the full spec and status of the affected pod to inspect container states, restart counts, and network configuration.\n",
+          "step": 3
+        },
+        {
+          "action": "Get pod logs",
+          "detail": "Retrieve logs from the affected pod to identify network-related errors such as connection timeouts, socket resets, and I/O errors.\n",
+          "step": 4
+        },
+        {
+          "action": "Exec into pod to check network connectivity",
+          "detail": "Execute network diagnostic commands (ping, curl) inside the pod to confirm packet loss on the network interface.\n",
+          "step": 5
+        },
+        {
+          "action": "Check pod resource consumption",
+          "detail": "Check CPU and memory usage of pods in the target namespace to correlate network issues with resource pressure.\n",
+          "step": 6
+        },
+        {
+          "action": "Check node-level network stats",
+          "detail": "Get node stats summary to inspect network usage at the node level and identify abnormal transmit/receive error counts.\n",
+          "step": 7
+        },
+        {
+          "action": "Query Prometheus for network error metrics",
+          "detail": "Execute a PromQL query for network-related metrics (e.g., container_network_transmit_errors_total) to quantify packet loss during the chaos window.\n",
+          "step": 8
+        },
+        {
+          "action": "Query Prometheus for HTTP error rate",
+          "detail": "Execute a PromQL query for HTTP 5xx error rates to measure application-level impact of the network packet loss.\n",
+          "step": 9
+        },
+        {
+          "action": "Delete affected pods",
+          "detail": "Delete pods stuck in error or degraded state so the controller recreates them with clean network configuration after chaos ends.\n",
+          "step": 10
+        },
+        {
+          "action": "Verify deployment health",
+          "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+          "step": 11
+        },
+        {
+          "action": "Scale deployment if needed",
+          "detail": "Scale the deployment to ensure sufficient healthy replicas are available to handle traffic after network recovery.\n",
+          "step": 12
+        },
+        {
+          "action": "Validate network connectivity restored",
+          "detail": "Exec into a pod and run connectivity checks (ping, curl) to confirm network packet loss has ceased.\n",
+          "step": 13
+        },
+        {
+          "action": "Confirm application recovery via Prometheus",
+          "detail": "Query Prometheus for HTTP error rates and latency to verify the application has fully recovered.\n",
+          "step": 14
+        }
+      ],
+      "ideal_tool_usage_trajectory": [
+        {
+          "command": "Events: List",
+          "purpose": "Detect network-related warnings, pod failures, and unhealthy endpoint events",
+          "step": 1,
+          "tool": "Events: List",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: List in Namespace namespace=<target-namespace>",
+          "purpose": "Identify pods in degraded or error state due to network packet loss",
+          "step": 2,
+          "tool": "Pods: List in Namespace",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: Get name=<affected-pod-name> namespace=<target-namespace>",
+          "purpose": "Inspect container states, restart counts, and network configuration of the affected pod",
+          "step": 3,
+          "tool": "Pods: Get",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: Log name=<affected-pod-name> namespace=<target-namespace>",
+          "purpose": "Retrieve application logs to find connection timeouts, socket errors, and I/O failures",
+          "step": 4,
+          "tool": "Pods: Log",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: Exec name=<affected-pod-name> namespace=<target-namespace> command='ping -c 4 <target-service> && curl -s -o /dev/null -w %{http_code} <target-service-url>'",
+          "purpose": "Verify packet loss and connectivity degradation from inside the affected pod",
+          "step": 5,
+          "tool": "Pods: Exec",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: Top namespace=<target-namespace>",
+          "purpose": "Check resource consumption of affected pods to rule out resource pressure",
+          "step": 6,
+          "tool": "Pods: Top",
+          "tool_available": true
+        },
+        {
+          "command": "Node: Stats Summary name=<node-name>",
+          "purpose": "Inspect node-level network stats to identify abnormal transmit/receive error counts",
+          "step": 7,
+          "tool": "Node: Stats Summary",
+          "tool_available": true
+        },
+        {
+          "command": "Execute PromQL Query query=sum(rate(container_network_transmit_errors_total{namespace='<target-namespace>'}[5m])) by (pod)",
+          "purpose": "Quantify network transmit errors during chaos injection window",
+          "step": 8,
+          "tool": "Execute PromQL Query",
+          "tool_available": true
+        },
+        {
+          "command": "Execute PromQL Query query=sum(rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m]))",
+          "purpose": "Measure HTTP 5xx error rate to assess application-level impact of packet loss",
+          "step": 9,
+          "tool": "Execute PromQL Query",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: Delete name=<affected-pod-name> namespace=<target-namespace>",
+          "purpose": "Delete error-state pods so the controller recreates them with clean network state",
+          "step": 10,
+          "tool": "Pods: Delete",
+          "tool_available": true
+        },
+        {
+          "command": "Resources: Get apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace>",
+          "purpose": "Verify deployment health and confirm all replicas are running after remediation",
+          "step": 11,
+          "tool": "Resources: Get",
+          "tool_available": true
+        },
+        {
+          "command": "Resources: Scale apiVersion=apps/v1 kind=Deployment name=<deployment-name> namespace=<target-namespace> scale=<desired-replicas>",
+          "purpose": "Scale deployment to ensure sufficient healthy replicas after network recovery",
+          "step": 12,
+          "tool": "Resources: Scale",
+          "tool_available": true
+        },
+        {
+          "command": "Pods: Exec name=<pod-name> namespace=<target-namespace> command='ping -c 4 <target-service>'",
+          "purpose": "Validate network connectivity has recovered after chaos injection ends",
+          "step": 13,
+          "tool": "Pods: Exec",
+          "tool_available": true
+        },
+        {
+          "command": "Execute PromQL Query query=sum(rate(http_requests_total{namespace='<target-namespace>', code=~'5..'}[5m]))",
+          "purpose": "Confirm application recovery by verifying HTTP 5xx error rate has returned to zero",
+          "step": 14,
+          "tool": "Execute PromQL Query",
+          "tool_available": true
+        }
+      ],
+      "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+      "agent_name": "demoinfra2",
+      "agent_version": "3.0.0",
+      "output_file": "raw_trace_bucket_pod-network-loss.json"
+    },
+    {
+      "fault_id": "pod-memory-hog",
+      "fault_name": "pod-memory-hog",
+      "severity": null,
+      "target_pod": "name=orders",
+      "namespace": "sock-shop",
+      "status": "active",
+      "event_count": 24,
+      "detected_at": null,
+      "mitigated_at": null,
+      "injection_timestamp": "2026-05-11T15:08:41.000Z",
+      "injection_end_timestamp": "2026-05-11T15:15:44.000Z",
+      "injection_metadata": {
+        "name": "pod-memory-hog",
+        "engine_name": "pod-memory-hogl8ns9",
+        "namespace": "litmus",
+        "status": "injected",
+        "injection_timestamp": "2026-05-11T15:08:41.000Z",
+        "injection_end_timestamp": "2026-05-11T15:15:44.000Z",
+        "target": {
+          "namespace": "sock-shop",
+          "label": "name=orders",
+          "kind": "deployment",
+          "workload_ref": "Deployment/orders",
+          "degraded": false
+        },
+        "timing": {
+          "total_chaos_duration_sec": 300,
+          "ramp_time_sec": 30
+        },
+        "injection": {
+          "verdict": "Pass",
+          "phase": "Completed",
+          "probe_success_pct": "100"
+        },
+        "probes": [
+          {
+            "description": "The URL http://front-end.sock-shop.svc.cluster.local:80 did respond with correct status code. Actual code: '200'. Expected code: '200'",
+            "mode": "Edge",
+            "name": "check-frontend-access-url-XT0cX0x4RT2oXHYRkgIPAw",
+            "type": "httpProbe",
+            "verdict": "Passed"
+          }
+        ],
+        "workflow": {
+          "sequence_mode": "sequential"
+        }
+      },
+      "ground_truth": {
+        "fault_description_goal_remediation": {
+          "goal": "Inject memory stress on target pod containers to validate application resilience under high memory load and OOM-kill scenarios.\n",
+          "remediation": "Identify pods with abnormal memory consumption, kill stress processes inside affected containers, restart OOMKilled pods, and adjust memory limits or VPA policies to handle future memory pressure.\n",
+          "symptoms": [
+            "High memory usage on targeted pod containers",
+            "OOMKilled or CrashLoopBackOff status on affected pods",
+            "Application latency spikes or request failures",
+            "Warning events related to memory pressure in namespace",
+            "Container memory usage nearing or exceeding limits"
+          ]
+        },
+        "ideal_course_of_action": [
+          {
+            "action": "List cluster events",
+            "detail": "List Kubernetes events across all namespaces to detect OOMKilled warnings, memory pressure, and pod eviction events.\n",
+            "step": 1
+          },
+          {
+            "action": "List pods in affected namespace",
+            "detail": "List all pods in the target namespace to identify pods in OOMKilled, CrashLoopBackOff, or Evicted state.\n",
+            "step": 2
+          },
+          {
+            "action": "Get affected pod details",
+            "detail": "Retrieve the full spec and status of the affected pod to confirm memory resource limits, requests, and last termination reason.\n",
+            "step": 3
+          },
+          {
+            "action": "Check pod resource consumption",
+            "detail": "Use metrics to check memory usage of pods in the namespace to identify which pods have abnormally high memory consumption.\n",
+            "step": 4
+          },
+          {
+            "action": "Check node resource consumption",
+            "detail": "Get node-level resource usage to determine if the memory hog is causing node-wide memory pressure or evictions.\n",
+            "step": 5
+          },
+          {
+            "action": "Exec into pod to inspect processes",
+            "detail": "Execute 'top' or 'ps aux' inside the affected container to identify the stress process consuming memory.\n",
+            "step": 6
+          },
+          {
+            "action": "Get pod logs",
+            "detail": "Retrieve logs from the affected pod to identify application-level errors caused by memory starvation (e.g., OOM errors, crashes).\n",
+            "step": 7
+          },
+          {
+            "action": "Query Prometheus for memory metrics",
+            "detail": "Execute a PromQL query for container memory usage metrics (e.g., container_memory_working_set_bytes) to confirm memory spike.\n",
+            "step": 8
+          },
+          {
+            "action": "Kill stress process in container",
+            "detail": "Exec into the affected container and kill the stress-ng process to stop the memory hog injection.\n",
+            "step": 9
+          },
+          {
+            "action": "Delete degraded pods",
+            "detail": "Delete pods stuck in OOMKilled or CrashLoopBackOff state so the controller can recreate them cleanly.\n",
+            "step": 10
+          },
+          {
+            "action": "Verify deployment health",
+            "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+            "step": 11
+          },
+          {
+            "action": "Adjust memory limits or scaling policy",
+            "detail": "Update the workload spec to adjust memory limits/requests or configure VPA to handle future memory pressure scenarios.\n",
+            "step": 12
+          }
+        ],
+        "ideal_tool_usage_trajectory": [
+          {
+            "command": "events list --all-namespaces",
+            "purpose": "Detect OOMKilled, memory pressure, and eviction warning events",
+            "step": 1,
+            "tool": "Events: List",
+            "tool_available": true
+          },
+          {
+            "command": "pods list --namespace <target-namespace>",
+            "purpose": "Identify pods in OOMKilled, CrashLoopBackOff, or Evicted state",
+            "step": 2,
+            "tool": "Pods: List in Namespace",
+            "tool_available": true
+          },
+          {
+            "command": "pods get --namespace <target-namespace> --name <pod-name>",
+            "purpose": "Inspect pod spec, status conditions, and memory resource limits",
+            "step": 3,
+            "tool": "Pods: Get",
+            "tool_available": true
+          },
+          {
+            "command": "pods top --namespace <target-namespace>",
+            "purpose": "Check memory consumption of pods to pinpoint the memory hog",
+            "step": 4,
+            "tool": "Pods: Top",
+            "tool_available": true
+          },
+          {
+            "command": "nodes top",
+            "purpose": "Check node-level memory usage to assess cluster-wide impact",
+            "step": 5,
+            "tool": "Nodes: Top",
+            "tool_available": true
+          },
+          {
+            "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'top -bn1'",
+            "purpose": "Identify stress processes consuming memory inside the container",
+            "step": 6,
+            "tool": "Pods: Exec",
+            "tool_available": true
+          },
+          {
+            "command": "pods log --namespace <target-namespace> --name <pod-name>",
+            "purpose": "Retrieve application logs to find memory-related errors (OOM, crashes)",
+            "step": 7,
+            "tool": "Pods: Log",
+            "tool_available": true
+          },
+          {
+            "command": "promql query --query 'container_memory_working_set_bytes{namespace=\"<target-namespace>\", pod=\"<pod-name>\"}'",
+            "purpose": "Query container memory usage to confirm the memory spike and its magnitude",
+            "step": 8,
+            "tool": "Execute PromQL Query",
+            "tool_available": true
+          },
+          {
+            "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'kill -9 $(pgrep -f stress)'",
+            "purpose": "Kill the stress-ng process to stop memory consumption and restore normal operation",
+            "step": 9,
+            "tool": "Pods: Exec",
+            "tool_available": true
+          },
+          {
+            "command": "pods delete --namespace <target-namespace> --name <pod-name>",
+            "purpose": "Delete OOMKilled or degraded pods so the controller recreates them healthy",
+            "step": 10,
+            "tool": "Pods: Delete",
+            "tool_available": true
+          },
+          {
+            "command": "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>",
+            "purpose": "Verify deployment health and confirm all replicas are running",
+            "step": 11,
+            "tool": "Resources: Get",
+            "tool_available": true
+          },
+          {
+            "command": "resources update --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name> --memory-limit <new-limit>",
+            "purpose": "Adjust memory limits in the workload spec to handle future memory pressure",
+            "step": 12,
+            "tool": "Resources: Create or Update",
+            "tool_available": true
+          },
+          {
+            "command": "kubectl apply -f vpa.yaml --namespace <target-namespace>",
+            "purpose": "Set up vertical pod autoscaler to auto-adjust memory limits under pressure",
+            "step": 13,
+            "tool": "Configure VPA",
+            "tool_available": false
+          },
+          {
+            "command": "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>",
+            "purpose": "Restart the deployment to apply updated memory limits and ensure clean pod state",
+            "step": 14,
+            "tool": "Restart Deployment",
+            "tool_available": false
+          }
+        ]
+      },
+      "sla": null,
+      "ideal_course_of_action": [
+        {
+          "action": "List cluster events",
+          "detail": "List Kubernetes events across all namespaces to detect OOMKilled warnings, memory pressure, and pod eviction events.\n",
+          "step": 1
+        },
+        {
+          "action": "List pods in affected namespace",
+          "detail": "List all pods in the target namespace to identify pods in OOMKilled, CrashLoopBackOff, or Evicted state.\n",
+          "step": 2
+        },
+        {
+          "action": "Get affected pod details",
+          "detail": "Retrieve the full spec and status of the affected pod to confirm memory resource limits, requests, and last termination reason.\n",
+          "step": 3
+        },
+        {
+          "action": "Check pod resource consumption",
+          "detail": "Use metrics to check memory usage of pods in the namespace to identify which pods have abnormally high memory consumption.\n",
+          "step": 4
+        },
+        {
+          "action": "Check node resource consumption",
+          "detail": "Get node-level resource usage to determine if the memory hog is causing node-wide memory pressure or evictions.\n",
+          "step": 5
+        },
+        {
+          "action": "Exec into pod to inspect processes",
+          "detail": "Execute 'top' or 'ps aux' inside the affected container to identify the stress process consuming memory.\n",
+          "step": 6
+        },
+        {
+          "action": "Get pod logs",
+          "detail": "Retrieve logs from the affected pod to identify application-level errors caused by memory starvation (e.g., OOM errors, crashes).\n",
+          "step": 7
+        },
+        {
+          "action": "Query Prometheus for memory metrics",
+          "detail": "Execute a PromQL query for container memory usage metrics (e.g., container_memory_working_set_bytes) to confirm memory spike.\n",
+          "step": 8
+        },
+        {
+          "action": "Kill stress process in container",
+          "detail": "Exec into the affected container and kill the stress-ng process to stop the memory hog injection.\n",
+          "step": 9
+        },
+        {
+          "action": "Delete degraded pods",
+          "detail": "Delete pods stuck in OOMKilled or CrashLoopBackOff state so the controller can recreate them cleanly.\n",
+          "step": 10
+        },
+        {
+          "action": "Verify deployment health",
+          "detail": "Get the deployment resource to confirm desired replicas are running and the rollout is healthy after remediation.\n",
+          "step": 11
+        },
+        {
+          "action": "Adjust memory limits or scaling policy",
+          "detail": "Update the workload spec to adjust memory limits/requests or configure VPA to handle future memory pressure scenarios.\n",
+          "step": 12
+        }
+      ],
+      "ideal_tool_usage_trajectory": [
+        {
+          "command": "events list --all-namespaces",
+          "purpose": "Detect OOMKilled, memory pressure, and eviction warning events",
+          "step": 1,
+          "tool": "Events: List",
+          "tool_available": true
+        },
+        {
+          "command": "pods list --namespace <target-namespace>",
+          "purpose": "Identify pods in OOMKilled, CrashLoopBackOff, or Evicted state",
+          "step": 2,
+          "tool": "Pods: List in Namespace",
+          "tool_available": true
+        },
+        {
+          "command": "pods get --namespace <target-namespace> --name <pod-name>",
+          "purpose": "Inspect pod spec, status conditions, and memory resource limits",
+          "step": 3,
+          "tool": "Pods: Get",
+          "tool_available": true
+        },
+        {
+          "command": "pods top --namespace <target-namespace>",
+          "purpose": "Check memory consumption of pods to pinpoint the memory hog",
+          "step": 4,
+          "tool": "Pods: Top",
+          "tool_available": true
+        },
+        {
+          "command": "nodes top",
+          "purpose": "Check node-level memory usage to assess cluster-wide impact",
+          "step": 5,
+          "tool": "Nodes: Top",
+          "tool_available": true
+        },
+        {
+          "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'top -bn1'",
+          "purpose": "Identify stress processes consuming memory inside the container",
+          "step": 6,
+          "tool": "Pods: Exec",
+          "tool_available": true
+        },
+        {
+          "command": "pods log --namespace <target-namespace> --name <pod-name>",
+          "purpose": "Retrieve application logs to find memory-related errors (OOM, crashes)",
+          "step": 7,
+          "tool": "Pods: Log",
+          "tool_available": true
+        },
+        {
+          "command": "promql query --query 'container_memory_working_set_bytes{namespace=\"<target-namespace>\", pod=\"<pod-name>\"}'",
+          "purpose": "Query container memory usage to confirm the memory spike and its magnitude",
+          "step": 8,
+          "tool": "Execute PromQL Query",
+          "tool_available": true
+        },
+        {
+          "command": "pods exec --namespace <target-namespace> --name <pod-name> --command 'kill -9 $(pgrep -f stress)'",
+          "purpose": "Kill the stress-ng process to stop memory consumption and restore normal operation",
+          "step": 9,
+          "tool": "Pods: Exec",
+          "tool_available": true
+        },
+        {
+          "command": "pods delete --namespace <target-namespace> --name <pod-name>",
+          "purpose": "Delete OOMKilled or degraded pods so the controller recreates them healthy",
+          "step": 10,
+          "tool": "Pods: Delete",
+          "tool_available": true
+        },
+        {
+          "command": "resources get --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name>",
+          "purpose": "Verify deployment health and confirm all replicas are running",
+          "step": 11,
+          "tool": "Resources: Get",
+          "tool_available": true
+        },
+        {
+          "command": "resources update --apiVersion apps/v1 --kind Deployment --namespace <target-namespace> --name <deployment-name> --memory-limit <new-limit>",
+          "purpose": "Adjust memory limits in the workload spec to handle future memory pressure",
+          "step": 12,
+          "tool": "Resources: Create or Update",
+          "tool_available": true
+        },
+        {
+          "command": "kubectl apply -f vpa.yaml --namespace <target-namespace>",
+          "purpose": "Set up vertical pod autoscaler to auto-adjust memory limits under pressure",
+          "step": 13,
+          "tool": "Configure VPA",
+          "tool_available": false
+        },
+        {
+          "command": "kubectl rollout restart deployment/<deployment-name> --namespace <target-namespace>",
+          "purpose": "Restart the deployment to apply updated memory limits and ensure clean pod state",
+          "step": 14,
+          "tool": "Restart Deployment",
+          "tool_available": false
+        }
+      ],
+      "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+      "agent_name": "demoinfra2",
+      "agent_version": "3.0.0",
+      "output_file": "raw_trace_bucket_pod-memory-hog.json"
+    }
+  ]
+}
