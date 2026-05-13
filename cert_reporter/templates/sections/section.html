@@ -1,6 +1,29 @@
-{# sections/section.html — collapsible section using details/summary #}
+{# sections/section.html — collapsible section using details/summary.
+   Sections with number == 0 are "divider sections" (their content is
+   usually a single part_banner block); they render without a <details>
+   wrapper to avoid duplicating the title in three places (part-divider
+   from base.html, <summary>, and the banner block itself). #}
 {% set section_id = section.id | default('') %}
 {% set section_num = section.number | default('') %}
+{% set is_divider_section = (section_num == 0) %}
+
+{% macro render_blocks(content) %}
+  {% for block in content | default([]) %}
+    {% set raw_type = block.type | default('') %}
+    {% set block_type = _resolve_block_type(raw_type) %}
+    {% if block_type and _block_has_template(block_type) %}
+      {% include "blocks/" ~ block_type ~ ".html" %}
+    {% elif raw_type %}
+      {% include "blocks/_fallback.html" %}
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
+{% if is_divider_section %}
+<div class="section-divider" id="section-{{ section_id }}">
+  {{ render_blocks(section.content) }}
+</div>
+{% else %}
 <details{% if section_num == 1 %} open{% endif %} id="section-{{ section_id }}">
   <summary>
     <span class="section-num">{{ section_num }}</span>
@@ -12,33 +35,8 @@
     <div class="narrative">{{ section.intro | md }}</div>
     {% endif %}
 
-    {# Render each content block by type #}
-    {% for block in section.content | default([]) %}
-      {% set block_type = block.type | default('') %}
-      {% if block_type == 'chart' %}
-        {% include "blocks/chart.html" %}
-      {% elif block_type == 'heading' %}
-        {% include "blocks/heading.html" %}
-      {% elif block_type == 'text' %}
-        {% include "blocks/text.html" %}
-      {% elif block_type == 'table' %}
-        {% include "blocks/table.html" %}
-      {% elif block_type == 'findings' %}
-        {% include "blocks/findings.html" %}
-      {% elif block_type == 'assessment' %}
-        {% include "blocks/assessment.html" %}
-      {% elif block_type == 'fault_group' %}
-        {% include "blocks/fault_group.html" %}
-      {% elif block_type == 'card' %}
-        {% include "blocks/card.html" %}
-      {% elif block_type %}
-        {# Unknown block type — show raw JSON so no data is silently lost #}
-        <details class="unknown-block">
-          <summary style="font-size:0.8rem;color:#888;">Unknown block: {{ block_type }}</summary>
-          <pre style="font-size:0.75rem;overflow-x:auto;background:#f5f5f5;padding:8px;border-radius:4px;">{{ block | tojson(indent=2) }}</pre>
-        </details>
-      {% endif %}
-    {% endfor %}
+    {{ render_blocks(section.content) }}
 
   </div>
 </details>
+{% endif %}

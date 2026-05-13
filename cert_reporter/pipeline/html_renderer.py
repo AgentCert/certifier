@@ -18,6 +18,41 @@ log = logging.getLogger(__name__)
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
+# Some block types are pure shape-aliases of others — route them to the same
+# partial via a one-line entry here. Add new aliases here, not in the dispatcher.
+BLOCK_TYPE_ALIASES: dict[str, str] = {
+    "scope_metrics": "scope_stats",
+}
+
+
+def _discover_block_templates() -> frozenset[str]:
+    """Return the set of available block partials (stems), computed once.
+
+    A partial named `foo.html` becomes the block type `foo`. Partials whose
+    name starts with `_` (e.g. `_fallback.html`) are private and excluded.
+    """
+    blocks_dir = TEMPLATES_DIR / "blocks"
+    if not blocks_dir.is_dir():
+        return frozenset()
+    return frozenset(
+        p.stem for p in blocks_dir.glob("*.html")
+        if not p.stem.startswith("_")
+    )
+
+
+_BLOCK_TEMPLATES: frozenset[str] = _discover_block_templates()
+
+
+def _resolve_block_type(block_type: str) -> str:
+    """Apply alias mapping before template lookup."""
+    if not block_type:
+        return ""
+    return BLOCK_TYPE_ALIASES.get(block_type, block_type)
+
+
+def _block_has_template(block_type: str) -> bool:
+    return bool(block_type) and block_type in _BLOCK_TEMPLATES
+
 
 def _get_jinja_env():
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -36,6 +71,15 @@ def _get_jinja_env():
     env.filters["tag_class"] = _tag_class
     env.filters["replace_underscore"] = lambda s: str(s).replace("_", " ").title()
     env.filters["md"] = _md
+    # Globals used by the section dispatcher
+    env.globals["_resolve_block_type"] = _resolve_block_type
+    env.globals["_block_has_template"] = _block_has_template
+    # Make the tag macro available globally so block partials can call
+    # `{{ tag(...) }}` without an explicit `{% from … import tag %}`.
+    # `from … import` inside an `{% include %}`-d template doesn't survive
+    # across deeper includes in older Jinja2 versions.
+    tag_module = env.get_template("components/tag.html").module
+    env.globals["tag"] = tag_module.tag
     return env
 
 

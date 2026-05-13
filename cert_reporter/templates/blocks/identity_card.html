@@ -1,0 +1,14 @@
+{# blocks/identity_card.html — 2-column grid of label/value pairs. #}
+{# Expects: {type:"identity_card", fields:[{label, value, mono?}], title?} #}
+{% set fields = block.fields | default([]) %}
+{% if block.title %}
+<div class="sub-section-title">{{ block.title }}</div>
+{% endif %}
+<div class="identity-card">
+  {% for f in fields %}
+  <div class="id-cell">
+    <div class="id-label">{{ f.label | default('') }}</div>
+    <div class="id-value{% if f.mono %} mono{% endif %}">{{ f.value if (f.value is not none and f.value | string | trim != '') else '—' }}</div>
+  </div>
+  {% endfor %}
+</div>

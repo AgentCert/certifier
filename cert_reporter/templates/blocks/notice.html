@@ -1,0 +1,11 @@
+{# blocks/notice.html — bordered callout (warning/info/error).
+   Expects: {type:"notice", severity:"warning|info|error", title?, body} #}
+{% set sev = (block.severity | default('info')) | lower %}
+<div class="notice notice--{{ sev }}">
+  {% if block.title %}
+  <div class="notice__title">{{ block.title }}</div>
+  {% endif %}
+  {% if block.body %}
+  <div class="notice__body">{{ block.body | md }}</div>
+  {% endif %}
+</div>

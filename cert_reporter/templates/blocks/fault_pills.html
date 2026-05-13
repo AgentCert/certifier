@@ -1,0 +1,26 @@
+{# blocks/fault_pills.html — horizontal pills, one per fault category.
+   Expects: {type:"fault_pills", items:[{category, faults:[...], runs}]} #}
+{% set items = block["items"] | default([]) %}
+{% if block.title %}
+<div class="sub-section-title">{{ block.title }}</div>
+{% endif %}
+<div class="fault-categories">
+  {% for it in items %}
+  {% set cat = (it.category | default('')) | string %}
+  {% set cat_lc = cat | lower %}
+  {% if 'app' in cat_lc %}{% set icon_cls = 'app' %}{% set icon_ch = '⚠' %}
+  {% elif 'net' in cat_lc %}{% set icon_cls = 'net' %}{% set icon_ch = '⇆' %}
+  {% elif 'res' in cat_lc %}{% set icon_cls = 'res' %}{% set icon_ch = '◉' %}
+  {% else %}{% set icon_cls = 'other' %}{% set icon_ch = '●' %}{% endif %}
+  <div class="fault-pill">
+    <div class="fp-icon {{ icon_cls }}">{{ icon_ch }}</div>
+    <div class="fp-info">
+      <span class="fp-title">{{ cat | replace('_', ' ') | title }}</span>
+      <span class="fp-fault">{{ (it.faults | default([])) | join(', ') }}</span>
+      {% if it.runs is defined and it.runs is not none %}
+      <span class="fp-runs">{{ it.runs }} runs</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
