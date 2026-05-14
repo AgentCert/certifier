@@ -7,6 +7,21 @@
   --brand-blue-light: #64b5f6;
   --accent-teal: #26c6da;
 
+  /* Elevation system — subtle, consistent depth across cards/panels/headers.
+     Pattern: top-light surface gradient + inset top highlight + soft drop
+     shadow. Cards use --elev-1, raised panels use --elev-2. Keep gradients
+     gentle so they read professional, not skeuomorphic. */
+  --surface-gradient: linear-gradient(180deg, #ffffff 0%, #f6f7fb 100%);
+  --surface-gradient-tint: linear-gradient(180deg, #fbfcfe 0%, #eef1f7 100%);
+  --elev-inset-top: inset 0 1px 0 rgba(255,255,255,0.85);
+  --elev-inset-bottom: inset 0 -1px 0 rgba(15,23,42,0.04);
+  --elev-1: 0 1px 2px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.05);
+  --elev-2: 0 2px 5px rgba(15,23,42,0.08), 0 4px 10px rgba(15,23,42,0.06);
+  /* Dark-fill recipe (table headers / banners): gentle inner light line at
+     top to suggest a raised surface without competing with the dark fill. */
+  --elev-dark-top: inset 0 1px 0 rgba(255,255,255,0.10);
+  --elev-dark-bottom: inset 0 -1px 0 rgba(0,0,0,0.18);
+
   --gold: #d4a017;
   --gold-bg: #fdf6e3;
   --silver: #8e9aaf;
@@ -359,22 +374,39 @@ body {
 
 .data-table .total-row td { padding-top: 10px; }
 
-/* ─── Score Status Tags ────────────────────────────────────────── */
+/* ─── Score Status Tags — 3D pill ──────────────────────────────
+   Single `.tag` base. Legacy `.tag-*` and new BEM `.tag--*` modifiers
+   layer onto it so the shape stays consistent regardless of call site.
+   The "3D" comes from a vertical gradient (top highlight → bottom
+   shade), an inset light-line at the top, and a soft drop shadow. */
 .tag {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
+  padding: 1px 8px;
+  border-radius: 12px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  line-height: 1.4;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #e9edf3 100%);
+  color: #3d4a5c;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.85),
+    inset 0 -1px 0 rgba(0,0,0,0.06),
+    0 1px 1px rgba(0,0,0,0.12);
+  vertical-align: middle;
 }
 
-.tag-excellent { background: var(--green-bg); color: var(--green); }
-.tag-good      { background: #e3f2fd; color: #1565c0; }
-.tag-warn      { background: var(--yellow-bg); color: var(--yellow); }
-.tag-bad       { background: var(--red-bg); color: var(--red); }
-.tag-pass      { background: var(--green-bg); color: var(--green); }
-.tag-fail      { background: var(--red-bg); color: var(--red); }
+/* Legacy variants — gradient + tinted color from the same palette as
+   the new BEM variants below; sunset in P2. */
+.tag-excellent,
+.tag-pass     { background: linear-gradient(180deg, #f4fbf6 0%, #c9e7d3 100%); color: var(--green); border-color: rgba(11,102,35,0.22); }
+.tag-good     { background: linear-gradient(180deg, #f3f9ff 0%, #bcdcf7 100%); color: #1565c0; border-color: rgba(21,101,192,0.22); }
+.tag-warn     { background: linear-gradient(180deg, #fff8e1 0%, #f3dca1 100%); color: var(--yellow); border-color: rgba(212,160,23,0.28); }
+.tag-bad,
+.tag-fail     { background: linear-gradient(180deg, #fff0ed 0%, #f4c2b8 100%); color: var(--red); border-color: rgba(204,51,0,0.22); }
 
 /* ─── Narrative ────────────────────────────────────────────────── */
 .narrative {
@@ -463,10 +495,13 @@ details .section-body {
 
 .assessment-badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 12px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
 }
 
 .assess-strong   { background: var(--green-bg); color: var(--green); }
@@ -543,16 +578,17 @@ details .section-body {
 
 .finding-severity {
   display: inline-block;
-  min-width: 70px;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 10px;
+  min-width: 56px;
+  padding: 1px 8px;
+  border-radius: 12px;
+  font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   text-align: center;
   flex-shrink: 0;
   height: fit-content;
+  vertical-align: middle;
 }
 
 .finding-concern .finding-severity { background: var(--red-bg); color: var(--red); }
@@ -646,6 +682,51 @@ details .section-body {
   font-weight: 700;
   color: var(--navy-mid);
   margin-top: 4px;
+}
+
+/* ─── KV List (card block, text-valued items) ──────────────────────
+   Used when a `card` block has at least one non-numeric value. Renders
+   each item as a labeled row instead of a centered KPI tile, so long
+   text (fault lists, descriptions) reads naturally. */
+.kv-list {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) 1fr;
+  gap: 6px 18px;
+  margin: 8px 0 18px;
+  background: var(--gray-50);
+  background-image: var(--surface-gradient);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  box-shadow:
+    var(--elev-inset-top),
+    var(--elev-inset-bottom),
+    var(--elev-1);
+}
+.kv-list__row {
+  display: contents;
+}
+.kv-list__row + .kv-list__row .kv-list__label,
+.kv-list__row + .kv-list__row .kv-list__value {
+  border-top: 1px solid var(--gray-200);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+.kv-list__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+  align-self: start;
+}
+.kv-list__value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-800);
+  line-height: 1.55;
+  word-wrap: break-word;
 }
 
 /* ─── Footer ───────────────────────────────────────────────────── */
@@ -979,4 +1060,546 @@ details .section-body {
   .fault-card     { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .part-divider   { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .assessment-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ─── Blocks v2 — framework canonical ────────────────────────────────
+   Markup conventions and color palette mirrored from the reference HTMLs
+   under local-personal-workspace/certification_template/. Variants of the
+   .tag base class use the new BEM-style `tag--<variant>` modifier;
+   legacy aliases (.badge.*, .hyp-metric-*, .tag-*) re-bind to the same
+   visual style at the bottom of this section. Sunset in P2. */
+
+/* IDENTITY CARD */
+.identity-card {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 1px solid #dde2ea; border-radius: 6px;
+  overflow: hidden; margin: 10px 0 4px;
+}
+.identity-card .id-cell {
+  padding: 9px 16px;
+  border-bottom: 1px solid #edf0f5;
+  border-right: 1px solid #edf0f5;
+}
+.identity-card .id-cell:nth-child(even) { border-right: none; }
+.identity-card .id-cell:nth-last-child(-n+2) { border-bottom: none; }
+.id-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: .8px;
+  color: #7b8794; font-weight: 600; margin-bottom: 1px;
+}
+.id-value { font-size: 0.85rem; font-weight: 600; color: #1a2744; }
+.id-value.mono {
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 0.78rem; color: #475569;
+}
+
+/* SCOPE STATS / SCOPE METRICS */
+.scope-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin: 12px 0 8px;
+}
+.scope-grid > .scope-card:nth-child(4):last-child,
+.scope-grid > .scope-card:nth-child(5),
+.scope-grid > .scope-card:nth-child(6) {
+  /* graceful for 4-6 item grids */
+}
+.scope-card {
+  background: #f8f9fc; border: 1px solid #e2e6ee; border-radius: 6px;
+  padding: 12px 14px; text-align: center;
+}
+.scope-card .sc-value { font-size: 1.35rem; font-weight: 700; color: #1a2744; line-height: 1.1; }
+.scope-card .sc-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: .7px;
+  color: #7b8794; font-weight: 600; margin-top: 2px;
+}
+.scope-card .sc-sublabel { font-size: 0.7rem; color: #94a3b8; margin-top: 3px; }
+.scope-card--good { border-color: #c7e4d1; background: #f0f8f3; }
+.scope-card--warn { border-color: #f5e2b3; background: #fdf6e3; }
+.scope-card--bad  { border-color: #f4c7c1; background: #fdecea; }
+
+/* FAULT PILLS */
+.fault-categories { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
+.fault-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid #dde2ea; border-radius: 6px;
+  padding: 10px 14px; flex: 1; min-width: 180px;
+}
+.fp-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; flex-shrink: 0;
+  background: #f1f3f7; color: #475569;
+}
+.fp-icon.app { background: #fdecea; color: #b91c1c; }
+.fp-icon.net { background: #e6effb; color: #1d4ed8; }
+.fp-icon.res { background: #f1f3f7; color: #475569; }
+.fp-info { display: flex; flex-direction: column; min-width: 0; }
+.fp-title { font-size: 0.75rem; font-weight: 700; color: #1a2744; text-transform: capitalize; }
+.fp-fault {
+  font-size: 0.72rem; color: #64748b;
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  word-break: break-word;
+}
+.fp-runs { font-size: 0.65rem; color: #94a3b8; margin-top: 1px; }
+
+/* NOTICE */
+.notice {
+  border-left: 4px solid #4c5aa0;
+  background: #f4f5fb;
+  padding: 12px 18px;
+  border-radius: 0 6px 6px 0;
+  margin: 12px 0;
+}
+.notice__title { font-weight: 700; color: #1a2744; margin-bottom: 4px; }
+.notice__body { font-size: 0.85rem; color: #3d4a5c; line-height: 1.55; }
+.notice__body p { margin: 0; }
+.notice__body p + p { margin-top: 6px; }
+.notice--warning { border-left-color: #8a5a10; background: #fdf6e3; }
+.notice--warning .notice__title { color: #6c4500; }
+.notice--warning .notice__body { color: #6c4500; }
+.notice--error { border-left-color: #b91c1c; background: #fdecea; }
+.notice--error .notice__title { color: #a8271a; }
+.notice--error .notice__body { color: #7a1f29; }
+.notice--info { border-left-color: #4c5aa0; background: #f4f5fb; }
+
+/* PART BANNER */
+.part-banner {
+  background: linear-gradient(135deg, #1a2744 0%, #2c3e6b 60%, #3b5998 100%);
+  color: #fff;
+  padding: 14px 24px;
+  border-radius: 6px;
+  margin: 24px 0 14px;
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.part-banner__label {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px;
+  font-weight: 700; opacity: 0.75;
+}
+.part-banner__title { font-size: 1.1rem; font-weight: 700; }
+
+/* HYPOTHESIS STRIP */
+.hyp-strip {
+  border-left: 3px solid #4c5aa0;
+  border-radius: 0 4px 4px 0;
+  margin: 6px 0 10px;
+  background: #f4f5fb;
+  padding: 6px 12px 7px;
+  font-size: 0.82rem; line-height: 1.45; color: #2a2f55;
+}
+.hyp-strip.pass { border-left-color: #1b6f3a; }
+.hyp-strip.flag { border-left-color: #8a5a10; }
+.hyp-strip.fail { border-left-color: #b91c1c; }
+.hyp-strip__line {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-weight: 600; color: #1a2744;
+}
+.hyp-strip__id { font-weight: 700; color: #2c3e6b; }
+.hyp-strip__metric { font-weight: 600; color: #1a2744; }
+.hyp-strip__facts { color: #3d4a5c; font-weight: 500; }
+.hyp-strip__facts .sep { color: #b7bdd2; margin: 0 3px; }
+.hyp-metric-good, .hyp-metric-flag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: normal;
+  line-height: 1.45;
+  border: 1px solid rgba(0,0,0,0.06);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 -1px 0 rgba(0,0,0,0.05),
+    0 1px 1px rgba(0,0,0,0.10);
+  vertical-align: middle;
+}
+.hyp-metric-good {
+  background: linear-gradient(180deg, #f0faf3 0%, #c3e3cf 100%);
+  color: #1b6f3a;
+  border-color: rgba(27,111,58,0.25);
+}
+.hyp-metric-flag {
+  background: linear-gradient(180deg, #fdf6dd 0%, #efd58a 100%);
+  color: #8a5a10;
+  border-color: rgba(138,90,16,0.25);
+}
+.hyp-findings {
+  margin-top: 5px; padding-top: 5px;
+  border-top: 1px solid rgba(76, 90, 160, 0.18);
+  font-size: 0.78rem; color: #3d4a5c; line-height: 1.55;
+}
+.hyp-findings__label {
+  display: inline; font-size: 0.62rem; text-transform: uppercase;
+  letter-spacing: 1px; font-weight: 700; color: #4c5aa0; margin-right: 6px;
+}
+.hyp-findings__label .lblmethod {
+  font-weight: 500; color: #6a727c; text-transform: none; letter-spacing: 0;
+  margin-left: 4px;
+}
+.hyp-findings__body { display: inline; }
+.hyp-findings__body strong { color: #1a2744; }
+.hyp-findings__body p { display: inline; margin: 0; }
+.hyp-strip details > summary {
+  cursor: pointer; list-style: none;
+  font-size: 0.72rem; font-weight: 600; color: #4c5aa0;
+  margin-top: 4px;
+}
+.hyp-strip details > summary::-webkit-details-marker { display: none; }
+.hyp-strip details > div {
+  margin-top: 4px; padding: 6px 10px;
+  background: #eceffa; border-radius: 4px;
+  font-size: 0.78rem; color: #3d4a5c;
+}
+
+/* INTERPRETATION SCALE */
+.interp-scale-title {
+  font-size: 0.78rem; font-weight: 700; color: #1a2744;
+  margin: 10px 0 4px;
+}
+.interpretation-scale {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px;
+}
+.interp-band {
+  background: #f1f3f7; color: #3d4a5c;
+  border: 1px solid #e2e6ee; border-radius: 4px;
+  padding: 3px 10px; font-size: 0.72rem; font-weight: 600;
+}
+
+/* CATEGORY PANEL */
+.category-panel {
+  border: 1px solid #dde2ea; border-radius: 6px;
+  padding: 14px 18px; margin: 12px 0;
+  background: #ffffff;
+}
+.category-panel__header {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding-bottom: 6px; border-bottom: 1px solid #edf0f5;
+}
+.category-panel__title {
+  font-size: 1rem; font-weight: 700; color: #1a2744;
+  text-transform: capitalize;
+}
+.category-panel__fault {
+  font-size: 0.75rem; color: #64748b;
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+}
+.category-panel__summary {
+  width: 100%; border-collapse: collapse; margin: 4px 0 10px;
+  font-size: 0.8rem;
+}
+.category-panel__summary th {
+  text-align: left; font-weight: 600; color: #7b8794;
+  padding: 4px 12px 4px 0; width: 30%;
+  text-transform: uppercase; font-size: 0.65rem; letter-spacing: .7px;
+}
+.category-panel__summary td { padding: 4px 0; color: #1a2744; font-weight: 600; }
+.category-panel__dim {
+  border-top: 1px solid #edf0f5;
+  padding: 8px 0 4px;
+}
+.category-panel__dim:first-of-type { border-top: none; }
+.category-panel__dim-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.category-panel__dim-title { font-weight: 700; color: #1a2744; font-size: 0.85rem; }
+.category-panel__dim-meta {
+  display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-left: auto;
+}
+.dim-meta-item { font-size: 0.7rem; color: #64748b; }
+.category-panel__dim-body { font-size: 0.82rem; color: #3d4a5c; line-height: 1.6; }
+.category-panel__dim-body p { margin: 0; }
+.category-panel__dim-body p + p { margin-top: 6px; }
+
+/* ENUMERATED ITEM */
+.enum-item {
+  border: 1px solid #dde2ea; border-radius: 6px;
+  padding: 12px 16px; margin: 8px 0;
+  background: #ffffff;
+}
+.enum-item__head {
+  display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.enum-item__rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 6px;
+  background: #1a2744; color: #fff;
+  border-radius: 12px; font-size: 0.75rem; font-weight: 700;
+}
+.enum-item__meta {
+  display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.enum-item__scope {
+  font-size: 9.5px; color: #2c3e6b; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  background: #f4f5fb; border-radius: 10px; padding: 1px 7px;
+  vertical-align: middle;
+}
+.enum-item__category {
+  font-size: 9.5px; color: #475569; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  border: 1px solid #dde2ea; border-radius: 10px; padding: 1px 7px;
+  vertical-align: middle;
+}
+.enum-item__body { font-size: 0.84rem; color: #3d4a5c; line-height: 1.6; }
+.enum-item__body p { margin: 0; }
+.enum-item__body p + p { margin-top: 6px; }
+.enum-item__freq {
+  margin-top: 6px; font-size: 0.75rem; color: #64748b;
+}
+.enum-item--recommendation { border-left: 3px solid #1b6f3a; }
+.enum-item--limitation     { border-left: 3px solid #8a5a10; }
+
+/* TAXONOMY TABLE — styled like detail-table but with a stronger header */
+.taxonomy-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 10px 0 6px; }
+.taxonomy-table th {
+  background: #1a2744; color: #fff; font-weight: 600;
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: .7px;
+  padding: 8px 14px; text-align: left;
+}
+.taxonomy-table td {
+  padding: 7px 14px; border-bottom: 1px solid #edf0f5; color: #3d4a5c;
+  vertical-align: top;
+}
+.taxonomy-table tr:last-child td { border-bottom: none; }
+.taxonomy-table__footnote {
+  font-size: 0.72rem; color: #6a727c; margin: 4px 0 12px;
+  font-style: italic;
+}
+
+/* ─── Tag variants (BEM) — base `.tag` is defined above (Score Status
+   Tags) and is the single source of truth for shape/padding/font.
+   These modifiers swap in tinted vertical gradients so the 3D effect
+   (top highlight, bottom shade) stays consistent across colors. */
+.tag--success { background: linear-gradient(180deg, #f4fbf6 0%, #c9e7d3 100%); color: var(--green); border-color: rgba(11,102,35,0.25); }
+.tag--warn    { background: linear-gradient(180deg, #fff8e1 0%, #f3dca1 100%); color: #8a5a00; border-color: rgba(212,160,23,0.35); }
+.tag--fail    { background: linear-gradient(180deg, #fff0ed 0%, #f4c2b8 100%); color: var(--red); border-color: rgba(204,51,0,0.25); }
+.tag--neutral { background: linear-gradient(180deg, #ffffff 0%, #e2e6ee 100%); color: #3d4a5c; border-color: #d3d8e2; }
+.tag--gold    { background: linear-gradient(180deg, #fff8d8 0%, #ecc763 100%); color: var(--gold); border-color: rgba(212,160,23,0.45); }
+.tag--silver  { background: linear-gradient(180deg, #f9fafc 0%, #c9d0dd 100%); color: #475569; border-color: rgba(142,154,175,0.45); }
+.tag--bronze  { background: linear-gradient(180deg, #fdebd9 0%, #e3a574 100%); color: var(--bronze); border-color: rgba(205,127,50,0.45); }
+.tag--none    { background: linear-gradient(180deg, #ffffff 0%, var(--gray-200) 100%); color: var(--gray-700); border-color: var(--gray-300); }
+
+/* Legacy aliases — kept so verbatim-copied markup still styles correctly.
+   Sunset in P2 once all partials use the macro. */
+.badge.pass { background: #e6f4ea; color: #1f7a3d; border: 1px solid #c7e4d1; }
+.badge.fail { background: #fdecea; color: #a8271a; border: 1px solid #f4c7c1; }
+.badge.warn { background: #fef3dc; color: #8a5a00; border: 1px solid #f5e2b3; }
+
+/* ─── PDF page-break hints — required for blocks v2 ─────────────── */
+.category-panel,
+.fault-pill,
+.enum-item,
+.hyp-strip { break-inside: avoid; page-break-inside: avoid; }
+.part-banner { break-after: avoid; page-break-after: avoid; }
+
+/* ─── 3D chips — unified recipe ─────────────────────────────────────
+   Apply the same depth treatment (vertical gradient + inset top
+   highlight + soft drop shadow + tinted border) to every chip/badge/
+   pill in the report. The variant rules below only swap the gradient
+   stops + text + border tints; shape and depth come from this base. */
+.tag,
+.badge,
+.assessment-badge,
+.finding-severity,
+.hyp-metric-good,
+.hyp-metric-flag,
+.interp-band,
+.enum-item__rank,
+.enum-item__scope,
+.enum-item__category,
+.section-num,
+.limitation-rank,
+.report-badge,
+.fp-icon,
+.cert-badge {
+  position: relative;
+  border: 1px solid rgba(0,0,0,0.08);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 -1px 0 rgba(0,0,0,0.05),
+    0 1px 1.5px rgba(0,0,0,0.12);
+}
+
+/* Solid-colored chips (light text on dark fill) get a darker highlight
+   recipe — the white inset would clash on a navy/red/green base. */
+.section-num,
+.limitation-rank,
+.enum-item__rank,
+.fp-icon {
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.12) 100%);
+  background-blend-mode: overlay;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.30),
+    inset 0 -1px 0 rgba(0,0,0,0.20),
+    0 1px 2px rgba(0,0,0,0.18);
+  border-color: rgba(0,0,0,0.18);
+}
+
+/* fault-pill icon background swatches use opaque base colors, so the
+   gradient overlay above is what gives them the bevel. Keep the
+   per-category fills. */
+.fp-icon.app { background-color: #fdecea; color: #b91c1c; }
+.fp-icon.net { background-color: #e6effb; color: #1d4ed8; }
+.fp-icon.res { background-color: #f1f3f7; color: #475569; }
+
+/* Severity / finding chips — gradient variants on the same recipe */
+.finding-concern .finding-severity { background: linear-gradient(180deg, #fff0ed 0%, #f4c2b8 100%); color: var(--red); border-color: rgba(204,51,0,0.25); }
+.finding-good    .finding-severity { background: linear-gradient(180deg, #f4fbf6 0%, #c9e7d3 100%); color: var(--green); border-color: rgba(11,102,35,0.25); }
+.finding-note    .finding-severity { background: linear-gradient(180deg, #ffffff 0%, #d8dde6 100%); color: var(--gray-700); border-color: var(--gray-300); }
+
+/* Assessment badges — gradient variants */
+.assess-strong   { background: linear-gradient(180deg, #f4fbf6 0%, #c9e7d3 100%); color: var(--green); border-color: rgba(11,102,35,0.25); }
+.assess-adequate { background: linear-gradient(180deg, #fff8e1 0%, #f3dca1 100%); color: var(--yellow); border-color: rgba(212,160,23,0.30); }
+.assess-weak     { background: linear-gradient(180deg, #fff0ed 0%, #f4c2b8 100%); color: var(--red); border-color: rgba(204,51,0,0.25); }
+
+/* Legacy reference-HTML badges → gradient variants */
+.badge.pass { background: linear-gradient(180deg, #f4fbf6 0%, #c9e7d3 100%); color: #1f7a3d; border-color: rgba(31,122,61,0.25); }
+.badge.fail { background: linear-gradient(180deg, #fff0ed 0%, #f4c2b8 100%); color: #a8271a; border-color: rgba(168,39,26,0.25); }
+.badge.warn { background: linear-gradient(180deg, #fff8e1 0%, #f3dca1 100%); color: #8a5a00; border-color: rgba(138,90,0,0.25); }
+
+/* Interpretation-scale bands get a soft slate gradient */
+.interp-band {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e6ee 100%);
+  color: #3d4a5c;
+  border-color: #d3d8e2;
+  font-size: 10px;
+  padding: 2px 9px;
+  border-radius: 12px;
+}
+
+/* enum-item chips — light scope vs outlined category */
+.enum-item__scope    { background: linear-gradient(180deg, #f9faff 0%, #e2e6f4 100%); color: #2c3e6b; border-color: rgba(44,62,107,0.20); }
+.enum-item__category { background: linear-gradient(180deg, #ffffff 0%, #eef1f7 100%); color: #475569; border-color: #dde2ea; }
+
+/* Cover "Certification Report" label */
+.report-badge {
+  background: linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.06) 100%);
+  border-color: rgba(255,255,255,0.28);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.30);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.30),
+    inset 0 -1px 0 rgba(0,0,0,0.15),
+    0 1px 2px rgba(0,0,0,0.20);
+}
+
+/* Cover certification level pills already have radial gradients —
+   strengthen the bevel + drop shadow on top. */
+.cert-badge {
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    inset 0 -2px 0 rgba(0,0,0,0.15),
+    0 2px 4px rgba(0,0,0,0.20);
+}
+
+@media print {
+  .tag, .badge, .assessment-badge, .finding-severity,
+  .hyp-metric-good, .hyp-metric-flag, .interp-band,
+  .enum-item__rank, .enum-item__scope, .enum-item__category,
+  .section-num, .limitation-rank, .report-badge, .fp-icon, .cert-badge {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ─── Elevation system — consistent depth across surfaces ──────────
+   Cards, panels, table headers, banners, and section summaries all
+   share the same elevation tokens (top-light surface gradient + inset
+   highlight + soft drop shadow). Subtle, professional, additive — keeps
+   existing colors/borders intact. */
+
+/* Light-surface cards & panels. */
+.scope-card,
+.fault-pill,
+.snap-card,
+.category-panel,
+.enum-item,
+.fault-card,
+.identity-card,
+.taxonomy-table,
+.data-table {
+  background-image: var(--surface-gradient);
+  box-shadow:
+    var(--elev-inset-top),
+    var(--elev-inset-bottom),
+    var(--elev-1);
+}
+
+/* Slightly stronger lift on cards that act as "primary" containers. */
+.category-panel,
+.fault-card {
+  box-shadow:
+    var(--elev-inset-top),
+    var(--elev-inset-bottom),
+    var(--elev-2);
+}
+
+/* Tinted-fill surfaces (hyp-strip, notice, scope-narrative) keep their
+   accent tint but pick up the same depth treatment. */
+.hyp-strip,
+.notice,
+.scope-narrative {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    var(--elev-1);
+}
+
+/* Dark-fill surfaces — table headers + part banner. */
+.data-table thead tr,
+.taxonomy-table th {
+  box-shadow: var(--elev-dark-top), var(--elev-dark-bottom);
+}
+.part-banner {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.15) 100%),
+    linear-gradient(135deg, #1a2744 0%, #2c3e6b 60%, #3b5998 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(0,0,0,0.25),
+    0 2px 6px rgba(15,23,42,0.18);
+}
+
+/* Section <summary> picks up a subtle raised look so the dropdowns feel
+   like buttons. Keep it almost imperceptible — the page is dense. */
+details > summary {
+  background-image: var(--surface-gradient-tint);
+  box-shadow:
+    var(--elev-inset-top),
+    var(--elev-inset-bottom);
+}
+details[open] > summary {
+  background-image: linear-gradient(180deg, #f4f5fb 0%, #eef1f7 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 0 rgba(15,23,42,0.05);
+}
+
+/* Tables: cells get a subtle row alternation that completes the elevation
+   feel without flattening the existing hover behavior. */
+.data-table tbody tr:nth-child(even) td,
+.taxonomy-table tbody tr:nth-child(even) td {
+  background-color: rgba(15,23,42,0.018);
+}
+
+/* Snap-cards and scope-cards get a colored accent strip that visually
+   "lifts" the top edge — keep this opt-in via existing tone classes. */
+.scope-card--good { box-shadow: inset 0 2px 0 rgba(11,102,35,0.55), var(--elev-inset-bottom), var(--elev-1); }
+.scope-card--warn { box-shadow: inset 0 2px 0 rgba(212,160,23,0.65), var(--elev-inset-bottom), var(--elev-1); }
+.scope-card--bad  { box-shadow: inset 0 2px 0 rgba(204,51,0,0.55), var(--elev-inset-bottom), var(--elev-1); }
+
+@media print {
+  .scope-card, .fault-pill, .snap-card, .category-panel, .enum-item,
+  .fault-card, .identity-card, .taxonomy-table, .data-table,
+  .hyp-strip, .notice, .scope-narrative,
+  .data-table thead tr, .taxonomy-table th, .part-banner,
+  details > summary {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

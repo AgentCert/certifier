@@ -1,0 +1,19 @@
+{# blocks/scope_stats.html — grid of value/label stat cards.
+   Also serves `scope_metrics` via BLOCK_TYPE_ALIASES.
+   Items live under either `items` (scope_stats) or `metrics` (scope_metrics). #}
+{% set items = block["items"] if block.get("items") else block.get("metrics", []) %}
+{% if block.title %}
+<div class="sub-section-title">{{ block.title }}</div>
+{% endif %}
+<div class="scope-grid">
+  {% for it in items %}
+  {% set tone = it.tone | default('neutral') %}
+  <div class="scope-card scope-card--{{ tone }}">
+    <div class="sc-value">{{ it.value if (it.value is not none) else '—' }}</div>
+    <div class="sc-label">{{ it.label | default('') }}</div>
+    {% if it.sublabel %}
+    <div class="sc-sublabel">{{ it.sublabel }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

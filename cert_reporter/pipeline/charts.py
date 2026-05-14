@@ -54,14 +54,20 @@ def _score_colour(score: float) -> str:
 # ---------------------------------------------------------------------------
 
 def _spec_to_svg(spec: dict[str, Any], width: int, height: int) -> str:
-    """Convert a Vega-Lite spec dict → SVG string via vl-convert."""
+    """Convert a Vega-Lite (or full Vega) spec dict → SVG string via vl-convert."""
+    schema = spec.get("$schema", "") if isinstance(spec, dict) else ""
+    is_vega = "/schema/vega/" in schema
+
     if _VLC_AVAILABLE:
         try:
-            return vlc.vegalite_to_svg(json.dumps(spec))
+            spec_json = json.dumps(spec)
+            if is_vega:
+                return vlc.vega_to_svg(spec_json)
+            return vlc.vegalite_to_svg(spec_json)
         except Exception as exc:
             log.warning("vl-convert failed: %s", exc)
 
-    if _ALT_AVAILABLE:
+    if _ALT_AVAILABLE and not is_vega:
         try:
             chart = alt.Chart.from_dict(spec)
             return chart.to_image(format="svg").decode()
@@ -85,47 +91,187 @@ def _spec_to_svg(spec: dict[str, Any], width: int, height: int) -> str:
 def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
     """Radar chart from dimensions: [{dimension, value}].
 
-    Values are 0-1 normalised scores.  Rendered as a line chart
-    (Vega-Lite doesn't have native polar/radar).
+    Values are 0-1 normalised scores. Emits a full Vega 5 spec that
+    renders a real polar radar (spokes, concentric grid web, closed
+    filled polygon, vertex symbols, axis labels, radial ticks).
     """
     dims = block.get("dimensions", [])
     if not dims:
         return _build_placeholder(block)
 
-    rows = []
+    rows: list[dict[str, Any]] = []
     for d in dims:
         if isinstance(d, dict):
-            rows.append({
-                "category": d.get("dimension", "?"),
-                "score": float(d.get("value", 0)),
-            })
+            label = str(d.get("dimension", "?"))
+            val = float(d.get("value", 0))
         elif hasattr(d, "dimension"):
-            rows.append({"category": d.dimension, "score": float(getattr(d, "value", 0))})
+            label = str(d.dimension)
+            val = float(getattr(d, "value", 0))
+        else:
+            continue
+        rows.append({"key": label, "value": max(0.0, min(1.0, val))})
 
     if not rows:
         return _build_placeholder(block)
 
-    # Close the polygon
-    rows_closed = list(rows) + [dict(rows[0])]
+    mean_val = sum(r["value"] for r in rows) / len(rows)
+    stroke = _score_colour(mean_val)
+
+    grid_levels = [0.2, 0.4, 0.6, 0.8, 1.0]
+    grid_rows = [
+        {"level": lv, "key": r["key"], "value": lv}
+        for lv in grid_levels
+        for r in rows
+    ]
+    tick_rows = [{"v": lv} for lv in grid_levels]
 
     spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "width": 420,
-        "height": 350,
+        "$schema": "https://vega.github.io/schema/vega/v5.json",
+        "width": 280,
+        "height": 280,
+        "padding": {"left": 90, "right": 90, "top": 40, "bottom": 40},
+        "autosize": {"type": "none"},
         "background": "transparent",
-        "data": {"values": rows_closed},
-        "mark": {"type": "line", "point": True, "color": "#3498db", "strokeWidth": 2},
-        "encoding": {
-            "x": {"field": "category", "type": "nominal",
-                   "axis": {"labelAngle": -20, "title": None}},
-            "y": {"field": "score", "type": "quantitative",
-                   "scale": {"domain": [0, 1]}, "axis": {"title": "Score"}},
-            "color": {"value": "#3498db"},
-            "tooltip": [
-                {"field": "category", "type": "nominal", "title": "Dimension"},
-                {"field": "score", "type": "quantitative", "title": "Score", "format": ".3f"},
-            ],
+        "signals": [
+            {"name": "radius", "update": "min(width, height) / 2 - 10"},
+        ],
+        "data": [
+            {"name": "table", "values": rows},
+            {
+                "name": "keys",
+                "source": "table",
+                "transform": [{"type": "aggregate", "groupby": ["key"]}],
+            },
+            {"name": "grid", "values": grid_rows},
+            {"name": "ticks", "values": tick_rows},
+        ],
+        "scales": [
+            {
+                "name": "angular",
+                "type": "point",
+                "range": {"signal": "[-PI, PI]"},
+                "padding": 0.5,
+                "domain": {"data": "table", "field": "key"},
+            },
+            {
+                "name": "radial",
+                "type": "linear",
+                "range": {"signal": "[0, radius]"},
+                "zero": True,
+                "nice": False,
+                "domain": [0, 1],
+            },
+        ],
+        "encode": {
+            "enter": {
+                "x": {"signal": "width / 2"},
+                "y": {"signal": "height / 2"},
+            },
         },
+        "marks": [
+            {
+                "type": "group",
+                "from": {
+                    "facet": {"data": "grid", "name": "grid_facet", "groupby": ["level"]},
+                },
+                "marks": [
+                    {
+                        "type": "line",
+                        "from": {"data": "grid_facet"},
+                        "encode": {
+                            "enter": {
+                                "interpolate": {"value": "linear-closed"},
+                                "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                                "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                                "stroke": {"value": "#dcdcdc"},
+                                "strokeWidth": {"value": 1},
+                                "fill": {"value": "transparent"},
+                            },
+                        },
+                    },
+                ],
+            },
+            {
+                "type": "rule",
+                "from": {"data": "keys"},
+                "encode": {
+                    "enter": {
+                        "x": {"value": 0},
+                        "y": {"value": 0},
+                        "x2": {"signal": "radius * cos(scale('angular', datum.key))"},
+                        "y2": {"signal": "radius * sin(scale('angular', datum.key))"},
+                        "stroke": {"value": "#dcdcdc"},
+                        "strokeWidth": {"value": 1},
+                    },
+                },
+            },
+            {
+                "type": "line",
+                "from": {"data": "table"},
+                "encode": {
+                    "enter": {
+                        "interpolate": {"value": "linear-closed"},
+                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                        "stroke": {"value": stroke},
+                        "strokeWidth": {"value": 2},
+                        "fill": {"value": stroke},
+                        "fillOpacity": {"value": 0.18},
+                    },
+                },
+            },
+            {
+                "type": "symbol",
+                "from": {"data": "table"},
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                        "size": {"value": 60},
+                        "fill": {"value": stroke},
+                        "stroke": {"value": "#ffffff"},
+                        "strokeWidth": {"value": 1},
+                    },
+                },
+            },
+            {
+                "type": "text",
+                "from": {"data": "keys"},
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "(radius + 12) * cos(scale('angular', datum.key))"},
+                        "y": {"signal": "(radius + 12) * sin(scale('angular', datum.key))"},
+                        "text": {"field": "key"},
+                        "align": [
+                            {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
+                            {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
+                            {"value": "right"},
+                        ],
+                        "baseline": [
+                            {"test": "abs(sin(scale('angular', datum.key))) < 0.15", "value": "middle"},
+                            {"test": "sin(scale('angular', datum.key)) > 0", "value": "top"},
+                            {"value": "bottom"},
+                        ],
+                        "fill": {"value": "#333"},
+                        "fontSize": {"value": 11},
+                    },
+                },
+            },
+            {
+                "type": "text",
+                "from": {"data": "ticks"},
+                "encode": {
+                    "enter": {
+                        "x": {"value": 4},
+                        "y": {"signal": "-scale('radial', datum.v)"},
+                        "text": {"signal": "format(datum.v, '.1f')"},
+                        "fontSize": {"value": 9},
+                        "fill": {"value": "#888"},
+                        "baseline": {"value": "middle"},
+                    },
+                },
+            },
+        ],
     }
     return spec
 
@@ -335,6 +481,99 @@ def _build_heatmap(block: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
+    """CI bar chart: mean (point) + confidence interval (horizontal rule).
+
+    Expects: points: [{label, value, ci_low, ci_high, group?}]
+    Renders a per-label point with an error-bar rule from ci_low → ci_high.
+    `group` (optional) splits points into colored series.
+    """
+    points = block.get("points", [])
+    if not points:
+        return _build_placeholder(block)
+
+    y_label = block.get("y_label", "Value")
+    has_groups = any(
+        isinstance(p, dict) and p.get("group") for p in points
+    )
+
+    rows = []
+    for p in points:
+        if not isinstance(p, dict):
+            continue
+        label = str(p.get("label", "?"))
+        try:
+            value = float(p.get("value", 0))
+        except (TypeError, ValueError):
+            value = 0.0
+        try:
+            ci_low = float(p.get("ci_low", value))
+        except (TypeError, ValueError):
+            ci_low = value
+        try:
+            ci_high = float(p.get("ci_high", value))
+        except (TypeError, ValueError):
+            ci_high = value
+        row = {
+            "label": label,
+            "value": value,
+            "ci_low": ci_low,
+            "ci_high": ci_high,
+        }
+        if has_groups:
+            row["group"] = str(p.get("group") or "—")
+        rows.append(row)
+
+    if not rows:
+        return _build_placeholder(block)
+
+    rule_encoding = {
+        "y": {"field": "ci_low", "type": "quantitative",
+              "axis": {"title": y_label}},
+        "y2": {"field": "ci_high"},
+        "x": {"field": "label", "type": "nominal", "axis": {"title": None, "labelAngle": 0}},
+    }
+    point_encoding = {
+        "y": {"field": "value", "type": "quantitative"},
+        "x": {"field": "label", "type": "nominal"},
+        "tooltip": [
+            {"field": "label", "type": "nominal"},
+            {"field": "value", "type": "quantitative", "format": ".3f", "title": "Mean"},
+            {"field": "ci_low", "type": "quantitative", "format": ".3f", "title": "CI low"},
+            {"field": "ci_high", "type": "quantitative", "format": ".3f", "title": "CI high"},
+        ],
+    }
+    if has_groups:
+        color = {
+            "field": "group", "type": "nominal",
+            "scale": {"scheme": "tableau10"}, "title": "Group",
+        }
+        rule_encoding["color"] = color
+        rule_encoding["xOffset"] = {"field": "group", "type": "nominal"}
+        point_encoding["color"] = color
+        point_encoding["xOffset"] = {"field": "group", "type": "nominal"}
+
+    spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "width": 480,
+        "height": 300,
+        "background": "transparent",
+        "data": {"values": rows},
+        "layer": [
+            {
+                "mark": {"type": "rule", "strokeWidth": 2, "color": "#4c5aa0"},
+                "encoding": rule_encoding,
+            },
+            {
+                "mark": {"type": "point", "filled": True, "size": 80, "color": "#1a2744"},
+                "encoding": point_encoding,
+            },
+        ],
+        "resolve": {"scale": {"color": "independent"}},
+    }
+    return spec
+
+
 def _build_placeholder(block: dict[str, Any]) -> dict[str, Any]:
     """Minimal placeholder spec for charts with no valid data."""
     return {
@@ -360,6 +599,7 @@ _BUILDERS: dict[str, Any] = {
     "grouped_bar": _build_grouped_bar,
     "stacked_bar": _build_stacked_bar,
     "heatmap": _build_heatmap,
+    "ci_bar": _build_ci_bar,
 }
 
 

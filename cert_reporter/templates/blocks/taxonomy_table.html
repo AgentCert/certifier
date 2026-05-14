@@ -1,0 +1,44 @@
+{# blocks/taxonomy_table.html — matrix table shaped exactly like `table`,
+   styled distinctly via the `.taxonomy-table` class.
+   Expects: {type:"taxonomy_table", headers:[], rows:[[]], title?, footnote?} #}
+{% set headers = block.headers | default([]) %}
+{% set rows = block.rows | default([]) %}
+{% if block.title %}
+<div class="sub-section-title">{{ block.title }}</div>
+{% endif %}
+<table class="data-table taxonomy-table">
+  {% if headers %}
+  <thead>
+    <tr>
+      {% for h in headers %}
+      <th>{{ h | replace_underscore }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  {% endif %}
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      {% if row is mapping %}
+        {% if headers %}
+          {% for h in headers %}
+          {% set val = row[h] if h in row else '' %}
+          <td>{{ val }}</td>
+          {% endfor %}
+        {% else %}
+          {% for key, val in row.items() %}
+          <td>{{ val }}</td>
+          {% endfor %}
+        {% endif %}
+      {% elif row is iterable and row is not string %}
+        {% for cell in row %}
+        <td>{{ cell }}</td>
+        {% endfor %}
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if block.footnote %}
+<div class="taxonomy-table__footnote">{{ block.footnote }}</div>
+{% endif %}

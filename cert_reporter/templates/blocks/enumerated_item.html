@@ -1,0 +1,22 @@
+{# blocks/enumerated_item.html — numbered finding card (limitation or recommendation).
+   Expects: {type:"enumerated_item", kind:"limitation|recommendation",
+             index, severity, scope, body, tags?:[...], frequency?} #}
+{% set kind = block.kind | default('item') %}
+<div class="enum-item enum-item--{{ kind }}">
+  <div class="enum-item__head">
+    <span class="enum-item__rank">{{ block.index if (block.index is defined and block.index is not none) else '•' }}</span>
+    <div class="enum-item__meta">
+      {% if block.severity %}{{ tag(block.severity, kind="severity", label="Severity") }}{% endif %}
+      {% if block.scope %}<span class="enum-item__scope">{{ block.scope }}</span>{% endif %}
+      {% for t in block.tags | default([]) %}
+      <span class="enum-item__category">{{ t }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% if block.body %}
+  <div class="enum-item__body">{{ block.body | md }}</div>
+  {% endif %}
+  {% if block.frequency %}
+  <div class="enum-item__freq"><strong>Frequency:</strong> {{ block.frequency }}</div>
+  {% endif %}
+</div>
