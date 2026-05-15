@@ -133,6 +133,14 @@ class ReferenceLine(BaseModel):
     label: str = Field(..., min_length=1)
 
 
+class ReferencePolygon(BaseModel):
+    """Reference polygon (threshold boundary) on a radar chart."""
+    values: list[float] = Field(..., min_length=1)
+    label: str = Field(..., min_length=1)
+    line_color: str | None = None
+    line_dash: str | None = None
+
+
 class BarSeries(BaseModel):
     """Named data series for grouped/stacked bar charts."""
     name: str = Field(..., min_length=1)
@@ -226,6 +234,7 @@ class RadarChartData(BaseModel):
     chart_type: Literal["radar"] = "radar"
     title: str = Field(..., min_length=1)
     dimensions: list[ScorecardDimension] = Field(..., min_length=1)
+    reference_polygons: list[ReferencePolygon] | None = None
 
 
 class GroupedBarChartData(BaseModel):
