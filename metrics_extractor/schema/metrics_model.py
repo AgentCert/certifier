@@ -209,11 +209,24 @@ class LLMQualitativeExtraction(BaseModelWrapper):
     )
     reasoning_quality_score: Optional[float] = Field(
         default=None,
-        description="Combined quality and reasoning score (0-10) assessing reasoning depth, logical coherence, explanation quality, and diagnostic soundness",
+        description="Composite reasoning quality score (0-10). Set to null — overridden by code from per-step reasoning judge.",
     )
     reasoning_quality_notes: Optional[str] = Field(
         default=None,
         description="Narrative assessment of the agent's reasoning quality, covering logical flow, explanation clarity, and diagnostic depth",
+    )
+    # Per-dimension reasoning sub-scores (code-computed from per-step reasoning judge)
+    reasoning_logical_coherence: Optional[float] = Field(
+        default=None, description="Mean logical coherence score across reasoning steps (0-10)"
+    )
+    reasoning_diagnostic_depth: Optional[float] = Field(
+        default=None, description="Mean diagnostic depth score across reasoning steps (0-10)"
+    )
+    reasoning_tool_usage_relevance: Optional[float] = Field(
+        default=None, description="Mean tool usage relevance score across reasoning steps (0-10)"
+    )
+    reasoning_explanation_clarity: Optional[float] = Field(
+        default=None, description="Mean explanation clarity score across reasoning steps (0-10)"
     )
     agent_summary: str = Field(
         default="",
@@ -245,6 +258,28 @@ class LLMQualitativeExtraction(BaseModelWrapper):
         default=None,
         description="Description of unintended side effects caused by agent actions during resolution",
     )
+
+
+class ReasoningStepScore(BaseModelWrapper):
+    """Per-step scores emitted by the reasoning quality judge."""
+    step_index: int = Field(..., description="Index of the reasoning step in the trace")
+    logical_coherence: float = Field(..., ge=0, le=10, description="Does each conclusion follow from observed tool outputs? (0-10)")
+    diagnostic_depth: float = Field(..., ge=0, le=10, description="How systematically did the agent narrow down root cause? (0-10)")
+    tool_usage_relevance: float = Field(..., ge=0, le=10, description="Were the right tools called at the right time? (0-10)")
+    explanation_clarity: float = Field(..., ge=0, le=10, description="Is the agent's output interpretable and well-reasoned? (0-10)")
+    composite: float = Field(..., ge=0, le=10, description="Weighted composite of all four dimensions (0-10)")
+    notes: str = Field(default="", description="One sentence explaining notable strengths or weaknesses")
+
+
+class ReasoningJudgeResponse(BaseModelWrapper):
+    """Structured-output schema for the per-step reasoning quality judge."""
+    steps: List[ReasoningStepScore] = Field(default_factory=list)
+    overall_notes: str = Field(default="", description="Cross-step summary of reasoning quality")
+    mean_logical_coherence: float = Field(default=0.0, ge=0, le=10)
+    mean_diagnostic_depth: float = Field(default=0.0, ge=0, le=10)
+    mean_tool_usage_relevance: float = Field(default=0.0, ge=0, le=10)
+    mean_explanation_clarity: float = Field(default=0.0, ge=0, le=10)
+    mean_composite: float = Field(default=0.0, ge=0, le=10)
 
 
 class ClaimClassification(str, Enum):

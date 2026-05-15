@@ -28,6 +28,7 @@ from metrics_extractor.scripts.span_aggregator import (
     QuantitativeAggregator,
 )
 from metrics_extractor.scripts.hallucination_validator import judge_trace
+from metrics_extractor.scripts.reasoning_judge import judge_reasoning
 from metrics_extractor.schema.data_models import (
     ExtractionResult,
     TokenUsage,
@@ -798,6 +799,25 @@ Extract any qualitative observations you can make from this batch."""
                     logger.info("Hallucination validator: no reasoning steps found, retaining bulk count")
             except Exception as e:
                 logger.warning(f"Hallucination validator failed, falling back to bulk count: {e}")
+
+        # Step 1c: override reasoning_quality_score with per-step multi-dimensional judge.
+        # Replaces the old LLM-averaged batch score with a structured, evidence-anchored
+        # four-dimension assessment (coherence, depth, tool relevance, clarity).
+        if spans:
+            try:
+                self._init_llm_client()
+                trace_dict = {"events": spans}
+                rj = await judge_reasoning(self.llm_client, trace_dict, model="gpt-4o")
+                if rj.mean_composite > 0:
+                    code_aggregated["reasoning_quality_score"] = rj.mean_composite
+                    code_aggregated["reasoning_logical_coherence"] = rj.mean_logical_coherence
+                    code_aggregated["reasoning_diagnostic_depth"] = rj.mean_diagnostic_depth
+                    code_aggregated["reasoning_tool_usage_relevance"] = rj.mean_tool_usage_relevance
+                    code_aggregated["reasoning_explanation_clarity"] = rj.mean_explanation_clarity
+                    if rj.overall_notes:
+                        code_aggregated["reasoning_quality_notes"] = rj.overall_notes
+            except Exception as e:
+                logger.warning(f"Reasoning judge failed, LLM batch score will be used: {e}")
 
         # Step 2: Use LLM only for text/narrative synthesis
         user_message = f"""Synthesize text and narrative fields from these observations from {len(partial_observations)} batches.

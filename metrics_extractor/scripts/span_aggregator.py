@@ -462,10 +462,10 @@ class QualitativeAggregator:
         try:
             aggregated: Dict[str, Any] = {}
 
-            # Average numeric scores across batches
-            avg_fields = [
-                "reasoning_quality_score",
-            ]
+            # Average numeric scores across batches.
+            # NOTE: reasoning_quality_score is excluded — overridden by the per-step
+            # reasoning judge in _aggregate_qualitative_metrics.
+            avg_fields: list = []
             for fname in avg_fields:
                 values: List[float] = []
                 for batch in partial_observations:
