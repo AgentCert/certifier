@@ -585,6 +585,7 @@ class AggregationOrchestrator:
                 fault_category=fault_category,
                 faults_tested=sorted(fault_names),
                 total_runs=len(docs),
+                distinct_runs=len(_distinct_run_ids(docs)) or len(docs),
                 numeric_aggs=numeric_aggs,
                 derived_rates=derived_rates,
                 boolean_aggs=boolean_aggs,

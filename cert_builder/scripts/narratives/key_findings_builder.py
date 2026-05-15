@@ -110,28 +110,29 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
 
     table = "\n".join([header] + rows)
 
-    # Overall stats — denominator is the total number of fault evaluation
-    # samples (sum of per-category total_runs == sum of len(docs)). This is
-    # the correct base for converting per-category rates back into counts.
-    runs_per_fault = phase1["meta"].get("runs_per_fault", 0)
-    total_faults = phase1["meta"].get("total_faults_tested", 0)
-    expected_total = sum(c["total_runs"] for c in cats)
-
-    # Top-level run accounting (distinct trace folders) — drives the §1.2
-    # Experiment Scope cards and must stay consistent with what the LLM
-    # narrates. ``failed_runs`` lives at the top level only (per-category
-    # failed_runs is always 0 by design).
+    # ------------------------------------------------------------------
+    # Top-level run accounting (distinct trace folders). This is the ONLY
+    # run count narrative text should quote: number of *successful* trace
+    # runs. Per-fault evaluation totals (e.g. 62 for resource = 31 runs ×
+    # 2 fault types) are an internal denominator for stats — the narrative
+    # must NOT surface them as "runs" or "evaluations".
+    # ------------------------------------------------------------------
     actual_total_runs = meta.get("total_runs", 0)
     actual_successful_runs = meta.get("successful_runs", 0)
     actual_failed_runs = meta.get("failed_runs", 0)
 
+    # Overall detection / mitigation rates are weighted by per-fault sample
+    # sizes (since rates are inherently per-fault), but we expose ONLY the
+    # percentage to the LLM and use {successful_runs} as the denominator
+    # framing.
+    eval_total = sum(c["total_runs"] for c in cats)
     det_rates = [c["derived"]["fault_detection_success_rate"] for c in cats]
     mit_rates = [c["derived"]["fault_mitigation_success_rate"] for c in cats]
-    runs_per = [c["successful_runs"] for c in cats]
+    runs_per = [c["total_runs"] for c in cats]
     detected_count = sum(int(r * n) for r, n in zip(det_rates, runs_per))
     mitigated_count = sum(int(r * n) for r, n in zip(mit_rates, runs_per))
-    overall_det = (detected_count / expected_total * 100) if expected_total else 0
-    overall_mit = (mitigated_count / expected_total * 100) if expected_total else 0
+    overall_det = (detected_count / eval_total * 100) if eval_total else 0
+    overall_mit = (mitigated_count / eval_total * 100) if eval_total else 0
     reasoning_means = [
         (c.get("numeric", {}).get("reasoning_score") or {}).get("mean")
         for c in cats
@@ -140,22 +141,18 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     avg_reasoning = (sum(reasoning_means) / len(reasoning_means)
                      if reasoning_means else 0.0)
 
-    # Per-fault-category breakdown for the LLM context
+    # Per-fault-category breakdown for the LLM context — always frame as
+    # "{distinct_runs} successful runs"; never expose the multiplied
+    # fault-evaluation count.
     breakdown_lines = []
     for c in cats:
-        rpf = c.get("runs_per_fault", 0)
-        n_f = len(c["faults_tested"])
         cat_distinct = c.get("distinct_runs", c["total_runs"])
-        if n_f > 1:
-            run_desc = (
-                f"{cat_distinct} runs × {n_f} fault types = "
-                f"{c['total_runs']} evaluations"
-            )
-        else:
-            run_desc = f"{cat_distinct or rpf or c['total_runs']} runs"
         det_pct = c["derived"]["fault_detection_success_rate"] * 100
         mit_pct = c["derived"]["fault_mitigation_success_rate"] * 100
-        breakdown_lines.append(f"  {c['label']:12s}: {run_desc} | detection={det_pct:.0f}% | mitigation={mit_pct:.0f}%")
+        breakdown_lines.append(
+            f"  {c['label']:12s}: {cat_distinct} successful runs "
+            f"| detection={det_pct:.0f}% | mitigation={mit_pct:.0f}%"
+        )
     breakdown = "\n".join(breakdown_lines)
 
     failed_line = (
@@ -172,16 +169,13 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         f"RAW FINDINGS ({len(findings)} items from Phase 2):\n{rf_lines}\n\n"
         f"PER-CATEGORY METRICS:\n{table}\n\n"
         f"PER-FAULT-CATEGORY BREAKDOWN:\n{breakdown}\n\n"
-        f"Runs per fault type:    {runs_per_fault}\n"
-        f"Total fault types:      {total_faults}\n"
-        f"Trace runs (folders):   {actual_total_runs} attempted, "
+        f"Trace runs (folders):    {actual_total_runs} attempted, "
         f"{actual_successful_runs} successful, {actual_failed_runs} failed\n"
-        f"Fault evaluations:      {expected_total} (one per fault per successful run)\n"
         f"{failed_line}"
         f"Overall detection rate:  {overall_det:.1f}% "
-        f"({detected_count} of {expected_total} fault evaluations)\n"
+        f"(across {actual_successful_runs} successful runs)\n"
         f"Overall mitigation rate: {overall_mit:.1f}% "
-        f"({mitigated_count} of {expected_total} fault evaluations)\n"
+        f"(across {actual_successful_runs} successful runs)\n"
         f"Avg reasoning score: {avg_reasoning:.2f}/10"
     )
 
@@ -189,8 +183,7 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         "findings_context_block": context,
         "hypothesis_results_json": _format_hypothesis_results_for_llm(hypothesis_data),
         "overall_detection_pct": f"{overall_det:.1f}",
-        "detected_count": detected_count,
-        "total_evaluations": expected_total,
+        "overall_mitigation_pct": f"{overall_mit:.1f}",
         "total_runs": actual_total_runs,
         "successful_runs": actual_successful_runs,
         "failed_runs": actual_failed_runs,

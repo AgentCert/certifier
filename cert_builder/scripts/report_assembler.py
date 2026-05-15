@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import threading
 from typing import Any
 import yaml
@@ -243,16 +244,6 @@ def _enumerated_item(*, kind: str, index: int, severity: str, scope: str,
     return block
 
 
-def _category_pill_icons(label: str) -> str:
-    return {
-        "Application": "📦",
-        "Network": "🌐",
-        "Resource": "💾",
-        "Database": "🗄️",
-        "Storage": "💿",
-    }.get(label, "•")
-
-
 def _verdict_for(value: float | None, *, good: float, fair: float,
                  lower_is_better: bool = False) -> str:
     """Map a numeric value to a strip verdict using two thresholds."""
@@ -285,6 +276,29 @@ def _det_strip(*, hypothesis_id: str, metric_label: str, verdict: str,
     if method:
         block["method"] = method
     return block
+
+
+def _scrub_kn_text(text: str) -> str:
+    """Strip K/N fractions and similar count constructions from narrative text.
+
+    Stat tables legitimately display K/N (e.g. "31/31"), but the secondary
+    table-findings LLM should not echo them back in narrative bullets. This
+    matches the same forbid-list applied to the qualitative findings LLM.
+    """
+    if not text:
+        return text
+    # Remove parenthetical K/N like " (31/31)", " (62/62, 100.0%)"
+    text = re.sub(
+        r"\s*\(?\s*\d{1,3}\s*/\s*\d{1,3}(?:,\s*\d{1,3}\.\d%?)?\s*\)?",
+        "",
+        text,
+    )
+    # Catch bare inline fractions, e.g. "0/31 and 0/62"
+    text = re.sub(r"\b\d{1,3}\s*/\s*\d{1,3}\b", "", text)
+    # Tidy double spaces / orphan punctuation
+    text = re.sub(r"\s+([,.;:])", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
 
 
 def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
@@ -335,7 +349,7 @@ def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
             expect_json=False
         )
         
-        return str(result.get("content", "")).strip() if result else ""
+        return _scrub_kn_text(str(result.get("content", "")).strip()) if result else ""
     
     except Exception as e:
         # Fallback on any error
@@ -405,7 +419,13 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     sh_status = sh.get("status", "not_requested")
     if sh_status == "ok":
         adequacy_value = "Sufficient"
-        hypotheses_tested = "9 (H-01 – H-09)"
+        results = sh.get("results") or {}
+        h_keys = sorted(k for k in results if k.startswith("h") and k[1:].isdigit())
+        if h_keys:
+            nums = [int(k[1:]) for k in h_keys]
+            hypotheses_tested = f"{len(nums)} (H-{min(nums):02d} \u2013 H-{max(nums):02d})"
+        else:
+            hypotheses_tested = "9 (H-01 \u2013 H-09)"
     elif sh_status == "skipped":
         adequacy_value = "Insufficient"
         hypotheses_tested = "—"
@@ -419,7 +439,6 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         {"value": str(total_runs), "label": "Total Runs"},
         {"value": str(successful_runs), "label": "Successful Runs"},
         {"value": str(failed_runs), "label": "Failed Runs"},
-        {"value": str(runs_per_fault), "label": "Runs per Category"},
         {"value": hypotheses_tested, "label": "Hypotheses Tested"},
         {"value": adequacy_value, "label": "Sample Adequacy"},
     ])
@@ -473,17 +492,6 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     )
 
     # Fault-category pill row (one pill per category summarising fault list + runs).
-    pills = []
-    for cat in cats:
-        label = cat.get("label", cat.get("fault_category", ""))
-        faults = cat.get("faults_tested") or []
-        pills.append({
-            "category": label,
-            "fault": ", ".join(faults) if faults else "—",
-            "runs": cat.get("distinct_runs", cat.get("total_runs", 0)),
-            "icon": _category_pill_icons(label),
-        })
-
     content = [
         _heading("1.1 Agent Identity"),
         _card(phase2["cards"]["identity_card"]["items"]),
@@ -499,7 +507,7 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         for cat in cats:
             label = cat.get("label", cat.get("fault_category", ""))
             faults = cat.get("faults_tested") or []
-            runs = cat.get("total_runs", 0)
+            runs = cat.get("distinct_runs", cat.get("total_runs", 0))
             fault_list = ", ".join(faults) if faults else "—"
             fc_items.append({
                 "label": f"{label} Fault",
@@ -540,7 +548,7 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         "number": 1,
         "part": None,
         "title": "Executive Summary",
-        "intro": scope_text[:200] if len(scope_text) > 200 else scope_text,
+        "intro": "",
         "content": content,
     }
 
@@ -782,7 +790,7 @@ def _build_agent_performance_summary_context(phase1: dict, phase2: dict,
     for cat in categories:
         cat_name = cat.get("label", cat.get("fault_category", "Unknown"))
         cat_faults = cat.get("faults_tested", [])
-        cat_runs = cat.get("total_runs", 0)
+        cat_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
         
         # Try to get detection and mitigation rates from phase2 if available
         detection_pct = cat.get("detection_rate_pct", "—")
@@ -793,19 +801,21 @@ def _build_agent_performance_summary_context(phase1: dict, phase2: dict,
         if isinstance(mitigation_pct, (int, float)):
             mitigation_pct = f"{mitigation_pct:.0f}%"
             
-        cat_str = f"{cat_name}: {len(cat_faults)} faults, {cat_runs} runs, {detection_pct} detection, {mitigation_pct} mitigation"
+        cat_str = f"{cat_name}: {len(cat_faults)} faults, {cat_runs} successful runs, {detection_pct} detection, {mitigation_pct} mitigation"
         category_items.append(cat_str)
     
     category_performance_block = "\n".join(category_items) if category_items else "No category data available"
     
-    # Key metrics summary
+    # Key metrics summary — quote ONLY the successful-run count to keep
+    # narrative framing consistent with §1.2 Experiment Scope.
     total_runs = meta.get("total_runs", 0)
+    successful_runs = meta.get("successful_runs", total_runs)
     total_faults = meta.get("total_faults_tested", 0)
     total_categories = meta.get("total_fault_categories", 0)
     success_rate = meta.get("success_rate_pct")
     
     key_metrics = []
-    key_metrics.append(f"Total Runs: {total_runs}")
+    key_metrics.append(f"Successful Runs: {successful_runs} (of {total_runs} attempted)")
     key_metrics.append(f"Fault Categories: {total_categories}")
     key_metrics.append(f"Total Faults Tested: {total_faults}")
     if success_rate is not None:

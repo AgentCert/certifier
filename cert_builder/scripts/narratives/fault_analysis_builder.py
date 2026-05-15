@@ -61,22 +61,11 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
     label = cat["label"]
     faults = cat["faults_tested"]
     fault_str = ", ".join(faults)
-    runs_per_fault = cat.get("runs_per_fault", 0)
-    total_runs = cat["total_runs"]
-    successful = cat.get("successful_runs", total_runs)
-    failed = cat.get("failed_runs", 0)
-    distinct_runs = cat.get("distinct_runs", total_runs)
-    n_faults = len(faults)
-
-    if failed > 0:
-        run_str = f"{total_runs} total ({successful} successful, {failed} failed)"
-    elif n_faults > 1:
-        run_str = (
-            f"{distinct_runs} runs × {n_faults} fault types = "
-            f"{total_runs} evaluations"
-        )
-    else:
-        run_str = str(distinct_runs or runs_per_fault or total_runs)
+    distinct_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
+    # Run framing for narrative: ALWAYS the distinct successful-run count.
+    # Per-fault sample sizes (e.g. 62 = 31 runs × 2 faults) are an internal
+    # detail that drives Wilson CIs; the narrative must not surface them.
+    run_str = f"{distinct_runs} successful runs"
     n = cat["numeric"]
     d = cat["derived"]
     b = cat["boolean"]
@@ -176,21 +165,8 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         label = cat["label"]
         faults = cat["faults_tested"]
         fault_str = ", ".join(faults)
-        rpf = cat.get("runs_per_fault", 0)
-        total_runs = cat["total_runs"]
-        successful = cat.get("successful_runs", total_runs)
-        failed = cat.get("failed_runs", 0)
-        distinct_runs = cat.get("distinct_runs", total_runs)
-        n_faults = len(faults)
-        if failed > 0:
-            run_str = f"{total_runs} ({successful} ok, {failed} failed)"
-        elif n_faults > 1:
-            run_str = (
-                f"{distinct_runs} runs × {n_faults} fault types = "
-                f"{total_runs} evaluations"
-            )
-        else:
-            run_str = str(distinct_runs or rpf or total_runs)
+        distinct_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
+        run_str = f"{distinct_runs} successful runs"
         d = cat["derived"]
         n = cat["numeric"]
         det = int(d["fault_detection_success_rate"] * 100)
@@ -199,7 +175,7 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         rq = (n.get("response_quality_score") or {}).get("mean", "N/A")
 
         detail = (
-            f"{fault_str} | {run_str} runs | Detection: {det}% | Mitigation: {mit}% "
+            f"{fault_str} | {run_str} | Detection: {det}% | Mitigation: {mit}% "
             f"| Reasoning: {reasoning}/10 | Response Quality: {rq}/10"
         )
 
@@ -207,7 +183,7 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         confidence = cat["textual"]["overall_response_and_reasoning_quality"]["confidence"]
 
         analysis = _CONFIG["fallback_template"].format(
-            label=label, fault=fault, runs=runs,
+            label=label, fault=fault_str, runs=run_str,
             det_rate=det, mit_rate=mit,
             rating=rating, confidence=confidence,
         )

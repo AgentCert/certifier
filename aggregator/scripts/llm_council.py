@@ -371,6 +371,7 @@ class LLMCouncil:
         derived_rates: Dict[str, Optional[float]],
         boolean_aggs: Dict[str, Any],
         textual_aggs: Dict[str, Any],
+        distinct_runs: Optional[int] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, int]]:
         """
         Synthesize known_limitations and recommendations from already-computed
@@ -392,6 +393,7 @@ class LLMCouncil:
         prompt = prompts["scorecard_synthesis"]["prompt"].format(
             fault_category=fault_category,
             total_runs=total_runs,
+            distinct_runs=distinct_runs if distinct_runs is not None else total_runs,
             faults_tested=", ".join(faults_tested) if faults_tested else "N/A",
             numeric_metrics=json.dumps(numeric_aggs, indent=2, default=str),
             derived_rates=json.dumps(derived_rates, indent=2, default=str),

@@ -120,7 +120,7 @@ def _build_ttd_stats(categories, sh=None):
             rec = h01.get(cat_key) or {}
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(rec.get("iqm") if rec else ttd.get("mean")),
                 _fmt_time(ttd.get("median")),
                 _fmt_time(ttd.get("p95")),
@@ -130,7 +130,7 @@ def _build_ttd_stats(categories, sh=None):
         else:
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(ttd.get("mean")),
                 _fmt_time(ttd.get("median")),
                 _fmt_time(ttd.get("std_dev")),
@@ -154,7 +154,7 @@ def _build_ttm_stats(categories, sh=None):
             rec = h01.get(cat_key) or {}
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(rec.get("iqm") if rec else ttm.get("mean")),
                 _fmt_time(ttm.get("median")),
                 _fmt_time(ttm.get("p95")),
@@ -164,7 +164,7 @@ def _build_ttm_stats(categories, sh=None):
         else:
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(ttm.get("mean")),
                 _fmt_time(ttm.get("median")),
                 _fmt_time(ttm.get("std_dev")),
@@ -467,7 +467,7 @@ def _build_token_usage(categories):
         out_sum = out.get("sum", 0) or 0
         rows.append([
             cat.get("label", "N/A"),
-            cat.get("total_runs", 0),
+            cat.get("distinct_runs", cat.get("total_runs", 0)),
             inp.get("mean", 0.0),
             out.get("mean", 0.0),
             int(inp_sum),

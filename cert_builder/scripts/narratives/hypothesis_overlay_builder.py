@@ -298,7 +298,7 @@ def _h02_strip(metric_key: str, h02_metric: dict) -> dict | None:
         facts.append({
             "label": _category_label(cat["category"]),
             "text": (
-                f"{rate * 100:.1f}% ({successes}/{trials}), "
+                f"{rate * 100:.1f}%, "
                 f"Wilson 95% CI [{wlow * 100:.1f}%, {whigh * 100:.1f}%]"
             ),
             "tone": tone,
@@ -1244,13 +1244,14 @@ def _build_stat_findings_facts(ctx: Any, inner: dict) -> dict:
     cats = cats or []
 
     cat_list = ", ".join(
-        f"{c.get('label', c.get('fault_category', '?'))}({c.get('total_runs', 0)})"
+        f"{c.get('label', c.get('fault_category', '?'))}"
+        f"({c.get('distinct_runs', c.get('total_runs', 0))} successful runs)"
         for c in cats
     )
 
     return {
         "agent_name": meta.get("agent_name", "agent"),
-        "total_runs": meta.get("total_runs", 0),
+        "total_runs": meta.get("successful_runs", meta.get("total_runs", 0)),
         "category_list": cat_list,
         "h01_block": _stat_block_h01(inner),
         "h02_block": _stat_block_h02(inner),

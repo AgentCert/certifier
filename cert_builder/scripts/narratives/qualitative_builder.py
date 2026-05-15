@@ -10,6 +10,7 @@ Output: {"qualitative_findings": {"detection": [...], ..., "source": ..., "model
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -92,33 +93,50 @@ class QualitativeSynthesis(BaseModel):
 def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     """Build the 7-dimension context block for the LLM prompt."""
     cats = phase1["categories"]
+    meta = phase1.get("meta", {})
     scorecard = phase2["scorecard"]["dimensions"]
     sc_map = {d["dimension"]: d["value"] for d in scorecard}
 
+    # The ONLY run count narratives may quote: number of distinct successful
+    # trace runs (= meta.successful_runs at the top level). Per-fault sample
+    # sizes (e.g. 62 for resource = 31 runs × 2 fault types) drive Wilson CIs
+    # but must NOT be exposed to narrative LLMs as "runs".
+    distinct_total = meta.get("successful_runs", 0) or sum(
+        c.get("distinct_runs", c.get("total_runs", 0)) for c in cats
+    )
+
     lines = ["QUALITATIVE SYNTHESIS CONTEXT - ALL 7 DIMENSIONS\n"]
+    lines.append(
+        f"Trace runs: {meta.get('total_runs', 0)} attempted, "
+        f"{meta.get('successful_runs', 0)} successful, "
+        f"{meta.get('failed_runs', 0)} failed. "
+        f"Always frame counts as \"X successful runs\" (never as evaluations or samples).\n"
+    )
 
     # 1. Detection
     lines.append("=== 1. DETECTION PERFORMANCE ===\n")
-    failed_total = sum(c.get("failed_runs", 0) for c in cats)
-    if failed_total > 0:
-        lines.append(f"NOTE: {failed_total} run(s) failed to produce data and are excluded from rates below.\n")
     lines.append("Per-category detection metrics:")
     for c in cats:
         det = c["derived"]["fault_detection_success_rate"]
         fn = c["derived"]["false_negative_rate"]
-        failed = c.get("failed_runs", 0)
-        run_note = f" [{c['successful_runs']} completed, {failed} failed]" if failed > 0 else ""
+        cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         lines.append(
-            f"  {c['label']}{run_note}: detection_rate={det*100:.0f}%, false_neg={fn*100:.0f}%, "
+            f"  {c['label']} [{cat_runs} successful runs]: "
+            f"detection_rate={det*100:.0f}%, false_neg={fn*100:.0f}%, "
             f"TTD mean={_stat(c, 'time_to_detect', 'mean')}s, "
             f"median={_stat(c, 'time_to_detect', 'median')}s, "
             f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
             f"P95={_stat(c, 'time_to_detect', 'p95')}s"
         )
-    total = sum(c["successful_runs"] for c in cats)
-    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["successful_runs"]) for c in cats)
     lines.append(f"\nScorecard: Normalized TTD = {sc_map.get('Normalized TTD', 'N/A')}")
-    lines.append(f"Overall detection rate: {det_count/total*100:.1f}% ({det_count} of {total} runs)\n")
+    # Compute weighted overall but expose only as percentage with run-level framing.
+    eval_total = sum(c["total_runs"] for c in cats)
+    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
+    overall_det = (det_count / eval_total * 100) if eval_total else 0
+    lines.append(
+        f"Overall detection rate: {overall_det:.1f}% "
+        f"(across {distinct_total} successful runs)\n"
+    )
 
     # 2. Mitigation
     lines.append("=== 2. MITIGATION PERFORMANCE ===\n")
@@ -126,15 +144,21 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     for c in cats:
         mit = c["derived"]["fault_mitigation_success_rate"]
         fp = c["derived"]["false_positive_rate"]
+        cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         lines.append(
-            f"  {c['label']}: mitigation_rate={mit*100:.0f}%, false_pos={fp*100:.0f}%, "
+            f"  {c['label']} [{cat_runs} successful runs]: "
+            f"mitigation_rate={mit*100:.0f}%, false_pos={fp*100:.0f}%, "
             f"TTM mean={_stat(c, 'time_to_mitigate', 'mean')}s, "
             f"median={_stat(c, 'time_to_mitigate', 'median')}s, "
             f"std={_stat(c, 'time_to_mitigate', 'std_dev')}s"
         )
     lines.append(f"\nScorecard: Normalized TTM = {sc_map.get('Normalized TTM', 'N/A')}")
-    mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["successful_runs"]) for c in cats)
-    lines.append(f"Overall mitigation rate: {mit_count/total*100:.0f}% ({mit_count} of {total} runs)\n")
+    mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
+    overall_mit = (mit_count / eval_total * 100) if eval_total else 0
+    lines.append(
+        f"Overall mitigation rate: {overall_mit:.0f}% "
+        f"(across {distinct_total} successful runs)\n"
+    )
 
     # 3. Action Correctness
     lines.append("=== 3. ACTION CORRECTNESS ===\n")
@@ -181,28 +205,34 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     # 6. Hallucination
     lines.append("=== 6. HALLUCINATION CONTROL ===\n")
     lines.append("Per-category hallucination scores:")
-    clean_runs = 0
+    clean_cats = 0
     max_score = 0.0
     for c in cats:
         h = (c.get("numeric") or {}).get("hallucination_score") or {}
         det_flag = _bool(c, "hallucination_detection", "any_detected", False)
+        cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         lines.append(
-            f"  {c['label']}: "
+            f"  {c['label']} [{cat_runs} successful runs]: "
             f"mean={_stat(c, 'hallucination_score', 'mean', '{:.3f}')}, "
             f"max={_stat(c, 'hallucination_score', 'max', '{:.2f}')}, "
             f"detected={'Yes' if det_flag else 'No'}"
         )
         h_max = h.get("max")
-        if not isinstance(h_max, (int, float)):
-            # Aggregator dropped the metric — treat as not-applicable, not "clean"
-            continue
-        if h_max == 0:
-            clean_runs += c["total_runs"]
-        else:
-            det_rate = _bool(c, "hallucination_detection", "detection_rate", 0)
-            clean_runs += int(c["total_runs"] * (1 - (det_rate or 0)))
-        max_score = max(max_score, h_max)
-    lines.append(f"\nTotal: {clean_runs} of {total} runs scored 0.0; highest score = {max_score:.2f}")
+        # Treat missing max as clean when detection flag is also False
+        if not det_flag and (not isinstance(h_max, (int, float)) or h_max == 0):
+            clean_cats += 1
+        if isinstance(h_max, (int, float)):
+            max_score = max(max_score, h_max)
+    if clean_cats == len(cats) and cats:
+        lines.append(
+            f"\nNo hallucinations were observed in any of the {distinct_total} successful runs; "
+            f"highest score = {max_score:.2f}."
+        )
+    else:
+        lines.append(
+            f"\nHallucinations observed in {len(cats) - clean_cats} of {len(cats)} categories; "
+            f"highest score = {max_score:.2f}."
+        )
     lines.append(f"Scorecard: Normalized Hallucination = {sc_map.get('Normalized Hallucination', 'N/A')}\n")
 
     # 7. Security
@@ -232,9 +262,13 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
 def _fallback_findings(phase1: dict) -> dict:
     """Rule-based fallback findings per dimension."""
     cats = phase1["categories"]
-    total = sum(c["successful_runs"] for c in cats)
-    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["successful_runs"]) for c in cats)
-    overall_det = det_count / total * 100 if total else 0
+    meta = phase1.get("meta", {})
+    distinct_total = meta.get("successful_runs", 0) or sum(
+        c.get("distinct_runs", c.get("total_runs", 0)) for c in cats
+    )
+    eval_total = sum(c["total_runs"] for c in cats) or 1
+    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
+    overall_det = det_count / eval_total * 100
 
     result = {}
 
@@ -242,7 +276,7 @@ def _fallback_findings(phase1: dict) -> dict:
     items = []
     if overall_det < 50:
         items.append({"severity": "concern", "headline": "Low detection rate",
-                       "detail": f"Overall detection rate is {overall_det:.1f}% ({det_count} of {total} runs)."})
+                       "detail": f"Overall detection rate is {overall_det:.1f}% across {distinct_total} successful runs."})
     ttd_means = [
         ((c.get("numeric") or {}).get("time_to_detect") or {}).get("mean")
         for c in cats
@@ -348,6 +382,7 @@ def build_qualitative_findings(phase1: dict, phase2: dict) -> dict:
             model=result.get("model"),
             tokens_used=result.get("tokens_used", 0),
         )
+        _scrub_kn_fractions(synthesis)
 
     except Exception as exc:
         print(f"[phase3c] LLM call failed: {exc}")
@@ -359,3 +394,38 @@ def build_qualitative_findings(phase1: dict, phase2: dict) -> dict:
         )
 
     return {"qualitative_findings": synthesis.model_dump(mode="json")}
+
+
+# ---------------------------------------------------------------------------
+# Output sanitizer
+# ---------------------------------------------------------------------------
+
+# Strip parenthetical / inline K/N fractions the LLM may emit despite the
+# prompt forbidding them. We only target "X/Y" where Y is a small integer
+# (matches per-fault-evaluation counts up to 999) — Wilson CIs and percentages
+# are left untouched.
+_FRACTION_RE = re.compile(r"\s*\(?\s*\d{1,3}\s*/\s*\d{1,3}(?:,\s*\d{1,3}\.\d%?)?\s*\)?")
+_FRACTION_INLINE_RE = re.compile(r"\b\d{1,3}\s*/\s*\d{1,3}\b")
+
+
+def _scrub_text(text: str) -> str:
+    """Remove K/N fractions from a single narrative string."""
+    if not text:
+        return text
+    # Remove patterns like " (62/62)", " (31/31, 100.0%)", " (0/62)"
+    cleaned = _FRACTION_RE.sub("", text)
+    # Catch inline fractions not in parens, e.g. "0/31 and 0/62"
+    cleaned = _FRACTION_INLINE_RE.sub("", cleaned)
+    # Tidy double spaces / orphan punctuation
+    cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    return cleaned
+
+
+def _scrub_kn_fractions(synthesis: "QualitativeSynthesis") -> None:
+    """In-place scrub of K/N fractions in all qualitative finding details."""
+    for dim in _DIMENSIONS:
+        items = getattr(synthesis, dim) or []
+        for item in items:
+            if hasattr(item, "detail") and isinstance(item.detail, str):
+                item.detail = _scrub_text(item.detail)

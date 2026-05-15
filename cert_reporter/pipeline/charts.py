@@ -69,10 +69,13 @@ def _spec_to_svg(spec: dict[str, Any], width: int, height: int) -> str:
 
     if _ALT_AVAILABLE and not is_vega:
         try:
+            import io
             chart = alt.Chart.from_dict(spec)
-            return chart.to_image(format="svg").decode()
+            buf = io.StringIO()
+            chart.save(buf, format="svg")
+            return buf.getvalue()
         except Exception as exc:
-            log.warning("altair to_image failed: %s", exc)
+            log.warning("altair save failed: %s", exc)
 
     # Fallback: plain SVG placeholder
     return (

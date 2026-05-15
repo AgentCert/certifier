@@ -10,7 +10,8 @@ user_prompt_template: |
   TASK:
   For EACH category above, generate:
   1. A heading DETAIL LINE using this exact format:
-     <fault> | <runs> runs | Detection: <rate>% | Mitigation: <rate>% | Reasoning: <score>/10 | Response Quality: <score>/10
+     <fault> | <runs> | Detection: <rate>% | Mitigation: <rate>% | Reasoning: <score>/10 | Response Quality: <score>/10
+     where <runs> is taken VERBATIM from the "Runs:" line in the context (always "<N> successful runs").
   2. A CATEGORY ANALYSIS (5-8 sentences) that synthesizes:
      - The category's overall performance profile
      - The most notable pattern or contrast
@@ -21,6 +22,8 @@ user_prompt_template: |
   - The analysis should NOT repeat assessment block text verbatim
   - Synthesize ACROSS the 4 assessments + metrics
   - Reference specific numbers from the context
+  - Run-count framing (STRICT): always quote runs as "<N> successful runs" using the value from "Runs:" in the context. Do NOT write "X runs × Y fault types = Z evaluations", "evaluations", "samples", or fractions like "0/62" or "62/62".
+  - Wilson CI bounds may be cited as percentages; do NOT cite the underlying K/N counts.
   - Keep it concise: 5-8 sentences, professional tone
 
 fallback_template: >
