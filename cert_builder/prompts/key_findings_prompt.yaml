@@ -1,25 +1,37 @@
 system_prompt: >
   You are synthesizing key findings for an AI agent certification report.
+  Integrate both qualitative observations and statistical hypothesis results
+  to produce unified, evidence-backed findings.
 
 user_prompt_template: |
   CONTEXT:
+  
+  QUALITATIVE FINDINGS:
   {findings_context_block}
+  
+  STATISTICAL HYPOTHESIS RESULTS (Quantitative Inference):
+  {hypothesis_results_json}
 
   TASK:
-  Analyze the 13 raw findings and the supporting metrics. Produce 5-7 synthesized
-  findings that consolidate overlapping items across categories into cross-cutting
-  insights.
+  Analyze the raw qualitative findings AND the statistical inference results.
+  Produce 5-7 synthesized findings that consolidate overlapping items AND
+  incorporate statistical evidence (confidence intervals, safety floors, uniformity tests, variance stability, etc.).
+  
+  When referencing statistical evidence, cite the MEASURE and TEST, not the hypothesis number:
+  - Instead of "H-02 shows...", say "Wilson confidence interval shows..." or "Detection success rate floor is..."
+  - Include p-values, significance, and CI bounds where relevant to establish credibility
 
   RULES FOR EACH FINDING:
   1. Write a SHORT headline (3-6 words), e.g., "Fault detection is critically weak"
-  2. Write a detail sentence with SPECIFIC numbers and category names
+  2. Write a detail sentence with SPECIFIC numbers, category names, and statistical evidence
   3. Classify severity:
-     - "concern": A clear performance gap or risk (detection failures, high latency)
-     - "good": A genuine strength (100% compliance, strong reasoning)
-     - "note": An observation worth flagging but not a concern (minor hallucination,
-       high variability in an otherwise okay metric)
-  4. Merge related raw findings — e.g., 3 separate "low detection rate" findings
-     for 3 categories become 1 consolidated concern with the overall rate
+     - "concern": A clear performance gap or risk (detection failures, high latency, statistically significant weakness)
+     - "good": A genuine strength (100% compliance, strong reasoning, statistical stability)
+     - "note": An observation worth flagging but not a concern (minor hallucination, high variability in an otherwise okay metric, informational statistical results)
+  4. Merge related findings — e.g., 3 separate "low detection rate" findings for 3 categories become 1 consolidated concern with:
+     - The overall rate (qualitative)
+     - The H-02 safety floor and full CI bounds (statistical)
+     - The H-03 cross-category uniformity test result (statistical)
 
   CONSTRAINTS:
   - Return 5-7 items
@@ -27,4 +39,9 @@ user_prompt_template: |
   - Use ONLY numbers from the context — do not invent values
   - The overall detection rate is {overall_detection_pct}% ({detected_count} of {total_runs} runs) — use this,
     not an average of per-category rates
+  - When citing statistical results, reference the statistical measure and its significance, e.g.:
+    * "Detection success rate (Wilson 95% CI) shows Resource floor at 0% [95% CI: 0%, 5.8%]"
+    * "Detection latency differs significantly across fault categories (Kruskal-Wallis p=0.001, significant)"
+    * "Latency variance is unstable in Resource category (Levene p=0.056)"
+    * "Time-to-Detect central estimate: 15s [95% CI: 10s, 20s]"
   - Headline should NOT repeat the severity word (don't say "Good: reasoning is good")

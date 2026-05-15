@@ -124,6 +124,10 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     avg_reasoning = (sum(reasoning_means) / len(reasoning_means)
                      if reasoning_means else 0.0)
 
+    # Extract raw statistical hypothesis data for LLM to use directly
+    sh = phase1.get("statistical_hypothesis") or {}
+    hypothesis_data = sh.get("results") or {}
+
     context = (
         f"SCORECARD (7 dimensions):\n{sc_lines}\n\n"
         f"RAW FINDINGS ({len(findings)} items from Phase 2):\n{rf_lines}\n\n"
@@ -135,12 +139,179 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     )
 
     template_vars = {
+        "findings_context_block": context,
+        "hypothesis_results_json": _format_hypothesis_results_for_llm(hypothesis_data),
         "overall_detection_pct": f"{overall_det:.1f}",
         "detected_count": detected_count,
         "total_runs": total_runs,
     }
 
     return context, template_vars
+
+
+# ---------------------------------------------------------------------------
+# Statistical findings extraction
+# ---------------------------------------------------------------------------
+
+def _format_hypothesis_results_for_llm(hypothesis_data: dict) -> str:
+    """
+    Format raw statistical hypothesis results as a readable text block for the LLM.
+    Preserves full precision (CIs, p-values, effect sizes).
+    Extracts ALL available metrics, not just pre-selected ones.
+    """
+    if not hypothesis_data:
+        return "(No statistical hypothesis results available.)"
+    
+    results = hypothesis_data.get("results") if isinstance(hypothesis_data.get("results"), dict) else hypothesis_data
+    if not isinstance(results, dict) or not results:
+        return "(Statistical hypothesis results not available.)"
+    
+    lines = []
+    
+    # H-01: Continuous metrics with confidence intervals
+    h01 = results.get("h01") or {}
+    if h01:
+        lines.append("CONTINUOUS METRICS WITH CONFIDENCE INTERVALS (IQM + BCa 95% CI):")
+        # Extract ALL metrics from H-01
+        for metric_name, metric_data in h01.items():
+            if isinstance(metric_data, dict) and metric_data:
+                metric_label = metric_name.replace("_", "-").title()
+                iqm = metric_data.get('iqm_estimate')
+                ci_lower = metric_data.get('ci_lower')
+                ci_upper = metric_data.get('ci_upper')
+                if iqm is not None and ci_lower is not None and ci_upper is not None:
+                    if isinstance(iqm, (int, float)) and iqm > 100:
+                        # Likely a percentage (0-100 scale)
+                        lines.append(f"  {metric_label}: {iqm:.1f}% [95% CI: {ci_lower:.1f}%, {ci_upper:.1f}%]")
+                    else:
+                        # Likely seconds or other unit
+                        lines.append(f"  {metric_label}: {iqm:.1f}s [95% CI: {ci_lower:.1f}s, {ci_upper:.1f}s]")
+    
+    # H-02: Success rates with safety floor (Wilson 95% CI)
+    h02 = results.get("h02") or {}
+    if h02:
+        lines.append("\nSUCCESS RATES WITH SAFETY FLOOR (Wilson 95% CI):")
+        # Extract ALL metrics from H-02
+        for metric_name, metric_data in h02.items():
+            if isinstance(metric_data, dict) and metric_data:
+                metric_label = metric_name.replace("_", "-").title()
+                
+                # Check if per-category breakdown exists
+                per_cat = metric_data.get("per_category") or []
+                if per_cat:
+                    lines.append(f"  {metric_label} (per category):")
+                    for cat in per_cat:
+                        cat_label = (cat.get("category") or "").replace("_fault", "").title() or "—"
+                        wilson_l = (cat.get("wilson_lower", 0.0) * 100.0)
+                        wilson_u = (cat.get("wilson_upper", 1.0) * 100.0)
+                        lines.append(f"    {cat_label}: [{wilson_l:.1f}%, {wilson_u:.1f}%] (95% CI)")
+                else:
+                    # Overall value
+                    wilson_l = (metric_data.get("wilson_lower", 0.0) * 100.0)
+                    wilson_u = (metric_data.get("wilson_upper", 1.0) * 100.0)
+                    lines.append(f"  {metric_label} (overall): [{wilson_l:.1f}%, {wilson_u:.1f}%] (95% CI)")
+    
+    # H-03: Cross-category uniformity tests
+    h03 = results.get("h03") or {}
+    if h03:
+        lines.append("\nCROSS-CATEGORY UNIFORMITY TESTS (Kruskal-Wallis):")
+        for metric_name, metric_data in h03.items():
+            if isinstance(metric_data, dict) and metric_data:
+                metric_label = metric_name.replace("_", "-").title()
+                kw_p = metric_data.get("omnibus_p", "unknown")
+                sig = metric_data.get("omnibus_significant", False)
+                lines.append(f"  {metric_label}: p={kw_p}, Significant={sig}")
+    
+    # H-04: Detection rate uniformity (Chi-squared)
+    h04 = results.get("h04") or {}
+    if h04:
+        lines.append("\nDETECTION RATE UNIFORMITY (Chi-Squared Test):")
+        for metric_name, metric_data in h04.items():
+            if isinstance(metric_data, dict) and metric_data:
+                metric_label = metric_name.replace("_", "-").title()
+                chi = metric_data.get("statistic", "unknown")
+                p = metric_data.get("p_value", "unknown")
+                sig = metric_data.get("significant", False)
+                lines.append(f"  {metric_label}: χ²={chi}, p={p}, Significant={sig}")
+    
+    # H-05: Variance stability (Levene test)
+    h05 = results.get("h05") or {}
+    if h05:
+        lines.append("\nVARIANCE STABILITY (Levene Test):")
+        for metric_name, metric_data in h05.items():
+            if isinstance(metric_data, dict) and metric_data:
+                metric_label = metric_name.replace("_", "-").title()
+                levene_p = metric_data.get("levene_p", "unknown")
+                unstable = metric_data.get("unstable_categories") or []
+                if unstable:
+                    cat_names = ", ".join((c.replace("_fault", "").title() for c in unstable))
+                    lines.append(f"  {metric_label}: Unstable in [{cat_names}] (Levene p={levene_p})")
+                else:
+                    lines.append(f"  {metric_label}: All stable (Levene p={levene_p})")
+    
+    return "\n".join(lines) if lines else "(No statistical hypothesis results available.)"
+
+
+def _build_statistical_findings_block(phase1: dict) -> str:
+    """Extract statistical hypothesis results from phase1 and format as text block."""
+    sh = phase1.get("statistical_hypothesis") or {}
+    
+    # If hypothesis testing was not run, return empty string
+    if not sh or sh.get("status") == "not_requested":
+        return "(Statistical hypothesis testing was not requested for this run.)"
+    
+    # If suppressed due to sample size, note that
+    if sh.get("status") == "suppressed":
+        return "(Statistical hypothesis testing was suppressed due to insufficient sample size.)"
+    
+    results = (sh.get("results") or {})
+    inner = results.get("results") if isinstance(results.get("results"), dict) else results
+    if not isinstance(inner, dict):
+        return "(Statistical hypothesis results not available.)"
+    
+    findings_text = []
+    
+    # H-01: Detection rate floor
+    h01 = (inner.get("h01") or {}).get("fault_detection_success_rate") or {}
+    if h01:
+        floor = (h01.get("wilson_lower") or 0.0) * 100.0
+        findings_text.append(f"H-01: Detection rate certified floor is {floor:.1f}%")
+    
+    # H-02: Weakest per-category floor
+    h02 = (inner.get("h02") or {}).get("fault_detection_success_rate") or {}
+    per_cat_h02 = h02.get("per_category") or []
+    if per_cat_h02:
+        worst = min(per_cat_h02, key=lambda c: c.get("wilson_lower", 1.0))
+        cat_label = (worst.get("category") or "").replace("_fault", "").title() or "—"
+        floor = (worst.get("wilson_lower") or 0.0) * 100.0
+        findings_text.append(f"H-02: Weakest per-category detection floor is {cat_label} at {floor:.1f}%")
+    
+    # H-03: Latency disparity
+    h03_ttd = (inner.get("h03") or {}).get("time_to_detect") or {}
+    if h03_ttd.get("omnibus_significant"):
+        p = h03_ttd.get("omnibus_p", "unknown")
+        findings_text.append(f"H-03: Detection latency differs significantly across categories (Kruskal-Wallis p={p})")
+    
+    # H-04: Cross-category uniformity
+    h04 = (inner.get("h04") or {}).get("fault_detection_success_rate") or {}
+    if h04:
+        sig = h04.get("significant")
+        chi = h04.get("statistic", "unknown")
+        p = h04.get("p_value", "unknown")
+        if sig:
+            findings_text.append(f"H-04: Detection rates vary significantly across categories (χ²={chi}, p={p})")
+        else:
+            findings_text.append(f"H-04: Detection rates are uniform across categories (χ²={chi}, p={p})")
+    
+    # H-05: Variance stability
+    h05 = (inner.get("h05") or {}).get("time_to_detect") or {}
+    unstable = h05.get("unstable_categories") or []
+    if unstable:
+        names = ", ".join((c.replace("_fault", "").title() for c in unstable))
+        p = h05.get("levene_p", "unknown")
+        findings_text.append(f"H-05: Latency variance is unstable in {names} (Levene p={p})")
+    
+    return "\n".join(findings_text) if findings_text else "(No statistical findings available.)"
 
 
 # ---------------------------------------------------------------------------
@@ -175,10 +346,7 @@ def build_key_findings(phase1: dict, phase2: dict) -> dict:
         {"key_findings": {"items": [...], "source": ..., "model": ..., "tokens_used": ...}}
     """
     context_block, template_vars = _build_findings_context(phase1, phase2)
-    user_prompt = _CONFIG["user_prompt_template"].format(
-        findings_context_block=context_block,
-        **template_vars,
-    )
+    user_prompt = _CONFIG["user_prompt_template"].format(**template_vars)
 
     try:
         client = get_client()
