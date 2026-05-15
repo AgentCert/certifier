@@ -21,7 +21,7 @@ from utils.custom_errors import MyCustomError, OrchestratorError
 
 from fault_analyzer import FaultBucketingPipeline
 from metrics_extractor import ExtractionResult, TraceMetricsExtractor
-from aggregator.scripts.aggregation import AggregationOrchestrator, DirectoryQueryService, MetricsQueryService
+from aggregator.scripts.aggregation import AggregationOrchestrator, DirectoryQueryService, MetricsQueryService, _distinct_run_ids
 
 try:
     from utils.mongodb_util import MongoDBClient
@@ -676,12 +676,15 @@ class BucketPipelineService:
                 logger.error(f"Metric extraction failed for '{fault_id}': {exc}")
                 continue
 
+            quant = extraction_result.quantitative
             result_dict = {
                 "fault_id": fault_id,
                 "run_id": run_id,
+                "agent_id": quant.agent_id or agent_id or "",
+                "agent_name": quant.agent_name or "",
+                "experiment_id": quant.experiment_id or "",
                 "fault_name": bucket.fault_name,
-                "agent_id": agent_id or None,
-                "quantitative": extraction_result.quantitative.model_dump(mode="json"),
+                "quantitative": quant.model_dump(mode="json"),
                 "qualitative": extraction_result.qualitative.model_dump(mode="json"),
                 "token_usage": extraction_result.token_usage.to_dict(),
             }
@@ -874,6 +877,11 @@ class CertPipelineService:
                 certification_run_id=certification_run_id,
                 runs_per_fault=runs_per_fault,
                 store_results=False,
+                # Distinct run_ids in the *raw* (un-grouped) input so the
+                # certification report's "Total Runs" reflects every attempted
+                # run — including those whose fault_name didn't map to any
+                # canonical category (e.g. unclassified / single_fault folders).
+                total_input_runs=len(_distinct_run_ids(agent_docs)),
             )
 
             _print_aggregation_summary(aggregated_scorecard, agent_id, agent_name)

@@ -94,6 +94,9 @@ class FaultCategoryScorecard(BaseModel):
     fault_category: str
     faults_tested: List[str] = Field(default_factory=list)
     total_runs: int = 0
+    successful_runs: int = 0
+    failed_runs: int = 0
+    distinct_runs: int = 0
     numeric_metrics: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     derived_metrics: Dict[str, Optional[float]] = Field(default_factory=dict)
     boolean_status_metrics: Dict[str, Any] = Field(default_factory=dict)
@@ -110,6 +113,8 @@ class CertificationScorecard(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     total_runs: int = 0
+    total_successful_runs: int = 0
+    total_failed_runs: int = 0
     total_faults_tested: int = 0
     total_fault_categories: int = 0
     runs_per_fault: int = 30

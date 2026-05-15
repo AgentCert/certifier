@@ -7,9 +7,9 @@ judge:
     Always respond with valid JSON only.
 
   narrative: |
-    You are evaluating the metric "{metric_name}" across {n} independent runs of an AI agent responding to faults in the "{fault_category}" category.
+    You are evaluating the metric "{metric_name}" for an AI agent's behavior in the "{fault_category}" fault category. The agent was tested across multiple successful runs; the per-fault observations below were collected from those runs (do not quote the sample count — describe behavior at the run level).
 
-    Below are the per-run narrative values collected from {n} runs:
+    Below are the per-fault narrative values:
 
     {narratives}
 
@@ -26,9 +26,9 @@ judge:
     }}
 
   limitations: |
-    You are evaluating the metric "{metric_name}" across {n} independent runs of an AI agent responding to faults in the "{fault_category}" category.
+    You are evaluating the metric "{metric_name}" for an AI agent in the "{fault_category}" fault category. The per-fault observations below were collected from successful agent runs; do not quote the raw sample count.
 
-    Below are the per-run values collected from {n} runs. Each run may contain multiple items.
+    Below are the per-fault values collected. Each sample may contain multiple items.
 
     {narratives}
 
@@ -49,9 +49,9 @@ judge:
     }}
 
   recommendations: |
-    You are evaluating the metric "{metric_name}" across {n} independent runs of an AI agent responding to faults in the "{fault_category}" category.
+    You are evaluating the metric "{metric_name}" for an AI agent in the "{fault_category}" fault category. The per-fault observations below were collected from successful agent runs; do not quote the raw sample count.
 
-    Below are the per-run values collected from {n} runs. Each run may contain multiple items.
+    Below are the per-fault values collected. Each sample may contain multiple items.
 
     {narratives}
 
@@ -77,7 +77,7 @@ meta_judge:
     Always respond with valid JSON only.
 
   reconciliation: |
-    You are a meta-judge reconciling the outputs of {k} independent LLM judges who each evaluated the metric "{metric_name}" across {n} runs of an AI agent in the "{fault_category}" fault category.
+    You are a meta-judge reconciling the outputs of {k} independent LLM judges who each evaluated the metric "{metric_name}" for the "{fault_category}" fault category. Frame your consensus at the run level — do not quote raw observation counts.
 
     Here are the {k} judge outputs:
 
@@ -105,9 +105,9 @@ scorecard_synthesis:
   prompt: |
     You are an expert evaluator producing a certification scorecard for an AI agent that autonomously detects, diagnoses, and remediates infrastructure faults.
 
-    You are analysing the "{fault_category}" fault category based on {total_runs} experiment runs across these fault types: {faults_tested}.
+    You are analysing the "{fault_category}" fault category based on data from {distinct_runs} successful agent runs (covering these fault types: {faults_tested}).
 
-    Below are the aggregated metrics computed across all runs:
+    Below are the aggregated metrics computed across all observations:
 
     ## Numeric Metrics
     {numeric_metrics}
@@ -139,7 +139,7 @@ scorecard_synthesis:
         "ranked_items": [
           {{
             "limitation": "<specific description grounded in metrics>",
-            "frequency": <estimated count out of {total_runs} runs>,
+            "frequency": <estimated count out of {distinct_runs} successful runs>,
             "severity": "<High|Medium|Low>"
           }}
         ]

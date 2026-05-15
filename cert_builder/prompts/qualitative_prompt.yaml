@@ -21,3 +21,10 @@ user_prompt_template: |
   2. Write a SHORT headline (3-6 words, max 50 chars)
   3. Write a detail sentence with specific numbers and category names
   4. Use ONLY data from the context — do NOT invent values
+  5. Run-count framing (STRICT — violations will be rejected):
+     - Quote rates as PERCENTAGES ONLY (e.g., "100% RAI compliance", "0% hallucination", "97% security").
+     - NEVER write any "N/M" fraction in narrative text. The deterministic stat tables in the report already display K/N for those who need it.
+     - When you would write "31/31" or "62/62", write "100%" instead and refer to the run count using the bracketed "[N successful runs]" pattern from the context (always "[31 successful runs]" in this report).
+     - When you would write "0/31" or "0/62", write "0% (zero observations across [31 successful runs])" instead.
+     - FORBIDDEN tokens (do not produce these substrings): "31/31", "62/62", "0/31", "0/62", "X of 31", "X of 62", "X of 93", "fault evaluations", "evaluations", "samples", "trials", "flagged runs out of", "× 2", "= 62".
+     - This report has ONE successful-run count: 31. Per-category stats are at the SAME run population — do not invent different denominators per category.

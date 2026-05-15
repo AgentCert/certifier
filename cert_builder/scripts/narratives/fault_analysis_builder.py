@@ -59,8 +59,13 @@ class FaultCategoryAnalysisResult(BaseModel):
 def _build_category_context(cat: dict, phase2: dict) -> str:
     """Build context block for a single category."""
     label = cat["label"]
-    fault = cat["faults_tested"][0]
-    runs = cat["total_runs"]
+    faults = cat["faults_tested"]
+    fault_str = ", ".join(faults)
+    distinct_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
+    # Run framing for narrative: ALWAYS the distinct successful-run count.
+    # Per-fault sample sizes (e.g. 62 = 31 runs × 2 faults) are an internal
+    # detail that drives Wilson CIs; the narrative must not surface them.
+    run_str = f"{distinct_runs} successful runs"
     n = cat["numeric"]
     d = cat["derived"]
     b = cat["boolean"]
@@ -79,8 +84,8 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
     lines = [
         f"=== {label.upper()} FAULTS ===",
         f"Category:    {label}",
-        f"Fault:       {fault}",
-        f"Runs:        {runs}",
+        f"Faults:      {fault_str}",
+        f"Runs:        {run_str}",
         "",
         "KEY METRICS:",
         f"  Detection rate:       {d['fault_detection_success_rate']*100:.0f}%",
@@ -158,8 +163,10 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
     result = {}
     for cat in phase1["categories"]:
         label = cat["label"]
-        fault = cat["faults_tested"][0]
-        runs = cat["total_runs"]
+        faults = cat["faults_tested"]
+        fault_str = ", ".join(faults)
+        distinct_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
+        run_str = f"{distinct_runs} successful runs"
         d = cat["derived"]
         n = cat["numeric"]
         det = int(d["fault_detection_success_rate"] * 100)
@@ -168,7 +175,7 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         rq = (n.get("response_quality_score") or {}).get("mean", "N/A")
 
         detail = (
-            f"{fault} | {runs} runs | Detection: {det}% | Mitigation: {mit}% "
+            f"{fault_str} | {run_str} | Detection: {det}% | Mitigation: {mit}% "
             f"| Reasoning: {reasoning}/10 | Response Quality: {rq}/10"
         )
 
@@ -176,7 +183,7 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         confidence = cat["textual"]["overall_response_and_reasoning_quality"]["confidence"]
 
         analysis = _CONFIG["fallback_template"].format(
-            label=label, fault=fault, runs=runs,
+            label=label, fault=fault_str, runs=run_str,
             det_rate=det, mit_rate=mit,
             rating=rating, confidence=confidence,
         )

@@ -11,6 +11,7 @@ Output: {"limitations_enriched": {"items": [...], "source": ..., "model": ..., "
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -190,6 +191,20 @@ def _fallback_limitations(phase2: dict) -> list[dict]:
 # Entry point
 # ---------------------------------------------------------------------------
 
+_KN_PAREN_RE = re.compile(r"\s*\(?\s*\d{1,3}\s*/\s*\d{1,3}(?:\s+runs)?(?:,\s*\d{1,3}(?:\.\d+)?\s*%?)?\s*\)?")
+_KN_INLINE_RE = re.compile(r"\b\d{1,3}\s*/\s*\d{1,3}\b")
+
+
+def _scrub_kn(text: str) -> str:
+    if not text:
+        return text
+    out = _KN_PAREN_RE.sub("", text)
+    out = _KN_INLINE_RE.sub("", out)
+    out = re.sub(r"\s+([,.;:])", r"\1", out)
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    return out
+
+
 def build_limitations(phase1: dict, phase2: dict) -> dict:
     """
     Enrich and label limitations.
@@ -219,6 +234,8 @@ def build_limitations(phase1: dict, phase2: dict) -> dict:
         sorted_items = sorted(parsed.items, key=lambda x: sev_rank.get(x.severity, 9))
         for i, item in enumerate(sorted_items, 1):
             item.index = i
+            item.frequency = _scrub_kn(item.frequency) or "All successful runs"
+            item.limitation = _scrub_kn(item.limitation)
 
         envelope = LimitationsEnriched(
             items=sorted_items,

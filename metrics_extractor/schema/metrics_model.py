@@ -219,10 +219,18 @@ class LLMQualitativeExtraction(BaseModelWrapper):
         default="",
         description="A concise summary of the agent's actions and findings and remediation steps",
     )
-    # Hallucination metrics (LLM-assessed)
+    # Hallucination metrics (LLM-assessed, per-batch counts used by QualitativeAggregator)
+    hallucination_count: Optional[int] = Field(
+        default=None,
+        description="Count of distinct hallucinated or unsupported claims found in this batch",
+    )
+    total_response_count: Optional[int] = Field(
+        default=None,
+        description="Count of total agent response/output spans examined in this batch",
+    )
     hallucination_score: Optional[float] = Field(
         default=None,
-        description="Hallucination score from 0 to 1, where lower indicates fewer hallucinations",
+        description="Hallucination score from 0 to 1, where lower indicates fewer hallucinations. Set to null — overridden by code from hallucination_count / total_response_count.",
     )
     # Behavioural metrics (LLM-assessed)
     plan_adherence: Optional[str] = Field(

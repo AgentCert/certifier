@@ -35,7 +35,7 @@ def _clamp(val, lo=0.0, hi=1.0):
     return max(lo, min(hi, val))
 
 
-def _safe_get(d, *keys, default=0.0):
+def _safe_get(d, *keys, default=None):
     """Walk nested dicts safely, return default if any key missing."""
     for k in keys:
         if not isinstance(d, dict):
@@ -60,15 +60,21 @@ SPEED_REF = CONFIG["normalization"]["speed_ref"]
 SCORE_SCALE = CONFIG["normalization"]["score_scale"]
 
 def normalize_speed(mean_seconds):
-    """Lower time = better. 0s -> 1.0, >=SPEED_REF -> 0.0"""
+    """Lower time = better. 0s -> 1.0, >=SPEED_REF -> 0.0, None -> 0.0 (failure)"""
+    if mean_seconds is None:
+        return 0.0  # No detection/mitigation = worst score
     return _clamp(1 - mean_seconds / SPEED_REF)
 
 def normalize_score_10(score):
-    """Score on 0-SCORE_SCALE -> 0-1."""
+    """Score on 0-SCORE_SCALE -> 0-1. None -> 0.0 (missing data)"""
+    if score is None:
+        return 0.0  # Missing score = worst score
     return _clamp(score / SCORE_SCALE)
 
 def normalize_hallucination(mean_score):
-    """Hallucination: 0 is best -> 1.0, SCORE_SCALE is worst -> 0.0"""
+    """Hallucination: 0 is best -> 1.0, SCORE_SCALE is worst -> 0.0, None -> 0.0 (missing)"""
+    if mean_score is None:
+        return 0.0  # Missing hallucination score = worst score (assume hallucinations present)
     return _clamp(1 - mean_score / SCORE_SCALE)
 
 def normalize_rate(rate):
@@ -176,18 +182,18 @@ def build_findings(categories):
             findings.append({"severity": "concern", "text": f"Fault detection rate critically low for {label} at {det_rate*100:.0f}%"})
         if false_neg > thresholds["false_negative_above"]:
             findings.append({"severity": "concern", "text": f"High false negative rate of {false_neg*100:.0f}% in {label}"})
-        if ttd_median > thresholds["ttd_median_above"]:
+        if ttd_median is not None and ttd_median > thresholds["ttd_median_above"]:
             findings.append({"severity": "concern", "text": f"Slow fault detection in {label} with median TTD of {ttd_median:.0f}s"})
-        if ttm_median > thresholds["ttm_median_above"]:
+        if ttm_median is not None and ttm_median > thresholds["ttm_median_above"]:
             findings.append({"severity": "concern", "text": f"Extended mitigation times in {label} with median TTM of {ttm_median:.0f}s"})
-        if halluc_max > thresholds["hallucination_max_above"]:
+        if halluc_max is not None and halluc_max > thresholds["hallucination_max_above"]:
             findings.append({"severity": "concern", "text": f"Hallucination concerns in {label} with max score {halluc_max}"})
 
         if rai_rate != 1.0:
             all_rai_perfect = False
         if sec_rate != 1.0:
             all_security_perfect = False
-        if halluc_mean != 0.0:
+        if halluc_mean is not None and halluc_mean != 0.0:
             all_halluc_zero = False
 
     if good_rules.get("all_rai_perfect") and all_rai_perfect:

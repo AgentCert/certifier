@@ -163,9 +163,29 @@ def _extract_agent_id(doc: Dict[str, Any]) -> Optional[str]:
     return doc.get("agent_id") or doc.get("quantitative", {}).get("agent_id")
 
 
+def _extract_agent_name(doc: Dict[str, Any]) -> Optional[str]:
+    """Extract agent_name from a metrics document (top-level or nested)."""
+    return doc.get("agent_name") or doc.get("quantitative", {}).get("agent_name")
+
+
+def _extract_experiment_id(doc: Dict[str, Any]) -> Optional[str]:
+    """Extract experiment_id from a metrics document (top-level or nested)."""
+    return doc.get("experiment_id") or doc.get("quantitative", {}).get("experiment_id")
+
+
 def _extract_fault_category(doc: Dict[str, Any]) -> Optional[str]:
     """Extract fault_category from a metrics document (top-level or nested)."""
     return doc.get("fault_category") or doc.get("quantitative", {}).get("injected_fault_category")
+
+
+def _extract_run_id(doc: Dict[str, Any]) -> Optional[str]:
+    """Extract run_id from a metrics document (top-level or nested)."""
+    return doc.get("run_id") or doc.get("quantitative", {}).get("run_id")
+
+
+def _distinct_run_ids(docs: List[Dict[str, Any]]) -> set:
+    """Return the set of distinct, non-empty run_ids across docs."""
+    return {rid for rid in (_extract_run_id(d) for d in docs) if rid}
 
 
 class DirectoryQueryService:
@@ -253,17 +273,30 @@ class ScorecardAssembler:
         boolean_aggs: Dict[str, Any],
         textual_aggs: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Assemble all aggregation results into a fault-category scorecard dict."""
+        """Assemble all aggregation results into a fault-category scorecard dict.
+
+        A category-level "run" is one fault evaluation sample (one metric
+        document) that contributed to this category. ``successful_runs`` is
+        the denominator used by ``compute_derived_rates`` so it must equal
+        ``len(docs)``. Per-run failures are tracked at the certification (top)
+        level only; per-category ``failed_runs`` is 0.
+        """
         fault_names = set()
         for doc in docs:
             fname = doc.get("fault_name") or doc.get("quantitative", {}).get("injected_fault_name")
             if fname:
                 fault_names.add(fname)
 
+        successful_runs = len(docs)
+        distinct_runs = len(_distinct_run_ids(docs)) or successful_runs
+
         return {
             "fault_category": fault_category,
             "faults_tested": sorted(fault_names),
-            "total_runs": len(docs),
+            "total_runs": successful_runs,
+            "successful_runs": successful_runs,
+            "failed_runs": 0,
+            "distinct_runs": distinct_runs,
             "numeric_metrics": numeric_aggs,
             "derived_metrics": derived_rates,
             "boolean_status_metrics": boolean_aggs,
@@ -277,19 +310,43 @@ class ScorecardAssembler:
         agent_name: str = "",
         certification_run_id: str = "",
         runs_per_fault: int = 30,
+        total_input_runs: Optional[int] = None,
+        total_successful_runs: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Assemble the final certification scorecard combining all fault-category scorecards."""
-        total_runs = sum(sc.get("total_runs", 0) for sc in category_scorecards)
+        """Assemble the final certification scorecard combining all fault-category scorecards.
+
+        Args:
+            category_scorecards: per-category scorecards.
+            runs_per_fault: configured/expected runs per fault (display only).
+            total_input_runs: distinct ``run_id``s in raw input (before
+                category mapping). Defaults to ``total_successful_runs``
+                when not supplied.
+            total_successful_runs: distinct ``run_id``s that contributed to
+                at least one mapped category. Defaults to the sum of
+                per-category ``successful_runs`` (legacy behavior).
+        """
         all_faults = set()
         for sc in category_scorecards:
             all_faults.update(sc.get("faults_tested", []))
+
+        if total_successful_runs is None:
+            total_successful_runs = sum(
+                sc.get("successful_runs", sc.get("total_runs", 0))
+                for sc in category_scorecards
+            )
+        if total_input_runs is None:
+            total_input_runs = total_successful_runs
+
+        total_failed_runs = max(0, total_input_runs - total_successful_runs)
 
         return {
             "agent_id": agent_id,
             "agent_name": agent_name,
             "certification_run_id": certification_run_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "total_runs": total_runs,
+            "total_runs": total_input_runs,
+            "total_successful_runs": total_successful_runs,
+            "total_failed_runs": total_failed_runs,
             "total_faults_tested": len(all_faults),
             "total_fault_categories": len(category_scorecards),
             "runs_per_fault": runs_per_fault,
@@ -528,6 +585,7 @@ class AggregationOrchestrator:
                 fault_category=fault_category,
                 faults_tested=sorted(fault_names),
                 total_runs=len(docs),
+                distinct_runs=len(_distinct_run_ids(docs)) or len(docs),
                 numeric_aggs=numeric_aggs,
                 derived_rates=derived_rates,
                 boolean_aggs=boolean_aggs,
@@ -551,7 +609,8 @@ class AggregationOrchestrator:
 
             logger.info(
                 f"Aggregation complete for '{fault_category}': "
-                f"{scorecard['total_runs']} runs, "
+                f"{scorecard['successful_runs']}/{scorecard['total_runs']} runs "
+                f"({scorecard['failed_runs']} failed), "
                 f"{len(scorecard['faults_tested'])} fault types"
             )
 
@@ -571,11 +630,20 @@ class AggregationOrchestrator:
         certification_run_id: str = "",
         runs_per_fault: int = 30,
         store_results: bool = True,
+        total_input_runs: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Aggregate metrics for all fault categories and produce the final certification scorecard.
 
         Processes categories sequentially to manage LLM API rate limits.
+
+        Args:
+            total_input_runs: distinct ``run_id``s in the *raw* input
+                (before category mapping). When the orchestrator's
+                ``query_service`` already filters to mapped docs (e.g.
+                ``GroupedDocsQueryService``), the caller must supply this
+                from the un-grouped docs so ``total_runs`` reflects the
+                true number of attempted runs.
         """
         try:
             # ── FIRST STEP: Validate metrics across all categories ──
@@ -591,7 +659,28 @@ class AggregationOrchestrator:
             )
             logger.info(f"Found {len(categories)} fault categories: {categories}")
 
+            # ── Auto-derive agent metadata from docs when not provided ──
+            if not agent_id or not agent_name or not certification_run_id:
+                all_docs = self.query_service.query_runs_by_fault_category(
+                    categories[0], agent_id=agent_id or None
+                ) if categories else []
+                for doc in all_docs:
+                    if not agent_id:
+                        agent_id = _extract_agent_id(doc) or ""
+                    if not agent_name:
+                        agent_name = _extract_agent_name(doc) or ""
+                    if not certification_run_id:
+                        certification_run_id = _extract_experiment_id(doc) or ""
+                    if agent_id and agent_name and certification_run_id:
+                        break
+                logger.info(
+                    f"Resolved agent_id='{agent_id}', agent_name='{agent_name}', "
+                    f"certification_run_id='{certification_run_id}'"
+                )
+
             category_scorecards: List[Dict[str, Any]] = []
+            # Distinct run_ids that contributed to at least one mapped category.
+            successful_run_ids: set = set()
 
             # If validation failed, skip aggregation and proceed directly to Phase 3
             if not metrics_validation_failed:
@@ -601,6 +690,10 @@ class AggregationOrchestrator:
                         agent_id=agent_id or None,
                     )
                     category_scorecards.append(scorecard)
+                    cat_docs = self.query_service.query_runs_by_fault_category(
+                        category, agent_id=agent_id or None
+                    )
+                    successful_run_ids.update(_distinct_run_ids(cat_docs))
                 logger.info(
                     f"Completed aggregation for {len(category_scorecards)} fault categories"
                 )
@@ -621,15 +714,31 @@ class AggregationOrchestrator:
                         if fname:
                             fault_names.add(fname)
 
+                    cat_run_ids = _distinct_run_ids(docs)
+                    successful_run_ids.update(cat_run_ids)
+                    cat_count = len(docs)
+
                     category_scorecards.append({
                         "fault_category": category,
                         "faults_tested": sorted(fault_names),
-                        "total_runs": len(docs),
+                        "total_runs": cat_count,
+                        "successful_runs": cat_count,
+                        "failed_runs": 0,
+                        "distinct_runs": len(cat_run_ids) or cat_count,
                         # Note: no metrics since validation failed
                     })
                 logger.info(
                     f"Built {len(category_scorecards)} minimal category structures for metadata"
                 )
+
+            # Resolve total_input_runs. Prefer the caller-supplied value
+            # (which sees the un-grouped docs); otherwise fall back to the
+            # union of run_ids observed across mapped categories.
+            resolved_input_runs = (
+                total_input_runs
+                if total_input_runs is not None
+                else len(successful_run_ids)
+            )
 
             final_scorecard = self.assembler.assemble_final_scorecard(
                 category_scorecards=category_scorecards,
@@ -637,6 +746,8 @@ class AggregationOrchestrator:
                 agent_name=agent_name,
                 certification_run_id=certification_run_id,
                 runs_per_fault=runs_per_fault,
+                total_input_runs=resolved_input_runs,
+                total_successful_runs=len(successful_run_ids),
             )
 
             # Attach LLM Council model metadata
