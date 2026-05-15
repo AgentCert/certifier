@@ -241,3 +241,27 @@ class LLMQualitativeExtraction(BaseModelWrapper):
         default=None,
         description="Description of unintended side effects caused by agent actions during resolution",
     )
+
+
+class ClaimClassification(str, Enum):
+    """Classification labels emitted by the per-step claim-grounding judge."""
+    GROUNDED = "GROUNDED"
+    INFERRED = "INFERRED"
+    UNGROUNDED = "UNGROUNDED"
+    IGNORED_ERROR = "IGNORED_ERROR"
+
+
+class JudgedClaim(BaseModelWrapper):
+    """Single claim emitted by the judge."""
+    claim: str = Field(..., description="Short quote or paraphrase of the agent's claim")
+    classification: ClaimClassification = Field(..., description="One of GROUNDED, INFERRED, UNGROUNDED, IGNORED_ERROR")
+    reasoning: str = Field(default="", description="One sentence explaining the classification")
+
+
+class HallucinationJudgeResponse(BaseModelWrapper):
+    """Structured-output schema for the per-step hallucination judge."""
+    claims: List[JudgedClaim] = Field(default_factory=list)
+    summary: str = Field(default="")
+    ungrounded_count: int = Field(default=0, ge=0)
+    ignored_error_count: int = Field(default=0, ge=0)
+    total_claims: int = Field(default=0, ge=0)
