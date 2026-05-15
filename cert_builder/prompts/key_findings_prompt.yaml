@@ -13,35 +13,34 @@ user_prompt_template: |
   {hypothesis_results_json}
 
   TASK:
-  Analyze the raw qualitative findings AND the statistical inference results.
-  Produce 5-7 synthesized findings that consolidate overlapping items AND
-  incorporate statistical evidence (confidence intervals, safety floors, uniformity tests, variance stability, etc.).
+  Synthesize 5-7 key findings that are CONCISE and SHARP — avoid verbosity.
+  Integrate both qualitative observations and statistical evidence, but only cite statistics when they 
+  directly support or contradict the finding. Skip statistics that merely confirm what is already evident.
   
-  When referencing statistical evidence, cite the MEASURE and TEST, not the hypothesis number:
-  - Instead of "H-02 shows...", say "Wilson confidence interval shows..." or "Detection success rate floor is..."
-  - Include p-values, significance, and CI bounds where relevant to establish credibility
+  When citing statistical evidence, use the measure name (Wilson CI, p-value, Kruskal-Wallis, etc.),
+  not hypothesis numbers (H-02, H-03, etc.). Focus on the KEY NUMBER that drives the point.
 
   RULES FOR EACH FINDING:
-  1. Write a SHORT headline (3-6 words), e.g., "Fault detection is critically weak"
-  2. Write a detail sentence with SPECIFIC numbers, category names, and statistical evidence
-  3. Classify severity:
-     - "concern": A clear performance gap or risk (detection failures, high latency, statistically significant weakness)
-     - "good": A genuine strength (100% compliance, strong reasoning, statistical stability)
-     - "note": An observation worth flagging but not a concern (minor hallucination, high variability in an otherwise okay metric, informational statistical results)
-  4. Merge related findings — e.g., 3 separate "low detection rate" findings for 3 categories become 1 consolidated concern with:
-     - The overall rate (qualitative)
-     - The H-02 safety floor and full CI bounds (statistical)
-     - The H-03 cross-category uniformity test result (statistical)
+  1. Headline: 3-6 words, punchy and direct (e.g., "Hallucination-free performance" or "Safety-floor weakness")
+  2. Detail: One or two sentences with specific numbers, severity, and ONLY the statistical evidence that matters
+     - Include CI bounds if they reveal a risk (e.g., "CI includes 0%")
+     - Include p-values ONLY if they establish significance for a key claim
+     - Skip test names (Levene, chi-squared) unless essential to credibility
+  3. Severity classification:
+     - "concern": Clear performance gap, risk, or statistically significant weakness requiring attention
+     - "good": Genuine strength backed by observed or statistical performance
+     - "note": Observation worth flagging but not a gap (e.g., category imbalance, minor variance)
+  4. Consolidate: Merge related findings into single, unified statements
 
   CONSTRAINTS:
-  - Return 5-7 items
+  - Return exactly 5-7 items
   - At least 1 concern, 1 good, 1 note
-  - Use ONLY numbers from the context — do not invent values
-  - The overall detection rate is {overall_detection_pct}% ({detected_count} of {total_runs} runs) — use this,
-    not an average of per-category rates
-  - When citing statistical results, reference the statistical measure and its significance, e.g.:
-    * "Detection success rate (Wilson 95% CI) shows Resource floor at 0% [95% CI: 0%, 5.8%]"
-    * "Detection latency differs significantly across fault categories (Kruskal-Wallis p=0.001, significant)"
-    * "Latency variance is unstable in Resource category (Levene p=0.056)"
-    * "Time-to-Detect central estimate: 15s [95% CI: 10s, 20s]"
-  - Headline should NOT repeat the severity word (don't say "Good: reasoning is good")
+  - Use ONLY numbers from the context
+  - The overall detection rate is {overall_detection_pct}% ({detected_count} of {total_runs} runs)
+  - BREVITY: Each detail sentence should be 1-2 lines max. Avoid lengthy explanations.
+  - Example SHORT findings:
+    * "Hallucination-free: Zero hallucinations across all 93 runs."
+    * "Safety-floor weakness: Wilson CIs [0%, 5.8%] fail to rule out rare failures."
+    * "Category reasoning imbalance: Network (8.57) outperforms Resource (8.42), p=0.015617."
+  - Headline must NOT repeat severity word (avoid "Good: reasoning is good")
+
