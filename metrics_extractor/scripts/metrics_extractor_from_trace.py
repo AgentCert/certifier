@@ -781,13 +781,15 @@ Extract any qualitative observations you can make from this batch."""
             try:
                 self._init_llm_client()
                 trace_dict = {"events": spans}
-                h_count, r_count = await judge_trace(
+                h_count, r_count, h_notes = await judge_trace(
                     self.llm_client, trace_dict, model="gpt-4o"
                 )
                 if r_count > 0:
                     code_aggregated["hallucination_count"] = h_count
                     code_aggregated["total_response_count"] = r_count
                     code_aggregated["hallucination_score"] = round(h_count / r_count, 2)
+                    if h_notes:
+                        code_aggregated["hallucination_notes"] = h_notes
                     logger.info(
                         f"Hallucination validator: {h_count}/{r_count} claims ungrounded "
                         f"(score={code_aggregated['hallucination_score']})"

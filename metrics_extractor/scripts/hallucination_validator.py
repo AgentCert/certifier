@@ -142,25 +142,24 @@ async def judge_trace(
     trace: dict,
     model: str = "gpt-4o",
     max_concurrency: int = 4,
-) -> tuple[int, int]:
+) -> tuple[int, int, str]:
     """
     Run the per-step claim-grounding judge over a trace.
 
     Returns:
-        (hallucination_count, total_response_count) where
+        (hallucination_count, total_response_count, notes) where
             hallucination_count   = sum(ungrounded + ignored_error) across steps
             total_response_count  = sum(total_claims) across steps
+            notes                 = " | "-joined step summaries from the judge
 
-    These are exactly the scalars the existing QualitativeAggregator consumes;
-    downstream code is unaffected. On failure returns (0, 0) and the caller
-    can fall back to whatever the bulk LLM produced.
+    On failure returns (0, 0, "") and the caller can fall back to whatever the bulk LLM produced.
     """
     if not isinstance(trace, dict):
-        return 0, 0
+        return 0, 0, ""
 
     steps = build_trajectory(trace)
     if not steps:
-        return 0, 0
+        return 0, 0, ""
 
     sem = asyncio.Semaphore(max(1, max_concurrency))
 
@@ -172,4 +171,6 @@ async def judge_trace(
 
     hallucination_count = sum(r.ungrounded_count + r.ignored_error_count for r in results)
     total_response_count = sum(r.total_claims for r in results)
-    return hallucination_count, total_response_count
+    notes_parts = [r.summary for r in results if r.summary]
+    notes = " | ".join(notes_parts) if notes_parts else ""
+    return hallucination_count, total_response_count, notes

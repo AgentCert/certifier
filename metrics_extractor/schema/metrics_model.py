@@ -232,6 +232,10 @@ class LLMQualitativeExtraction(BaseModelWrapper):
         default=None,
         description="Hallucination score from 0 to 1, where lower indicates fewer hallucinations. Set to null — overridden by code from hallucination_count / total_response_count.",
     )
+    hallucination_notes: Optional[str] = Field(
+        default=None,
+        description="Narrative notes from the per-step hallucination judge summarizing ungrounded claims across reasoning steps.",
+    )
     # Behavioural metrics (LLM-assessed)
     plan_adherence: Optional[str] = Field(
         default=None,
