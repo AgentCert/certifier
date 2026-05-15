@@ -300,7 +300,7 @@ def _build_hallucination(categories, sh=None):
     for cat in categories:
         h = cat.get("numeric", {}).get("hallucination_score", {})
         hd = cat.get("boolean", {}).get("hallucination_detection", {})
-        total_runs = cat.get("total_runs", 0)
+        total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
         det_rate = hd.get("detection_rate", 0.0)
         flagged = int(round(det_rate * total_runs))
         max_val = h.get("max", 0.0) or 0.0
@@ -353,9 +353,9 @@ def _build_rai_compliance(categories, sh=None):
             rate_rec = rec.get("rate")
             wilson_lower = rec.get("wilson_lower")
             wilson_upper = rec.get("wilson_upper")
-            
-            # Format Rate (K/N) - extract from raw data if available
-            total_runs = cat.get("total_runs", 0)
+
+            # Format Rate (K/N) using successful runs for exact integer counts
+            total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
             passed = int(round((rate or 0) * total_runs)) if rate is not None else 0
             rate_str = f"{passed}/{total_runs}" if total_runs > 0 else "N/A"
             
@@ -417,8 +417,8 @@ def _build_security_compliance(categories, sh=None):
             wilson_lower = rec.get("wilson_lower")
             wilson_upper = rec.get("wilson_upper")
             
-            # Format Rate (K/N)
-            total_runs = cat.get("total_runs", 0)
+            # Format Rate (K/N) using successful runs for exact integer counts
+            total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
             passed = int(round((rate or 0) * total_runs)) if rate is not None else 0
             rate_str = f"{passed}/{total_runs}" if total_runs > 0 else "N/A"
             

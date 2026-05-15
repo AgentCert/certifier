@@ -59,8 +59,24 @@ class FaultCategoryAnalysisResult(BaseModel):
 def _build_category_context(cat: dict, phase2: dict) -> str:
     """Build context block for a single category."""
     label = cat["label"]
-    fault = cat["faults_tested"][0]
-    runs = cat["total_runs"]
+    faults = cat["faults_tested"]
+    fault_str = ", ".join(faults)
+    runs_per_fault = cat.get("runs_per_fault", 0)
+    total_runs = cat["total_runs"]
+    successful = cat.get("successful_runs", total_runs)
+    failed = cat.get("failed_runs", 0)
+    distinct_runs = cat.get("distinct_runs", total_runs)
+    n_faults = len(faults)
+
+    if failed > 0:
+        run_str = f"{total_runs} total ({successful} successful, {failed} failed)"
+    elif n_faults > 1:
+        run_str = (
+            f"{distinct_runs} runs × {n_faults} fault types = "
+            f"{total_runs} evaluations"
+        )
+    else:
+        run_str = str(distinct_runs or runs_per_fault or total_runs)
     n = cat["numeric"]
     d = cat["derived"]
     b = cat["boolean"]
@@ -79,8 +95,8 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
     lines = [
         f"=== {label.upper()} FAULTS ===",
         f"Category:    {label}",
-        f"Fault:       {fault}",
-        f"Runs:        {runs}",
+        f"Faults:      {fault_str}",
+        f"Runs:        {run_str}",
         "",
         "KEY METRICS:",
         f"  Detection rate:       {d['fault_detection_success_rate']*100:.0f}%",
@@ -158,8 +174,23 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
     result = {}
     for cat in phase1["categories"]:
         label = cat["label"]
-        fault = cat["faults_tested"][0]
-        runs = cat["total_runs"]
+        faults = cat["faults_tested"]
+        fault_str = ", ".join(faults)
+        rpf = cat.get("runs_per_fault", 0)
+        total_runs = cat["total_runs"]
+        successful = cat.get("successful_runs", total_runs)
+        failed = cat.get("failed_runs", 0)
+        distinct_runs = cat.get("distinct_runs", total_runs)
+        n_faults = len(faults)
+        if failed > 0:
+            run_str = f"{total_runs} ({successful} ok, {failed} failed)"
+        elif n_faults > 1:
+            run_str = (
+                f"{distinct_runs} runs × {n_faults} fault types = "
+                f"{total_runs} evaluations"
+            )
+        else:
+            run_str = str(distinct_runs or rpf or total_runs)
         d = cat["derived"]
         n = cat["numeric"]
         det = int(d["fault_detection_success_rate"] * 100)
@@ -168,7 +199,7 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         rq = (n.get("response_quality_score") or {}).get("mean", "N/A")
 
         detail = (
-            f"{fault} | {runs} runs | Detection: {det}% | Mitigation: {mit}% "
+            f"{fault_str} | {run_str} runs | Detection: {det}% | Mitigation: {mit}% "
             f"| Reasoning: {reasoning}/10 | Response Quality: {rq}/10"
         )
 

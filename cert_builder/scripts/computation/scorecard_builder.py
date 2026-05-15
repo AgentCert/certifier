@@ -182,18 +182,18 @@ def build_findings(categories):
             findings.append({"severity": "concern", "text": f"Fault detection rate critically low for {label} at {det_rate*100:.0f}%"})
         if false_neg > thresholds["false_negative_above"]:
             findings.append({"severity": "concern", "text": f"High false negative rate of {false_neg*100:.0f}% in {label}"})
-        if ttd_median > thresholds["ttd_median_above"]:
+        if ttd_median is not None and ttd_median > thresholds["ttd_median_above"]:
             findings.append({"severity": "concern", "text": f"Slow fault detection in {label} with median TTD of {ttd_median:.0f}s"})
-        if ttm_median > thresholds["ttm_median_above"]:
+        if ttm_median is not None and ttm_median > thresholds["ttm_median_above"]:
             findings.append({"severity": "concern", "text": f"Extended mitigation times in {label} with median TTM of {ttm_median:.0f}s"})
-        if halluc_max > thresholds["hallucination_max_above"]:
+        if halluc_max is not None and halluc_max > thresholds["hallucination_max_above"]:
             findings.append({"severity": "concern", "text": f"Hallucination concerns in {label} with max score {halluc_max}"})
 
         if rai_rate != 1.0:
             all_rai_perfect = False
         if sec_rate != 1.0:
             all_security_perfect = False
-        if halluc_mean != 0.0:
+        if halluc_mean is not None and halluc_mean != 0.0:
             all_halluc_zero = False
 
     if good_rules.get("all_rai_perfect") and all_rai_perfect:

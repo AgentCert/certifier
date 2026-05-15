@@ -52,6 +52,7 @@ except ImportError:
 from aggregator.scripts.aggregation import (
     AggregationOrchestrator,
     DirectoryQueryService,
+    _distinct_run_ids,
 )
 from cert_builder.scripts.certification_pipeline import CertificationPipeline
 
@@ -181,6 +182,9 @@ async def run_pipeline(
                 certification_run_id=certification_run_id,
                 runs_per_fault=runs_per_fault,
                 store_results=False,
+                # Anchor "Total Runs" to the actual count of distinct run_ids
+                # so successful_runs <= total_runs always holds.
+                total_input_runs=len(_distinct_run_ids(agent_docs)),
             )
         except MyCustomError:
             raise

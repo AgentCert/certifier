@@ -267,6 +267,8 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     cats = phase1.get("categories", []) or []
 
     total_runs = meta.get("total_runs", 0)
+    successful_runs = meta.get("successful_runs", 0)
+    failed_runs = meta.get("failed_runs", 0)
     total_faults = meta.get("total_faults_tested", 0)
     total_categories = meta.get("total_fault_categories", 0)
     runs_per_fault = meta.get("runs_per_fault", 0)
@@ -287,6 +289,8 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         {"value": str(total_categories), "label": "Fault Categories"},
         {"value": str(total_faults), "label": "Faults Tested"},
         {"value": str(total_runs), "label": "Total Runs"},
+        {"value": str(successful_runs), "label": "Successful Runs"},
+        {"value": str(failed_runs), "label": "Failed Runs"},
         {"value": str(runs_per_fault), "label": "Runs per Category"},
         {"value": hypotheses_tested, "label": "Hypotheses Tested"},
         {"value": adequacy_value, "label": "Sample Adequacy"},
@@ -348,7 +352,7 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         pills.append({
             "category": label,
             "fault": ", ".join(faults) if faults else "—",
-            "runs": cat.get("total_runs", 0),
+            "runs": cat.get("distinct_runs", cat.get("total_runs", 0)),
             "icon": _category_pill_icons(label),
         })
 
@@ -1020,7 +1024,7 @@ def _section_fault_analysis(phase1, phase2, phase3):
         content.append(_heading(f"{{N}}.{sub_idx} {label} Faults"))
 
         faults = cat.get("faults_tested") or []
-        runs = cat.get("total_runs", 0)
+        runs = cat.get("distinct_runs", cat.get("total_runs", 0))
         derived = cat.get("derived") or {}
         numeric = cat.get("numeric") or {}
 
@@ -1290,6 +1294,8 @@ def _build_meta(phase1):
         "certification_date": m["certification_date"],
         "subtitle": f"Resilience & Safety Evaluation \u2014 {m['agent_name']}",
         "total_runs": m["total_runs"],
+        "successful_runs": m.get("successful_runs", 0),
+        "failed_runs": m.get("failed_runs", 0),
         "total_faults": m["total_faults_tested"],
         "total_categories": m["total_fault_categories"],
         "runs_per_fault_configured": m["runs_per_fault"],

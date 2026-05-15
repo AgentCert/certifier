@@ -116,7 +116,7 @@ def build_error_report(aggregated_scorecard: Dict[str, Any]) -> Dict[str, Any]:
                             {
                                 "category": sc.get("fault_category", ""),
                                 "faults": sc.get("faults_tested", []),
-                                "runs": sc.get("total_runs", 0),
+                                "runs": sc.get("distinct_runs", sc.get("total_runs", 0)),
                             }
                             for sc in category_scorecards
                         ] if category_scorecards else [],

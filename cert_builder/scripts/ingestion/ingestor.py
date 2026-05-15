@@ -42,10 +42,8 @@ class ParsedContext:
 
 
 def _compute_runs_per_fault(raw: dict) -> int:
-    """Derive runs_per_fault from total_runs / total_faults_tested."""
-    total = raw.get("total_runs", 0)
-    faults = raw.get("total_faults_tested", 0)
-    return total // faults if faults else 0
+    """Use the runs_per_fault field stored by the aggregator."""
+    return raw.get("runs_per_fault", 0)
 
 
 def ingest(raw: dict) -> ParsedContext:
@@ -64,6 +62,8 @@ def ingest(raw: dict) -> ParsedContext:
         "certification_run_id": raw.get("certification_run_id", ""),
         "certification_date": cert_date,
         "total_runs": raw.get("total_runs", 0),
+        "successful_runs": raw.get("total_successful_runs", 0),
+        "failed_runs": raw.get("total_failed_runs", 0),
         "total_faults_tested": raw.get("total_faults_tested", 0),
         "total_fault_categories": raw.get("total_fault_categories", 0),
         "runs_per_fault": _compute_runs_per_fault(raw),
@@ -92,11 +92,19 @@ def ingest(raw: dict) -> ParsedContext:
             val = raw_numeric.get(raw_key)
             numeric[clean_key] = val if isinstance(val, dict) else {"sum": 0.0, "mean": 0.0}
 
+        rpf = raw.get("runs_per_fault", 0)
+        faults_tested = sc.get("faults_tested", [])
+        total_runs_val = sc.get("total_runs", 0)
+        distinct_runs_val = sc.get("distinct_runs", total_runs_val)
         categories.append({
             "fault_category": cat_name,
             "label": label,
-            "faults_tested": sc.get("faults_tested", []),
-            "total_runs": sc.get("total_runs", 0),
+            "faults_tested": faults_tested,
+            "total_runs": total_runs_val,
+            "successful_runs": sc.get("successful_runs", 0),
+            "failed_runs": sc.get("failed_runs", 0),
+            "distinct_runs": distinct_runs_val,
+            "runs_per_fault": rpf,
             "numeric": numeric,
             "derived": sc.get("derived_metrics", {}),
             "boolean": sc.get("boolean_status_metrics", {}),
@@ -105,8 +113,12 @@ def ingest(raw: dict) -> ParsedContext:
 
         meta["categories_summary"].append({
             "name": label,
-            "fault": ", ".join(sc.get("faults_tested", [])),
-            "runs": sc.get("total_runs", 0),
+            "fault": ", ".join(faults_tested),
+            "runs": distinct_runs_val,
+            "runs_per_fault": rpf,
+            "n_faults": len(faults_tested),
+            "successful_runs": sc.get("successful_runs", 0),
+            "failed_runs": sc.get("failed_runs", 0),
         })
 
     # Pass through the statistical_hypothesis block emitted by the orchestrator.

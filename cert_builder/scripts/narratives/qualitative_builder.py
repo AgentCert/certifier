@@ -99,19 +99,24 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
 
     # 1. Detection
     lines.append("=== 1. DETECTION PERFORMANCE ===\n")
+    failed_total = sum(c.get("failed_runs", 0) for c in cats)
+    if failed_total > 0:
+        lines.append(f"NOTE: {failed_total} run(s) failed to produce data and are excluded from rates below.\n")
     lines.append("Per-category detection metrics:")
     for c in cats:
         det = c["derived"]["fault_detection_success_rate"]
         fn = c["derived"]["false_negative_rate"]
+        failed = c.get("failed_runs", 0)
+        run_note = f" [{c['successful_runs']} completed, {failed} failed]" if failed > 0 else ""
         lines.append(
-            f"  {c['label']}: detection_rate={det*100:.0f}%, false_neg={fn*100:.0f}%, "
+            f"  {c['label']}{run_note}: detection_rate={det*100:.0f}%, false_neg={fn*100:.0f}%, "
             f"TTD mean={_stat(c, 'time_to_detect', 'mean')}s, "
             f"median={_stat(c, 'time_to_detect', 'median')}s, "
             f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
             f"P95={_stat(c, 'time_to_detect', 'p95')}s"
         )
-    total = phase1["meta"]["total_runs"]
-    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
+    total = sum(c["successful_runs"] for c in cats)
+    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["successful_runs"]) for c in cats)
     lines.append(f"\nScorecard: Normalized TTD = {sc_map.get('Normalized TTD', 'N/A')}")
     lines.append(f"Overall detection rate: {det_count/total*100:.1f}% ({det_count} of {total} runs)\n")
 
@@ -128,7 +133,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"std={_stat(c, 'time_to_mitigate', 'std_dev')}s"
         )
     lines.append(f"\nScorecard: Normalized TTM = {sc_map.get('Normalized TTM', 'N/A')}")
-    mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
+    mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["successful_runs"]) for c in cats)
     lines.append(f"Overall mitigation rate: {mit_count/total*100:.0f}% ({mit_count} of {total} runs)\n")
 
     # 3. Action Correctness
@@ -227,8 +232,8 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
 def _fallback_findings(phase1: dict) -> dict:
     """Rule-based fallback findings per dimension."""
     cats = phase1["categories"]
-    total = phase1["meta"]["total_runs"]
-    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
+    total = sum(c["successful_runs"] for c in cats)
+    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["successful_runs"]) for c in cats)
     overall_det = det_count / total * 100 if total else 0
 
     result = {}
