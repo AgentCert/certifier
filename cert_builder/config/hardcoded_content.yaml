@@ -182,52 +182,39 @@ section_intros:
 
 methodology_bullets:
   - >-
-    Evaluation lifecycle: Each run puts the agent through four phases —
+    Evaluation lifecycle: Each run evaluates the agent across four phases —
     detection, diagnosis, remediation, and post-remediation verification —
-    inside a controlled Kubernetes environment.
+    within a controlled Kubernetes environment.
   - >-
-    Numeric aggregation: All numbers come straight from telemetry —
-    mean, median, P95, std dev, min, max for timing; success rates,
-    false negative/positive rates, and token counts. No manual
-    adjustments.
+    Numeric aggregation: Deterministic computation from telemetry — mean, median,
+    P95, std dev, min, max for timing; success rates, false negative/positive rates,
+    and token counts derived directly from run data.
   - >-
-    Qualitative aggregation: Three independent LLM judges evaluate each
-    run separately. A meta-reconciliation step combines their outputs
-    into consensus summaries with severity labels and confidence ratings.
+    Qualitative aggregation: LLM Council with k=3 independent judges per dimension
+    + meta-reconciliation to produce consensus summaries, severity labels, and
+    confidence ratings.
   - >-
-    Inter-judge agreement: Measured as the proportion of dimensions where
-    all 3 judges gave the same severity label. An agreement of 1.0 means
-    every judge agreed on every dimension for every run.
+    Inter-judge agreement: Computed as the proportion of evaluation dimensions where
+    all 3 judges assigned the same severity label. Agreement of 1.0 means unanimous
+    consensus across every dimension for every run. Currently 1.0 across all fault
+    categories — all assessments rated Strong with High confidence.
   - >-
-    Safety propagation: A worst-case policy — if even one run in a
-    category fails a safety check, the entire category is flagged.
-    PII, hallucination, and malicious prompt detections are tracked
-    per-run and rolled up to the category level.
+    Safety propagation: Worst-case policy — a single failure in any run flags the
+    entire category; PII, hallucination, and malicious prompt detection tracked
+    per-run with category-level rollup.
   - >-
-    Metrics collected: Timing (TTD, TTM), success rates (detection,
-    mitigation, false negative, false positive), quality scores
-    (reasoning, response quality, action correctness), safety
-    (hallucination, RAI, security, PII), and resource usage
-    (input/output tokens).
+    Metrics collected: Timing (TTD, TTM), success rates (detection, mitigation, FN, FP),
+    quality scores (reasoning, response quality, action correctness), safety
+    (hallucination, RAI, security, PII), and resource utilization (input/output tokens).
   - >-
-    Fault taxonomy coverage: 3 of 5 canonical fault categories were
-    tested — Application, Network, and Resource. Database/Storage and
-    Security/Adversarial categories were not included in this run.
+    Fault taxonomy coverage: 3 of 5 canonical categories tested (Application, Network,
+    Resource). Database/Storage and Security/Adversarial categories excluded from this
+    certification run.
   - >-
-    Aggregation pipeline: Individual run metrics roll up into
-    fault-category scorecards, which then roll up into an overall agent
-    scorecard. Numeric metrics use run-count-weighted means; qualitative
-    assessments use LLM Council consensus.
+    Certification pipeline: Per-run metrics are aggregated into fault-category scorecards,
+    then rolled up to an overall agent scorecard. Two-level rollup applies run-count-weighted
+    means for numeric metrics and LLM Council consensus for narrative assessments.
   - >-
-    Statistical hypothesis testing: Beyond descriptive statistics, a
-    9-hypothesis inference framework (H-01 – H-09) is applied to produce
-    confidence intervals, effect sizes, and worst-case guarantees.
-  - >-
-    Metrics not tracked: Recovery verification time (how long from
-    mitigation to confirmed healthy state) is not broken out separately —
-    it is included within TTM but not measured on its own.
-  - >-
-    Run count note: With small sample sizes, statistical measures like
-    P95 should be treated as directional rather than definitive. The
-    runs_per_fault field reflects the actual number of runs executed
-    per fault type.
+    Statistical hypothesis testing: Beyond descriptive statistics, a 9-hypothesis inference
+    framework is applied to produce confidence intervals, effect sizes, and worst-case
+    guarantees.

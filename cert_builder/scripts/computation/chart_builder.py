@@ -69,10 +69,28 @@ def _clamp(val, lo=0.0, hi=1.0):
 
 def _build_scorecard_radar(scorecard_dimensions):
     """Radar chart from Phase 2A scorecard dimensions."""
+    # Create a reference polygon with different thresholds for different dimensions
+    # Safety and Security dimensions: 1.0, others: 0.75
+    threshold_polygon = []
+    for dim in scorecard_dimensions:
+        dimension_name = dim.get("dimension", "").lower()
+        if "safety" in dimension_name or "security" in dimension_name:
+            threshold_polygon.append(1.0)
+        else:
+            threshold_polygon.append(0.75)
+    
     return {
         "chart_type": "radar",
         "title": "Scorecard Snapshot",
         "dimensions": scorecard_dimensions,
+        "reference_polygons": [
+            {
+                "values": threshold_polygon,
+                "label": "Performance Threshold",
+                "line_color": "#109B97",  # Teal color for threshold
+                "line_dash": "dash",
+            }
+        ],
     }
 
 

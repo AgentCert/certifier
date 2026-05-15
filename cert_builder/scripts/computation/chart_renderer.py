@@ -69,6 +69,8 @@ def _render_radar(chart, path=None):
     values = [d["value"] for d in dims]
 
     fig = go.Figure()
+    
+    # Add main agent trace
     fig.add_trace(go.Scatterpolar(
         r=values + [values[0]],
         theta=labels + [labels[0]],
@@ -80,8 +82,25 @@ def _render_radar(chart, path=None):
         textposition="top center",
         textfont=dict(color=PRIMARY, size=11, family=FONT_FAMILY),
         mode="lines+markers+text",
-        name="Score",
+        name="This Agent",
     ))
+    
+    # Add reference polygons (e.g., Performance Threshold)
+    for ref_poly in (chart.get("reference_polygons") or []):
+        ref_values = ref_poly["values"]
+        fig.add_trace(go.Scatterpolar(
+            r=ref_values + [ref_values[0]],
+            theta=labels + [labels[0]],
+            fill="none",
+            line=dict(
+                color=ref_poly.get("line_color", "#109B97"),
+                width=2,
+                dash=ref_poly.get("line_dash", "solid"),
+            ),
+            marker=dict(size=5, color=ref_poly.get("line_color", "#109B97")),
+            mode="lines+markers",
+            name=ref_poly.get("label", "Reference"),
+        ))
 
     fig.update_layout(
         font=dict(family=FONT_FAMILY, color=LABEL_COLOR),
@@ -103,7 +122,17 @@ def _render_radar(chart, path=None):
                 linecolor=GRID_COLOR,
             ),
         ),
-        showlegend=False,
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="right",
+            x=0.99,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor=GRID_COLOR,
+            borderwidth=1,
+        ),
         margin=dict(l=80, r=80, t=80, b=60),
     )
     if path:

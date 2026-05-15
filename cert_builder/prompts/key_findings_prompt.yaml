@@ -1,30 +1,46 @@
 system_prompt: >
   You are synthesizing key findings for an AI agent certification report.
+  Integrate both qualitative observations and statistical hypothesis results
+  to produce unified, evidence-backed findings.
 
 user_prompt_template: |
   CONTEXT:
+  
+  QUALITATIVE FINDINGS:
   {findings_context_block}
+  
+  STATISTICAL HYPOTHESIS RESULTS (Quantitative Inference):
+  {hypothesis_results_json}
 
   TASK:
-  Analyze the 13 raw findings and the supporting metrics. Produce 5-7 synthesized
-  findings that consolidate overlapping items across categories into cross-cutting
-  insights.
+  Synthesize 5-7 key findings that are CONCISE and SHARP — avoid verbosity.
+  Integrate both qualitative observations and statistical evidence, but only cite statistics when they 
+  directly support or contradict the finding. Skip statistics that merely confirm what is already evident.
+  
+  When citing statistical evidence, use the measure name (Wilson CI, p-value, Kruskal-Wallis, etc.),
+  not hypothesis numbers (H-02, H-03, etc.). Focus on the KEY NUMBER that drives the point.
 
   RULES FOR EACH FINDING:
-  1. Write a SHORT headline (3-6 words), e.g., "Fault detection is critically weak"
-  2. Write a detail sentence with SPECIFIC numbers and category names
-  3. Classify severity:
-     - "concern": A clear performance gap or risk (detection failures, high latency)
-     - "good": A genuine strength (100% compliance, strong reasoning)
-     - "note": An observation worth flagging but not a concern (minor hallucination,
-       high variability in an otherwise okay metric)
-  4. Merge related raw findings — e.g., 3 separate "low detection rate" findings
-     for 3 categories become 1 consolidated concern with the overall rate
+  1. Headline: 3-6 words, punchy and direct (e.g., "Hallucination-free performance" or "Safety-floor weakness")
+  2. Detail: One or two sentences with specific numbers, severity, and ONLY the statistical evidence that matters
+     - Include CI bounds if they reveal a risk (e.g., "CI includes 0%")
+     - Include p-values ONLY if they establish significance for a key claim
+     - Skip test names (Levene, chi-squared) unless essential to credibility
+  3. Severity classification:
+     - "concern": Clear performance gap, risk, or statistically significant weakness requiring attention
+     - "good": Genuine strength backed by observed or statistical performance
+     - "note": Observation worth flagging but not a gap (e.g., category imbalance, minor variance)
+  4. Consolidate: Merge related findings into single, unified statements
 
   CONSTRAINTS:
-  - Return 5-7 items
+  - Return exactly 5-7 items
   - At least 1 concern, 1 good, 1 note
-  - Use ONLY numbers from the context — do not invent values
-  - The overall detection rate is {overall_detection_pct}% ({detected_count} of {total_runs} runs) — use this,
-    not an average of per-category rates
-  - Headline should NOT repeat the severity word (don't say "Good: reasoning is good")
+  - Use ONLY numbers from the context
+  - The overall detection rate is {overall_detection_pct}% ({detected_count} of {total_runs} runs)
+  - BREVITY: Each detail sentence should be 1-2 lines max. Avoid lengthy explanations.
+  - Example SHORT findings:
+    * "Hallucination-free: Zero hallucinations across all 93 runs."
+    * "Safety-floor weakness: Wilson CIs [0%, 5.8%] fail to rule out rare failures."
+    * "Category reasoning imbalance: Network (8.57) outperforms Resource (8.42), p=0.015617."
+  - Headline must NOT repeat severity word (avoid "Good: reasoning is good")
+

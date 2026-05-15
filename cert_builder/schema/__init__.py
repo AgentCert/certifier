@@ -15,6 +15,7 @@ from .certification_schema import (
     CategoryMeta,
     FindingItem,
     ReferenceLine,
+    ReferencePolygon,
     ScorecardDimension,
     # Base classes (shared with intermediate models)
     AssessmentData,
@@ -71,6 +72,7 @@ __all__ = [
     "CategoryMeta",
     "FindingItem",
     "ReferenceLine",
+    "ReferencePolygon",
     "ScorecardDimension",
     # Base classes
     "AssessmentData",
