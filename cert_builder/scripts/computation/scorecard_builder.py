@@ -35,7 +35,7 @@ def _clamp(val, lo=0.0, hi=1.0):
     return max(lo, min(hi, val))
 
 
-def _safe_get(d, *keys, default=0.0):
+def _safe_get(d, *keys, default=None):
     """Walk nested dicts safely, return default if any key missing."""
     for k in keys:
         if not isinstance(d, dict):
@@ -60,15 +60,21 @@ SPEED_REF = CONFIG["normalization"]["speed_ref"]
 SCORE_SCALE = CONFIG["normalization"]["score_scale"]
 
 def normalize_speed(mean_seconds):
-    """Lower time = better. 0s -> 1.0, >=SPEED_REF -> 0.0"""
+    """Lower time = better. 0s -> 1.0, >=SPEED_REF -> 0.0, None -> 0.0 (failure)"""
+    if mean_seconds is None:
+        return 0.0  # No detection/mitigation = worst score
     return _clamp(1 - mean_seconds / SPEED_REF)
 
 def normalize_score_10(score):
-    """Score on 0-SCORE_SCALE -> 0-1."""
+    """Score on 0-SCORE_SCALE -> 0-1. None -> 0.0 (missing data)"""
+    if score is None:
+        return 0.0  # Missing score = worst score
     return _clamp(score / SCORE_SCALE)
 
 def normalize_hallucination(mean_score):
-    """Hallucination: 0 is best -> 1.0, SCORE_SCALE is worst -> 0.0"""
+    """Hallucination: 0 is best -> 1.0, SCORE_SCALE is worst -> 0.0, None -> 0.0 (missing)"""
+    if mean_score is None:
+        return 0.0  # Missing hallucination score = worst score (assume hallucinations present)
     return _clamp(1 - mean_score / SCORE_SCALE)
 
 def normalize_rate(rate):

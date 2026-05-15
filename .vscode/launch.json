@@ -64,7 +64,7 @@
             "name": "Debug Phase 2+3 CLI (aggregation + certification)",
             "type": "debugpy",
             "request": "launch",
-            "module": "main.cli.run_aggregation_and_certification_pipeline",
+            "program": "${workspaceFolder}/run_aggregation_and_certification_pipeline.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
@@ -73,10 +73,34 @@
             },
             "justMyCode": false,
             "args": [
-                "--metrics-dir", "${workspaceFolder}/data/new_reports/metrics",
-                "--output-dir", "${workspaceFolder}/data/new_reports/certification",
-                "--agent-id", "flash-001-abc123",
-                "--agent-name", "Flash",
+                "--metrics-dir", "${workspaceFolder}/data/output/12-05-26-sequential-aarya-30run",
+                "--output-dir", "${workspaceFolder}/data/output/12-05-26-sequential-aarya-30run/certification",
+                "--agent-id", "aarya",
+                "--agent-name", "Aarya",
+                "--runs-per-fault", "30",
+                "--debug"
+            ]
+        },
+
+        // ── Full Certification Pipeline (Phase 0+1+2+3) ─────────────────
+        {
+            "name": "Debug Full Certification Pipeline",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_full_certification_pipeline.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false,
+            "args": [
+                "--metrics-dir", "${workspaceFolder}/data/output/12-05-26-sequential-aarya-30run",
+                "--output-dir", "${workspaceFolder}/data/output/12-05-26-sequential-aarya-30run/certification",
+                "--agent-id", "1960bc89-361a-4fcb-af86-699113f09ec9",
+                "--agent-name", "demoinfra2",
+                "--runs-per-fault", "30",
                 "--debug"
             ]
         },
