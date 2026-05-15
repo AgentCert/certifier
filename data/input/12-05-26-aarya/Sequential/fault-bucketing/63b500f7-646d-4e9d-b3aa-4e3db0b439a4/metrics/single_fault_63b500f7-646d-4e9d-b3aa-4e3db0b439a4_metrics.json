@@ -1,0 +1,50 @@
+{
+  "fault_id": "single_fault",
+  "run_id": "63b500f7-646d-4e9d-b3aa-4e3db0b439a4",
+  "fault_name": "unknown",
+  "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+  "quantitative": {
+    "agent_name": null,
+    "agent_id": null,
+    "agent_version": null,
+    "experiment_id": "e8650990-3905-4e56-b458-1ddb84d3972e",
+    "run_id": "63b500f7-646d-4e9d-b3aa-4e3db0b439a4",
+    "fault_injection_time": "2026-05-11T13:18:52.573Z",
+    "agent_fault_detection_time": "2026-05-11T13:18:54.000Z",
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": 1.43,
+    "time_to_mitigate": null,
+    "fault_detected": "Unknown",
+    "detection_success": 1,
+    "trajectory_steps": 5,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "injected_fault_name": "unknown",
+    "injected_fault_category": "experiment",
+    "detected_fault_type": null,
+    "fault_target_service": null,
+    "fault_namespace": "litmus",
+    "tool_calls": [],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": null
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Content in this batch is strictly technical, focusing on Kubernetes workflows, experiment metadata, and status propagation. There are no references to self-harm, hate, harassment, sexual content, political persuasion, or real-world violence, and no biased or discriminatory language. The information is limited to internal experiment and workflow states, so there is no apparent misinformation about real-world facts. Overall, the content is RAI-compliant and low risk from a safety and content perspective.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "The spans do not expose passwords, tokens, API keys, private keys, certificates, or other sensitive secrets. The identifiers present (such as agent IDs, experiment IDs, project IDs, run keys, session IDs, namespaces, and workflow names) appear to be internal technical identifiers rather than credentials. No personal data (e.g., email addresses, phone numbers, or government IDs) is present. From the available evidence, the traces adhere to security and privacy expectations.",
+    "reasoning_quality_score": 7.0,
+    "reasoning_quality_notes": "The trace is dominated by system-generated spans with only one completion event and minimal natural-language reasoning. The agent\u2019s behavior is logically coherent for the task: it triggers a chaos experiment, records its context, and runs a workflow whose failure at the 'install-application' step is correctly propagated to the parent step with an appropriate child-failed status. The final completion message accurately states that the workflow submission to the infrastructure succeeded without overclaiming experimental success. However, reasoning depth is limited: there is no explicit diagnostic analysis of why the step failed, no exploration of alternative hypotheses, and no remediation or verification actions within this batch.",
+    "agent_summary": "Across this batch, the agent orchestrates a Kubernetes-based chaos experiment. It initiates a high-priority experiment ('demoexp-i2-5-seq-30runs'), captures and records the experiment context including SLA-related parameters and fault configuration, and submits the corresponding workflow to the infrastructure. During execution, the workflow\u2019s 'install-application' pod step exits with code 1, which leads the parent workflow step to be marked as failed due to the child node failure. The system correctly reflects this failure in the workflow status while the final completion event notes that the workflow submission itself was successful, distinguishing between successful dispatch to the infrastructure and unsuccessful execution of a specific step. No subsequent diagnostic or remediation steps are observed in this trace.",
+    "hallucination_score": null,
+    "plan_adherence": "The agent follows a straightforward and consistent execution sequence: it triggers the experiment, records its context, and runs the workflow. The workflow\u2019s internal state transitions are coherent, with the failure of the 'install-application' step correctly causing the parent step to fail. There is no sign of unnecessary loops, redundant actions, or contradictory behavior. However, the observable plan is limited to initiation and execution; there is no visible follow-up phase for diagnosing the failure, attempting remediation, or verifying recovery. As a result, adherence can be confirmed for the initial execution plan but cannot be fully evaluated against a complete detect\u2013diagnose\u2013remediate\u2013verify lifecycle.",
+    "collateral_damage": "No collateral damage is evident in this batch. The only negative outcome is the failure of the 'install-application' workflow pod step and its parent step. There are no indications of unintended deletions, restarts, or modifications to unrelated resources, and no cascading errors beyond those directly associated with the failed workflow step."
+  },
+  "token_usage": {
+    "input_tokens": 16979,
+    "output_tokens": 2088,
+    "total_tokens": 19067
+  }
+}

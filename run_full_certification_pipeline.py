@@ -145,14 +145,14 @@ def _doc_fault_category(
     doc: Dict[str, Any],
     subfault_to_category: Dict[str, str],
 ) -> Optional[str]:
-    cat = doc.get("fault_category") or doc.get("quantitative", {}).get(
-        "injected_fault_category"
-    )
-    if cat:
-        return cat
+    """Extract fault_category: only accept faults explicitly defined in config."""
+    # Only return a category if fault_name is explicitly in the config mapping
     sub = _doc_fault_name(doc)
     if sub and sub in subfault_to_category:
         return subfault_to_category[sub]
+    
+    # If fault_name is not in config, return None (document will be skipped)
+    # No fallback to raw fault_category - strict config-based filtering
     return None
 
 
@@ -187,6 +187,40 @@ def _group_docs_by_category(
         + ", ".join(f"{k}={len(v)}" for k, v in grouped.items())
     )
     return dict(grouped)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Grouped docs query service (wraps grouped documents)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class GroupedDocsQueryService:
+    """Query service that wraps pre-grouped documents by canonical fault categories."""
+
+    def __init__(self, grouped_docs: Dict[str, List[Dict[str, Any]]]):
+        self.grouped_docs = grouped_docs
+
+    def query_runs_by_agent(self, agent_id: str) -> List[Dict[str, Any]]:
+        """Return all docs from all categories."""
+        all_docs = []
+        for docs in self.grouped_docs.values():
+            all_docs.extend(docs)
+        return all_docs
+
+    def query_runs_by_fault_category(
+        self,
+        fault_category: str,
+        agent_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return docs for a canonical fault category."""
+        return self.grouped_docs.get(fault_category, [])
+
+    def get_all_fault_categories(
+        self,
+        agent_id: Optional[str] = None,
+    ) -> List[str]:
+        """Return canonical fault category names."""
+        return sorted(self.grouped_docs.keys())
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -418,7 +452,7 @@ async def run_pipeline(
 
     try:
         # ──────────────────────────────────────────────────────────────
-        # Step 1: Aggregation
+        # Step 1: Aggregation (with fault_categories.json normalization)
         # ──────────────────────────────────────────────────────────────
         logger.info("=" * 60)
         logger.info("STEP 1: Aggregation")
@@ -439,16 +473,28 @@ async def run_pipeline(
                 f"Found {len(agent_docs)} per-run documents for agent_id='{agent_id}'"
             )
 
-            categories = query_service.get_all_fault_categories(agent_id=agent_id)
+            # Load fault_categories config and group docs by canonical categories
+            cfg_path = (
+                Path(fault_categories_config)
+                if fault_categories_config
+                else _DEFAULT_FAULT_CATEGORIES_CONFIG
+            )
+            fault_cats = _load_fault_categories_config(cfg_path)
+            grouped_runs = _group_docs_by_category(agent_docs, fault_cats)
+
+            # Use grouped docs as the query service for canonical fault categories
+            grouped_query_service = GroupedDocsQueryService(grouped_runs)
+            categories = grouped_query_service.get_all_fault_categories(agent_id=agent_id)
+            
             if not categories:
-                logger.error(f"No fault categories found for agent_id='{agent_id}'.")
+                logger.error(f"No fault categories found after mapping with fault_categories config.")
                 return {}
 
-            logger.info(f"Found fault categories: {categories}")
+            logger.info(f"Found canonical fault categories: {categories}")
 
             orchestrator = AggregationOrchestrator(
                 llm_client=llm_client,
-                query_service=query_service,
+                query_service=grouped_query_service,  # Use normalized query service
                 db_client=None,
             )
 
@@ -542,14 +588,8 @@ async def run_pipeline(
             logger.info("=" * 60)
 
             try:
-                cfg_path = (
-                    Path(fault_categories_config)
-                    if fault_categories_config
-                    else _DEFAULT_FAULT_CATEGORIES_CONFIG
-                )
-                fault_cats = _load_fault_categories_config(cfg_path)
-                grouped_runs = _group_docs_by_category(agent_docs, fault_cats)
-
+                # Use the already-loaded fault_categories and grouped_runs from Step 1
+                # (no need to reload; they're already in canonical form)
                 gt_path = Path(ground_truth_dir) if ground_truth_dir else None
 
                 hypothesis_block = _run_hypothesis_with_gate(

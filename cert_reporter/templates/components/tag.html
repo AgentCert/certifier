@@ -1,0 +1,42 @@
+{# components/tag.html — single source of truth for inline status chips.
+
+Usage (the macro is registered on env.globals, so no import is needed):
+  {{ tag("Strong", kind="severity") }}
+  {{ tag("PASS", kind="status") }}
+  {{ tag(level, kind="cert_level") }}
+  {{ tag(value, kind="metric") }}
+  {{ tag("anything") }}                  {# default kind is "auto" #}
+
+Renders <span class="tag tag--<variant>">…</span>. The base `.tag` plus
+`.tag--<variant>` is the canonical convention. Legacy CSS aliases
+(.badge.pass, .hyp-metric-good, .tag-warn, …) are retained in report.css
+during P1 so verbatim-copied markup still styles correctly; sunset in P2.
+#}
+
+{%- macro tag(value, kind='auto', label=None) -%}
+{%- if value is none -%}{%- elif (value | string).strip() == '' -%}{%- else -%}
+{%- set v = (value | string).strip().lower() -%}
+{%- set k = kind if kind != 'auto' else 'status' -%}
+{%- if k == 'severity' -%}
+  {%- if v in ('strong','pass','excellent','good','perfect','clean') -%}{%- set variant = 'success' -%}
+  {%- elif v in ('adequate','moderate','warn','warning','caution','minor','partial','note','medium','flag') -%}{%- set variant = 'warn' -%}
+  {%- elif v in ('weak','fail','critical','high','bad','poor','concern') -%}{%- set variant = 'fail' -%}
+  {%- else -%}{%- set variant = 'neutral' -%}{%- endif -%}
+{%- elif k == 'cert_level' -%}
+  {%- if v in ('gold','platinum') -%}{%- set variant = 'gold' -%}
+  {%- elif v == 'silver' -%}{%- set variant = 'silver' -%}
+  {%- elif v == 'bronze' -%}{%- set variant = 'bronze' -%}
+  {%- else -%}{%- set variant = 'none' -%}{%- endif -%}
+{%- elif k == 'metric' -%}
+  {%- if v in ('good','pass','strong','low','clean') -%}{%- set variant = 'success' -%}
+  {%- elif v in ('flag','warn','warning','high','concern') -%}{%- set variant = 'warn' -%}
+  {%- else -%}{%- set variant = 'neutral' -%}{%- endif -%}
+{%- else -%}{# status / auto #}
+  {%- if v.startswith(('pass','ok','success','compliant','valid','perfect','clean','strong')) -%}{%- set variant = 'success' -%}
+  {%- elif v.startswith(('warn','caution','review','partial','advisory','moderate','minor','flag')) -%}{%- set variant = 'warn' -%}
+  {%- elif v.startswith(('fail','error','critical','invalid','reject','not cert','significant')) -%}{%- set variant = 'fail' -%}
+  {%- else -%}{%- set variant = 'neutral' -%}{%- endif -%}
+{%- endif -%}
+<span class="tag tag--{{ variant }}">{%- if label %}{{ label }}: {% endif -%}{{ value }}</span>
+{%- endif -%}
+{%- endmacro -%}

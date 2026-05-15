@@ -1,0 +1,50 @@
+{
+  "fault_id": "single_fault",
+  "run_id": "b20eb483-0e35-4ae5-af23-dc77338cd2e6",
+  "fault_name": "unknown",
+  "agent_id": "1960bc89-361a-4fcb-af86-699113f09ec9",
+  "quantitative": {
+    "agent_name": null,
+    "agent_id": null,
+    "agent_version": null,
+    "experiment_id": "e8650990-3905-4e56-b458-1ddb84d3972e",
+    "run_id": "b20eb483-0e35-4ae5-af23-dc77338cd2e6",
+    "fault_injection_time": "2026-05-11T16:49:58.000Z",
+    "agent_fault_detection_time": "2026-05-11T16:49:58.000Z",
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": 0.0,
+    "time_to_mitigate": null,
+    "fault_detected": "Unknown",
+    "detection_success": 1,
+    "trajectory_steps": 5,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "injected_fault_name": "unknown",
+    "injected_fault_category": "experiment",
+    "detected_fault_type": null,
+    "fault_target_service": null,
+    "fault_namespace": "litmus",
+    "tool_calls": [],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": null
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "All content in this batch is technical and focused on Kubernetes/Litmus chaos experiment workflow execution. The spans describe experiment triggers, workflow status updates, and operational metadata such as experiment IDs, workflow names, namespaces, SLA thresholds, and target faults. There is no self-harm, hate, harassment, sexual, extremist, or otherwise harmful content. No biased or discriminatory language is used, and there are no patterns of misinformation since the data is log- and event-style with no speculative claims.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "The telemetry contains only operational metadata, including experiment IDs, workflow and node names, namespaces, and generic project/agent identifiers. No passwords, API keys, tokens, private keys, certificates, or other secrets are present. There are no email addresses, phone numbers, government IDs, or other personal identifiers. Overall, the batch adheres to security and privacy expectations for infrastructure telemetry.",
+    "reasoning_quality_score": 7.0,
+    "reasoning_quality_notes": "The batch consists mainly of structured telemetry spans rather than explicit natural-language reasoning, so direct evidence of the agent\u2019s analytical process is limited. The recorded events are logically consistent and well-structured: an experiment is triggered with clear metadata (agent, infrastructure, SLA thresholds, and target faults), context is recorded with fault names and namespaces, and workflow node status updates correctly reflect that a child step ('install-application', Pod-type) failed with exit code 1, causing its parent node to be marked Failed. The overall workflow phase is reported as Completed, which is still coherent in the sense of representing a terminal state in the metadata. Relationships between parent and child workflow nodes are accurately captured, and there are no contradictory or illogical status transitions. However, there is minimal explicit diagnostic reasoning, no exploration of root cause, and no explanation of remediation steps in this batch.",
+    "agent_summary": "The agent (demoinfra2) operating on a Kubernetes platform initiated a high-priority Litmus chaos experiment workflow named 'demoexp-i2-5-seq-30runs' in the 'litmus' namespace. It triggered the experiment with associated metadata, including SLA thresholds and targeted chaos faults (pod-cpu-hog, pod-network-loss, pod-memory-hog), and recorded the experiment context. The workflow was successfully submitted to the infrastructure, and execution progressed to step-level operations. During the run, the 'install-application' step, implemented as a Pod, failed with exit code 1. This failure propagated to its parent workflow node 'demoexp-i2-5-seq-30runs-1778518198096', which was marked as Failed, while the overall workflow phase is recorded as Completed, indicating that the workflow reached a terminal state despite the internal step failure. No subsequent troubleshooting or remediation actions are captured in this batch.",
+    "hallucination_score": null,
+    "plan_adherence": "The observed sequence reflects a straightforward and orderly operational flow: the chaos experiment is triggered with clearly defined metadata, the context is recorded, and the workflow proceeds through execution with step-level status updates. The transition from experiment trigger to context recording and then to workflow node execution is consistent and systematic. However, the batch does not capture any explicit troubleshooting or remediation plan after the failure of the 'install-application' pod step. There is no evidence of iterative diagnosis, hypothesis testing, or adaptive changes to the workflow in response to the failure. As a result, while the initial execution plan appears to have been followed, adherence to any subsequent diagnostic or recovery plan cannot be evaluated from the available data.",
+    "collateral_damage": "No collateral damage is evident in this batch. The only reported issue is the failure of the 'install-application' pod step within the targeted experiment workflow, which led to the associated parent node being marked as Failed. There is no indication that the agent modified, restarted, or deleted unrelated or healthy resources, nor that it introduced new errors outside the scope of the experiment workflow itself."
+  },
+  "token_usage": {
+    "input_tokens": 17042,
+    "output_tokens": 3031,
+    "total_tokens": 20073
+  }
+}

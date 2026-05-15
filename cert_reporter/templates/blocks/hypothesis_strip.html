@@ -1,0 +1,37 @@
+{# blocks/hypothesis_strip.html — one-line hypothesis verdict with facts and collapsible detail.
+   Expects: {type:"hypothesis_strip", verdict:"pass|flag|fail", hypothesis_id, metric_label,
+             facts:[{label, text, tone}], method?, summary?, findings?, detail?} #}
+{% set verdict = (block.verdict | default('')) | lower %}
+{# The verdict is conveyed by the colored left-border on `.hyp-strip.{verdict}`
+   — no inline tag is needed (and was visual clutter against the strip's
+   own styling). The label spans below carry the hypothesis identity. #}
+<div class="hyp-strip {{ verdict }}">
+  <div class="hyp-strip__line">
+    {% if block.hypothesis_id %}<span class="hyp-strip__id">{{ block.hypothesis_id }}</span>{% endif %}
+    {% if block.metric_label %}<span class="hyp-strip__metric">{{ block.metric_label }}</span>{% endif %}
+    <span class="hyp-strip__facts">
+      {% for f in block.facts | default([]) %}
+        {% set tone = (f.tone | default('good')) | lower %}
+        {% set cls = 'hyp-metric-flag' if tone in ('flag','warn','warning','high','fail') else 'hyp-metric-good' %}
+        <span class="{{ cls }}">{% if f.label %}{{ f.label }} {% endif %}{{ f.text | default('') }}</span>
+        {% if not loop.last %}<span class="sep">·</span>{% endif %}
+      {% endfor %}
+    </span>
+  </div>
+  {% if block.findings %}
+  <div class="hyp-findings">
+    <span class="hyp-findings__label">Findings{% if block.method %}<span class="lblmethod">— {{ block.method }}</span>{% endif %}</span>
+    <span class="hyp-findings__body">{{ block.findings | md }}</span>
+  </div>
+  {% elif block.summary %}
+  <div class="hyp-findings">
+    <span class="hyp-findings__body">{{ block.summary | md }}</span>
+  </div>
+  {% endif %}
+  {% if block.detail %}
+  <details>
+    <summary>Detail</summary>
+    <div>{{ block.detail | md }}</div>
+  </details>
+  {% endif %}
+</div>
