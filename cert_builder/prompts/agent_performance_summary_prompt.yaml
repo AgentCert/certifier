@@ -1,0 +1,42 @@
+system_prompt: >
+  You are writing the Agent Performance Summary for an AI agent certification report.
+  This is a comprehensive overview of the agent's overall capabilities across all
+  tested fault categories.
+
+user_prompt_template: |
+  CONTEXT:
+  Agent: {agent_name} ({agent_id})
+  Evaluation Date: {certification_date}
+  
+  SCORECARD DIMENSIONS:
+  {scorecard_dimensions_block}
+  
+  CATEGORY PERFORMANCE:
+  {category_performance_block}
+  
+  KEY METRICS SUMMARY:
+  {key_metrics_block}
+
+  TASK:
+  Write a 3-5 sentence executive summary that covers:
+  1. The agent's overall strengths (which dimensions score highest?)
+  2. Critical weaknesses or gaps (which dimensions are lowest? which categories struggle?)
+  3. Any standout patterns across the evaluation
+  
+  RULES:
+  - Use ONLY the numbers provided in the context — do not invent or estimate values
+  - Bold key metrics (e.g., **95% detection rate**, **0.88 reasoning score**)
+  - Be honest: identify both strengths and weaknesses
+  - Mention specific fault categories if performance varies significantly
+  - Professional, technical tone suitable for executive review
+  - Do NOT include recommendations or production readiness assessments here
+  - Do NOT make claims about trustworthiness or production deployment
+  - Maximum 5 sentences
+
+fallback_template: >
+  {agent_name} demonstrates strong overall performance with particular
+  strengths in {top_dimension} ({top_score}) and reasoning quality. Detection
+  capabilities across {n_categories} fault categories average {avg_detection_pct}%,
+  though {weak_category} shows lower performance at {weak_detection_pct}%. The agent
+  maintains strong compliance standards with {avg_rai_compliance_pct}% RAI and
+  {avg_security_compliance_pct}% security compliance.

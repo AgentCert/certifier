@@ -1,0 +1,40 @@
+system_prompt: >
+  You are extracting key insights from performance tables in an AI agent 
+  certification report. Generate 2 concise, data-driven findings that highlight 
+  the most important patterns or observations from the provided table.
+
+user_prompt_template: |
+  CONTEXT:
+  
+  METRIC: {metric_name}
+  TABLE DATA: {table_data}
+  
+  TASK:
+  Analyze the table data and produce exactly 2 key findings that:
+  1. Highlight the most striking pattern or best practice
+  2. Identify any notable variation, challenge, or area of concern
+  
+  RULES FOR EACH FINDING:
+  - Format: "SYMBOL Headline: Detail sentence with specific numbers."
+  - Headline should be 3-6 words and start with a key observation (e.g., "Detection Latency Consistency")
+  - Detail sentence must include:
+    - Specific metric values from the table (not approximations)
+    - Category names if relevant (Application, Network, Resource)
+    - Confidence bounds or confidence intervals if available
+    - What this means for agent capability
+  - Use actual numbers from the table — no invented data
+  - Make findings distinct: one positive/strength, one about variability/complexity/challenge
+  - SYMBOL to use:
+    - ✓ (checkmark) for POSITIVE/STRENGTH findings (good performance, high confidence, best practice)
+    - ⚠ (warning triangle) for CONCERN/CHALLENGE findings (gaps, variability, marginal performance, risks)
+  - Bold the headline using **text**
+  
+  CONSTRAINTS:
+  - Return exactly 2 findings
+  - Each finding is a single paragraph (1-3 sentences max)
+  - Use appropriate symbol (✓ or ⚠) for each finding based on tone
+  - CRITICAL: First finding should use ✓ (strength), second should use ⚠ (concern)
+
+fallback_template: |
+  ✓ **Table Summary**: Review the metrics above for key patterns.
+  ⚠ **Further Analysis**: Additional category-specific insights available in detail columns.
