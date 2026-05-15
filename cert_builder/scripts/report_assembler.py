@@ -420,12 +420,23 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     if sh_status == "ok":
         adequacy_value = "Sufficient"
         results = sh.get("results") or {}
-        h_keys = sorted(k for k in results if k.startswith("h") and k[1:].isdigit())
-        if h_keys:
-            nums = [int(k[1:]) for k in h_keys]
-            hypotheses_tested = f"{len(nums)} (H-{min(nums):02d} \u2013 H-{max(nums):02d})"
+        # Handle potential double-nesting (mirrors _phase1_h01_h02 pattern)
+        inner_results = results.get("results") if isinstance(results.get("results"), dict) else results
+        executed_keys = sorted(
+            k for k, v in inner_results.items()
+            if isinstance(v, dict) and v.get("status") not in ("skipped", "not_requested")
+        )
+        executed = len(executed_keys)
+        if executed:
+            first_id = f"H-{executed_keys[0][1:]}"
+            last_id = f"H-{executed_keys[-1][1:]}"
+            hypotheses_tested = (
+                f"{executed} ({first_id})"
+                if first_id == last_id
+                else f"{executed} ({first_id} \u2013 {last_id})"
+            )
         else:
-            hypotheses_tested = "9 (H-01 \u2013 H-09)"
+            hypotheses_tested = "\u2014"
     elif sh_status == "skipped":
         adequacy_value = "Insufficient"
         hypotheses_tested = "—"
@@ -923,7 +934,7 @@ def _section_appendix(overlay: HypothesisOverlay | None = None):
         "id": "appendix",
         "number": 0,  # Appendix sections don't get sequential numbers
         "part": None,
-        "title": "Appendix",
+        "title": "Statistical Evaluation Overview",
         "intro": "",
         "content": content,
     }
@@ -1003,7 +1014,7 @@ def _section_appendix_a2(overlay: HypothesisOverlay | None = None):
         "id": "appendix_a2",
         "number": 0,
         "part": None,
-        "title": "Appendix",
+        "title": "Statistical Evidence: Performance & Safety Validation (H-01 \u2013 H-02)",
         "intro": "",
         "content": h01_content,
     }
@@ -1624,7 +1635,7 @@ def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
         "id": "appendix_a3",
         "number": 0,
         "part": None,
-        "title": "Appendix",
+        "title": "Statistical Inference: Cross-Category Uniformity & Variance (H-03 \u2013 H-05)",
         "intro": "",
         "content": [
             _heading("A3. Statistical Inference: Cross-Category Comparison (H-03, H-04, H-05)"),
@@ -1857,8 +1868,19 @@ class ReportAssembler:
                 "content": [_part_banner("Part II", "Fault Injection Analysis")],
             })
 
+        sections.append(_section_fault_analysis(phase1, phase2, phase3))
+
+        # Part III banner — before Limitations & Recommendations
+        sections.append({
+            "id": "part_iii_banner",
+            "number": 0,
+            "part": "System Limitations & Recommendations",
+            "title": "Part III \u2014 System Limitations & Recommendations",
+            "intro": "",
+            "content": [_part_banner("Part III", "System Limitations & Recommendations")],
+        })
+
         sections.extend([
-            _section_fault_analysis(phase1, phase2, phase3),
             _section_limitations(phase2, phase3, overlay, phase1),
             _section_recommendations(phase2, phase3, overlay, phase1),
         ])
@@ -1866,6 +1888,15 @@ class ReportAssembler:
         # Appendix — only when statistical hypothesis testing is active
         appendix = _section_appendix(overlay)
         if appendix is not None:
+            # Part IV banner — before appendix sections
+            sections.append({
+                "id": "part_iv_banner",
+                "number": 0,
+                "part": "Appendix & Statistical Analysis",
+                "title": "Part IV \u2014 Appendix & Statistical Analysis",
+                "intro": "",
+                "content": [_part_banner("Part IV", "Appendix & Statistical Analysis")],
+            })
             sections.append(appendix)
 
         # Appendix A2 — Statistical Evidence (H-01 – H-02 strips from sections 5, 6, 7)
