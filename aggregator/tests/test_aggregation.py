@@ -663,10 +663,14 @@ class TestScorecardAssembler:
             boolean_aggs={},
             textual_aggs={},
         )
-        # successful_runs == len(docs) so the per-execution rate math in
-        # cert_builder narratives stays consistent (rate × successful_runs).
-        assert result["successful_runs"] == 3
-        assert result["total_runs"] == 3
+        # successful_runs is the number of distinct run_ids (run-A, run-B = 2),
+        # NOT the number of metric docs (3). This avoids double-counting a run
+        # that exercises multiple faults of the same category. The raw doc
+        # count is preserved as ``fault_evaluations`` for traceability.
+        assert result["successful_runs"] == 2
+        assert result["total_runs"] == 2
+        assert result["distinct_runs"] == 2
+        assert result["fault_evaluations"] == 3
         assert result["failed_runs"] == 0
 
     def test_assemble_final_scorecard_invariant(self):

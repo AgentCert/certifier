@@ -197,9 +197,40 @@ def compute_numeric_aggregates(
 # Derived rate metrics
 # ---------------------------------------------------------------------------
 
+def _group_docs_by_run(docs: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Group per-fault metric docs by run_id.
+
+    A single run can produce multiple metric docs (one per injected fault).
+    For rate calculations we want the denominator to be distinct *runs*, not
+    fault evaluations, so the agent isn't unfairly counted twice when a run
+    exercises multiple faults of the same category.
+
+    Docs without an extractable run_id each form their own pseudo-run group
+    (legacy semantics) so older fixtures and tests continue to work.
+    """
+    groups: Dict[str, List[Dict[str, Any]]] = {}
+    fallback_idx = 0
+    for doc in docs:
+        rid = doc.get("run_id") or doc.get("quantitative", {}).get("run_id")
+        if not rid:
+            rid = f"__no_run_id_{fallback_idx}__"
+            fallback_idx += 1
+        groups.setdefault(rid, []).append(doc)
+    return groups
+
+
 def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[float]]:
     """
-    Compute derived rates from per-run boolean/status fields.
+    Compute derived rates at *distinct-run* grain.
+
+    Each run may contribute multiple per-fault metric docs. We collapse those
+    to a single per-run boolean before computing the rate so the denominator
+    matches the actual number of agent runs.
+
+    Aggregation rules per run:
+    - detection / mitigation / RAI / security ``success`` → AND across docs
+      (a run is a "success" only if every fault evaluation in it succeeded)
+    - false_negative / false_positive → OR across docs (any miss flags the run)
 
     Returns:
     - fault_detection_success_rate
@@ -207,10 +238,9 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
     - false_negative_rate / false_positive_rate
     - rai_compliance_rate / security_compliance_rate
     """
-    total = len(docs)
     precision = _precision()
 
-    if total == 0:
+    if not docs:
         return {
             "fault_detection_success_rate": None,
             "fault_mitigation_success_rate": None,
@@ -220,6 +250,9 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             "security_compliance_rate": None,
         }
 
+    groups = _group_docs_by_run(docs)
+    total = len(groups)
+
     detection_success = 0
     mitigation_success = 0
     false_negatives = 0
@@ -227,29 +260,46 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
     rai_passed = 0
     security_compliant = 0
 
-    for doc in docs:
-        quant = doc.get("quantitative", {})
-        qual = doc.get("qualitative", {})
+    for run_docs in groups.values():
+        run_detect = []
+        run_mitigate = []
+        run_fn = []
+        run_fp = []
+        run_rai = []
+        run_sec = []
 
-        fault_detected = quant.get("fault_detected")
-        detected_fault_type = quant.get("detected_fault_type")
-        injected_fault_name = quant.get("injected_fault_name")
+        for doc in run_docs:
+            quant = doc.get("quantitative", {})
+            qual = doc.get("qualitative", {})
 
-        if fault_detected and fault_detected != "Unknown":
+            fault_detected = quant.get("fault_detected")
+            detected_fault_type = quant.get("detected_fault_type")
+            injected_fault_name = quant.get("injected_fault_name")
+
+            is_detected = bool(fault_detected and fault_detected != "Unknown")
+            run_detect.append(is_detected)
+            run_fn.append(not is_detected)
+
+            if is_detected and injected_fault_name and detected_fault_type:
+                run_fp.append(detected_fault_type.lower() != injected_fault_name.lower())
+            else:
+                run_fp.append(False)
+
+            run_mitigate.append(quant.get("agent_fault_mitigation_time") is not None)
+            run_rai.append(qual.get("rai_check_status") == "Passed")
+            run_sec.append(qual.get("security_compliance_status") == "Compliant")
+
+        if run_detect and all(run_detect):
             detection_success += 1
-            if injected_fault_name and detected_fault_type:
-                if detected_fault_type.lower() != injected_fault_name.lower():
-                    false_positives += 1
-        else:
-            false_negatives += 1
-
-        if quant.get("agent_fault_mitigation_time") is not None:
+        if run_mitigate and all(run_mitigate):
             mitigation_success += 1
-
-        if qual.get("rai_check_status") == "Passed":
+        if any(run_fn):
+            false_negatives += 1
+        if any(run_fp):
+            false_positives += 1
+        if run_rai and all(run_rai):
             rai_passed += 1
-
-        if qual.get("security_compliance_status") == "Compliant":
+        if run_sec and all(run_sec):
             security_compliant += 1
 
     return {
@@ -270,33 +320,39 @@ def compute_boolean_aggregates(
     docs: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Aggregate boolean/status fields.
+    Aggregate PII / hallucination flags at *distinct-run* grain.
+
+    A run is flagged if ANY of its per-fault docs reports the condition. The
+    denominator is the number of distinct runs (not fault evaluations) so a
+    run with multiple faults of the same category is not double-counted.
 
     Returns:
     - pii_detection: { any_detected, detection_rate }
     - hallucination_detection: { any_detected, detection_rate }
     """
-    total = len(docs)
     precision = _precision()
 
-    if total == 0:
+    if not docs:
         return {
             "pii_detection": {"any_detected": None, "detection_rate": None},
             "hallucination_detection": {"any_detected": None, "detection_rate": None},
         }
 
+    groups = _group_docs_by_run(docs)
+    total = len(groups)
+
     pii_count = 0
     hallucination_count = 0
 
-    for doc in docs:
-        quant = doc.get("quantitative", {})
-        qual = doc.get("qualitative", {})
-
-        if quant.get("pii_detection") is True:
+    for run_docs in groups.values():
+        any_pii = any(d.get("quantitative", {}).get("pii_detection") is True for d in run_docs)
+        any_hallu = any(
+            (d.get("qualitative", {}).get("hallucination_score") or 0) > 0
+            for d in run_docs
+        )
+        if any_pii:
             pii_count += 1
-
-        h_score = qual.get("hallucination_score")
-        if h_score is not None and h_score > 0:
+        if any_hallu:
             hallucination_count += 1
 
     return {
