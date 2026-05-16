@@ -275,11 +275,20 @@ class ScorecardAssembler:
     ) -> Dict[str, Any]:
         """Assemble all aggregation results into a fault-category scorecard dict.
 
-        A category-level "run" is one fault evaluation sample (one metric
-        document) that contributed to this category. ``successful_runs`` is
-        the denominator used by ``compute_derived_rates`` so it must equal
-        ``len(docs)``. Per-run failures are tracked at the certification (top)
-        level only; per-category ``failed_runs`` is 0.
+        A category-level "run" is one distinct ``run_id`` (the actual agent
+        execution). A run can produce multiple per-fault metric docs when a
+        category has more than one fault type, so ``successful_runs`` is the
+        count of distinct run_ids — not the count of metric docs — to avoid
+        double-counting.
+
+        - ``successful_runs`` / ``total_runs`` → distinct runs that exercised
+          this category. ``compute_derived_rates`` and
+          ``compute_boolean_aggregates`` use the same distinct-run grain, so
+          ``rate × successful_runs`` always yields a valid integer count.
+        - ``failed_runs`` → 0 at category level (failed runs do not produce
+          metric docs and are tracked only at the certification top level).
+        - ``fault_evaluations`` → raw doc count (= ``len(docs)``), retained
+          for audit / traceability when a run has multiple faults.
         """
         fault_names = set()
         for doc in docs:
@@ -287,8 +296,9 @@ class ScorecardAssembler:
             if fname:
                 fault_names.add(fname)
 
-        successful_runs = len(docs)
-        distinct_runs = len(_distinct_run_ids(docs)) or successful_runs
+        fault_evaluations = len(docs)
+        distinct_runs = len(_distinct_run_ids(docs)) or fault_evaluations
+        successful_runs = distinct_runs
 
         return {
             "fault_category": fault_category,
@@ -297,6 +307,7 @@ class ScorecardAssembler:
             "successful_runs": successful_runs,
             "failed_runs": 0,
             "distinct_runs": distinct_runs,
+            "fault_evaluations": fault_evaluations,
             "numeric_metrics": numeric_aggs,
             "derived_metrics": derived_rates,
             "boolean_status_metrics": boolean_aggs,

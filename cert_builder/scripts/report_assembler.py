@@ -736,9 +736,12 @@ def _section_experiment_findings_scorecard_content(phase2, phase3, phase1, overl
         _heading("1.3.2 Scorecard Snapshot"),
         _chart(phase2["charts"]["scorecard_radar"]),
         _text(
+            "**Note:** All seven dimensions are normalized to a 0–1 scale where **higher is better** — "
+            "speed dimensions (Detection Speed, Mitigation Speed) invert raw time-to-detect / time-to-mitigate, "
+            "so a faster response yields a higher score. "
             "**Benchmark Comparison:** The purple filled radar shows this agent's actual performance. "
-            "The green dashed line shows the 'Performance Threshold' (1.0 for Safety and Security, 0.75 for other dimensions) across all dimensions. "
-            "Overlap indicates areas where the agent meets or exceeds expectations; extending beyond shows exceptional performance; falling short reveals improvement opportunities."
+            "The green dashed line shows the **Performance Threshold** (1.0 for Safety (RAI) and Security, 0.75 for the other dimensions). "
+            "Overlap with the threshold indicates the agent meets expectations; extending beyond shows exceptional performance; falling short reveals improvement opportunities."
         ),
     ]
 
@@ -780,19 +783,17 @@ def _build_agent_performance_summary_context(phase1: dict, phase2: dict,
     certification_date = meta.get("certification_date", "Unknown")
     
     # Extract scorecard dimensions from radar chart
+    # chart_builder._build_scorecard_radar emits {"dimensions": [{"dimension": ..., "value": ...}, ...]}
     radar_data = phase2.get("charts", {}).get("scorecard_radar", {})
     scorecard_dimensions = []
-    if "radar_points" in radar_data:
-        for point in radar_data.get("radar_points", []):
-            label = point.get("label", "")
-            value = point.get("value")
-            if value is not None:
-                # Format as percentage if value looks like a rate (0-1) or (0-100)
-                if isinstance(value, (int, float)):
-                    if 0 <= value <= 1:
-                        scorecard_dimensions.append(f"{label}: {value*100:.0f}%")
-                    else:
-                        scorecard_dimensions.append(f"{label}: {value:.1f}")
+    for point in radar_data.get("dimensions", []):
+        label = point.get("dimension", "")
+        value = point.get("value")
+        if value is not None and isinstance(value, (int, float)):
+            if 0 <= value <= 1:
+                scorecard_dimensions.append(f"{label}: {value*100:.0f}%")
+            else:
+                scorecard_dimensions.append(f"{label}: {value:.1f}")
     
     scorecard_dimensions_block = "\n".join(scorecard_dimensions) if scorecard_dimensions else "No scorecard data available"
     
@@ -803,14 +804,13 @@ def _build_agent_performance_summary_context(phase1: dict, phase2: dict,
         cat_faults = cat.get("faults_tested", [])
         cat_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
         
-        # Try to get detection and mitigation rates from phase2 if available
-        detection_pct = cat.get("detection_rate_pct", "—")
-        mitigation_pct = cat.get("mitigation_rate_pct", "—")
-        
-        if isinstance(detection_pct, (int, float)):
-            detection_pct = f"{detection_pct:.0f}%"
-        if isinstance(mitigation_pct, (int, float)):
-            mitigation_pct = f"{mitigation_pct:.0f}%"
+        # Detection / mitigation rates live under cat["derived"] as 0-1 floats
+        # (see ingestion/ingestor.py: derived_metrics → cat["derived"]).
+        derived = cat.get("derived", {}) or {}
+        detection_rate = derived.get("fault_detection_success_rate")
+        mitigation_rate = derived.get("fault_mitigation_success_rate")
+        detection_pct = f"{detection_rate*100:.0f}%" if isinstance(detection_rate, (int, float)) else "—"
+        mitigation_pct = f"{mitigation_rate*100:.0f}%" if isinstance(mitigation_rate, (int, float)) else "—"
             
         cat_str = f"{cat_name}: {len(cat_faults)} faults, {cat_runs} successful runs, {detection_pct} detection, {mitigation_pct} mitigation"
         category_items.append(cat_str)
@@ -1838,15 +1838,16 @@ class ReportAssembler:
 
         # Part I banner — appears as a standalone heading-like section
         # between §3 and §4 (Agent Capability Assessment).
-        if not overlay.suppressed:
-            sections.append({
-                "id": "part_i_banner",
-                "number": 0,
-                "part": "Agent Capability Assessment",
-                "title": "Part I — Agent Capability Assessment",
-                "intro": "Foundational quantitative + qualitative assessment of the agent's behaviour.",
-                "content": [_part_banner("Part I", "Agent Capability Assessment")],
-            })
+        # Always rendered: this is an organizational divider, not statistical
+        # content, so it is decoupled from `overlay.suppressed`.
+        sections.append({
+            "id": "part_i_banner",
+            "number": 0,
+            "part": "Agent Capability Assessment",
+            "title": "Part I — Agent Capability Assessment",
+            "intro": "Foundational quantitative + qualitative assessment of the agent's behaviour.",
+            "content": [_part_banner("Part I", "Agent Capability Assessment")],
+        })
 
         sections.extend([
             _section_qualitative_findings(phase1, phase2, phase3),
@@ -1858,15 +1859,16 @@ class ReportAssembler:
 
         # Part II banner — between Part-I content and the per-category
         # fault-injection panels.
-        if not overlay.suppressed:
-            sections.append({
-                "id": "part_ii_banner",
-                "number": 0,
-                "part": "Fault Injection Analysis",
-                "title": "Part II — Fault Injection Analysis",
-                "intro": "Per-fault-category narrative and assessment from the LLM Council.",
-                "content": [_part_banner("Part II", "Fault Injection Analysis")],
-            })
+        # Always rendered: this is an organizational divider, not statistical
+        # content, so it is decoupled from `overlay.suppressed`.
+        sections.append({
+            "id": "part_ii_banner",
+            "number": 0,
+            "part": "Fault Injection Analysis",
+            "title": "Part II — Fault Injection Analysis",
+            "intro": "Per-fault-category narrative and assessment from the LLM Council.",
+            "content": [_part_banner("Part II", "Fault Injection Analysis")],
+        })
 
         sections.append(_section_fault_analysis(phase1, phase2, phase3))
 

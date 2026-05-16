@@ -27,6 +27,8 @@ from metrics_extractor.scripts.span_aggregator import (
     QualitativeAggregator,
     QuantitativeAggregator,
 )
+from metrics_extractor.scripts.hallucination_validator import judge_trace
+from metrics_extractor.scripts.reasoning_judge import judge_reasoning
 from metrics_extractor.schema.data_models import (
     ExtractionResult,
     TokenUsage,
@@ -758,6 +760,7 @@ Extract any qualitative observations you can make from this batch."""
         self,
         partial_observations: List[Dict[str, Any]],
         total_spans: int,
+        spans: Optional[List[Dict[str, Any]]] = None,
     ) -> LLMQualitativeExtraction:
         """Aggregate partial observations from all batches into final qualitative metrics."""
         # Step 1: Pre-compute numeric values in code
@@ -770,6 +773,51 @@ Extract any qualitative observations you can make from this batch."""
             raise MetricsExtractorError(
                 f"Qualitative code aggregation failed: {e}"
             ) from e
+
+        # Step 1b: override hallucination signal with per-step claim-grounding judge.
+        # The bulk LLM count (rules 4(a)-(d)) is replaced with a deterministic,
+        # evidence-anchored validator. Output shape (count + total + score) is unchanged
+        # so the rest of the pipeline (Phase 2 aggregator, Phase 3 cert builder) is unaffected.
+        if spans:
+            try:
+                self._init_llm_client()
+                trace_dict = {"events": spans}
+                h_count, r_count, h_notes = await judge_trace(
+                    self.llm_client, trace_dict, model="gpt-4o"
+                )
+                if r_count > 0:
+                    code_aggregated["hallucination_count"] = h_count
+                    code_aggregated["total_response_count"] = r_count
+                    code_aggregated["hallucination_score"] = round(h_count / r_count, 2)
+                    if h_notes:
+                        code_aggregated["hallucination_notes"] = h_notes
+                    logger.info(
+                        f"Hallucination validator: {h_count}/{r_count} claims ungrounded "
+                        f"(score={code_aggregated['hallucination_score']})"
+                    )
+                else:
+                    logger.info("Hallucination validator: no reasoning steps found, retaining bulk count")
+            except Exception as e:
+                logger.warning(f"Hallucination validator failed, falling back to bulk count: {e}")
+
+        # Step 1c: override reasoning_quality_score with per-step multi-dimensional judge.
+        # Replaces the old LLM-averaged batch score with a structured, evidence-anchored
+        # four-dimension assessment (coherence, depth, tool relevance, clarity).
+        if spans:
+            try:
+                self._init_llm_client()
+                trace_dict = {"events": spans}
+                rj = await judge_reasoning(self.llm_client, trace_dict, model="gpt-4o")
+                if rj.mean_composite > 0:
+                    code_aggregated["reasoning_quality_score"] = rj.mean_composite
+                    code_aggregated["reasoning_logical_coherence"] = rj.mean_logical_coherence
+                    code_aggregated["reasoning_diagnostic_depth"] = rj.mean_diagnostic_depth
+                    code_aggregated["reasoning_tool_usage_relevance"] = rj.mean_tool_usage_relevance
+                    code_aggregated["reasoning_explanation_clarity"] = rj.mean_explanation_clarity
+                    if rj.overall_notes:
+                        code_aggregated["reasoning_quality_notes"] = rj.overall_notes
+            except Exception as e:
+                logger.warning(f"Reasoning judge failed, LLM batch score will be used: {e}")
 
         # Step 2: Use LLM only for text/narrative synthesis
         user_message = f"""Synthesize text and narrative fields from these observations from {len(partial_observations)} batches.
@@ -838,7 +886,7 @@ Create a comprehensive qualitative assessment by combining the narrative observa
 
         logger.info("Aggregating qualitative observations from all batches")
         return await self._aggregate_qualitative_metrics(
-            partial_observations, len(spans)
+            partial_observations, len(spans), spans=spans
         )
 
     @staticmethod

@@ -120,12 +120,12 @@ def build_scorecard(categories):
 
         cat_norm = {
             "category": cat["label"],
-            "Normalized TTD": round(det, 3),
-            "Normalized TTM": round(mit, 3),
-            "Normalized Reasoning": round(reas, 3),
-            "Normalized Hallucination": round(hal, 3),
-            "Normalized Safety (RAI)": round(rai, 3),
-            "Normalized Security": round(sec, 3),
+            "Detection Speed": round(det, 3),
+            "Mitigation Speed": round(mit, 3),
+            "Reasoning Quality": round(reas, 3),
+            "Hallucination Ctrl": round(hal, 3),
+            "Safety (RAI)": round(rai, 3),
+            "Security": round(sec, 3),
         }
 
         # Action correctness: skip categories where data is missing
@@ -133,21 +133,25 @@ def build_scorecard(categories):
         if ac and "mean" in ac:
             acc = normalize_rate(ac["mean"])
             accuracy_vals.append(acc)
-            cat_norm["Normalized Action Correctness"] = round(acc, 3)
+            cat_norm["Action Correctness"] = round(acc, 3)
         else:
-            cat_norm["Normalized Action Correctness"] = None
+            cat_norm["Action Correctness"] = None
 
         per_category.append(cat_norm)
 
-    # Step 3: average normalized values across categories
+    # Step 3: average normalized values across categories.
+    # All dimensions are 0-1 normalized so that HIGHER is BETTER (see
+    # normalize_speed / normalize_hallucination above which invert the raw
+    # "lower is better" metrics). Labels are kept short and reader-friendly;
+    # the "normalized 0-1" framing lives in the §1.3.2 caption.
     dimensions = [
-        {"dimension": "Normalized TTD",                "value": round(_mean(det_speeds), 2)},
-        {"dimension": "Normalized TTM",                "value": round(_mean(mit_speeds), 2)},
-        {"dimension": "Normalized Action Correctness", "value": round(_mean(accuracy_vals), 2)},
-        {"dimension": "Normalized Reasoning",          "value": round(_mean(reasoning_vals), 2)},
-        {"dimension": "Normalized Safety (RAI)",       "value": round(_mean(rai_rates), 2)},
-        {"dimension": "Normalized Hallucination",      "value": round(_mean(halluc_vals), 2)},
-        {"dimension": "Normalized Security",           "value": round(_mean(security_rates), 2)},
+        {"dimension": "Detection Speed",    "value": round(_mean(det_speeds), 2)},
+        {"dimension": "Mitigation Speed",   "value": round(_mean(mit_speeds), 2)},
+        {"dimension": "Action Correctness", "value": round(_mean(accuracy_vals), 2)},
+        {"dimension": "Reasoning Quality",  "value": round(_mean(reasoning_vals), 2)},
+        {"dimension": "Safety (RAI)",       "value": round(_mean(rai_rates), 2)},
+        {"dimension": "Hallucination Ctrl", "value": round(_mean(halluc_vals), 2)},
+        {"dimension": "Security",           "value": round(_mean(security_rates), 2)},
     ]
     return {"dimensions": dimensions, "normalized_per_category": per_category}
 
