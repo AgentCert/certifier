@@ -100,11 +100,14 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
       * a closed filled polygon for the agent values (fixed purple — the
         chart colour is independent of the agent's score and matches the
         §1.3.2 caption wording in report_assembler.py)
-      * value labels next to each vertex
       * any optional ``reference_polygons`` (e.g. the green dashed
         Performance Threshold) as additional closed line marks
       * a right-side legend listing each dimension's value with an
         explicit "↑ higher is better" annotation
+
+    Numeric values are intentionally NOT drawn next to each vertex —
+    the right-side legend lists every value, so per-vertex labels would
+    only duplicate that information and crowd the axis labels.
     """
     dims = block.get("dimensions", [])
     if not dims:
@@ -178,9 +181,10 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
     tick_rows = [{"v": lv} for lv in grid_levels]
 
     # Layout: left portion holds the radar (with outer axis labels), right
-    # portion holds the legend. Canvas is wide enough to keep axis labels
-    # from clipping and to give the legend its own column.
-    width = 740
+    # portion holds the legend. Canvas is wide enough to keep the widest
+    # axis labels ("Hallucination Ctrl", "Action Correctness", ~110-120 px)
+    # off both the left edge and the legend column.
+    width = 780
     height = 340
 
     spec: dict[str, Any] = {
@@ -191,13 +195,16 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
         "autosize": {"type": "none"},
         "background": "transparent",
         "signals": [
-            # Radar centre — pinned so the leftmost axis label clears the
-            # canvas edge and the rightmost axis label clears the legend.
-            {"name": "cx", "value": 240},
+            # Radar centre. cx leaves room on the left for the widest
+            # anchor=end axis label; radius is conservative so axis
+            # labels at radius+22 still clear the legend column.
+            {"name": "cx", "value": 260},
             {"name": "cy", "value": 170},
-            {"name": "radius", "value": 130},
-            # Legend anchor (top-left of the legend block).
-            {"name": "legendX", "update": "cx + radius + 90"},
+            {"name": "radius", "value": 120},
+            # Legend anchor (top-left of the legend block). Set so the
+            # rightmost axis label (cx + radius + 22 + ~120) ends before
+            # the legend names begin.
+            {"name": "legendX", "value": 540},
             {"name": "legendYTop", "update": "cy - radius + 6"},
             {"name": "legendStep", "value": 28},
         ],
@@ -329,35 +336,16 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 },
             },
         },
-        # Vertex value labels (e.g. "0.58" inside each spoke). Placed
-        # radially INWARD from the vertex so they never collide with the
-        # outer axis labels. For very small values (< 0.2) where the
-        # inward position would fall inside or beyond the centre, we
-        # flip the offset outward instead.
-        {
-            "type": "text",
-            "from": {"data": "table"},
-            "encode": {
-                "enter": {
-                    "x": {"signal": "cx + (scale('radial', datum.value) > 28 ? scale('radial', datum.value) - 14 : scale('radial', datum.value) + 14) * cos(scale('angular', datum.key))"},
-                    "y": {"signal": "cy + (scale('radial', datum.value) > 28 ? scale('radial', datum.value) - 14 : scale('radial', datum.value) + 14) * sin(scale('angular', datum.key))"},
-                    "text": {"signal": "format(datum.value, '.2f')"},
-                    "align": {"value": "center"},
-                    "baseline": {"value": "middle"},
-                    "fill": {"value": agent_stroke},
-                    "fontSize": {"value": 10},
-                    "fontWeight": {"value": "bold"},
-                },
-            },
-        },
-        # Axis labels (dimension names around the perimeter).
+        # Axis labels (dimension names around the perimeter). Pushed
+        # further out (radius + 22) so the names sit clearly outside the
+        # polygon and don't crowd the vertex dots.
         {
             "type": "text",
             "from": {"data": "keys"},
             "encode": {
                 "enter": {
-                    "x": {"signal": "cx + (radius + 14) * cos(scale('angular', datum.key))"},
-                    "y": {"signal": "cy + (radius + 14) * sin(scale('angular', datum.key))"},
+                    "x": {"signal": "cx + (radius + 22) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + (radius + 22) * sin(scale('angular', datum.key))"},
                     "text": {"field": "key"},
                     "align": [
                         {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
