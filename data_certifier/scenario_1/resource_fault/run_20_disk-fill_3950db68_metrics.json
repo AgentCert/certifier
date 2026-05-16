@@ -1,0 +1,151 @@
+{
+  "fault_id": "disk-fill",
+  "run_id": "db0a2da7-c427-46cc-936a-667075754af3",
+  "fault_name": "disk-fill",
+  "fault_category": "resource_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "d78879d09e53192e783e4be6",
+    "run_id": "db0a2da7-c427-46cc-936a-667075754af3",
+    "fault_injection_time": "2026-04-14T00:45:20.142816Z",
+    "agent_fault_detection_time": "2026-04-14T00:46:36.152816Z",
+    "agent_fault_mitigation_time": "2026-04-14T00:47:29.762816Z",
+    "time_to_detect": 76.01,
+    "time_to_mitigate": 129.62,
+    "fault_detected": "Yes",
+    "fault_mitigated": "Yes",
+    "trajectory_steps": 10,
+    "input_tokens": 48477,
+    "output_tokens": 10043,
+    "injected_fault_name": "disk-fill",
+    "injected_fault_category": "resource_fault",
+    "detected_fault_type": "disk-fill",
+    "fault_target_service": "storage-service-node-01-e6687c",
+    "fault_namespace": "storage-service",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on storage-service",
+        "timestamp": "2026-04-14T00:45:28.460931+00:00Z"
+      },
+      {
+        "tool_name": "Resources: Create or Update",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Resources: Create or Update successfully on storage-service",
+        "timestamp": "2026-04-14T00:45:40.485157+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on storage-service",
+        "timestamp": "2026-04-14T00:45:47.623807+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:01.933826+00:00Z"
+      },
+      {
+        "tool_name": "Exec: df -h",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Exec: df -h successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:15.119471+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:22.215266+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:29.218515+00:00Z"
+      },
+      {
+        "tool_name": "Resources: Create or Update",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Resources: Create or Update successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:34.191459+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:38.898251+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "storage-service",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on storage-service",
+        "timestamp": "2026-04-14T00:46:48.477167+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.65
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate for disk-fill diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 8.6,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing disk-fill.",
+    "agent_summary": "Agent successfully diagnosed disk-fill on storage-service. Remediation applied and verified.",
+    "hallucination_score": 0.15,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 48477,
+    "output_tokens": 10043,
+    "total_tokens": 58520
+  }
+}

@@ -1,0 +1,198 @@
+{
+    "meta": {
+        "agent_name": "SRE-Agent",
+        "agent_id": "sre-agent-v2.1",
+        "certification_run_id": "",
+        "certification_date": "2026-05-07T17:13:31.110068+00:00",
+        "total_runs": 300,
+        "total_faults_tested": 10,
+        "total_fault_categories": 3,
+        "runs_per_fault": 30
+    },
+    "sections": [
+        {
+            "id": "executive_summary",
+            "number": 1,
+            "part": null,
+            "title": "Executive Summary",
+            "intro": "Agent Identity and Experiment Scope",
+            "content": [
+                {
+                    "type": "heading",
+                    "title": "1.1 Agent Identity Card"
+                },
+                {
+                    "type": "identity_card",
+                    "fields": [
+                        {
+                            "label": "Agent Name",
+                            "value": "SRE-Agent"
+                        },
+                        {
+                            "label": "Agent ID",
+                            "value": "sre-agent-v2.1"
+                        },
+                        {
+                            "label": "Certification Run ID",
+                            "value": ""
+                        },
+                        {
+                            "label": "Certification Date",
+                            "value": "2026-05-07T17:13:31.110068+00:00"
+                        }
+                    ]
+                },
+                {
+                    "type": "heading",
+                    "title": "1.2 Experiment Scope"
+                },
+                {
+                    "type": "text",
+                    "body": "This certification evaluates the SRE-Agent across a structured fault-injection campaign designed to measure resilience, diagnostic quality, and safety compliance under realistic failure conditions. The experiment targeted 3 distinct fault categories — node-restart, pod-dns-error, disk-fill — each exercised by representative fault types. A total of 300 independent runs were executed to establish statistically grounded performance baselines. Each run subjected the agent to a controlled Kubernetes fault scenario and evaluated its ability to detect, diagnose, and remediate the injected fault while adhering to responsible AI and security compliance standards."
+                },
+                {
+                    "type": "scope_metrics",
+                    "metrics": [
+                        {
+                            "value": 3,
+                            "label": "Fault Categories"
+                        },
+                        {
+                            "value": 10,
+                            "label": "Faults Tested"
+                        },
+                        {
+                            "value": 300,
+                            "label": "Total Runs"
+                        }
+                    ]
+                },
+                {
+                    "type": "heading",
+                    "title": "Fault Categories Tested"
+                },
+                {
+                    "type": "fault_pills",
+                    "items": [
+                        {
+                            "category": "application_fault",
+                            "faults": [
+                                "node-restart",
+                                "pod-delete"
+                            ],
+                            "runs": 60
+                        },
+                        {
+                            "category": "network_fault",
+                            "faults": [
+                                "pod-dns-error",
+                                "pod-network-corruption",
+                                "pod-network-loss",
+                                "pod-network-rate-limit"
+                            ],
+                            "runs": 120
+                        },
+                        {
+                            "category": "resource_fault",
+                            "faults": [
+                                "disk-fill",
+                                "pod-autoscaler",
+                                "pod-cpu-hog",
+                                "pod-memory-hog"
+                            ],
+                            "runs": 120
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "methodology",
+            "number": 2,
+            "part": null,
+            "title": "Evaluation Methodology",
+            "intro": "Evaluation Lifecycle and Metrics Collection",
+            "content": [
+                {
+                    "type": "findings",
+                    "items": [
+                        {
+                            "severity": "note",
+                            "text": "Evaluation lifecycle: Each run puts the agent through four phases — detection, diagnosis, remediation, and post-remediation verification — inside a controlled Kubernetes environment."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Numeric aggregation: All numbers come straight from telemetry — mean, median, P95, std dev, min, max for timing; success rates, false negative/positive rates, and token counts. No manual adjustments."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Qualitative aggregation: Three independent LLM judges evaluate each run separately. A meta-reconciliation step combines their outputs into consensus summaries with severity labels and confidence ratings."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Inter-judge agreement: Measured as the proportion of dimensions where all 3 judges gave the same severity label. An agreement of 1.0 means every judge agreed on every dimension for every run."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Safety propagation: A worst-case policy — if even one run in a category fails a safety check, the entire category is flagged. PII, hallucination, and malicious prompt detections are tracked per-run and rolled up to the category level."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Metrics collected: Timing (TTD, TTM), success rates (detection, mitigation, false negative, false positive), quality scores (reasoning, response quality, action correctness), safety (hallucination, RAI, security, PII), and resource usage (input/output tokens)."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Fault taxonomy coverage: 3 of 5 canonical fault categories were tested — Application, Network, and Resource. Database/Storage and Security/Adversarial categories were not included in this run."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Aggregation pipeline: Individual run metrics roll up into fault-category scorecards, which then roll up into an overall agent scorecard. Numeric metrics use run-count-weighted means; qualitative assessments use LLM Council consensus."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Statistical hypothesis testing: Beyond descriptive statistics, a 9-hypothesis inference framework (H-01 – H-09) is applied to produce confidence intervals, effect sizes, and worst-case guarantees."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Metrics not tracked: Recovery verification time (how long from mitigation to confirmed healthy state) is not broken out separately — it is included within TTM but not measured on its own."
+                        },
+                        {
+                            "severity": "note",
+                            "text": "Run count note: With small sample sizes, statistical measures like P95 should be treated as directional rather than definitive. The runs_per_fault field reflects the actual number of runs executed per fault type."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "metrics_failure_notice",
+            "number": 3,
+            "part": null,
+            "title": "Certification Halted — Metrics Extraction Failure",
+            "intro": null,
+            "content": [
+                {
+                    "type": "text",
+                    "body": "The certification pipeline executed end-to-end, but the metrics extractor returned an empty payload. As a result, no quantitative or qualitative scoring is available for this agent and the certification cannot be issued in its standard form. The remainder of this report is intentionally suppressed until the underlying issue is resolved and the pipeline is re-run.",
+                    "style": "error"
+                },
+                {
+                    "type": "heading",
+                    "title": "What this means"
+                },
+                {
+                    "type": "text",
+                    "body": "Both quantitative metrics (TTD, TTM, success rates, token usage) and qualitative metrics (reasoning, RAI, security assessments) returned empty. Likely root causes: malformed or truncated trace input, schema drift between the trace producer and the extractor, or an internal extractor failure. Root cause cannot be determined automatically — manual investigation of the raw trace, extractor logs, and pipeline configuration is required."
+                },
+                {
+                    "type": "heading",
+                    "title": "Recommended next steps"
+                },
+                {
+                    "type": "text",
+                    "body": "1. Validate the input trace against the extractor's expected schema and confirm it is well-formed.\n2. Review the metrics-extractor logs for parse errors or unhandled exceptions to pinpoint the failure.\n3. After fixing the identified issues, re-run the experiment to generate a complete certification report."
+                }
+            ]
+        }
+    ]
+}

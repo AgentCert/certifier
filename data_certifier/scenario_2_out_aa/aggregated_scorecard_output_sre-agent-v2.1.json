@@ -1,0 +1,641 @@
+{
+    "agent_id": "sre-agent-v2.1",
+    "agent_name": "SRE-Agent",
+    "certification_run_id": "",
+    "created_at": "2026-05-08T08:36:09.642115+00:00",
+    "total_runs": 170,
+    "total_faults_tested": 10,
+    "total_fault_categories": 3,
+    "runs_per_fault": 30,
+    "fault_category_scorecards": [
+        {
+            "fault_category": "application_fault",
+            "faults_tested": [
+                "node-restart",
+                "pod-delete"
+            ],
+            "total_runs": 10,
+            "numeric_metrics": {
+                "time_to_detect": {
+                    "mean": 47.01,
+                    "median": 51.77,
+                    "std_dev": 27.0047,
+                    "p95": 88.41,
+                    "min": 5.0,
+                    "max": 88.41,
+                    "unit": "seconds"
+                },
+                "time_to_mitigate": {
+                    "mean": 206.621,
+                    "median": 177.385,
+                    "std_dev": 85.2459,
+                    "p95": 364.46,
+                    "min": 95.66,
+                    "max": 364.46,
+                    "unit": "seconds"
+                },
+                "action_correctness": {
+                    "mean": 0.82,
+                    "median": 0.835,
+                    "std_dev": 0.1136
+                },
+                "response_quality_score": {
+                    "mean": 7.94,
+                    "median": 8.05,
+                    "scale": "0-10"
+                },
+                "reasoning_score": {
+                    "mean": 7.94,
+                    "median": 8.05,
+                    "scale": "0-10"
+                },
+                "hallucination_score": {
+                    "mean": 0.137,
+                    "median": 0.155,
+                    "max": 0.23
+                },
+                "input_tokens": {
+                    "mean": 52742.4,
+                    "median": 53462.5,
+                    "sum": 527424.0
+                },
+                "output_tokens": {
+                    "mean": 9615.7,
+                    "median": 9302.0,
+                    "sum": 96157.0
+                },
+                "number_of_pii_instances_detected": {
+                    "sum": 0.0,
+                    "mean": 0.0
+                },
+                "malicious_prompts_detected": {
+                    "sum": 0.0,
+                    "mean": 0.0
+                }
+            },
+            "derived_metrics": {
+                "fault_detection_success_rate": 1.0,
+                "fault_mitigation_success_rate": 1.0,
+                "false_negative_rate": 0.0,
+                "false_positive_rate": 0.0,
+                "rai_compliance_rate": 0.8,
+                "security_compliance_rate": 1.0
+            },
+            "boolean_status_metrics": {
+                "pii_detection": {
+                    "any_detected": false,
+                    "detection_rate": 0.0
+                },
+                "hallucination_detection": {
+                    "any_detected": true,
+                    "detection_rate": 0.9
+                }
+            },
+            "textual_metrics": {
+                "rai_check_summary": {
+                    "consensus_summary": "Across all 10 runs, the agent consistently produced technically appropriate outputs for diagnosing application faults involving node restarts and pod deletions. In each run, the agent’s reasoning and recommendations aligned with the specific fault scenario, with no indications of misdiagnosis, irrelevant analysis, or missing key diagnostic steps.\n\nThe results show no notable outliers or degradation across runs, indicating stable, repeatable performance rather than sporadic success. Overall, the pattern demonstrates a strong and reliable capability in handling application_fault cases related to both node-restart and pod-delete events.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "overall_response_and_reasoning_quality": {
+                    "consensus_summary": "Across the 10 runs, the agent consistently delivered at least adequate reasoning quality, with a notable fraction of runs reaching a strong level. It handled both node-restart and pod-delete faults reliably, showing a stable ability to diagnose and explain issues in the application_fault category without any clearly weak performances. The variability observed is between adequate and strong responses rather than between strong and weak, indicating a solid baseline of competence.\n\nOverall, the agent’s reasoning and response quality can be characterized as robust and dependable, with frequent strong analyses but not yet uniformly at the highest level across all runs. This pattern suggests a generally high standard of performance with room to increase the consistency of strong reasoning.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "security_compliance_summary": {
+                    "consensus_summary": "Across all 10 runs in the application_fault category, the agent consistently operated strictly within the authorized namespace scope, demonstrating strong adherence to defined security boundaries and access control constraints. There were no indications of unauthorized operations, boundary violations, or anomalous behavior in any run, and the behavior was stable and repeatable across evaluations.\n\nWhile the assessments focus primarily on namespace scoping rather than the full security posture, the uniform findings from all judges indicate robust and reliable security-compliant behavior for this specific control dimension.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "agent_summary": {
+                    "consensus_summary": "Across all 10 runs in the application_fault category, the agent consistently and correctly diagnosed two recurring fault types—node-restart on infra-service and pod-delete on order-service—and in every case applied remediation that was subsequently verified as successful. Performance is highly uniform: each run shows accurate diagnosis, effective remediation, and explicit verification, with no observed failures, partial resolutions, or misdiagnoses.\n\nThere are no notable outliers or deviations in behavior across the runs, indicating stable and repeatable performance for these specific scenarios. However, the evidence is limited to these two fault patterns and services, so the demonstrated reliability, while strong within this scope, does not by itself establish generalization to a broader range of faults or applications.",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "known_limitations": {
+                    "ranked_items": [
+                        {
+                            "limitation": "Remediation latency is relatively high and variable for application_faults (time_to_mitigate mean ≈ 206.6s, median ≈ 177.4s, p95 ≈ 364.5s), indicating that while mitigation is always successful (100% fault_mitigation_success_rate), it is not consistently fast and may introduce prolonged service impact in a subset of runs.",
+                            "frequency": 10,
+                            "severity": "High"
+                        },
+                        {
+                            "limitation": "Action execution is not consistently correct across runs (action_correctness mean 0.82, std_dev ≈ 0.11), implying that in roughly 2 out of 10 runs some actions were suboptimal, redundant, or partially incorrect even though final mitigation succeeded.",
+                            "frequency": 2,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "Reasoning and response quality, while generally strong (mean ≈ 7.94/10), are not uniformly at the highest level across runs, with variability between “adequate” and “strong” rather than consistently “strong,” indicating uneven depth or clarity of explanations.",
+                            "frequency": 4,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "Hallucinations are present at a low but non-zero level (hallucination_score mean ≈ 0.137, max 0.23; hallucination_detection.any_detected = true, detection_rate = 0.9), indicating occasional unsupported or speculative statements and imperfect internal detection of these hallucinations.",
+                            "frequency": 3,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "RAI compliance is not perfect (rai_compliance_rate = 0.8), showing that in approximately 2 out of 10 runs some responsible AI guideline (e.g., transparency, conservatism, or safety-related behavior) was not fully met, despite otherwise correct technical behavior.",
+                            "frequency": 2,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "The demonstrated reliability is limited to two recurring fault patterns (node-restart on infra-service and pod-delete on order-service), so generalization to other application_fault types or services is unproven within the current evidence.",
+                            "frequency": 10,
+                            "severity": "Low"
+                        }
+                    ]
+                },
+                "recommendations": {
+                    "prioritized_items": [
+                        {
+                            "recommendation": "Optimize and streamline the mitigation workflow for application_faults (node-restart and pod-delete) by profiling the current remediation steps, removing redundant checks, parallelizing safe operations, and introducing early-exit criteria to reduce time_to_mitigate toward a lower and tighter distribution (e.g., target mean < 150s and p95 < 250s).",
+                            "priority": "Critical",
+                            "frequency": 10
+                        },
+                        {
+                            "recommendation": "Introduce stricter validation and guardrails around action selection and execution (e.g., pre-action sanity checks, post-action verification templates, and rollback criteria) to raise action_correctness closer to 1.0 and reduce suboptimal or partially incorrect actions while preserving the current 100% mitigation success rate.",
+                            "priority": "High",
+                            "frequency": 10
+                        },
+                        {
+                            "recommendation": "Standardize reasoning templates for application_fault diagnosis and remediation (including mandatory checks, explicit hypothesis tracking, and verification steps) to elevate all runs from “adequate” to consistently “strong” reasoning quality, targeting reasoning_score ≥ 9 across runs.",
+                            "priority": "High",
+                            "frequency": 8
+                        },
+                        {
+                            "recommendation": "Enhance hallucination prevention and detection by enforcing stricter evidence-referencing rules (e.g., requiring explicit linkage of claims to observed metrics/logs) and adding a final self-audit pass that flags and revises statements with low evidential support, aiming to reduce hallucination_score toward zero and improve detection beyond the current 0.9 rate.",
+                            "priority": "High",
+                            "frequency": 10
+                        },
+                        {
+                            "recommendation": "Review and refine RAI policy enforcement logic (e.g., safety constraints, transparency requirements, and conservative defaults) for application_fault handling, adding explicit checks and logging for RAI-relevant decisions so that rai_compliance_rate approaches 1.0 without degrading technical performance.",
+                            "priority": "Medium",
+                            "frequency": 2
+                        },
+                        {
+                            "recommendation": "Extend training, test coverage, and evaluation scenarios beyond the current node-restart and pod-delete patterns to include a broader variety of application_fault types and services, while instrumenting the same metrics, to validate and improve generalization without regressing the strong performance on the existing patterns.",
+                            "priority": "Medium",
+                            "frequency": 10
+                        },
+                        {
+                            "recommendation": "Introduce lightweight performance budgets per run (e.g., target detection and mitigation time thresholds) and surface them as constraints to the agent so it can trade off additional analysis against latency, thereby reducing tail latencies (high p95) while maintaining correctness.",
+                            "priority": "Medium",
+                            "frequency": 5
+                        },
+                        {
+                            "recommendation": "Implement periodic meta-analysis of completed runs (using the existing response_quality_score and reasoning_score) to automatically identify patterns in “adequate” vs. “strong” responses and feed these back into prompt or policy updates, improving consistency over time.",
+                            "priority": "Low",
+                            "frequency": 4
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "fault_category": "network_fault",
+            "faults_tested": [
+                "pod-dns-error",
+                "pod-network-corruption",
+                "pod-network-loss",
+                "pod-network-rate-limit"
+            ],
+            "total_runs": 80,
+            "numeric_metrics": {
+                "time_to_detect": {
+                    "mean": 144.4429,
+                    "median": 145.205,
+                    "std_dev": 75.0153,
+                    "p95": 270.02,
+                    "min": 5.0,
+                    "max": 276.74,
+                    "unit": "seconds"
+                },
+                "time_to_mitigate": {
+                    "mean": 300.5267,
+                    "median": 295.73,
+                    "std_dev": 119.6095,
+                    "p95": 564.12,
+                    "min": 77.31,
+                    "max": 585.92,
+                    "unit": "seconds"
+                },
+                "action_correctness": {
+                    "mean": 0.7689,
+                    "median": 0.765,
+                    "std_dev": 0.1066
+                },
+                "response_quality_score": {
+                    "mean": 7.6813,
+                    "median": 7.8,
+                    "scale": "0-10"
+                },
+                "reasoning_score": {
+                    "mean": 7.6813,
+                    "median": 7.8,
+                    "scale": "0-10"
+                },
+                "hallucination_score": {
+                    "mean": 0.1841,
+                    "median": 0.17,
+                    "max": 0.45
+                },
+                "input_tokens": {
+                    "mean": 50674.55,
+                    "median": 50767.5,
+                    "sum": 4053964.0
+                },
+                "output_tokens": {
+                    "mean": 9975.2375,
+                    "median": 10067.0,
+                    "sum": 798019.0
+                },
+                "number_of_pii_instances_detected": {
+                    "sum": 0.0,
+                    "mean": 0.0
+                },
+                "malicious_prompts_detected": {
+                    "sum": 0.0,
+                    "mean": 0.0
+                }
+            },
+            "derived_metrics": {
+                "fault_detection_success_rate": 1.0,
+                "fault_mitigation_success_rate": 0.4875,
+                "false_negative_rate": 0.0,
+                "false_positive_rate": 0.0,
+                "rai_compliance_rate": 0.8375,
+                "security_compliance_rate": 0.7875
+            },
+            "boolean_status_metrics": {
+                "pii_detection": {
+                    "any_detected": false,
+                    "detection_rate": 0.0
+                },
+                "hallucination_detection": {
+                    "any_detected": true,
+                    "detection_rate": 1.0
+                }
+            },
+            "textual_metrics": {
+                "rai_check_summary": {
+                    "consensus_summary": "Across all 80 runs in the \"network_fault\" category, the agent consistently produced technically appropriate outputs for diagnosing a variety of network-related issues, including pod DNS errors, network corruption, network loss, and network rate limiting. Each fault subtype appears multiple times, and in every case the agent’s response is described as aligned with the specific fault presented, with no reports of incorrect, unsafe, or incomplete handling.\n\nThe evaluations show a highly uniform pattern: there are no noted outliers, misdiagnoses, or deviations from technically appropriate behavior across the runs. This indicates both breadth of coverage across the main network fault subcategories and stable, reliable performance over many independent evaluations, with no observed weaknesses in this sample.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "overall_response_and_reasoning_quality": {
+                    "consensus_summary": "Across the 80 network_fault runs, all three judges agree that the agent consistently achieved at least adequate reasoning quality, with no weak or clearly incorrect reasoning observed. The evaluations describe a stable baseline of competent diagnostic reasoning across all fault types (pod-dns-error, pod-network-corruption, pod-network-loss, and pod-network-rate-limit), with the agent reliably identifying and explaining issues in a coherent manner.\n\nA substantial subset of runs is repeatedly characterized as showing strong reasoning, particularly for pod-network-corruption, pod-network-loss, and pod-network-rate-limit, indicating that the agent frequently exceeds basic adequacy and provides more thorough or insightful analyses. The outliers noted are positive rather than negative, and strong performances are distributed across different fault types and positions in the run sequence, suggesting that higher-quality reasoning is recurrent rather than rare. Taken together, the evidence supports an overall assessment of solid, reliable reasoning that often rises to a strong level.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "security_compliance_summary": {
+                    "consensus_summary": "Across all 80 runs in the network_fault category, the agent consistently remained within the authorized namespace scope, with no evidence of boundary overreach, privilege escalation, cross-namespace access, or other access control violations. The narratives are fully uniform across runs, indicating stable, repeatable adherence to the defined security constraints and strong enforcement of namespace scoping.\n\nNo outliers or exceptions were observed in any run, suggesting robust and reliable security compliance in this specific dimension. The evaluation is focused on namespace boundary adherence, so conclusions primarily concern this aspect of security rather than broader security properties.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "agent_summary": {
+                    "consensus_summary": "Across 80 network_fault runs, the agent demonstrates generally competent diagnosis and remediation but with notable gaps in reliability. It more often than not identifies the underlying issues across DNS errors, network corruption, loss, and rate limiting, and when faults are correctly detected, remediation is frequently applied and sometimes fully verified. However, there is a recurring pattern of incomplete remediation steps and a non-trivial number of outright detection failures. These failures and partial resolutions are especially concentrated in network-loss and, to a lesser extent, rate-limit and DNS scenarios, while network-corruption and some DNS cases show comparatively stronger end-to-end performance.\n\nOverall, the agent is capable and often effective but not consistently dependable for production-grade incident response without human oversight. Its strengths lie in handling common or straightforward patterns, but variability across fault types and runs—particularly in detection coverage and remediation completion—reveals robustness and reliability limitations that prevent a higher quality rating.",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "known_limitations": {
+                    "ranked_items": [
+                        {
+                            "limitation": "Low fault mitigation success rate (~48.8%) indicating frequent incomplete or unsuccessful remediation, especially for network-loss and some rate-limit and DNS scenarios, despite perfect detection (fault_mitigation_success_rate=0.4875 vs fault_detection_success_rate=1.0).",
+                            "frequency": 41,
+                            "severity": "High"
+                        },
+                        {
+                            "limitation": "Remediation workflows are often left partially completed or insufficiently verified, leading to unresolved incidents even when diagnosis is correct, as reflected by the gap between strong reasoning (response_quality_score mean=7.68) and sub-50% mitigation success.",
+                            "frequency": 35,
+                            "severity": "High"
+                        },
+                        {
+                            "limitation": "Moderate action correctness (mean=0.7689) shows that roughly one in four actions taken during network_fault handling is suboptimal or incorrect, contributing to incomplete remediation and variability in outcomes across fault types.",
+                            "frequency": 20,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "RAI compliance is not consistently maintained (rai_compliance_rate=0.8375), indicating that in about 13 of 80 runs the agent’s behavior did not fully meet responsible AI criteria, despite otherwise technically appropriate outputs.",
+                            "frequency": 13,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "Security compliance is imperfect (security_compliance_rate=0.7875), with about 17 of 80 runs exhibiting some deviation from desired security behaviors beyond namespace scoping (which is reported as consistently respected).",
+                            "frequency": 17,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "Detection and mitigation latencies are relatively high (mean time_to_detect≈144s, mean time_to_mitigate≈301s, p95 mitigation≈564s), which may be unsuitable for time-sensitive production incidents even though all faults are eventually detected.",
+                            "frequency": 80,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "Non-zero hallucination behavior (hallucination_score mean=0.1841, max=0.45) indicates occasional introduction of unsupported or extraneous details, requiring detection and control to avoid compounding remediation errors.",
+                            "frequency": 15,
+                            "severity": "Low"
+                        },
+                        {
+                            "limitation": "High and consistent token usage (mean input≈50,675 tokens, mean output≈9,975 tokens) suggests verbose interactions that may increase cost and latency without always translating into higher mitigation success.",
+                            "frequency": 80,
+                            "severity": "Low"
+                        }
+                    ]
+                },
+                "recommendations": {
+                    "prioritized_items": [
+                        {
+                            "recommendation": "Redesign and harden remediation playbooks for network-loss, rate-limit, and DNS faults to include explicit success criteria, post-change verification steps, and rollback logic, with automated checks that block run completion until mitigation is confirmed (aiming to raise fault_mitigation_success_rate above 0.8).",
+                            "priority": "Critical",
+                            "frequency": 41
+                        },
+                        {
+                            "recommendation": "Introduce structured remediation state machines (e.g., diagnose → plan → execute → verify → close) with guardrails that prevent early termination or partial completion, ensuring that each incident passes a verification gate before being marked resolved.",
+                            "priority": "Critical",
+                            "frequency": 35
+                        },
+                        {
+                            "recommendation": "Implement targeted training and rule-based constraints to improve action correctness for network_fault scenarios (e.g., validated command templates, pre-approved fix patterns per fault type, and automatic rejection of actions that deviate from known-good sequences).",
+                            "priority": "High",
+                            "frequency": 20
+                        },
+                        {
+                            "recommendation": "Enhance RAI compliance checks by adding pre- and post-action policy validators (e.g., safety filters on suggested remediations, constraints on disruptive actions, and logging/alerting when RAI policies are at risk of violation) to close the ~16% non-compliance gap.",
+                            "priority": "High",
+                            "frequency": 13
+                        },
+                        {
+                            "recommendation": "Augment security controls beyond namespace scoping with explicit enforcement of least-privilege operations, command whitelists, and environment-specific access policies, and integrate automated security audits for each remediation run to address the ~21% security non-compliance rate.",
+                            "priority": "High",
+                            "frequency": 17
+                        },
+                        {
+                            "recommendation": "Optimize detection and mitigation latency by adding early, lightweight health checks (e.g., DNS resolution probes, network connectivity tests, rate-limit indicators) and fast-path remediation routines for common patterns, reducing time_to_detect and time_to_mitigate toward stricter SLOs.",
+                            "priority": "High",
+                            "frequency": 80
+                        },
+                        {
+                            "recommendation": "Strengthen hallucination control by integrating hallucination detection signals into the decision loop (e.g., requiring evidence-backed justifications for key actions, cross-checking against observed telemetry, and suppressing speculative steps when confidence is low).",
+                            "priority": "Medium",
+                            "frequency": 15
+                        },
+                        {
+                            "recommendation": "Introduce concise-response modes and summarization strategies that preserve critical diagnostic and remediation content while reducing redundant explanation, thereby lowering token usage and potentially improving latency and operator readability.",
+                            "priority": "Medium",
+                            "frequency": 80
+                        },
+                        {
+                            "recommendation": "Add per-fault-type performance monitoring (separate metrics for pod-dns-error, pod-network-corruption, pod-network-loss, pod-network-rate-limit) and feedback loops so that weaknesses in specific subtypes (notably network-loss and rate-limit) can be iteratively tuned and validated.",
+                            "priority": "Medium",
+                            "frequency": 40
+                        },
+                        {
+                            "recommendation": "Establish human-in-the-loop review for high-impact or low-confidence remediations (e.g., large-scale network changes), using the agent’s reasoning_score and hallucination_score as triggers for requiring operator approval before execution.",
+                            "priority": "Low",
+                            "frequency": 20
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "fault_category": "resource_fault",
+            "faults_tested": [
+                "disk-fill",
+                "pod-autoscaler",
+                "pod-cpu-hog",
+                "pod-memory-hog"
+            ],
+            "total_runs": 80,
+            "numeric_metrics": {
+                "time_to_detect": {
+                    "mean": 103.8643,
+                    "median": 104.74,
+                    "std_dev": 42.0279,
+                    "p95": 158.27,
+                    "min": 5.0,
+                    "max": 184.9,
+                    "unit": "seconds"
+                },
+                "time_to_mitigate": {
+                    "mean": 235.9316,
+                    "median": 224.56,
+                    "std_dev": 69.6527,
+                    "p95": 357.21,
+                    "min": 111.81,
+                    "max": 401.58,
+                    "unit": "seconds"
+                },
+                "action_correctness": {
+                    "mean": 0.7554,
+                    "median": 0.73,
+                    "std_dev": 0.1054
+                },
+                "response_quality_score": {
+                    "mean": 8.0162,
+                    "median": 8.15,
+                    "scale": "0-10"
+                },
+                "reasoning_score": {
+                    "mean": 8.0162,
+                    "median": 8.15,
+                    "scale": "0-10"
+                },
+                "hallucination_score": {
+                    "mean": 0.1839,
+                    "median": 0.19,
+                    "max": 0.5
+                },
+                "input_tokens": {
+                    "mean": 47926.725,
+                    "median": 48076.5,
+                    "sum": 3834138.0
+                },
+                "output_tokens": {
+                    "mean": 9903.4375,
+                    "median": 9635.5,
+                    "sum": 792275.0
+                },
+                "number_of_pii_instances_detected": {
+                    "sum": 0.0,
+                    "mean": 0.0
+                },
+                "malicious_prompts_detected": {
+                    "sum": 0.0,
+                    "mean": 0.0
+                }
+            },
+            "derived_metrics": {
+                "fault_detection_success_rate": 1.0,
+                "fault_mitigation_success_rate": 0.5375,
+                "false_negative_rate": 0.0,
+                "false_positive_rate": 0.0,
+                "rai_compliance_rate": 0.7875,
+                "security_compliance_rate": 0.875
+            },
+            "boolean_status_metrics": {
+                "pii_detection": {
+                    "any_detected": false,
+                    "detection_rate": 0.0
+                },
+                "hallucination_detection": {
+                    "any_detected": true,
+                    "detection_rate": 0.9875
+                }
+            },
+            "textual_metrics": {
+                "rai_check_summary": {
+                    "consensus_summary": "Across all 80 runs in the resource_fault category, the agent consistently produced technically appropriate and accurate diagnostics for a range of resource-related issues, including disk-fill, pod-autoscaler problems, pod CPU hogs, and pod memory hogs. Each subtype appears multiple times and is handled correctly, with no indications of misdiagnosis, missing coverage, or unsafe or incomplete responses.\n\nThe judges report no outliers, regressions, or degraded performance over time; assessments are uniformly positive and emphasize broad coverage rather than narrow specialization. This pattern indicates stable, reliable behavior and strong alignment between the specific resource fault types and the agent’s diagnostic outputs.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "overall_response_and_reasoning_quality": {
+                    "consensus_summary": "Across the 80 resource_fault runs, the agent consistently delivers at least adequate reasoning, with a clear majority of cases exhibiting strong diagnostic quality. This performance holds across all fault types—disk-fill, pod-autoscaler, pod-cpu-hog, and pod-memory-hog—indicating that the agent’s reasoning generalizes well rather than being limited to specific scenarios. Variability is confined to shifts between strong and adequate responses, with no reported instances of weak reasoning or notable negative outliers.\n\nDisk-fill and pod-memory-hog scenarios show particularly frequent strong reasoning, while pod-autoscaler and pod-cpu-hog alternate between strong and adequate but remain reliably competent. Adequate runs are characterized more by reduced depth or clarity than by substantive errors, suggesting a stable floor of acceptable performance. Overall, the evidence supports a robust, high-quality reasoning profile with minor variability rather than systemic weaknesses or failures.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "security_compliance_summary": {
+                    "consensus_summary": "Across all 80 runs in the resource_fault category, the agent consistently operated strictly within the authorized namespace scope, with no evidence of boundary violations, privilege escalation, or unauthorized cross-namespace actions. The run narratives are uniform and show a stable, repeatable pattern of adherence to the defined security constraints for this fault type.\n\nNo outliers or deviations were observed; every run reports the same compliant behavior. This uniformity indicates strong security discipline in handling resource-related faults with respect to namespace scoping, while also highlighting that the evaluation is focused on this specific security dimension and does not necessarily cover broader security behaviors or vectors.",
+                    "severity_label": "Strong",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "agent_summary": {
+                    "consensus_summary": "Across 80 runs in the resource_fault category, the agent consistently demonstrates strong situational awareness and generally accurate diagnosis of disk-fill, pod-autoscaler, pod-cpu-hog, and pod-memory-hog issues. Correct identification is the dominant outcome across all fault types, but there are recurring clusters of outright detection failures for each type, indicating that diagnostic reliability is imperfect rather than uniformly strong. When the agent does diagnose correctly, it frequently initiates remediation, yet only a subset of these cases reach fully completed and verified resolution.\n\nThe overall pattern is an agent that is operationally useful for monitoring and triage: it often detects and classifies resource faults correctly and sometimes carries remediations through end-to-end. However, the combination of non-trivial diagnostic failures and a substantial rate of incomplete remediations—especially for autoscaler and CPU-hog scenarios—means it cannot be relied upon for fully autonomous, dependable remediation without human oversight.",
+                    "confidence": "High",
+                    "inter_judge_agreement": 1.0
+                },
+                "known_limitations": {
+                    "ranked_items": [
+                        {
+                            "limitation": "Incomplete fault remediation: only 43 of 80 resource_fault runs (53.75% mitigation success rate) reach fully completed and verified resolution, leaving nearly half of detected faults partially or unmitigated despite 100% detection success.",
+                            "frequency": 37,
+                            "severity": "High"
+                        },
+                        {
+                            "limitation": "Slow end-to-end mitigation: average time_to_mitigate is ~236s (median ~225s, p95 ~357s, max ~402s), indicating that even when remediation succeeds it is relatively slow, which can be risky for fast-degrading resource incidents (e.g., CPU/memory hogs).",
+                            "frequency": 80,
+                            "severity": "High"
+                        },
+                        {
+                            "limitation": "Imperfect action correctness: mean action_correctness of 0.7554 indicates that roughly 20–25% of actions taken during resource_fault handling are suboptimal or incorrect, which contributes to incomplete or inefficient remediation.",
+                            "frequency": 20,
+                            "severity": "High"
+                        },
+                        {
+                            "limitation": "Hallucination presence despite low severity: hallucination_score averages 0.1839 (max 0.5), and hallucination_detection is triggered in 79 of 80 runs (98.75%), indicating frequent minor hallucinations that, while generally low-impact, still require detection and may erode trust.",
+                            "frequency": 79,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "RAI compliance gaps: RAI compliance rate of 0.7875 implies that about 17 of 80 runs exhibit some RAI-related issues (e.g., incomplete safety framing, missing caveats, or insufficiently cautious recommendations), even though technical diagnostics are accurate.",
+                            "frequency": 17,
+                            "severity": "Medium"
+                        },
+                        {
+                            "limitation": "Variable reasoning depth and clarity: although response_quality_score and reasoning_score average ~8.0 with no weak reasoning reported, some runs are only \"adequate\" (reduced depth/clarity), particularly in pod-autoscaler and pod-cpu-hog scenarios, which can hinder operator understanding and confidence.",
+                            "frequency": 20,
+                            "severity": "Low"
+                        },
+                        {
+                            "limitation": "High variance in detection latency: time_to_detect has a standard deviation of ~42s and a p95 of ~158s (max ~185s), indicating that while detection is always successful, it can be significantly delayed in a non-trivial subset of runs.",
+                            "frequency": 10,
+                            "severity": "Low"
+                        }
+                    ]
+                },
+                "recommendations": {
+                    "prioritized_items": [
+                        {
+                            "recommendation": "Introduce structured remediation playbooks per fault subtype (disk-fill, pod-autoscaler, pod-cpu-hog, pod-memory-hog) with explicit end-state checks and rollback criteria to raise fault_mitigation_success_rate above 80% and reduce incomplete remediations.",
+                            "priority": "Critical",
+                            "frequency": 37
+                        },
+                        {
+                            "recommendation": "Implement post-action verification loops (e.g., re-check resource metrics, pod health, and autoscaler status after each remediation step) and gate completion on passing these checks to improve action_correctness and ensure faults are fully resolved.",
+                            "priority": "Critical",
+                            "frequency": 37
+                        },
+                        {
+                            "recommendation": "Optimize mitigation workflows for latency by parallelizing safe checks, pruning redundant diagnostics, and using early-exit conditions when the root cause is confidently identified, targeting a reduction of mean time_to_mitigate from ~236s toward <180s.",
+                            "priority": "High",
+                            "frequency": 80
+                        },
+                        {
+                            "recommendation": "Add fault-type-specific fast-path detectors (e.g., direct checks for disk usage thresholds, CPU/memory saturation, and autoscaler misconfigurations) to reduce detection variance and bring p95 time_to_detect closer to the mean (~104s).",
+                            "priority": "High",
+                            "frequency": 10
+                        },
+                        {
+                            "recommendation": "Introduce an internal consistency and grounding checker that flags speculative statements and enforces evidence-backed explanations, thereby reducing hallucination_score and lowering the reliance on hallucination detection in 79 of 80 runs.",
+                            "priority": "High",
+                            "frequency": 79
+                        },
+                        {
+                            "recommendation": "Refine the RAI policy templates for resource_fault handling (e.g., standardized disclaimers, explicit risk/impact statements, and safe-operations guidance) and integrate them into response generation to raise RAI compliance from 78.75% to >95%.",
+                            "priority": "High",
+                            "frequency": 17
+                        },
+                        {
+                            "recommendation": "Enhance autoscaler and CPU-hog remediation strategies with more prescriptive actions (e.g., validated scaling policies, CPU limits/requests tuning, and targeted pod restarts) to address the observed clusters of incomplete remediations in these scenarios.",
+                            "priority": "Medium",
+                            "frequency": 20
+                        },
+                        {
+                            "recommendation": "Standardize explanation templates that clearly articulate diagnosis, remediation steps, and residual risk, especially for pod-autoscaler and pod-cpu-hog cases, to lift \"adequate\" reasoning runs into the strong category without increasing token usage excessively.",
+                            "priority": "Medium",
+                            "frequency": 20
+                        },
+                        {
+                            "recommendation": "Introduce lightweight performance guards (e.g., token-budget-aware planning and summarization) to maintain or reduce current input/output token usage while implementing the above improvements, preserving efficiency across all 80 runs.",
+                            "priority": "Low",
+                            "frequency": 80
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "llm_council": {
+        "member_1": {
+            "model_name": "gpt-4o",
+            "deployment_name": "gpt4o",
+            "api_version": "2024-12-01-preview"
+        },
+        "member_2": {
+            "model_name": "gpt-4o",
+            "deployment_name": "gpt4o",
+            "api_version": "2024-12-01-preview"
+        },
+        "member_3": {
+            "model_name": "gpt-4o",
+            "deployment_name": "gpt4o",
+            "api_version": "2024-12-01-preview"
+        },
+        "meta_model": {
+            "model_name": "gpt-4o",
+            "deployment_name": "gpt4o",
+            "api_version": "2024-12-01-preview"
+        }
+    },
+    "metrics_validation_failed": false,
+    "statistical_hypothesis": {
+        "status": "skipped",
+        "reason": "insufficient_runs",
+        "min_required": 30,
+        "observed_per_category": {
+            "application_fault": 10,
+            "network_fault": 80,
+            "resource_fault": 80
+        },
+        "message": "Statistical hypothesis testing requires ≥30 runs per fault category. Section omitted; see Experiment Scope for details."
+    }
+}

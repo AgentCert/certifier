@@ -7,7 +7,7 @@ system_prompt: >
   not a stats dump.
 
 user_prompt_template: |
-  AGENT: {agent_name} | RUNS: {total_runs} | CATEGORIES: {category_list}
+  AGENT: {agent_name} | SUCCESSFUL RUNS: {total_runs} | CATEGORIES: {category_list}
 
   EVIDENCE (only blocks with data are shown):
 
@@ -86,3 +86,8 @@ user_prompt_template: |
      "body": "Adopt per-category SLAs based on H-03/H-05 disparity findings. Categories show distinct latency profiles that cannot be safely consolidated into a single threshold.",
      "tags": ["Statistical Inference"]
    }}
+
+  === STRICT RUN-COUNT RULES ===
+  - The header above states "SUCCESSFUL RUNS: {total_runs}" — this number ({total_runs}) is the only run count you may quote in narrative text.
+  - NEVER write fractions like "X/93", "0/62", "X of 62"; NEVER write "fault evaluations", "evaluations", "samples".
+  - Cite Wilson CI bounds as percentages only; do NOT cite the underlying K/N counts.

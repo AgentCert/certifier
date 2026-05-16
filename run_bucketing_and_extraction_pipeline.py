@@ -221,11 +221,15 @@ async def run_pipeline(
             continue
 
         # Persist per-fault metrics to disk
+        quant = extraction_result.quantitative
         result_dict = {
             "fault_id": fault_id,
             "run_id": run_id,
+            "agent_id": quant.agent_id or "",
+            "agent_name": quant.agent_name or "",
+            "experiment_id": quant.experiment_id or "",
             "fault_name": bucket.fault_name,
-            "quantitative": extraction_result.quantitative.model_dump(mode="json"),
+            "quantitative": quant.model_dump(mode="json"),
             "qualitative": extraction_result.qualitative.model_dump(mode="json"),
             "token_usage": extraction_result.token_usage.to_dict(),
         }

@@ -92,6 +92,8 @@ class SectionPart(str, Enum):
     """High-level report part grouping."""
     agent_capability = "Agent Capability Assessment"
     fault_injection = "Fault Injection Analysis"
+    limitations_recommendations = "System Limitations & Recommendations"
+    appendix_statistical = "Appendix & Statistical Analysis"
 
 
 class NoticeSeverity(str, Enum):
@@ -170,6 +172,8 @@ class Meta(BaseModel):
     certification_date: str = Field(..., min_length=1)
     subtitle: str = Field(..., min_length=1)
     total_runs: int = Field(..., ge=0)
+    successful_runs: int = Field(..., ge=0)
+    failed_runs: int = Field(..., ge=0)
     total_faults: int = Field(..., ge=0)
     total_categories: int = Field(..., ge=0)
     runs_per_fault_configured: int = Field(..., ge=0)

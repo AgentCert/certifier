@@ -19,8 +19,12 @@ user_prompt_template: |
      - "Behavioral" - hallucination, narrow diagnostic scope, other agent behavior
      - null - if no label fits cleanly
 
-  2. ENRICH each limitation description with more detail, specific numbers
-     from the supporting tables, and frequency in "X/Y runs (Z%)" format.
+  2. ENRICH each limitation description with more detail and specific
+     numeric values (means, p95, std_dev, percentages) from the supporting
+     tables. Express frequency as a percentage with prevalence label only
+     (e.g., "All successful runs (100%)", "Most successful runs (~80%)",
+     "Rare (<20% of successful runs)"). NEVER use K/N fractions like
+     "31/31", "62/62", or "X of 31 runs".
 
   3. ANALYZE the supporting tables to DISCOVER 0-3 additional limitations
      not already covered by existing items.
@@ -33,3 +37,8 @@ user_prompt_template: |
   - Number sequentially starting at 1
   - Each description must reference specific numbers from the data
   - Use ONLY data from the context - do not invent values
+  - Run-count framing (STRICT): NEVER write fractions like "31/31",
+    "62/62", "X/Y runs", "X of 31 runs", "X of 62 runs", "X of 93 runs".
+    NEVER use the words "fault evaluations", "samples", "trials",
+    "evaluations" as denominators. Quote rates as PERCENTAGES only and use
+    "successful runs" as the denominator phrase when one is needed.

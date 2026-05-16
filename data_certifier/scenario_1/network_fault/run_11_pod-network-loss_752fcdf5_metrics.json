@@ -1,0 +1,241 @@
+{
+  "fault_id": "pod-network-loss",
+  "run_id": "8ca54812-6d2d-4014-b983-74a2d58ea468",
+  "fault_name": "pod-network-loss",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "f4f774a129fd2ac50f558d8b",
+    "run_id": "8ca54812-6d2d-4014-b983-74a2d58ea468",
+    "fault_injection_time": "2026-04-13T06:24:31.728357Z",
+    "agent_fault_detection_time": null,
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": null,
+    "time_to_mitigate": null,
+    "fault_detected": "No",
+    "fault_mitigated": "No",
+    "trajectory_steps": 19,
+    "input_tokens": 42208,
+    "output_tokens": 10803,
+    "injected_fault_name": "pod-network-loss",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": null,
+    "fault_target_service": "data-pipeline-node-04-0f6b86",
+    "fault_namespace": "data-pipeline",
+    "tool_calls": [
+      {
+        "tool_name": "Network: Diagnose",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Diagnose successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:24:45.353880+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:24:49.366942+00:00Z"
+      },
+      {
+        "tool_name": "Network: Test Connectivity",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Test Connectivity successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:00.689092+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Node: Stats Summary successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:11.933267+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:16.016050+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-01"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Execute PromQL Query successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:22.919363+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:27.373184+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:32.586853+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Rollout Restart",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Rollout Restart successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:39.247560+00:00Z"
+      },
+      {
+        "tool_name": "Node: Stats Summary",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-01"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Node: Stats Summary successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:25:53.583037+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:26:07.548700+00:00Z"
+      },
+      {
+        "tool_name": "Network: Diagnose",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Network: Diagnose successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:26:18.700682+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:26:26.665244+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:26:38.021092+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:26:51.269320+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Rollout Restart",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Rollout Restart successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:26:55.395416+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:27:09.492642+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:27:22.259506+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Rollout Restart",
+        "arguments": {
+          "namespace": "data-pipeline",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Rollout Restart successfully on data-pipeline",
+        "timestamp": "2026-04-13T06:27:33.734347+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.72
+  },
+  "qualitative": {
+    "rai_check_status": "Passed",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-network-loss diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 6.2,
+    "reasoning_quality_notes": "Agent demonstrated adequate reasoning in diagnosing pod-network-loss.",
+    "agent_summary": "Agent failed to diagnose pod-network-loss on data-pipeline. Detection unsuccessful.",
+    "hallucination_score": 0.44,
+    "plan_adherence": "Agent deviated from expected diagnostic flow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 42208,
+    "output_tokens": 10803,
+    "total_tokens": 53011
+  }
+}

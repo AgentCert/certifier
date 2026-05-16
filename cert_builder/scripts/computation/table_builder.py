@@ -120,7 +120,7 @@ def _build_ttd_stats(categories, sh=None):
             rec = h01.get(cat_key) or {}
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(rec.get("iqm") if rec else ttd.get("mean")),
                 _fmt_time(ttd.get("median")),
                 _fmt_time(ttd.get("p95")),
@@ -130,7 +130,7 @@ def _build_ttd_stats(categories, sh=None):
         else:
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(ttd.get("mean")),
                 _fmt_time(ttd.get("median")),
                 _fmt_time(ttd.get("std_dev")),
@@ -154,7 +154,7 @@ def _build_ttm_stats(categories, sh=None):
             rec = h01.get(cat_key) or {}
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(rec.get("iqm") if rec else ttm.get("mean")),
                 _fmt_time(ttm.get("median")),
                 _fmt_time(ttm.get("p95")),
@@ -164,7 +164,7 @@ def _build_ttm_stats(categories, sh=None):
         else:
             rows.append([
                 cat.get("label", "N/A"),
-                cat.get("total_runs", 0),
+                cat.get("distinct_runs", cat.get("total_runs", 0)),
                 _fmt_time(ttm.get("mean")),
                 _fmt_time(ttm.get("median")),
                 _fmt_time(ttm.get("std_dev")),
@@ -300,9 +300,14 @@ def _build_hallucination(categories, sh=None):
     for cat in categories:
         h = cat.get("numeric", {}).get("hallucination_score", {})
         hd = cat.get("boolean", {}).get("hallucination_detection", {})
-        total_runs = cat.get("total_runs", 0)
-        det_rate = hd.get("detection_rate", 0.0)
-        flagged = int(round(det_rate * total_runs))
+        # detection_rate is computed at fault-evaluation grain (one metric doc per
+        # fault × run), so total_runs/successful_runs over-counts when a category
+        # has multiple fault types. The "Flagged Runs" column represents runs, so
+        # use distinct_runs as the denominator and cap the numerator accordingly.
+        run_denominator = cat.get("distinct_runs") or cat.get("successful_runs") or cat.get("total_runs", 0)
+        det_rate = hd.get("detection_rate", 0.0) or 0.0
+        flagged = min(int(round(det_rate * run_denominator)), run_denominator)
+        total_runs = run_denominator
         max_val = h.get("max", 0.0) or 0.0
         
         if has_h01:
@@ -353,9 +358,9 @@ def _build_rai_compliance(categories, sh=None):
             rate_rec = rec.get("rate")
             wilson_lower = rec.get("wilson_lower")
             wilson_upper = rec.get("wilson_upper")
-            
-            # Format Rate (K/N) - extract from raw data if available
-            total_runs = cat.get("total_runs", 0)
+
+            # Format Rate (K/N) using successful runs for exact integer counts
+            total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
             passed = int(round((rate or 0) * total_runs)) if rate is not None else 0
             rate_str = f"{passed}/{total_runs}" if total_runs > 0 else "N/A"
             
@@ -417,8 +422,8 @@ def _build_security_compliance(categories, sh=None):
             wilson_lower = rec.get("wilson_lower")
             wilson_upper = rec.get("wilson_upper")
             
-            # Format Rate (K/N)
-            total_runs = cat.get("total_runs", 0)
+            # Format Rate (K/N) using successful runs for exact integer counts
+            total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
             passed = int(round((rate or 0) * total_runs)) if rate is not None else 0
             rate_str = f"{passed}/{total_runs}" if total_runs > 0 else "N/A"
             
@@ -467,7 +472,7 @@ def _build_token_usage(categories):
         out_sum = out.get("sum", 0) or 0
         rows.append([
             cat.get("label", "N/A"),
-            cat.get("total_runs", 0),
+            cat.get("distinct_runs", cat.get("total_runs", 0)),
             inp.get("mean", 0.0),
             out.get("mean", 0.0),
             int(inp_sum),

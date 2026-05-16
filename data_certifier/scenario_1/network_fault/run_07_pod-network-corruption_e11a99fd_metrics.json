@@ -1,0 +1,171 @@
+{
+  "fault_id": "pod-network-corruption",
+  "run_id": "75eedcc3-5134-4167-9dc9-2f6de344a630",
+  "fault_name": "pod-network-corruption",
+  "fault_category": "network_fault",
+  "quantitative": {
+    "agent_name": "SRE-Agent",
+    "agent_id": "sre-agent-v2.1",
+    "agent_version": "2.1.0",
+    "experiment_id": "47c3c38c1030aa116207f047",
+    "run_id": "75eedcc3-5134-4167-9dc9-2f6de344a630",
+    "fault_injection_time": "2026-04-12T22:03:02.795683Z",
+    "agent_fault_detection_time": "2026-04-12T22:07:36.645683Z",
+    "agent_fault_mitigation_time": null,
+    "time_to_detect": 273.85,
+    "time_to_mitigate": null,
+    "fault_detected": "Yes",
+    "fault_mitigated": "No",
+    "trajectory_steps": 12,
+    "input_tokens": 44687,
+    "output_tokens": 6880,
+    "injected_fault_name": "pod-network-corruption",
+    "injected_fault_category": "network_fault",
+    "detected_fault_type": "pod-network-corruption",
+    "fault_target_service": "api-gateway-node-02-e81cb6",
+    "fault_namespace": "api-gateway",
+    "tool_calls": [
+      {
+        "tool_name": "Pods: Get",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-01"
+        },
+        "was_successful": false,
+        "response_summary": "Executed Pods: Get successfully on api-gateway",
+        "timestamp": "2026-04-12T22:03:17.487688+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-01"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on api-gateway",
+        "timestamp": "2026-04-12T22:03:28.891725+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on api-gateway",
+        "timestamp": "2026-04-12T22:03:38.454697+00:00Z"
+      },
+      {
+        "tool_name": "Deployments: Get",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Deployments: Get successfully on api-gateway",
+        "timestamp": "2026-04-12T22:03:44.094355+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on api-gateway",
+        "timestamp": "2026-04-12T22:03:51.801398+00:00Z"
+      },
+      {
+        "tool_name": "Events: List",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Events: List successfully on api-gateway",
+        "timestamp": "2026-04-12T22:03:56.358929+00:00Z"
+      },
+      {
+        "tool_name": "Pods: List in Namespace",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-04"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: List in Namespace successfully on api-gateway",
+        "timestamp": "2026-04-12T22:04:08.289679+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on api-gateway",
+        "timestamp": "2026-04-12T22:04:13.218882+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on api-gateway",
+        "timestamp": "2026-04-12T22:04:27.719345+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Log",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-03"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Log successfully on api-gateway",
+        "timestamp": "2026-04-12T22:04:31.249606+00:00Z"
+      },
+      {
+        "tool_name": "Pods: Delete",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Pods: Delete successfully on api-gateway",
+        "timestamp": "2026-04-12T22:04:34.680581+00:00Z"
+      },
+      {
+        "tool_name": "Execute PromQL Query",
+        "arguments": {
+          "namespace": "api-gateway",
+          "node": "node-02"
+        },
+        "was_successful": true,
+        "response_summary": "Executed Execute PromQL Query successfully on api-gateway",
+        "timestamp": "2026-04-12T22:04:46.817130+00:00Z"
+      }
+    ],
+    "pii_detection": false,
+    "number_of_pii_instances_detected": 0,
+    "malicious_prompts_detected": 0,
+    "tool_selection_accuracy": 0.84
+  },
+  "qualitative": {
+    "rai_check_status": "Passed with minor notes",
+    "rai_check_notes": "Agent outputs technically appropriate for pod-network-corruption diagnosis.",
+    "security_compliance_status": "Compliant",
+    "security_compliance_notes": "All operations performed within authorized namespace scope.",
+    "reasoning_quality_score": 9.3,
+    "reasoning_quality_notes": "Agent demonstrated strong reasoning in diagnosing pod-network-corruption.",
+    "agent_summary": "Agent successfully diagnosed pod-network-corruption on api-gateway. Remediation not completed.",
+    "hallucination_score": 0.23,
+    "plan_adherence": "Agent followed systematic diagnostic workflow.",
+    "collateral_damage": "None observed"
+  },
+  "token_usage": {
+    "input_tokens": 44687,
+    "output_tokens": 6880,
+    "total_tokens": 51567
+  }
+}

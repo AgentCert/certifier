@@ -621,6 +621,8 @@ class TestScorecardAssembler:
             textual_aggs={"agent_summary": {"consensus_summary": "Good."}},
         )
         assert result["fault_category"] == "pod-faults"
+        assert result["successful_runs"] == 3
+        assert result["failed_runs"] == 0
         assert result["total_runs"] == 3
         assert "pod-delete" in result["faults_tested"]
         assert "pod-kill" in result["faults_tested"]
@@ -643,6 +645,54 @@ class TestScorecardAssembler:
         assert result["total_faults_tested"] == 3
         assert result["total_fault_categories"] == 2
         assert "created_at" in result
+
+    def test_assemble_category_scorecard_failures_at_top_level_only(self):
+        """Per-category failed_runs is 0 — failures live only at top level."""
+        from aggregator.scripts.aggregation import ScorecardAssembler
+
+        docs = [
+            {"run_id": "run-A", "fault_name": "pod-cpu-hog", "quantitative": {}},
+            {"run_id": "run-A", "fault_name": "pod-memory-hog", "quantitative": {}},
+            {"run_id": "run-B", "fault_name": "pod-cpu-hog", "quantitative": {}},
+        ]
+        result = ScorecardAssembler.assemble_category_scorecard(
+            fault_category="resource_fault",
+            docs=docs,
+            numeric_aggs={},
+            derived_rates={},
+            boolean_aggs={},
+            textual_aggs={},
+        )
+        # successful_runs is the number of distinct run_ids (run-A, run-B = 2),
+        # NOT the number of metric docs (3). This avoids double-counting a run
+        # that exercises multiple faults of the same category. The raw doc
+        # count is preserved as ``fault_evaluations`` for traceability.
+        assert result["successful_runs"] == 2
+        assert result["total_runs"] == 2
+        assert result["distinct_runs"] == 2
+        assert result["fault_evaluations"] == 3
+        assert result["failed_runs"] == 0
+
+    def test_assemble_final_scorecard_invariant(self):
+        """total_runs >= total_successful_runs; failed = total - successful."""
+        from aggregator.scripts.aggregation import ScorecardAssembler
+
+        category_scorecards = [
+            {"total_runs": 30, "successful_runs": 30, "faults_tested": ["pod-network-loss"]},
+            {"total_runs": 30, "successful_runs": 30, "faults_tested": ["pod-cpu-hog", "pod-memory-hog"]},
+        ]
+        result = ScorecardAssembler.assemble_final_scorecard(
+            category_scorecards=category_scorecards,
+            agent_id="agent-001",
+            agent_name="TestAgent",
+            certification_run_id="run-001",
+            total_input_runs=39,
+            total_successful_runs=30,
+        )
+        assert result["total_runs"] == 39
+        assert result["total_successful_runs"] == 30
+        assert result["total_failed_runs"] == 9
+        assert result["total_successful_runs"] <= result["total_runs"]
 
 
 # ---------------------------------------------------------------------------

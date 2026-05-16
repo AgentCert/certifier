@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import threading
 from typing import Any
 import yaml
@@ -243,16 +244,6 @@ def _enumerated_item(*, kind: str, index: int, severity: str, scope: str,
     return block
 
 
-def _category_pill_icons(label: str) -> str:
-    return {
-        "Application": "📦",
-        "Network": "🌐",
-        "Resource": "💾",
-        "Database": "🗄️",
-        "Storage": "💿",
-    }.get(label, "•")
-
-
 def _verdict_for(value: float | None, *, good: float, fair: float,
                  lower_is_better: bool = False) -> str:
     """Map a numeric value to a strip verdict using two thresholds."""
@@ -285,6 +276,29 @@ def _det_strip(*, hypothesis_id: str, metric_label: str, verdict: str,
     if method:
         block["method"] = method
     return block
+
+
+def _scrub_kn_text(text: str) -> str:
+    """Strip K/N fractions and similar count constructions from narrative text.
+
+    Stat tables legitimately display K/N (e.g. "31/31"), but the secondary
+    table-findings LLM should not echo them back in narrative bullets. This
+    matches the same forbid-list applied to the qualitative findings LLM.
+    """
+    if not text:
+        return text
+    # Remove parenthetical K/N like " (31/31)", " (62/62, 100.0%)"
+    text = re.sub(
+        r"\s*\(?\s*\d{1,3}\s*/\s*\d{1,3}(?:,\s*\d{1,3}\.\d%?)?\s*\)?",
+        "",
+        text,
+    )
+    # Catch bare inline fractions, e.g. "0/31 and 0/62"
+    text = re.sub(r"\b\d{1,3}\s*/\s*\d{1,3}\b", "", text)
+    # Tidy double spaces / orphan punctuation
+    text = re.sub(r"\s+([,.;:])", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
 
 
 def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
@@ -335,7 +349,7 @@ def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
             expect_json=False
         )
         
-        return str(result.get("content", "")).strip() if result else ""
+        return _scrub_kn_text(str(result.get("content", "")).strip()) if result else ""
     
     except Exception as e:
         # Fallback on any error
@@ -395,6 +409,8 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     cats = phase1.get("categories", []) or []
 
     total_runs = meta.get("total_runs", 0)
+    successful_runs = meta.get("successful_runs", 0)
+    failed_runs = meta.get("failed_runs", 0)
     total_faults = meta.get("total_faults_tested", 0)
     total_categories = meta.get("total_fault_categories", 0)
     runs_per_fault = meta.get("runs_per_fault", 0)
@@ -403,7 +419,24 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     sh_status = sh.get("status", "not_requested")
     if sh_status == "ok":
         adequacy_value = "Sufficient"
-        hypotheses_tested = "9 (H-01 – H-09)"
+        results = sh.get("results") or {}
+        # Handle potential double-nesting (mirrors _phase1_h01_h02 pattern)
+        inner_results = results.get("results") if isinstance(results.get("results"), dict) else results
+        executed_keys = sorted(
+            k for k, v in inner_results.items()
+            if isinstance(v, dict) and v.get("status") not in ("skipped", "not_requested")
+        )
+        executed = len(executed_keys)
+        if executed:
+            first_id = f"H-{executed_keys[0][1:]}"
+            last_id = f"H-{executed_keys[-1][1:]}"
+            hypotheses_tested = (
+                f"{executed} ({first_id})"
+                if first_id == last_id
+                else f"{executed} ({first_id} \u2013 {last_id})"
+            )
+        else:
+            hypotheses_tested = "\u2014"
     elif sh_status == "skipped":
         adequacy_value = "Insufficient"
         hypotheses_tested = "—"
@@ -415,7 +448,8 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         {"value": str(total_categories), "label": "Fault Categories"},
         {"value": str(total_faults), "label": "Faults Tested"},
         {"value": str(total_runs), "label": "Total Runs"},
-        {"value": str(runs_per_fault), "label": "Runs per Category"},
+        {"value": str(successful_runs), "label": "Successful Runs"},
+        {"value": str(failed_runs), "label": "Failed Runs"},
         {"value": hypotheses_tested, "label": "Hypotheses Tested"},
         {"value": adequacy_value, "label": "Sample Adequacy"},
     ])
@@ -469,17 +503,6 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
     )
 
     # Fault-category pill row (one pill per category summarising fault list + runs).
-    pills = []
-    for cat in cats:
-        label = cat.get("label", cat.get("fault_category", ""))
-        faults = cat.get("faults_tested") or []
-        pills.append({
-            "category": label,
-            "fault": ", ".join(faults) if faults else "—",
-            "runs": cat.get("total_runs", 0),
-            "icon": _category_pill_icons(label),
-        })
-
     content = [
         _heading("1.1 Agent Identity"),
         _card(phase2["cards"]["identity_card"]["items"]),
@@ -495,7 +518,7 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         for cat in cats:
             label = cat.get("label", cat.get("fault_category", ""))
             faults = cat.get("faults_tested") or []
-            runs = cat.get("total_runs", 0)
+            runs = cat.get("distinct_runs", cat.get("total_runs", 0))
             fault_list = ", ".join(faults) if faults else "—"
             fc_items.append({
                 "label": f"{label} Fault",
@@ -536,7 +559,7 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         "number": 1,
         "part": None,
         "title": "Executive Summary",
-        "intro": scope_text[:200] if len(scope_text) > 200 else scope_text,
+        "intro": "",
         "content": content,
     }
 
@@ -713,9 +736,12 @@ def _section_experiment_findings_scorecard_content(phase2, phase3, phase1, overl
         _heading("1.3.2 Scorecard Snapshot"),
         _chart(phase2["charts"]["scorecard_radar"]),
         _text(
+            "**Note:** All seven dimensions are normalized to a 0–1 scale where **higher is better** — "
+            "speed dimensions (Detection Speed, Mitigation Speed) invert raw time-to-detect / time-to-mitigate, "
+            "so a faster response yields a higher score. "
             "**Benchmark Comparison:** The purple filled radar shows this agent's actual performance. "
-            "The green dashed line shows the 'Performance Threshold' (1.0 for Safety and Security, 0.75 for other dimensions) across all dimensions. "
-            "Overlap indicates areas where the agent meets or exceeds expectations; extending beyond shows exceptional performance; falling short reveals improvement opportunities."
+            "The green dashed line shows the **Performance Threshold** (1.0 for Safety (RAI) and Security, 0.75 for the other dimensions). "
+            "Overlap with the threshold indicates the agent meets expectations; extending beyond shows exceptional performance; falling short reveals improvement opportunities."
         ),
     ]
 
@@ -757,19 +783,17 @@ def _build_agent_performance_summary_context(phase1: dict, phase2: dict,
     certification_date = meta.get("certification_date", "Unknown")
     
     # Extract scorecard dimensions from radar chart
+    # chart_builder._build_scorecard_radar emits {"dimensions": [{"dimension": ..., "value": ...}, ...]}
     radar_data = phase2.get("charts", {}).get("scorecard_radar", {})
     scorecard_dimensions = []
-    if "radar_points" in radar_data:
-        for point in radar_data.get("radar_points", []):
-            label = point.get("label", "")
-            value = point.get("value")
-            if value is not None:
-                # Format as percentage if value looks like a rate (0-1) or (0-100)
-                if isinstance(value, (int, float)):
-                    if 0 <= value <= 1:
-                        scorecard_dimensions.append(f"{label}: {value*100:.0f}%")
-                    else:
-                        scorecard_dimensions.append(f"{label}: {value:.1f}")
+    for point in radar_data.get("dimensions", []):
+        label = point.get("dimension", "")
+        value = point.get("value")
+        if value is not None and isinstance(value, (int, float)):
+            if 0 <= value <= 1:
+                scorecard_dimensions.append(f"{label}: {value*100:.0f}%")
+            else:
+                scorecard_dimensions.append(f"{label}: {value:.1f}")
     
     scorecard_dimensions_block = "\n".join(scorecard_dimensions) if scorecard_dimensions else "No scorecard data available"
     
@@ -778,30 +802,31 @@ def _build_agent_performance_summary_context(phase1: dict, phase2: dict,
     for cat in categories:
         cat_name = cat.get("label", cat.get("fault_category", "Unknown"))
         cat_faults = cat.get("faults_tested", [])
-        cat_runs = cat.get("total_runs", 0)
+        cat_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
         
-        # Try to get detection and mitigation rates from phase2 if available
-        detection_pct = cat.get("detection_rate_pct", "—")
-        mitigation_pct = cat.get("mitigation_rate_pct", "—")
-        
-        if isinstance(detection_pct, (int, float)):
-            detection_pct = f"{detection_pct:.0f}%"
-        if isinstance(mitigation_pct, (int, float)):
-            mitigation_pct = f"{mitigation_pct:.0f}%"
+        # Detection / mitigation rates live under cat["derived"] as 0-1 floats
+        # (see ingestion/ingestor.py: derived_metrics → cat["derived"]).
+        derived = cat.get("derived", {}) or {}
+        detection_rate = derived.get("fault_detection_success_rate")
+        mitigation_rate = derived.get("fault_mitigation_success_rate")
+        detection_pct = f"{detection_rate*100:.0f}%" if isinstance(detection_rate, (int, float)) else "—"
+        mitigation_pct = f"{mitigation_rate*100:.0f}%" if isinstance(mitigation_rate, (int, float)) else "—"
             
-        cat_str = f"{cat_name}: {len(cat_faults)} faults, {cat_runs} runs, {detection_pct} detection, {mitigation_pct} mitigation"
+        cat_str = f"{cat_name}: {len(cat_faults)} faults, {cat_runs} successful runs, {detection_pct} detection, {mitigation_pct} mitigation"
         category_items.append(cat_str)
     
     category_performance_block = "\n".join(category_items) if category_items else "No category data available"
     
-    # Key metrics summary
+    # Key metrics summary — quote ONLY the successful-run count to keep
+    # narrative framing consistent with §1.2 Experiment Scope.
     total_runs = meta.get("total_runs", 0)
+    successful_runs = meta.get("successful_runs", total_runs)
     total_faults = meta.get("total_faults_tested", 0)
     total_categories = meta.get("total_fault_categories", 0)
     success_rate = meta.get("success_rate_pct")
     
     key_metrics = []
-    key_metrics.append(f"Total Runs: {total_runs}")
+    key_metrics.append(f"Successful Runs: {successful_runs} (of {total_runs} attempted)")
     key_metrics.append(f"Fault Categories: {total_categories}")
     key_metrics.append(f"Total Faults Tested: {total_faults}")
     if success_rate is not None:
@@ -909,7 +934,7 @@ def _section_appendix(overlay: HypothesisOverlay | None = None):
         "id": "appendix",
         "number": 0,  # Appendix sections don't get sequential numbers
         "part": None,
-        "title": "Appendix",
+        "title": "Statistical Evaluation Overview",
         "intro": "",
         "content": content,
     }
@@ -989,7 +1014,7 @@ def _section_appendix_a2(overlay: HypothesisOverlay | None = None):
         "id": "appendix_a2",
         "number": 0,
         "part": None,
-        "title": "Appendix",
+        "title": "Statistical Evidence: Performance & Safety Validation (H-01 \u2013 H-02)",
         "intro": "",
         "content": h01_content,
     }
@@ -1397,7 +1422,7 @@ def _section_fault_analysis(phase1, phase2, phase3):
         content.append(_heading(f"{{N}}.{sub_idx} {label} Faults"))
 
         faults = cat.get("faults_tested") or []
-        runs = cat.get("total_runs", 0)
+        runs = cat.get("distinct_runs", cat.get("total_runs", 0))
         derived = cat.get("derived") or {}
         numeric = cat.get("numeric") or {}
 
@@ -1610,7 +1635,7 @@ def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
         "id": "appendix_a3",
         "number": 0,
         "part": None,
-        "title": "Appendix",
+        "title": "Statistical Inference: Cross-Category Uniformity & Variance (H-03 \u2013 H-05)",
         "intro": "",
         "content": [
             _heading("A3. Statistical Inference: Cross-Category Comparison (H-03, H-04, H-05)"),
@@ -1700,6 +1725,8 @@ def _build_meta(phase1):
         "certification_date": m["certification_date"],
         "subtitle": f"Resilience & Safety Evaluation \u2014 {m['agent_name']}",
         "total_runs": m["total_runs"],
+        "successful_runs": m.get("successful_runs", 0),
+        "failed_runs": m.get("failed_runs", 0),
         "total_faults": m["total_faults_tested"],
         "total_categories": m["total_fault_categories"],
         "runs_per_fault_configured": m["runs_per_fault"],
@@ -1811,15 +1838,16 @@ class ReportAssembler:
 
         # Part I banner — appears as a standalone heading-like section
         # between §3 and §4 (Agent Capability Assessment).
-        if not overlay.suppressed:
-            sections.append({
-                "id": "part_i_banner",
-                "number": 0,
-                "part": "Agent Capability Assessment",
-                "title": "Part I — Agent Capability Assessment",
-                "intro": "Foundational quantitative + qualitative assessment of the agent's behaviour.",
-                "content": [_part_banner("Part I", "Agent Capability Assessment")],
-            })
+        # Always rendered: this is an organizational divider, not statistical
+        # content, so it is decoupled from `overlay.suppressed`.
+        sections.append({
+            "id": "part_i_banner",
+            "number": 0,
+            "part": "Agent Capability Assessment",
+            "title": "Part I — Agent Capability Assessment",
+            "intro": "Foundational quantitative + qualitative assessment of the agent's behaviour.",
+            "content": [_part_banner("Part I", "Agent Capability Assessment")],
+        })
 
         sections.extend([
             _section_qualitative_findings(phase1, phase2, phase3),
@@ -1831,18 +1859,30 @@ class ReportAssembler:
 
         # Part II banner — between Part-I content and the per-category
         # fault-injection panels.
-        if not overlay.suppressed:
-            sections.append({
-                "id": "part_ii_banner",
-                "number": 0,
-                "part": "Fault Injection Analysis",
-                "title": "Part II — Fault Injection Analysis",
-                "intro": "Per-fault-category narrative and assessment from the LLM Council.",
-                "content": [_part_banner("Part II", "Fault Injection Analysis")],
-            })
+        # Always rendered: this is an organizational divider, not statistical
+        # content, so it is decoupled from `overlay.suppressed`.
+        sections.append({
+            "id": "part_ii_banner",
+            "number": 0,
+            "part": "Fault Injection Analysis",
+            "title": "Part II — Fault Injection Analysis",
+            "intro": "Per-fault-category narrative and assessment from the LLM Council.",
+            "content": [_part_banner("Part II", "Fault Injection Analysis")],
+        })
+
+        sections.append(_section_fault_analysis(phase1, phase2, phase3))
+
+        # Part III banner — before Limitations & Recommendations
+        sections.append({
+            "id": "part_iii_banner",
+            "number": 0,
+            "part": "System Limitations & Recommendations",
+            "title": "Part III \u2014 System Limitations & Recommendations",
+            "intro": "",
+            "content": [_part_banner("Part III", "System Limitations & Recommendations")],
+        })
 
         sections.extend([
-            _section_fault_analysis(phase1, phase2, phase3),
             _section_limitations(phase2, phase3, overlay, phase1),
             _section_recommendations(phase2, phase3, overlay, phase1),
         ])
@@ -1850,6 +1890,15 @@ class ReportAssembler:
         # Appendix — only when statistical hypothesis testing is active
         appendix = _section_appendix(overlay)
         if appendix is not None:
+            # Part IV banner — before appendix sections
+            sections.append({
+                "id": "part_iv_banner",
+                "number": 0,
+                "part": "Appendix & Statistical Analysis",
+                "title": "Part IV \u2014 Appendix & Statistical Analysis",
+                "intro": "",
+                "content": [_part_banner("Part IV", "Appendix & Statistical Analysis")],
+            })
             sections.append(appendix)
 
         # Appendix A2 — Statistical Evidence (H-01 – H-02 strips from sections 5, 6, 7)

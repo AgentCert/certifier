@@ -1,0 +1,360 @@
+{
+  "scope_narrative": {
+    "text": "The **SRE-Agent** (ID: sre-agent-v2.1) was evaluated as a site reliability engineering assistant focused on detecting, diagnosing, and remediating infrastructure and application faults while maintaining compliance with operational policies. The assessment covered **3** fault categories: Application (**node-restart**, **pod-delete**), Network (**pod-dns-error**, **pod-network-corruption**, **pod-network-loss**, **pod-network-rate-limit**), and Resource (**disk-fill**, **pod-autoscaler**, **pod-cpu-hog**, **pod-memory-hog**). A total of **170** runs were executed, corresponding to **10** distinct faults with **17** runs per fault. Performance across these scenarios was evaluated using a Multi-judge LLM Council methodology with k=3 judges and meta-reconciliation, focusing on the agent’s capabilities in detection, diagnosis, remediation, and compliance. ",
+    "source": "llm",
+    "model": "gpt-5.1-2025-11-13",
+    "tokens_used": 559
+  },
+  "key_findings": {
+    "items": [
+      {
+        "severity": "good",
+        "headline": "Detection performance is perfect",
+        "detail": "The agent achieved a 100.0% overall detection rate (170 of 170 runs) with 100% detection in Application, Network, and Resource categories and a 0% false negative rate across all three."
+      },
+      {
+        "severity": "concern",
+        "headline": "Mitigation consistency is uneven",
+        "detail": "While overall mitigation rate is reported as 100% (170 of 170 runs), per‑category mitigation is substantially lower in Network (49%) and Resource (54%) compared with Application (100%), indicating category-specific execution gaps."
+      },
+      {
+        "severity": "good",
+        "headline": "Strong reasoning and safety",
+        "detail": "Average reasoning quality is high at 7.88/10 (Application 7.94, Network 7.68, Resource 8.02) with a Normalized Reasoning score of 0.79 and RAI compliance rates of 80% (Application), 84% (Network), and 79% (Resource), supported by a Normalized Safety score of 0.81."
+      },
+      {
+        "severity": "note",
+        "headline": "Hallucinations are generally low",
+        "detail": "Normalized Hallucination is strong at 0.98, with mean hallucination scores of 0.137 (Application) and 0.184 (Network and Resource), though maximum hallucination spikes reach 0.23 in Application and up to 0.50 in Resource."
+      },
+      {
+        "severity": "good",
+        "headline": "Timely detection and mitigation",
+        "detail": "Normalized TTD is 0.95 and Normalized TTM is 0.86, with median time-to-detect of 52s (Application), 145s (Network), and 105s (Resource) and median time-to-mitigate of 177s, 296s, and 225s respectively, indicating generally prompt responses despite category differences."
+      },
+      {
+        "severity": "note",
+        "headline": "Network security lags slightly",
+        "detail": "Security performance is strong overall with a Normalized Security score of 0.89 and category scores of 100% (Application) and 88% (Resource), but Network security is lower at 79%, suggesting a modest relative weakness in that domain."
+      },
+      {
+        "severity": "good",
+        "headline": "Overall action correctness solid",
+        "detail": "The agent’s Normalized Action Correctness score of 0.78, combined with 100% overall mitigation and strong per-category detection and security metrics, indicates generally reliable execution of required actions across Application, Network, and Resource scenarios."
+      }
+    ],
+    "source": "llm",
+    "model": "gpt-5.1-2025-11-13",
+    "tokens_used": 1315
+  },
+  "qualitative_findings": {
+    "detection": [
+      {
+        "severity": "good",
+        "headline": "Perfect detection coverage",
+        "detail": "The agent achieved a 100% overall detection rate (170/170 runs) with 0% false negatives across Application, Network, and Resource faults."
+      },
+      {
+        "severity": "good",
+        "headline": "Consistently low TTD",
+        "detail": "Time-to-detect remained under 3 minutes in all categories, with mean TTDs of 47.0s (Application), 144.4s (Network), and 103.9s (Resource), and a normalized TTD score of 0.95."
+      },
+      {
+        "severity": "note",
+        "headline": "Network TTD variability",
+        "detail": "Network detection showed higher latency and spread, with a mean TTD of 144.4s, median 145.2s, std 75.0s, and P95 of 270.0s compared to Application and Resource."
+      }
+    ],
+    "mitigation": [
+      {
+        "severity": "concern",
+        "headline": "Low overall mitigation rate",
+        "detail": "The overall mitigation rate was 54% (92/170 runs), with Network at 49% and Resource at 54%, despite Application achieving 100% mitigation."
+      },
+      {
+        "severity": "note",
+        "headline": "Mitigation slower than detection",
+        "detail": "Mitigation times were substantially longer than detection, with mean TTM of 206.6s (Application), 300.5s (Network), and 235.9s (Resource), and a normalized TTM score of 0.86."
+      },
+      {
+        "severity": "good",
+        "headline": "Zero mitigation false positives",
+        "detail": "All categories maintained a 0% mitigation false positive rate, indicating the agent did not apply mitigations when no fault was present."
+      }
+    ],
+    "action_correctness": [
+      {
+        "severity": "note",
+        "headline": "Uniform action correctness",
+        "detail": "Action correctness was consistent across categories, with mean scores of 0.8 for Application, Network, and Resource and a normalized action correctness score of 0.78."
+      },
+      {
+        "severity": "concern",
+        "headline": "Headroom in action quality",
+        "detail": "While reasonably strong, the normalized action correctness score of 0.78 indicates actions were not consistently optimal across all 170 runs."
+      }
+    ],
+    "reasoning": [
+      {
+        "severity": "good",
+        "headline": "Strong cross-domain reasoning",
+        "detail": "The LLM Council rated reasoning as Strong with High confidence and full agreement (1.0) for Application, Network, and Resource scenarios."
+      },
+      {
+        "severity": "good",
+        "headline": "High reasoning quality scores",
+        "detail": "Reasoning scores were consistently high—7.94 (Application), 7.68 (Network), and 8.02 (Resource)—yielding a normalized reasoning score of 0.79."
+      },
+      {
+        "severity": "note",
+        "headline": "Slightly weaker in Network",
+        "detail": "Network reasoning and response quality (7.68) trailed Application (7.94) and Resource (8.02), suggesting a modest relative gap in that category."
+      }
+    ],
+    "safety": [
+      {
+        "severity": "good",
+        "headline": "Consistent strong RAI safety",
+        "detail": "The LLM Council rated RAI compliance as Strong with High confidence and agreement 1.0 across Application, Network, and Resource categories."
+      },
+      {
+        "severity": "good",
+        "headline": "High RAI compliance rates",
+        "detail": "RAI safety rates were 80% (Application), 84% (Network), and 79% (Resource), supporting a normalized Safety (RAI) score of 0.81."
+      },
+      {
+        "severity": "note",
+        "headline": "Minor category variation",
+        "detail": "RAI compliance varied modestly by category, with Network highest at 84% and Resource lowest at 79%, though all remained in a similar band."
+      }
+    ],
+    "hallucination": [
+      {
+        "severity": "good",
+        "headline": "Excellent hallucination control",
+        "detail": "The normalized hallucination score was 0.98, with mean hallucination scores of 0.137 (Application) and 0.184 (Network and Resource), and all hallucinations detected."
+      },
+      {
+        "severity": "note",
+        "headline": "No zero-hallucination runs",
+        "detail": "None of the 170 runs achieved a hallucination score of 0.0, and the highest observed score reached 0.50 across categories."
+      },
+      {
+        "severity": "note",
+        "headline": "Higher peaks in infra faults",
+        "detail": "Network and Resource categories showed higher maximum hallucination scores (0.45 and 0.50) than Application (0.23), despite similar mean values of 0.184."
+      }
+    ],
+    "security": [
+      {
+        "severity": "good",
+        "headline": "Strong overall security posture",
+        "detail": "Security assessments were rated Strong with High confidence and agreement 1.0 across all categories, yielding a normalized security score of 0.89."
+      },
+      {
+        "severity": "good",
+        "headline": "High category security rates",
+        "detail": "Security compliance was 100% for Application, 79% for Network, and 88% for Resource, indicating robust but uneven protection across domains."
+      },
+      {
+        "severity": "good",
+        "headline": "No PII exposure detected",
+        "detail": "PII was not detected in any category—Application, Network, or Resource—across the evaluated runs."
+      }
+    ],
+    "source": "llm",
+    "model": "gpt-5.1-2025-11-13",
+    "tokens_used": 2440
+  },
+  "fault_category_analysis": {
+    "categories": {
+      "Application": {
+        "title": "Application Faults – node-restart",
+        "detail": "node-restart | 10 runs | Detection: 100% | Mitigation: 100% | Reasoning: 7.94/10 | Response Quality: 7.94/10",
+        "analysis": "Application node-restart handling shows a highly reliable profile, with 100% detection and 100% mitigation across 10 runs and no false positives or false negatives. The agent’s reasoning and response quality average 7.94/10, aligning with the council’s view that performance ranges from adequate to strong rather than uniformly excellent. Latency is the main weakness: median time to detect is 51.8s and median time to mitigate is 177.4s, with a mean mitigation time around 206.6s and a long tail (p95 ≈ 364.5s), indicating prolonged impact in some cases despite eventual success. Action correctness at 0.8 suggests that while all incidents are ultimately resolved, roughly one in five actions is suboptimal or partially incorrect, consistent with the noted need for tighter remediation workflows and guardrails. Hallucination levels are low but non-zero (mean 0.137, max 0.23), which matches the council’s assessment of technically appropriate outputs with occasional speculative elements. RAI compliance at 80% and perfect security compliance (100%) indicate generally responsible and safe behavior, though about 2 of 10 runs fall short of full RAI adherence. Overall, the metrics and qualitative assessments converge on a picture of robust, safe, but somewhat slow and unevenly articulated remediation for a narrow set of application fault patterns."
+      },
+      "Network": {
+        "title": "Network Faults – pod-dns-error",
+        "detail": "pod-dns-error | 80 runs | Detection: 100% | Mitigation: 49% | Reasoning: 7.6813/10 | Response Quality: 7.6813/10",
+        "analysis": "Network fault handling exhibits a sharp contrast between perfect detection (100%) and low mitigation success (~49%), indicating that correct diagnosis often does not translate into fully resolved incidents. The average reasoning and response quality scores (7.6813/10) and the council’s “strong” rating suggest consistently competent analysis across DNS errors, corruption, loss, and rate limiting, yet remediation workflows are frequently left incomplete or insufficiently verified. Action correctness around 0.8 and moderate hallucination levels (mean 0.1841, max 0.45) support the view that suboptimal or speculative steps contribute to the gap between understanding and successful resolution. Latencies are relatively high, with median time to detect at 145.2s and median time to mitigate at 295.7s (p95 ≈ 564s), which is misaligned with production-grade expectations and reinforces the need for faster, more decisive playbooks. RAI compliance at 84% and security compliance at 79% show that while behavior is generally responsible and within namespace boundaries, there are non-trivial fractions of runs with policy or security deviations beyond scoping. The council’s narrative of broadly competent but unreliable remediation is thus directly reflected in the numeric profile: strong diagnostic capability, but inconsistent, slow, and sometimes policy-imperfect mitigation. This makes network faults a priority area for structured state machines, hardened playbooks, and tighter security and RAI controls."
+      },
+      "Resource": {
+        "title": "Resource Faults – disk-fill",
+        "detail": "disk-fill | 80 runs | Detection: 100% | Mitigation: 54% | Reasoning: 8.0162/10 | Response Quality: 8.0162/10",
+        "analysis": "Resource fault handling, including disk-fill and related subtypes, combines excellent detection (100%) with only moderate mitigation success at 54%, leaving nearly half of incidents partially or unresolved. The agent’s reasoning and response quality average just over 8.0/10, consistent with the council’s view of generally strong diagnostics across disk-fill, autoscaler, CPU-hog, and memory-hog scenarios, but with some runs only reaching an adequate level of depth and clarity. Action correctness at about 0.8 and a mean hallucination score of 0.1839 (max 0.5) indicate that a significant minority of actions are inefficient or speculative, which likely contributes to incomplete remediation despite accurate problem identification. Latency is another concern: median time to detect is 104.7s and median time to mitigate is 224.6s (mean ≈ 236s, p95 ≈ 357s), which is risky for fast-degrading resource issues. RAI compliance at 79% and security compliance at 88% show that while operations remain safely within namespace boundaries, about one in five runs has some responsible AI shortcoming, such as missing caveats or incomplete safety framing. The alignment between metrics and qualitative assessments underscores a pattern of strong situational awareness and diagnosis, offset by slow, sometimes incomplete remediation and frequent minor hallucinations. This profile supports the recommended focus on structured playbooks, verification loops, and improved grounding to convert diagnostic strength into consistently successful and timely mitigation."
+      }
+    },
+    "source": "llm",
+    "model": "gpt-5.1-2025-11-13",
+    "tokens_used": 5663
+  },
+  "limitations_enriched": {
+    "items": [
+      {
+        "index": 1,
+        "severity": "High",
+        "category": "Application",
+        "label": "Latency",
+        "frequency": "10/10 runs (100%)",
+        "limitation": "Remediation latency for application_faults is relatively high and variable across all 10/10 runs (100%), with mean time_to_mitigate ≈ 206.6s, median ≈ 177.4s, p95 ≈ 364.5s, and max ≈ 364.5s. Although mitigation succeeds in 10/10 runs (100% mitigation rate, 0% false negatives, 0% false positives), the long tail of mitigation times means a subset of incidents experience prolonged impact compared to the mean time_to_detect of 47.0s (median 51.8s, p95 88.4s), creating a large gap (~160s) between detection and full mitigation for slower cases."
+      },
+      {
+        "index": 2,
+        "severity": "High",
+        "category": "Network",
+        "label": "Behavioral",
+        "frequency": "39/80 runs (48.75%)",
+        "limitation": "Network_fault remediation is frequently incomplete or unsuccessful: only 39/80 runs (48.75%) achieve successful mitigation despite perfect detection in 80/80 runs (100% detection rate, 0% false negatives, 0% false positives). This indicates that in 41/80 runs (51.25%) the agent either fails to complete remediation workflows or leaves the system in a degraded state for network-loss, rate-limit, or DNS scenarios, even though faults are consistently detected."
+      },
+      {
+        "index": 3,
+        "severity": "High",
+        "category": "Network",
+        "label": "Behavioral",
+        "frequency": "39/80 runs (48.75%)",
+        "limitation": "For network_faults, remediation workflows are often left partially completed or insufficiently verified: only 39/80 runs (48.75%) reach successful mitigation despite 80/80 runs (100%) being correctly detected and a relatively strong response_quality_score (mean ≈ 7.68/10). This gap between high-quality reasoning and sub-50% mitigation success suggests behavioral issues in execution and verification steps, where the agent stops early or does not confirm that connectivity, DNS, or rate-limit conditions have fully recovered."
+      },
+      {
+        "index": 4,
+        "severity": "High",
+        "category": "Resource",
+        "label": "Behavioral",
+        "frequency": "43/80 runs (53.75%)",
+        "limitation": "Resource_fault remediation is incomplete in nearly half of the runs: only 43/80 runs (53.75%) achieve fully completed and verified mitigation, while 37/80 runs (46.25%) remain partially or unmitigated. This occurs despite perfect detection in 80/80 runs (100% detection rate, 0% false negatives, 0% false positives), indicating that the agent’s behavior during remediation (e.g., for CPU/memory hogs or autoscaler issues) often fails to drive incidents to a fully resolved state."
+      },
+      {
+        "index": 5,
+        "severity": "High",
+        "category": "Resource",
+        "label": "Latency",
+        "frequency": "43/80 runs (53.75%)",
+        "limitation": "End-to-end mitigation for resource_faults is slow even when successful: among the 43/80 runs (53.75%) that reach full mitigation, the mean time_to_mitigate is ≈ 235.9s, median ≈ 224.6s, p95 ≈ 357.2s, and max ≈ 401.6s. Given that detection is relatively faster (mean time_to_detect ≈ 103.9s, median 104.7s, p95 158.3s), the additional ~130s–150s of remediation time can be risky for fast-degrading incidents like CPU or memory hogs, where prolonged saturation may impact service availability."
+      },
+      {
+        "index": 6,
+        "severity": "High",
+        "category": "Resource",
+        "label": "Behavioral",
+        "frequency": "80/80 runs (100%)",
+        "limitation": "Action correctness during resource_fault handling is imperfect across all 80/80 runs (100%), with a mean action_correctness of 0.7554, median 0.73, and std_dev ≈ 0.1054. This implies that roughly 20–25% of actions taken in each run are suboptimal, redundant, or incorrect, contributing directly to the 37/80 (46.25%) mitigation failures and to longer mitigation times (mean 235.9s) when remediation does succeed."
+      },
+      {
+        "index": 7,
+        "severity": "Medium",
+        "category": "Application",
+        "label": "Behavioral",
+        "frequency": "~8/10 runs (≈80%) with some incorrect actions",
+        "limitation": "Application_fault action execution is not consistently correct: the action_correctness mean is 0.82 (median 0.835, std_dev ≈ 0.1136) across 10/10 runs. This suggests that in roughly 2 out of 10 runs (≈20%) a meaningful fraction of actions are suboptimal, redundant, or partially incorrect, even though all 10/10 runs (100%) ultimately achieve mitigation. These inefficiencies likely contribute to the relatively high mean time_to_mitigate of 206.6s compared to the mean time_to_detect of 47.0s."
+      },
+      {
+        "index": 8,
+        "severity": "Medium",
+        "category": "Application",
+        "label": "Behavioral",
+        "frequency": "10/10 runs (100%)",
+        "limitation": "Reasoning and response quality for application_faults, while generally strong, are uneven: the mean response_quality_score is ≈ 7.94/10, indicating performance between “adequate” and “strong” rather than consistently “strong” across all 10/10 runs. This variability, combined with a normalized reasoning score of 0.79 on the overall scorecard, suggests that some explanations lack depth or clarity, which can hinder operator understanding even when technical mitigation succeeds."
+      },
+      {
+        "index": 9,
+        "severity": "Medium",
+        "category": "Application",
+        "label": "Behavioral",
+        "frequency": "~9/10 runs (90%) with detected hallucinations",
+        "limitation": "Application_fault handling exhibits low but non-zero hallucinations: the hallucination_score has a mean ≈ 0.137 and max ≈ 0.23, and hallucination_detection.any_detected is true with a detection_rate of 0.9 (≈9/10 runs). This indicates that in most runs the agent introduces minor unsupported or speculative statements and does not always internally detect them, which can erode trust despite otherwise correct detection (10/10, 100%) and mitigation (10/10, 100%)."
+      },
+      {
+        "index": 10,
+        "severity": "Medium",
+        "category": "Application",
+        "label": "Behavioral",
+        "frequency": "8/10 runs (80%) compliant, 2/10 (20%) non-compliant",
+        "limitation": "RAI compliance for application_faults is imperfect: the rai_compliance_rate is 0.8, meaning 8/10 runs (80%) fully meet responsible AI guidelines while 2/10 runs (20%) exhibit issues such as incomplete safety framing, missing caveats, or insufficient conservatism. This occurs despite strong technical performance (100% detection and 100% mitigation, 0% false negatives, 0% false positives), indicating that safety and transparency behaviors are not consistently enforced."
+      },
+      {
+        "index": 11,
+        "severity": "Medium",
+        "category": "Network",
+        "label": "Behavioral",
+        "frequency": "80/80 runs (100%)",
+        "limitation": "Network_fault action correctness is only moderate across all 80/80 runs, with a mean of 0.7689, median 0.765, and std_dev ≈ 0.1066. This implies that roughly one in four actions is suboptimal or incorrect, which aligns with the low mitigation rate of 39/80 runs (48.75%) despite perfect detection (80/80, 100%). The combination of partial action correctness and incomplete workflows drives variability in outcomes across different network-loss, rate-limit, and DNS fault types."
+      },
+      {
+        "index": 12,
+        "severity": "Medium",
+        "category": "Network",
+        "label": "Behavioral",
+        "frequency": "67/80 runs (83.75%) compliant, 13/80 (16.25%) non-compliant",
+        "limitation": "RAI compliance for network_faults is not consistently maintained: the rai_compliance_rate is 0.8375, meaning 67/80 runs (83.75%) are compliant while 13/80 runs (16.25%) show some responsible AI issues (e.g., missing caveats or insufficiently cautious recommendations). These lapses occur even when detection is perfect (80/80, 100%) and some mitigations succeed (39/80, 48.75%), indicating that safety framing and transparency are not uniformly applied."
+      },
+      {
+        "index": 13,
+        "severity": "Medium",
+        "category": "Network",
+        "label": "Behavioral",
+        "frequency": "63/80 runs (78.75%) compliant, 17/80 (21.25%) non-compliant",
+        "limitation": "Security compliance for network_faults is imperfect: the security_compliance_rate is 0.7875, so 63/80 runs (78.75%) adhere to desired security behaviors while 17/80 runs (21.25%) exhibit deviations beyond namespace scoping (which is consistently respected). These deviations may include overly broad commands or insufficiently constrained actions, and they occur despite strong detection (80/80, 100%) and moderate RAI performance (rai_rate 0.8375)."
+      }
+    ],
+    "source": "llm",
+    "model": "gpt-5.1-2025-11-13",
+    "tokens_used": 4749
+  },
+  "recommendations_enriched": {
+    "items": [
+      {
+        "index": 1,
+        "priority": "Critical",
+        "category": "Cross-cutting",
+        "label": "Behavioral",
+        "recommendation": "Redesign and harden structured remediation workflows across application, network, and resource faults to close the large mitigation gap (network: 39/80 runs = 48.75% success; resource: 43/80 = 53.75%; application: currently 10/10 = 100% but with partial actions). Implement explicit state machines (diagnose → plan → execute → verify → close) with per-step success criteria, mandatory post-action verification loops, and rollback logic. Gate incident closure on passing verification checks and ensure no run can terminate before verification is complete. This should raise fault_mitigation_success_rate above 80% in network and resource categories while preserving the current 100% rate in application, directly addressing L2, L3, and L4 and improving action_correctness (currently 0.7689 for network and 0.7554 for resource, per L11 and L6). Affected categories: Application, Network, Resource."
+      },
+      {
+        "index": 2,
+        "priority": "Critical",
+        "category": "Cross-cutting",
+        "label": "Behavioral",
+        "recommendation": "Introduce stricter, guardrail-based action selection and execution controls across all fault categories to improve action_correctness (currently 0.82 for application per L7, 0.7689 for network per L11, and 0.7554 for resource per L6). Add pre-action sanity checks (e.g., validating target objects and parameters), post-action verification templates (re-checking key metrics and health signals after each step), and explicit rollback criteria for unsafe or ineffective actions. Use validated command templates and pre-approved fix patterns, and automatically reject actions that deviate from known-good sequences. The goal is to move action_correctness toward 1.0 while maintaining existing detection (100% across all categories) and preserving application’s 100% mitigation success rate."
+      },
+      {
+        "index": 3,
+        "priority": "High",
+        "category": "Cross-cutting",
+        "label": "Latency",
+        "recommendation": "Optimize detection and mitigation latency end-to-end by combining fast-path detectors, streamlined diagnostics, and performance budgets across all categories. Current mean time_to_detect is lowest for application (47.0s, p95 88.4s), moderate for resource (103.9s, p95 158.3s), and highest for network (144.4s, p95 270.0s). Mean time_to_mitigate is 206.6s for application (L1), 235.9s for resource (L5), and 300.5s for network, with p95 up to 564.1s. Introduce lightweight health probes and fault-type-agnostic fast-path checks, parallelize safe diagnostics, prune redundant steps, and define per-run performance budgets (e.g., target mean TTM < 180s and p95 < 300s). Surface these budgets as constraints to the agent so it can trade off deeper analysis against latency, reducing tail latencies while maintaining correctness. Affected categories: Application, Network, Resource."
+      },
+      {
+        "index": 4,
+        "priority": "High",
+        "category": "Cross-cutting",
+        "label": "Behavioral",
+        "recommendation": "Standardize reasoning and explanation templates and strengthen hallucination control across all categories to improve reasoning quality (current normalized reasoning score 0.79) and keep hallucination_score near zero (normalized hallucination 0.98, but non-zero scores in application per L9 and heavy reliance on detection in 79/80 resource runs). Require explicit hypothesis tracking, mandatory evidence citations for key claims (linking to observed metrics/logs), and a final self-audit pass that flags speculative or weakly supported statements. Integrate internal consistency and grounding checks into the decision loop so speculative steps are suppressed when confidence is low. This should elevate \"adequate\" responses to consistently strong (e.g., targeting reasoning_score ≥ 9/10) while further reducing hallucination incidence and improving detection beyond the current ~0.9 rate. Affected categories: Application, Network, Resource."
+      },
+      {
+        "index": 5,
+        "priority": "High",
+        "category": "Cross-cutting",
+        "label": "Behavioral",
+        "recommendation": "Refine and unify RAI and security policy enforcement across all categories to close current compliance gaps (RAI: application 80% per L10, network 83.75% per L12, resource 79%; security: network 78.75% per L13, resource 88%, application 100%). Introduce pre- and post-action policy validators that enforce least-privilege operations, command whitelists, environment-specific access policies, and constraints on disruptive actions. Standardize RAI templates (e.g., disclaimers, risk/impact statements, safe-operations guidance) and integrate them into response generation, with automated logging and alerts when policies are at risk of violation. Target RAI compliance >95% and security compliance >95% without degrading technical performance, directly addressing L10, L12, and L13. Affected categories: Application, Network, Resource."
+      },
+      {
+        "index": 6,
+        "priority": "Medium",
+        "category": "Cross-cutting",
+        "label": "Coverage",
+        "recommendation": "Expand training, evaluation, and performance monitoring coverage beyond the currently emphasized patterns to ensure generalization and targeted tuning. While detection is already 100% with 0% false negatives and false positives across all categories, mitigation and action correctness lag (network mitigation 48.75%, resource 53.75%; action_correctness 0.78 normalized overall). Add per-fault-type performance dashboards and metrics (e.g., separate tracking for different network and resource subtypes) and ensure similar granularity for application scenarios. Use these metrics to identify weak subtypes and iteratively refine playbooks, reasoning templates, and guardrails, while verifying that improvements do not regress strong performance in existing patterns. Affected categories: Application, Network, Resource."
+      },
+      {
+        "index": 7,
+        "priority": "Medium",
+        "category": "Cross-cutting",
+        "label": "Latency",
+        "recommendation": "Introduce concise-response and token-budget-aware modes to control verbosity and improve efficiency without sacrificing critical diagnostic and remediation content. Current average input tokens per run are high (≈52,742 for application, 50,675 for network, 47,927 for resource), with average output around 9,600–9,975 tokens, contributing to latency and operator cognitive load. Implement summarization strategies that prioritize key hypotheses, actions, and verification results, and enforce per-run token budgets that the agent must respect during planning and explanation. This supports latency-focused goals (normalized TTM 0.86) and maintains or reduces total token usage (currently ~4.9M tokens across network runs and ~4.6M across resource runs) while preserving reasoning quality."
+      }
+    ],
+    "source": "llm",
+    "model": "gpt-5.1-2025-11-13",
+    "tokens_used": 5019
+  },
+  "fallbacks_used": false,
+  "errors": []
+}

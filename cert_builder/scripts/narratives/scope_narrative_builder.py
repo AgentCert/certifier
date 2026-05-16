@@ -52,10 +52,27 @@ def _build_scope_context(meta: dict) -> str:
     cats = meta.get("categories_summary", [])
     cat_lines = []
     for c in cats:
+        failed = c.get("failed_runs", 0)
+        rpf = c.get("runs_per_fault", c["runs"])
+        n_faults = c.get("n_faults", 1)
+        if failed > 0:
+            run_detail = f"({c['successful_runs']} successful, {failed} failed)"
+        elif n_faults > 1:
+            run_detail = f"({rpf} runs each, {n_faults} fault types)"
+        else:
+            run_detail = f"({rpf} runs)"
         cat_lines.append(
-            f"    - {c['name']:14s} {c['fault']:20s} ({c['runs']} runs)"
+            f"    - {c['name']:14s} {c['fault']:30s} {run_detail}"
         )
     cat_block = "\n".join(cat_lines)
+
+    failed_total = meta.get("failed_runs", 0)
+    run_quality = (
+        f"Successful Runs:   {meta['successful_runs']}\n"
+        f"Failed Runs:       {failed_total} (runs that produced no evaluation data)\n"
+        if failed_total > 0
+        else f"Successful Runs:   {meta['successful_runs']}\n"
+    )
 
     return (
         f"Agent:             {meta['agent_name']}\n"
@@ -64,6 +81,7 @@ def _build_scope_context(meta: dict) -> str:
         f"Categories:        {meta['total_fault_categories']}\n"
         f"{cat_block}\n"
         f"Total Runs:        {meta['total_runs']}\n"
+        f"{run_quality}"
         f"Total Faults:      {meta['total_faults_tested']}\n"
         f"Runs per Fault:    {meta['runs_per_fault']}\n"
         f"Evaluation Method: Multi-judge LLM Council\n"
@@ -78,6 +96,8 @@ def _build_scope_context(meta: dict) -> str:
 def _fallback_narrative(meta: dict) -> str:
     """Template-based fallback when the LLM call fails."""
     cats = meta.get("categories_summary", [])
+    failed = meta.get("failed_runs", 0)
+    run_note = f" ({meta.get('successful_runs', meta['total_runs'])} completed, {failed} failed)" if failed > 0 else ""
     return _CONFIG["fallback_template"].format(
         agent_name=meta["agent_name"],
         n_categories=meta["total_fault_categories"],
@@ -86,7 +106,7 @@ def _fallback_narrative(meta: dict) -> str:
         total_faults=meta["total_faults_tested"],
         fault_list=", ".join(c["fault"] for c in cats),
         runs_per_fault=meta["runs_per_fault"],
-    )
+    ) + (f" {failed} run(s) failed to produce evaluation data." if failed > 0 else "")
 
 
 # ---------------------------------------------------------------------------

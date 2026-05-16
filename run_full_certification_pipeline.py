@@ -76,6 +76,7 @@ from utils.custom_errors import MyCustomError, OrchestratorError
 from aggregator.scripts.aggregation import (
     AggregationOrchestrator,
     DirectoryQueryService,
+    _distinct_run_ids,
 )
 from cert_builder.scripts.error_report_builder import build_error_report
 from cert_builder.scripts.certification_pipeline import CertificationPipeline
@@ -186,7 +187,7 @@ def _group_docs_by_category(
         "Grouped docs into categories: "
         + ", ".join(f"{k}={len(v)}" for k, v in grouped.items())
     )
-    return dict(grouped)
+    return dict(grouped), skipped
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -237,6 +238,7 @@ def _build_skip_block(
 ) -> Dict[str, Any]:
     """Construct a stable ``statistical_hypothesis`` skip block for cert_builder."""
     observed: Dict[str, int] = {}
+    total_runs = 0
     if validation:
         per_cat = validation.get("per_category") or {}
         # Coerce values to plain ints; tolerate either {cat: count} or {cat: {"total": n}}
@@ -249,11 +251,16 @@ def _build_skip_block(
                 observed[cat] = int(count)
             except (TypeError, ValueError):
                 observed[cat] = 0
+        try:
+            total_runs = int(validation.get("total_runs") or 0)
+        except (TypeError, ValueError):
+            total_runs = 0
     return {
         "status": "skipped",
         "reason": reason,
         "min_required": min_required,
         "observed_per_category": observed,
+        "total_runs": total_runs,
         "message": message,
     }
 
@@ -480,7 +487,7 @@ async def run_pipeline(
                 else _DEFAULT_FAULT_CATEGORIES_CONFIG
             )
             fault_cats = _load_fault_categories_config(cfg_path)
-            grouped_runs = _group_docs_by_category(agent_docs, fault_cats)
+            grouped_runs, unclassified_runs = _group_docs_by_category(agent_docs, fault_cats)
 
             # Use grouped docs as the query service for canonical fault categories
             grouped_query_service = GroupedDocsQueryService(grouped_runs)
@@ -504,6 +511,12 @@ async def run_pipeline(
                 certification_run_id=certification_run_id,
                 runs_per_fault=runs_per_fault,
                 store_results=False,
+                # Anchor "Total Runs" to the actual count of distinct run_ids
+                # in the raw (un-grouped) input so unclassified / single_fault
+                # folders count toward total_runs and total_failed_runs is
+                # derived as (total - successful). Keeps invariant
+                # successful_runs <= total_runs always satisfied.
+                total_input_runs=len(_distinct_run_ids(agent_docs)),
             )
         except MyCustomError:
             raise

@@ -980,3 +980,1134 @@ output_tokens
 2026-05-13 15:29:00,919 - [run_full_certification_pipeline.py : run_pipeline : 687] - INFO -   Output directory   : data\output\12-05-26-aarya\pipeline2_output\ofc
 2026-05-13 15:29:00,920 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
 2026-05-13 15:29:00,920 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 14:48:57,387 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 14:48:57,831 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 14:48:58,272 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 14:48:58,272 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 14:48:58,273 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 14:48:58,273 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 14:48:58,274 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 14:49:01,982 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 14:49:01,984 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 14:49:01,985 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 14:49:02,011 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,014 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 14:49:02,015 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,016 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,017 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,017 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 14:49:02,018 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,020 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,021 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:49:02,022 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 14:49:02,023 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 14:49:02,023 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 14:49:02,053 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 14:49:02,053 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 14:49:02,054 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 14:49:02,054 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 14:49:02,081 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 14:49:02,082 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 14:49:02,082 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 14:49:11,911 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:49:13,436 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:49:13,944 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:49:26,643 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:49:26,650 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:49:28,078 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:49:42,603 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:49:42,938 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:49:49,178 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:50:07,160 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:50:07,573 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:50:08,366 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:50:16,208 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156610, 'output_tokens': 5191, 'total_tokens': 161801})
+2026-05-15 14:50:45,725 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2011, 'output_tokens': 1233, 'total_tokens': 3244})
+2026-05-15 14:50:45,725 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 14:50:45,726 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 14:50:45,729 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 14:50:45,730 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 14:50:45,731 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 14:50:51,639 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:50:53,892 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:51:02,594 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:51:18,539 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:51:18,836 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:51:20,104 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:51:38,066 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:51:41,095 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:51:42,992 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:51:56,756 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:51:59,118 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:52:05,470 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:52:12,535 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 272030, 'output_tokens': 5414, 'total_tokens': 277444})
+2026-05-15 14:52:34,448 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2111, 'output_tokens': 1277, 'total_tokens': 3388})
+2026-05-15 14:52:34,459 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 14:52:34,464 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 14:52:34,481 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 14:52:34,482 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 14:52:34,483 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 14:52:43,439 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 14:52:43,440 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 329] - WARNING - Ground truth directory not provided or not found: data\input\12-05-25-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth. SLA-aware hypothesis tests (H06, H07) will be skipped; other tests will proceed normally.
+2026-05-15 14:56:12,351 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 14:56:12,358 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 14:56:12,368 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 14:56:12,368 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 14:56:12,369 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 14:56:40,940 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 14:56:40,941 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 14:58:10,850 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 14:58:11,532 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 14:58:12,174 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 14:58:12,174 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 14:58:12,175 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 14:58:12,175 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 14:58:12,176 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 14:58:12,410 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 14:58:12,410 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 14:58:12,411 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 14:58:12,413 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,413 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 14:58:12,414 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,414 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,414 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,415 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 14:58:12,415 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,416 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,417 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 14:58:12,418 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 14:58:12,418 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 14:58:12,418 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 14:58:12,426 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 14:58:12,432 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 14:58:12,451 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 14:58:12,482 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 14:58:12,511 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 14:58:12,696 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 14:58:12,717 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 14:58:22,420 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:58:25,169 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:58:27,017 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:58:43,315 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:58:43,485 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:58:43,772 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:58:59,552 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:59:00,293 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:59:02,928 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:59:16,985 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 14:59:20,669 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 14:59:21,591 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 14:59:30,197 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156582, 'output_tokens': 5252, 'total_tokens': 161834})
+2026-05-15 15:00:08,639 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2109, 'output_tokens': 1551, 'total_tokens': 3660})
+2026-05-15 15:00:08,639 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 15:00:08,640 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 15:00:08,643 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 15:00:08,644 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 15:00:08,645 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 15:00:16,660 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:00:18,628 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:00:19,036 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:00:36,231 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:00:38,057 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:00:38,917 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:00:56,211 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:00:57,546 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:00:59,130 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:01:15,681 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:01:17,102 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:01:18,636 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:01:33,892 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271930, 'output_tokens': 5253, 'total_tokens': 277183})
+2026-05-15 15:14:10,746 - [azure_openai_util.py : call_llm : 249] - ERROR - Error in call_llm: <class 'agent_framework.azure._chat_client.AzureOpenAIChatClient'> service failed to complete the prompt: Connection error.
+2026-05-15 15:14:10,766 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-15 15:14:10,778 - [llm_council.py : synthesize_limitations_and_recommendations : 410] - ERROR - Limitations and recommendations synthesis failed for fault_category='resource_fault': Error in AzureLLMClient.call_llm: <class 'agent_framework.azure._chat_client.AzureOpenAIChatClient'> service failed to complete the prompt: Connection error.. Returning empty known_limitations and recommendations.
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_transports\default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_async\connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_async\connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        pool_request.request
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_async\connection.py", line 101, in handle_async_request
+    raise exc
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_async\connection.py", line 78, in handle_async_request
+    stream = await self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_async\connection.py", line 124, in _connect
+    stream = await self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_backends\auto.py", line 31, in connect_tcp
+    return await self._backend.connect_tcp(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_backends\anyio.py", line 113, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\shiwkumari\AppData\Local\Python\pythoncore-3.14-64\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 11001] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\_base_client.py", line 1648, in request
+    response = await self._send_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\_client.py", line 946, in _send_request
+    return await self._send_with_auth_retry(request, stream=stream, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\_client.py", line 924, in _send_with_auth_retry
+    response = await super()._send_request(request, stream=stream, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\_base_client.py", line 1571, in _send_request
+    return await self._client.send(request, stream=stream, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_transports\default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\shiwkumari\AppData\Local\Python\pythoncore-3.14-64\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 11001] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\openai\_chat_client.py", line 79, in _inner_get_response
+    await client.chat.completions.create(stream=False, **options_dict), chat_options
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\resources\chat\completions\completions.py", line 2739, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+    ...<53 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\_base_client.py", line 1931, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\openai\_base_client.py", line 1683, in request
+    raise APIConnectionError(request=request) from err
+openai.APIConnectionError: Connection error.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\utils\azure_openai_util.py", line 224, in call_llm
+    result = await agent.run(messages=chat_messages, **gen_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\_middleware.py", line 1249, in middleware_enabled_run
+    return await original_run(self, normalized_messages, thread=thread, **kwargs)  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\observability.py", line 1343, in trace_run
+    return await run_func(self, messages=messages, thread=thread, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\_agents.py", line 886, in run
+    response = await self.chat_client.get_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\_tools.py", line 1822, in function_invocation_wrapper
+    response = await func(self, messages=prepped_messages, **filtered_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\observability.py", line 1071, in trace_get_response
+    return await func(
+           ^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\_middleware.py", line 1367, in middleware_enabled_get_response
+    return await original_get_response(self, messages, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\_clients.py", line 581, in get_response
+    return await self._inner_get_response(messages=prepped_messages, chat_options=chat_options, **filtered_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\.venv\Lib\site-packages\agent_framework\openai\_chat_client.py", line 92, in _inner_get_response
+    raise ServiceResponseException(
+    ...<2 lines>...
+    ) from ex
+agent_framework.exceptions.ServiceResponseException: <class 'agent_framework.azure._chat_client.AzureOpenAIChatClient'> service failed to complete the prompt: Connection error.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\aggregator\scripts\llm_council.py", line 402, in synthesize_limitations_and_recommendations
+    response, usage = await self.llm_client.call_llm(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "C:\Users\shiwkumari\Projects\AgentCert\certifier-main\utils\azure_openai_util.py", line 250, in call_llm
+    raise custom_errors.LLMError(
+    ...<2 lines>...
+    ) from e
+utils.custom_errors.LLMError: Error in AzureLLMClient.call_llm: <class 'agent_framework.azure._chat_client.AzureOpenAIChatClient'> service failed to complete the prompt: Connection error.
+2026-05-15 15:14:12,582 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0})
+2026-05-15 15:14:12,583 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 15:14:12,585 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 15:14:12,684 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 15:14:12,695 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 15:14:12,713 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 15:19:13,415 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 15:19:13,416 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 15:19:34,174 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 15:19:34,180 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 15:19:34,181 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 15:19:34,182 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 15:19:34,183 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 15:20:59,655 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-15 15:20:59,658 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 15:20:59,659 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 15:20:59,735 - [run_full_certification_pipeline.py : main : 804] - ERROR - Pipeline aborted: Phase 4 (Assembly) failed
+2026-05-15 15:50:46,969 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 15:50:47,990 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 15:50:48,408 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 15:50:48,409 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 15:50:48,409 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 15:50:48,409 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 15:50:48,410 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 15:50:53,573 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 15:50:53,574 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 15:50:53,574 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 15:50:53,576 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,577 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 15:50:53,577 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,577 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,578 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,578 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 15:50:53,579 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,579 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,579 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 15:50:53,580 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 15:50:53,580 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 15:50:53,581 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 15:50:53,609 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 15:50:53,610 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 15:50:53,610 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 15:50:53,610 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 15:50:53,613 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 15:50:53,614 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 15:50:53,614 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 15:51:01,473 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:51:02,192 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:51:03,002 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:51:16,425 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:51:16,426 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:51:16,834 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:51:31,103 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:51:31,131 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:51:33,524 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:51:44,594 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:51:44,834 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:51:45,916 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:51:53,498 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156492, 'output_tokens': 5121, 'total_tokens': 161613})
+2026-05-15 15:52:15,923 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2031, 'output_tokens': 1189, 'total_tokens': 3220})
+2026-05-15 15:52:15,924 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 15:52:15,925 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 15:52:15,927 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 15:52:15,928 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 15:52:15,928 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 15:52:20,746 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:52:22,494 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:52:22,901 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:52:35,215 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:52:36,966 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:52:37,527 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:52:48,816 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:52:49,506 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:52:49,741 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:53:06,978 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 15:53:07,087 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 15:53:07,092 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 15:53:19,919 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271765, 'output_tokens': 5105, 'total_tokens': 276870})
+2026-05-15 15:53:45,215 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2025, 'output_tokens': 1211, 'total_tokens': 3236})
+2026-05-15 15:53:45,216 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 15:53:45,216 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 15:53:45,219 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 15:53:45,219 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 15:53:45,219 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 15:53:52,879 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 15:53:52,880 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 15:54:08,664 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 15:54:08,673 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 15:54:08,695 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 15:54:08,696 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 15:54:08,697 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 15:55:42,627 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-15 15:55:42,634 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 15:55:42,635 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 15:55:42,641 - [run_full_certification_pipeline.py : main : 804] - ERROR - Pipeline aborted: Phase 4 (Assembly) failed
+2026-05-15 16:08:27,279 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 16:08:27,523 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 16:08:27,759 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 16:08:27,760 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:08:27,760 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 16:08:27,761 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 16:08:27,761 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 16:08:31,998 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 16:08:31,998 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 16:08:31,998 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:08:31,999 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:31,999 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 16:08:31,999 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:31,999 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:31,999 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 16:08:32,000 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:08:32,021 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 16:08:32,021 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 16:08:32,021 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:08:32,021 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:08:32,023 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:08:32,023 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 16:08:32,023 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:08:39,378 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:08:39,418 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:08:40,720 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:08:54,010 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:08:54,182 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:08:55,048 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:09:08,810 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:09:10,521 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:09:10,562 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:09:25,287 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:09:25,610 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:09:27,691 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:09:35,033 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156628, 'output_tokens': 5246, 'total_tokens': 161874})
+2026-05-15 16:09:58,815 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2026, 'output_tokens': 1384, 'total_tokens': 3410})
+2026-05-15 16:09:58,816 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 16:09:58,817 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:09:58,818 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:09:58,818 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 16:09:58,819 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:10:05,170 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:10:07,045 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:10:07,579 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:10:22,912 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:10:23,871 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:10:24,599 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:10:40,181 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:10:40,533 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:10:40,954 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:10:55,427 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:10:55,748 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:10:58,963 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:11:06,657 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271875, 'output_tokens': 5209, 'total_tokens': 277084})
+2026-05-15 16:11:33,785 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2011, 'output_tokens': 1542, 'total_tokens': 3553})
+2026-05-15 16:11:33,785 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 16:11:33,786 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 16:11:33,788 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 16:11:33,789 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 16:11:33,789 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 16:11:40,579 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 16:11:40,580 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 16:12:06,613 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 16:12:06,622 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 16:12:06,623 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 16:12:06,623 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 16:12:06,624 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 16:13:38,662 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,693 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,708 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,716 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,721 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,727 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,734 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,739 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,742 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,748 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:13:38,749 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-15 16:13:38,751 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 16:13:38,751 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 16:13:38,754 - [run_full_certification_pipeline.py : main : 804] - ERROR - Pipeline aborted: Phase 4 (Assembly) failed
+2026-05-15 16:16:00,296 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 16:16:00,577 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 16:16:00,789 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 16:16:00,790 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:16:00,790 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 16:16:00,790 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 16:16:00,790 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 16:16:03,894 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 16:16:03,894 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 16:16:03,894 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:16:03,914 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,915 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 16:16:03,915 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,915 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,915 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,915 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 16:16:03,915 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,916 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,916 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:16:03,916 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 16:16:03,916 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 16:16:03,916 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:16:03,944 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 16:16:03,945 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 16:16:03,945 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:16:03,946 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:16:03,947 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:16:03,948 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 16:16:03,948 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:16:10,846 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:16:13,121 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:16:13,183 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:16:23,938 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:16:26,435 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:16:26,458 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:16:39,280 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:16:40,640 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:16:40,854 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:16:55,243 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:16:55,279 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:16:57,308 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:17:03,809 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156654, 'output_tokens': 5244, 'total_tokens': 161898})
+2026-05-15 16:17:22,448 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2023, 'output_tokens': 1220, 'total_tokens': 3243})
+2026-05-15 16:17:22,449 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 16:17:22,450 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:17:22,452 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:17:22,453 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 16:17:22,454 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:17:29,930 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:17:29,971 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:17:35,043 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:17:45,671 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:17:48,722 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:17:50,168 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:18:02,860 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:18:03,157 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:18:05,657 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:18:20,182 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:18:21,577 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:18:21,859 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:18:28,972 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271935, 'output_tokens': 5247, 'total_tokens': 277182})
+2026-05-15 16:18:53,582 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2032, 'output_tokens': 1214, 'total_tokens': 3246})
+2026-05-15 16:18:53,583 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 16:18:53,583 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 16:18:53,587 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 16:18:53,593 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 16:18:53,594 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 16:18:56,643 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 16:18:56,643 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 16:19:18,862 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 16:19:18,867 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 16:19:18,867 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 16:19:18,867 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 16:19:18,868 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 16:21:48,714 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-15 16:21:48,716 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 16:21:48,716 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 16:21:48,720 - [run_full_certification_pipeline.py : main : 804] - ERROR - Pipeline aborted: Phase 4 (Assembly) failed
+2026-05-15 16:23:34,101 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 16:23:34,335 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 16:23:34,556 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 16:23:34,556 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:23:34,556 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 16:23:34,557 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 16:23:34,557 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 16:23:34,647 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 16:23:34,647 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 16:23:34,647 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:23:34,648 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,648 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 16:23:34,648 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,648 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,648 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 16:23:34,649 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:23:34,650 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 16:23:34,650 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 16:23:34,650 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:23:34,650 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:23:34,651 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:23:34,651 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 16:23:34,652 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:23:44,031 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:23:44,646 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:23:44,678 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:23:56,684 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:23:57,861 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:23:58,230 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:24:11,199 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:24:30,876 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:24:33,318 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:24:48,406 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:24:50,304 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:24:50,928 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:24:58,343 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156690, 'output_tokens': 5314, 'total_tokens': 162004})
+2026-05-15 16:25:24,421 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2033, 'output_tokens': 1564, 'total_tokens': 3597})
+2026-05-15 16:25:24,427 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 16:25:24,427 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:25:24,429 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:25:24,430 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 16:25:24,431 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:25:31,211 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:25:34,039 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:25:34,403 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:25:47,237 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:25:49,565 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:25:56,343 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:26:09,081 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:26:09,425 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:26:11,231 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:26:24,043 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:26:24,771 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:26:27,046 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:26:33,338 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271874, 'output_tokens': 5124, 'total_tokens': 276998})
+2026-05-15 16:26:59,546 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1990, 'output_tokens': 1315, 'total_tokens': 3305})
+2026-05-15 16:26:59,547 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 16:26:59,547 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 16:26:59,550 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 16:26:59,556 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 16:26:59,557 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 16:27:05,190 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 16:27:05,190 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 16:27:27,977 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 16:27:27,982 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 16:27:27,983 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 16:27:27,983 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 16:27:27,986 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 16:29:35,016 - [custom_errors.py : __init__ : 36] - ERROR - 
+2026-05-15 16:29:35,019 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 16:29:35,022 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 16:29:35,037 - [run_full_certification_pipeline.py : main : 804] - ERROR - Pipeline aborted: Phase 4 (Assembly) failed
+2026-05-15 16:32:28,092 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 16:32:28,351 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 16:32:28,599 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 16:32:28,602 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:32:28,603 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 16:32:28,604 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 16:32:28,604 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 16:32:32,308 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 16:32:32,309 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 16:32:32,309 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:32:32,342 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,344 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 16:32:32,345 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,345 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,345 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,346 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 16:32:32,346 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,346 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,346 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:32:32,347 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 16:32:32,347 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 16:32:32,347 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:32:32,373 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 16:32:32,373 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 16:32:32,373 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:32:32,374 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:32:32,375 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:32:32,375 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 16:32:32,376 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:32:41,291 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:32:41,294 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:32:44,063 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:32:56,362 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:32:56,576 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:32:57,247 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:33:16,666 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:33:16,996 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:33:17,411 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:33:30,739 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:33:32,820 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:33:33,348 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:33:48,182 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156592, 'output_tokens': 5261, 'total_tokens': 161853})
+2026-05-15 16:34:12,956 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2094, 'output_tokens': 1255, 'total_tokens': 3349})
+2026-05-15 16:34:12,957 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 16:34:12,958 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:34:12,960 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:34:12,960 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 16:34:12,960 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:34:19,107 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:34:19,373 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:34:19,780 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:34:37,361 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:34:37,411 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:34:37,940 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:34:51,578 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:34:53,854 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:34:55,104 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:35:07,663 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:35:12,913 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:35:16,470 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:35:23,174 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271836, 'output_tokens': 5107, 'total_tokens': 276943})
+2026-05-15 16:36:01,744 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1965, 'output_tokens': 1774, 'total_tokens': 3739})
+2026-05-15 16:36:01,745 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 16:36:01,746 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 16:36:01,759 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 16:36:01,765 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 16:36:01,767 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 16:36:03,096 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 16:36:03,097 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 16:36:10,886 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 16:36:10,888 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 16:36:10,912 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 16:36:10,913 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 16:36:10,913 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 16:50:45,797 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 16:50:46,176 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 16:50:46,506 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 16:50:46,506 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 16:50:46,507 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 16:50:46,507 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 16:50:46,508 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 16:50:48,601 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 16:50:48,602 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 16:50:48,602 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:50:48,617 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,617 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 16:50:48,618 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,618 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,618 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,619 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 16:50:48,619 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,620 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,620 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 16:50:48,621 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 16:50:48,621 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 16:50:48,621 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:50:48,639 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 16:50:48,640 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 16:50:48,640 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 16:50:48,640 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:50:48,642 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:50:48,642 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 16:50:48,642 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:50:55,898 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:50:56,679 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:50:56,771 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:51:04,695 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:51:04,753 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:51:08,473 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:51:24,222 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:51:25,092 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:51:27,175 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:51:43,864 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:51:46,653 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:51:47,264 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:52:04,584 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156472, 'output_tokens': 5100, 'total_tokens': 161572})
+2026-05-15 16:52:25,053 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2064, 'output_tokens': 1175, 'total_tokens': 3239})
+2026-05-15 16:52:25,054 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 16:52:25,054 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 16:52:25,056 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 16:52:25,057 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 16:52:25,057 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 16:52:30,271 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:52:31,810 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:52:32,015 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:52:46,264 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:52:46,863 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:52:47,586 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:53:01,608 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:53:02,017 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:53:03,249 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:53:15,537 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 16:53:16,252 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 16:53:16,559 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 16:53:24,956 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271915, 'output_tokens': 5259, 'total_tokens': 277174})
+2026-05-15 16:53:52,161 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2038, 'output_tokens': 1415, 'total_tokens': 3453})
+2026-05-15 16:53:52,162 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 16:53:52,163 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 16:53:52,166 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 16:53:52,167 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 16:53:52,194 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 16:54:02,035 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 16:54:02,035 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 16:54:22,119 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 16:54:22,137 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 16:54:22,138 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 16:54:22,139 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 16:54:22,139 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 16:57:15,062 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 16:57:15,063 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 16:57:15,072 - [run_full_certification_pipeline.py : main : 804] - ERROR - Pipeline aborted: Phase 4 (Assembly) failed
+2026-05-15 17:00:16,198 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 17:00:17,000 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 17:00:17,813 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 17:00:17,813 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 17:00:17,815 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 17:00:17,816 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 17:00:17,816 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 17:00:18,075 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 17:00:18,076 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 17:00:18,078 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:00:18,080 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,080 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 17:00:18,081 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,081 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,083 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,084 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 17:00:18,086 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,086 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,086 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:00:18,086 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 17:00:18,086 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 17:00:18,087 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 17:00:18,091 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 17:00:18,091 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 17:00:18,092 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 17:00:18,093 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:00:18,096 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 17:00:18,096 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 17:00:18,097 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 17:00:27,899 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:00:29,287 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:00:29,624 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:00:41,730 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:00:44,887 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:00:49,293 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:01:03,898 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:01:05,936 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:01:06,416 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:01:18,254 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:01:23,892 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:01:24,236 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:01:33,206 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156581, 'output_tokens': 5327, 'total_tokens': 161908})
+2026-05-15 17:01:57,063 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2178, 'output_tokens': 1286, 'total_tokens': 3464})
+2026-05-15 17:01:57,063 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 17:01:57,064 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:01:57,066 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 17:01:57,067 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 17:01:57,067 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 17:02:04,127 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:02:06,132 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:02:06,296 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:02:20,291 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:02:23,687 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:02:25,326 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:02:39,049 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:02:42,632 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:02:43,553 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:02:58,404 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:03:00,613 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:03:13,352 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:03:19,700 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271917, 'output_tokens': 5305, 'total_tokens': 277222})
+2026-05-15 17:03:49,033 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2099, 'output_tokens': 1583, 'total_tokens': 3682})
+2026-05-15 17:03:49,034 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 17:03:49,035 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 17:03:49,038 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 17:03:49,038 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 17:03:49,038 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 17:03:53,669 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 17:03:53,670 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 17:04:25,825 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 17:04:25,839 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 17:04:25,860 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 17:04:25,890 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 17:04:25,899 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 17:06:53,469 - [run_full_certification_pipeline.py : run_pipeline : 654] - INFO - Certification report written to data\output\12-05-26-aarya\new_template_changes\v1\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 17:06:53,496 - [run_full_certification_pipeline.py : run_pipeline : 677] - INFO - ============================================================
+2026-05-15 17:06:53,498 - [run_full_certification_pipeline.py : run_pipeline : 678] - INFO - Pipeline Complete
+2026-05-15 17:06:53,498 - [run_full_certification_pipeline.py : run_pipeline : 679] - INFO - ============================================================
+2026-05-15 17:06:53,499 - [run_full_certification_pipeline.py : run_pipeline : 680] - INFO -   Agent              : demoinfra2 (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-15 17:06:53,499 - [run_full_certification_pipeline.py : run_pipeline : 681] - INFO -   Fault categories   : 2
+2026-05-15 17:06:53,499 - [run_full_certification_pipeline.py : run_pipeline : 682] - INFO -   Per-run documents  : 102
+2026-05-15 17:06:53,500 - [run_full_certification_pipeline.py : run_pipeline : 683] - INFO -   Advanced analysis  : True
+2026-05-15 17:06:53,500 - [run_full_certification_pipeline.py : run_pipeline : 684] - INFO -   Hypothesis status  : ok
+2026-05-15 17:06:53,501 - [run_full_certification_pipeline.py : run_pipeline : 687] - INFO -   Output directory   : data\output\12-05-26-aarya\new_template_changes\v1
+2026-05-15 17:06:53,501 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 17:06:53,502 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 17:30:33,073 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 17:30:33,901 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 17:30:34,608 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 17:30:34,609 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 17:30:34,609 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 17:30:34,609 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 17:30:34,609 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 17:30:38,360 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 17:30:38,360 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 17:30:38,361 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:30:38,365 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,380 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 17:30:38,380 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,381 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,381 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,382 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 17:30:38,382 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,382 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,383 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:30:38,383 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 17:30:38,383 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 17:30:38,384 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 17:30:38,386 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 17:30:38,388 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 17:30:38,388 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 17:30:38,389 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:30:38,392 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 17:30:38,393 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 17:30:38,395 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 17:30:49,282 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:30:49,285 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:30:51,425 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:31:06,274 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:31:07,503 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:31:09,962 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:31:29,702 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:31:32,488 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:31:35,154 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:31:52,252 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:31:53,221 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:31:54,377 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:32:01,958 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156759, 'output_tokens': 5352, 'total_tokens': 162111})
+2026-05-15 17:32:35,712 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2048, 'output_tokens': 1144, 'total_tokens': 3192})
+2026-05-15 17:32:35,714 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 17:32:35,714 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:32:35,716 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 17:32:35,718 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 17:32:35,721 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 17:32:44,088 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:32:44,110 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:32:46,012 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:33:01,991 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:33:02,962 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:33:04,557 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:33:21,012 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:33:21,955 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:33:22,672 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:33:40,081 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:33:41,301 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:33:42,741 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:33:48,680 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271860, 'output_tokens': 5131, 'total_tokens': 276991})
+2026-05-15 17:34:17,794 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1966, 'output_tokens': 1476, 'total_tokens': 3442})
+2026-05-15 17:34:17,795 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 17:34:17,796 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 17:34:17,799 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 17:34:17,800 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 17:34:17,800 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 17:34:24,706 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 17:34:24,707 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 17:34:43,945 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 17:34:43,967 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 17:34:43,977 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 17:34:43,978 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 17:34:43,979 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 17:37:02,909 - [run_full_certification_pipeline.py : run_pipeline : 654] - INFO - Certification report written to data\output\12-05-26-aarya\new_template_changes\v1\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 17:37:02,939 - [run_full_certification_pipeline.py : run_pipeline : 677] - INFO - ============================================================
+2026-05-15 17:37:02,957 - [run_full_certification_pipeline.py : run_pipeline : 678] - INFO - Pipeline Complete
+2026-05-15 17:37:02,995 - [run_full_certification_pipeline.py : run_pipeline : 679] - INFO - ============================================================
+2026-05-15 17:37:03,006 - [run_full_certification_pipeline.py : run_pipeline : 680] - INFO -   Agent              : demoinfra2 (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-15 17:37:03,025 - [run_full_certification_pipeline.py : run_pipeline : 681] - INFO -   Fault categories   : 2
+2026-05-15 17:37:03,040 - [run_full_certification_pipeline.py : run_pipeline : 682] - INFO -   Per-run documents  : 102
+2026-05-15 17:37:03,042 - [run_full_certification_pipeline.py : run_pipeline : 683] - INFO -   Advanced analysis  : True
+2026-05-15 17:37:03,056 - [run_full_certification_pipeline.py : run_pipeline : 684] - INFO -   Hypothesis status  : ok
+2026-05-15 17:37:03,068 - [run_full_certification_pipeline.py : run_pipeline : 687] - INFO -   Output directory   : data\output\12-05-26-aarya\new_template_changes\v1
+2026-05-15 17:37:03,073 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 17:37:03,074 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 17:57:06,170 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 17:57:07,198 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 17:57:07,897 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 17:57:07,897 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 17:57:07,898 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 17:57:07,898 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 17:57:07,899 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 17:57:11,789 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 17:57:11,792 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 17:57:11,792 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:57:11,825 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,825 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 17:57:11,826 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,826 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,827 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,828 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 17:57:11,828 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,828 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,829 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 17:57:11,829 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 17:57:11,832 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 17:57:11,832 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 17:57:11,857 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 17:57:11,858 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 17:57:11,858 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 17:57:11,859 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:57:11,866 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 17:57:11,866 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 17:57:11,868 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 17:57:22,796 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:57:29,000 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:57:29,901 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:57:45,369 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:57:45,675 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:57:45,713 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:58:01,272 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:58:01,854 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:58:03,850 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:58:18,239 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:58:18,647 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:58:19,005 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:58:25,819 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156691, 'output_tokens': 5390, 'total_tokens': 162081})
+2026-05-15 17:58:51,110 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2103, 'output_tokens': 1271, 'total_tokens': 3374})
+2026-05-15 17:58:51,111 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 17:58:51,112 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 17:58:51,115 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 17:58:51,115 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 17:58:51,116 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 17:58:57,868 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:59:00,427 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:59:02,580 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:59:17,955 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:59:18,129 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:59:18,432 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:59:33,296 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:59:33,374 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:59:34,423 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 17:59:50,275 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 17:59:55,213 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 17:59:56,982 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:00:04,733 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 271877, 'output_tokens': 5193, 'total_tokens': 277070})
+2026-05-15 18:00:56,437 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 1987, 'output_tokens': 1162, 'total_tokens': 3149})
+2026-05-15 18:00:56,438 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 18:00:56,438 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 18:00:56,440 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 18:00:56,441 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 18:00:56,441 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 18:01:03,182 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 18:01:03,183 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 18:01:25,770 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 18:01:25,778 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 18:01:25,784 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 18:01:25,786 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 18:01:25,789 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 18:04:08,946 - [run_full_certification_pipeline.py : run_pipeline : 654] - INFO - Certification report written to data\output\12-05-26-aarya\new_template_changes\v1\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 18:04:08,968 - [run_full_certification_pipeline.py : run_pipeline : 677] - INFO - ============================================================
+2026-05-15 18:04:08,972 - [run_full_certification_pipeline.py : run_pipeline : 678] - INFO - Pipeline Complete
+2026-05-15 18:04:08,972 - [run_full_certification_pipeline.py : run_pipeline : 679] - INFO - ============================================================
+2026-05-15 18:04:08,973 - [run_full_certification_pipeline.py : run_pipeline : 680] - INFO -   Agent              : demoinfra2 (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-15 18:04:08,973 - [run_full_certification_pipeline.py : run_pipeline : 681] - INFO -   Fault categories   : 2
+2026-05-15 18:04:08,974 - [run_full_certification_pipeline.py : run_pipeline : 682] - INFO -   Per-run documents  : 102
+2026-05-15 18:04:08,974 - [run_full_certification_pipeline.py : run_pipeline : 683] - INFO -   Advanced analysis  : True
+2026-05-15 18:04:08,974 - [run_full_certification_pipeline.py : run_pipeline : 684] - INFO -   Hypothesis status  : ok
+2026-05-15 18:04:08,975 - [run_full_certification_pipeline.py : run_pipeline : 687] - INFO -   Output directory   : data\output\12-05-26-aarya\new_template_changes\v1
+2026-05-15 18:04:08,975 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 18:04:08,977 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.
+2026-05-15 18:25:25,217 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: embedding_model
+2026-05-15 18:25:26,023 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-4o
+2026-05-15 18:25:26,727 - [azure_openai_util.py : get_clients : 101] - INFO - Created Azure OpenAI client for model: gpt-5.2
+2026-05-15 18:25:26,727 - [azure_openai_util.py : __init__ : 44] - INFO - AzureLLMClient initialized successfully
+2026-05-15 18:25:26,727 - [run_full_certification_pipeline.py : run_pipeline : 457] - INFO - ============================================================
+2026-05-15 18:25:26,728 - [run_full_certification_pipeline.py : run_pipeline : 458] - INFO - STEP 1: Aggregation
+2026-05-15 18:25:26,728 - [run_full_certification_pipeline.py : run_pipeline : 459] - INFO - ============================================================
+2026-05-15 18:25:29,773 - [aggregation.py : _load_all_docs : 199] - INFO - Loaded 102 documents from data\input\12-05-26-aarya
+2026-05-15 18:25:29,774 - [aggregation.py : query_runs_by_agent : 211] - INFO - Found 102 documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9' in data\input\12-05-26-aarya
+2026-05-15 18:25:29,774 - [run_full_certification_pipeline.py : run_pipeline : 472] - INFO - Found 102 per-run documents for agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 18:25:29,797 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,833 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-network-loss6zfpq'; skipping.
+2026-05-15 18:25:29,834 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,835 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,835 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,835 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='pod-cpu-hoggx2b8'; skipping.
+2026-05-15 18:25:29,836 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,836 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,836 - [run_full_certification_pipeline.py : _group_docs_by_category : 177] - WARNING - Could not determine fault_category for doc with fault_name='unknown'; skipping.
+2026-05-15 18:25:29,836 - [run_full_certification_pipeline.py : _group_docs_by_category : 182] - WARNING - 9 metric docs could not be mapped to a fault_category.
+2026-05-15 18:25:29,837 - [run_full_certification_pipeline.py : _group_docs_by_category : 185] - INFO - Grouped docs into categories: resource_fault=62, network_fault=31
+2026-05-15 18:25:29,840 - [run_full_certification_pipeline.py : run_pipeline : 493] - INFO - Found canonical fault categories: ['network_fault', 'resource_fault']
+2026-05-15 18:25:29,877 - [aggregation.py : _validate_metrics_across_categories : 431] - INFO - Metrics validation PASSED: At least one critical field has a value.
+2026-05-15 18:25:29,877 - [aggregation.py : aggregate_all : 585] - INFO - Metrics validation result: metrics_validation_failed=False
+2026-05-15 18:25:29,877 - [aggregation.py : aggregate_all : 592] - INFO - Found 2 fault categories: ['network_fault', 'resource_fault']
+2026-05-15 18:25:29,878 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='network_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 18:25:29,880 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 18:25:29,881 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 0.9677}
+2026-05-15 18:25:29,881 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9677}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 18:25:39,122 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:25:41,669 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:25:49,012 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:26:08,706 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:26:10,815 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:26:11,189 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:26:30,956 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:26:31,860 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:26:32,290 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:26:48,813 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:26:49,876 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:26:54,990 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:27:05,934 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 156717, 'output_tokens': 5328, 'total_tokens': 162045})
+2026-05-15 18:27:41,274 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2052, 'output_tokens': 1489, 'total_tokens': 3541})
+2026-05-15 18:27:41,274 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'network_fault': 31 runs, 1 fault types
+2026-05-15 18:27:41,275 - [aggregation.py : aggregate_fault_category : 478] - INFO - Starting aggregation for fault_category='resource_fault', agent_id='1960bc89-361a-4fcb-af86-699113f09ec9'
+2026-05-15 18:27:41,277 - [aggregation.py : aggregate_fault_category : 501] - INFO - Computed numeric aggregates for 8 metrics
+2026-05-15 18:27:41,277 - [aggregation.py : aggregate_fault_category : 505] - INFO - Computed derived rates: {'fault_detection_success_rate': 1.0, 'fault_mitigation_success_rate': 0.0, 'false_negative_rate': 0.0, 'false_positive_rate': 0.0, 'rai_compliance_rate': 1.0, 'security_compliance_rate': 1.0}
+2026-05-15 18:27:41,278 - [aggregation.py : aggregate_fault_category : 509] - INFO - Computed boolean aggregates: {'pii_detection': {'any_detected': True, 'detection_rate': 0.9355}, 'hallucination_detection': {'any_detected': False, 'detection_rate': 0.0}}
+2026-05-15 18:27:47,062 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:27:50,083 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:27:50,492 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:28:04,930 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:28:08,388 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:28:08,617 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:28:22,646 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:28:24,690 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:28:25,314 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:28:37,403 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 1 (model=gpt-4o) completed.
+2026-05-15 18:28:41,181 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 2 (model=gpt-4o) completed.
+2026-05-15 18:28:42,716 - [llm_council.py : _run_single_judge : 175] - INFO - Judge 3 (model=gpt-4o) completed.
+2026-05-15 18:28:52,355 - [aggregation.py : aggregate_fault_category : 515] - INFO - Completed LLM Council synthesis for 4 textual metrics (tokens: {'input_tokens': 272008, 'output_tokens': 5376, 'total_tokens': 277384})
+2026-05-15 18:29:27,474 - [aggregation.py : aggregate_fault_category : 537] - INFO - Synthesized known_limitations and recommendations (tokens: {'input_tokens': 2089, 'output_tokens': 1616, 'total_tokens': 3705})
+2026-05-15 18:29:27,476 - [aggregation.py : aggregate_fault_category : 552] - INFO - Aggregation complete for 'resource_fault': 62 runs, 2 fault types
+2026-05-15 18:29:27,477 - [aggregation.py : aggregate_all : 604] - INFO - Completed aggregation for 2 fault categories
+2026-05-15 18:29:27,480 - [run_full_certification_pipeline.py : run_pipeline : 586] - INFO - ============================================================
+2026-05-15 18:29:27,482 - [run_full_certification_pipeline.py : run_pipeline : 587] - INFO - STEP 2: Statistical Hypothesis Analysis (gated)
+2026-05-15 18:29:27,489 - [run_full_certification_pipeline.py : run_pipeline : 588] - INFO - ============================================================
+2026-05-15 18:29:34,514 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 313] - INFO - Per-category min-runs gate passed: 93 runs across 2 categories.
+2026-05-15 18:29:34,514 - [run_full_certification_pipeline.py : _run_hypothesis_with_gate : 327] - INFO - Ground truth directory found: data\input\12-05-26-aarya\Sequential\fault-bucketing\0a0e9fcf-5dad-4701-8d5a-909cf67d523d\ground_truth
+2026-05-15 18:29:54,217 - [run_full_certification_pipeline.py : run_pipeline : 605] - INFO - statistical_hypothesis status: ok
+2026-05-15 18:29:54,220 - [run_full_certification_pipeline.py : run_pipeline : 628] - INFO - Aggregated scorecard written to data\output\12-05-26-aarya\new_template_changes\v1\aggregated_scorecard_output_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 18:29:54,221 - [run_full_certification_pipeline.py : run_pipeline : 633] - INFO - ============================================================
+2026-05-15 18:29:54,223 - [run_full_certification_pipeline.py : run_pipeline : 634] - INFO - STEP 3: Certification
+2026-05-15 18:29:54,223 - [run_full_certification_pipeline.py : run_pipeline : 635] - INFO - ============================================================
+2026-05-15 18:32:36,773 - [run_full_certification_pipeline.py : run_pipeline : 654] - INFO - Certification report written to data\output\12-05-26-aarya\new_template_changes\v1\certification_report_1960bc89-361a-4fcb-af86-699113f09ec9.json
+2026-05-15 18:32:36,784 - [run_full_certification_pipeline.py : run_pipeline : 677] - INFO - ============================================================
+2026-05-15 18:32:36,798 - [run_full_certification_pipeline.py : run_pipeline : 678] - INFO - Pipeline Complete
+2026-05-15 18:32:36,806 - [run_full_certification_pipeline.py : run_pipeline : 679] - INFO - ============================================================
+2026-05-15 18:32:36,808 - [run_full_certification_pipeline.py : run_pipeline : 680] - INFO -   Agent              : demoinfra2 (1960bc89-361a-4fcb-af86-699113f09ec9)
+2026-05-15 18:32:36,810 - [run_full_certification_pipeline.py : run_pipeline : 681] - INFO -   Fault categories   : 2
+2026-05-15 18:32:36,826 - [run_full_certification_pipeline.py : run_pipeline : 682] - INFO -   Per-run documents  : 102
+2026-05-15 18:32:36,831 - [run_full_certification_pipeline.py : run_pipeline : 683] - INFO -   Advanced analysis  : True
+2026-05-15 18:32:36,840 - [run_full_certification_pipeline.py : run_pipeline : 684] - INFO -   Hypothesis status  : ok
+2026-05-15 18:32:36,841 - [run_full_certification_pipeline.py : run_pipeline : 687] - INFO -   Output directory   : data\output\12-05-26-aarya\new_template_changes\v1
+2026-05-15 18:32:36,842 - [azure_openai_util.py : close : 466] - INFO - AzureLLMClient closed
+2026-05-15 18:32:36,842 - [run_full_certification_pipeline.py : run_pipeline : 697] - INFO - LLM client connection closed.

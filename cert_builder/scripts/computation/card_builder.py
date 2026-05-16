@@ -35,13 +35,15 @@ def _build_identity_card(meta):
 
 
 def _build_scope_card(meta):
-    """Evaluation scope card with 3 key-value items."""
+    """Evaluation scope card with key-value items."""
     return {
         "title": "Evaluation Scope",
         "items": [
             {"label": "Fault Categories", "value": meta.get("total_fault_categories", 0)},
             {"label": "Faults Tested", "value": meta.get("total_faults_tested", 0)},
             {"label": "Total Runs", "value": meta.get("total_runs", 0)},
+            {"label": "Successful Runs", "value": meta.get("successful_runs", 0)},
+            {"label": "Failed Runs", "value": meta.get("failed_runs", 0)},
         ],
     }
 
