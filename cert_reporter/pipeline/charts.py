@@ -177,12 +177,11 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
     ]
     tick_rows = [{"v": lv} for lv in grid_levels]
 
-    # Layout: left half holds the radar, right half holds the legend.
-    # `cx` / `cy` are signal-driven so the radar stays centred in its half
-    # even if width/height are tweaked in future.
-    width = 540
-    height = 320
-    legend_x_offset = 110  # px to the right of radar centre
+    # Layout: left portion holds the radar (with outer axis labels), right
+    # portion holds the legend. Canvas is wide enough to keep axis labels
+    # from clipping and to give the legend its own column.
+    width = 740
+    height = 340
 
     spec: dict[str, Any] = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
@@ -192,15 +191,15 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
         "autosize": {"type": "none"},
         "background": "transparent",
         "signals": [
-            # Radar centre — pinned to the left third of the canvas so the
-            # legend has space on the right.
-            {"name": "cx", "update": "width * 0.30"},
-            {"name": "cy", "update": "height / 2"},
-            {"name": "radius", "update": "min(width * 0.30, height / 2) - 18"},
+            # Radar centre — pinned so the leftmost axis label clears the
+            # canvas edge and the rightmost axis label clears the legend.
+            {"name": "cx", "value": 240},
+            {"name": "cy", "value": 170},
+            {"name": "radius", "value": 130},
             # Legend anchor (top-left of the legend block).
-            {"name": "legendX", "update": f"cx + radius + {legend_x_offset}"},
-            {"name": "legendYTop", "update": "cy - radius + 8"},
-            {"name": "legendStep", "value": 26},
+            {"name": "legendX", "update": "cx + radius + 90"},
+            {"name": "legendYTop", "update": "cy - radius + 6"},
+            {"name": "legendStep", "value": 28},
         ],
         "data": [
             {"name": "table", "values": rows},
@@ -330,25 +329,21 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 },
             },
         },
-        # Vertex value labels (e.g. "0.58" next to each spoke).
+        # Vertex value labels (e.g. "0.58" inside each spoke). Placed
+        # radially INWARD from the vertex so they never collide with the
+        # outer axis labels. For very small values (< 0.2) where the
+        # inward position would fall inside or beyond the centre, we
+        # flip the offset outward instead.
         {
             "type": "text",
             "from": {"data": "table"},
             "encode": {
                 "enter": {
-                    "x": {"signal": "cx + (scale('radial', datum.value) + 10) * cos(scale('angular', datum.key))"},
-                    "y": {"signal": "cy + (scale('radial', datum.value) + 10) * sin(scale('angular', datum.key))"},
+                    "x": {"signal": "cx + (scale('radial', datum.value) > 28 ? scale('radial', datum.value) - 14 : scale('radial', datum.value) + 14) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + (scale('radial', datum.value) > 28 ? scale('radial', datum.value) - 14 : scale('radial', datum.value) + 14) * sin(scale('angular', datum.key))"},
                     "text": {"signal": "format(datum.value, '.2f')"},
-                    "align": [
-                        {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
-                        {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
-                        {"value": "right"},
-                    ],
-                    "baseline": [
-                        {"test": "abs(sin(scale('angular', datum.key))) < 0.15", "value": "middle"},
-                        {"test": "sin(scale('angular', datum.key)) > 0", "value": "top"},
-                        {"value": "bottom"},
-                    ],
+                    "align": {"value": "center"},
+                    "baseline": {"value": "middle"},
                     "fill": {"value": agent_stroke},
                     "fontSize": {"value": 10},
                     "fontWeight": {"value": "bold"},
@@ -417,7 +412,7 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
             "from": {"data": "legend"},
             "encode": {
                 "enter": {
-                    "x": {"signal": "legendX + 4"},
+                    "x": {"signal": "legendX"},
                     "y": {"signal": "legendYTop + datum.idx * legendStep"},
                     "size": {"value": 60},
                     "fill": {"value": agent_stroke},
@@ -425,15 +420,17 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 },
             },
         },
-        # Dimension name + "↑" indicator.
+        # Dimension name. The per-row "↑" indicator is intentionally
+        # omitted here because the header already states the directional
+        # rule; including it on every row crowds the value column.
         {
             "type": "text",
             "from": {"data": "legend"},
             "encode": {
                 "enter": {
-                    "x": {"signal": "legendX + 18"},
+                    "x": {"signal": "legendX + 14"},
                     "y": {"signal": "legendYTop + datum.idx * legendStep"},
-                    "text": {"signal": "datum.key + '  ↑'"},
+                    "text": {"field": "key"},
                     "fill": {"value": "#1b1f24"},
                     "fontSize": {"value": 11},
                     "align": {"value": "left"},
@@ -441,13 +438,13 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 },
             },
         },
-        # Dimension value (right-aligned).
+        # Dimension value (right-aligned, in the dedicated value column).
         {
             "type": "text",
             "from": {"data": "legend"},
             "encode": {
                 "enter": {
-                    "x": {"signal": "width - 24"},
+                    "x": {"signal": "width - 30"},
                     "y": {"signal": "legendYTop + datum.idx * legendStep"},
                     "text": {"signal": "format(datum.value, '.2f')"},
                     "fill": {"value": agent_stroke},
