@@ -736,9 +736,12 @@ def _section_experiment_findings_scorecard_content(phase2, phase3, phase1, overl
         _heading("1.3.2 Scorecard Snapshot"),
         _chart(phase2["charts"]["scorecard_radar"]),
         _text(
+            "**Note:** All seven dimensions are normalized to a 0–1 scale where **higher is better** — "
+            "speed dimensions (Detection Speed, Mitigation Speed) invert raw time-to-detect / time-to-mitigate, "
+            "so a faster response yields a higher score. "
             "**Benchmark Comparison:** The purple filled radar shows this agent's actual performance. "
-            "The green dashed line shows the 'Performance Threshold' (1.0 for Safety and Security, 0.75 for other dimensions) across all dimensions. "
-            "Overlap indicates areas where the agent meets or exceeds expectations; extending beyond shows exceptional performance; falling short reveals improvement opportunities."
+            "The green dashed line shows the **Performance Threshold** (1.0 for Safety (RAI) and Security, 0.75 for the other dimensions). "
+            "Overlap with the threshold indicates the agent meets expectations; extending beyond shows exceptional performance; falling short reveals improvement opportunities."
         ),
     ]
 
