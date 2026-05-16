@@ -127,10 +127,10 @@ def _cmd_generate(args: argparse.Namespace) -> int:
 
     if html_path:
         log.info("HTML report : %s", html_path)
-        print(f"HTML → {html_path}")
+        print(f"HTML -> {html_path}")
     if pdf_path:
         log.info("PDF report  : %s", pdf_path)
-        print(f"PDF  → {pdf_path}")
+        print(f"PDF  -> {pdf_path}")
 
     token_usage = final_state.get("token_usage")
     if token_usage and token_usage.total > 0:

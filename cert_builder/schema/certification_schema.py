@@ -92,6 +92,8 @@ class SectionPart(str, Enum):
     """High-level report part grouping."""
     agent_capability = "Agent Capability Assessment"
     fault_injection = "Fault Injection Analysis"
+    limitations_recommendations = "System Limitations & Recommendations"
+    appendix_statistical = "Appendix & Statistical Analysis"
 
 
 class NoticeSeverity(str, Enum):

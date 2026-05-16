@@ -57,27 +57,46 @@ def validate_min_total_runs(
     """Check that every fault category has >= ``min_runs`` total runs.
 
     Granularity is per **fault_category** (not per individual fault_name).
+    A "run" is one distinct ``run_id`` (one trace), NOT one metrics file —
+    a single trace can produce multiple metrics docs in the same category
+    (e.g. ``pod-cpu-hog`` and ``pod-memory-hog`` both fall under
+    ``resource_fault``) and must be counted once. Falls back to per-doc
+    identity when ``run_id`` is missing.
+
     Counts **total** runs only (does NOT filter by ``fault_detected``).
 
     Returns:
         ``(passed, details_dict)`` where details_dict has:
           - minimum_runs_met (bool)
           - min_required_per_category (int)
-          - total_runs (int)
-          - per_category (dict[category, total_count])
+          - total_runs (int) — distinct run_ids across all categories
+          - per_category (dict[category, distinct_run_count])
           - failed_categories (list[str]) — entries like "category: n (need m)"
           - message (str)
     """
     per_category: Dict[str, int] = {}
     failed: List[str] = []
-    total_runs = 0
+    all_run_ids: set = set()
 
     for cat, runs in all_runs.items():
-        n = len(runs)
+        seen: set = set()
+        for idx, run in enumerate(runs):
+            rid = run.get("run_id") if isinstance(run, dict) else None
+            if not rid:
+                # Fall back to a per-doc unique key so the run is still counted
+                rid = (
+                    run.get("_source_file")
+                    if isinstance(run, dict) else None
+                ) or f"__no_run_id__:{cat}:{idx}"
+            seen.add(rid)
+            all_run_ids.add(rid)
+
+        n = len(seen)
         per_category[cat] = n
-        total_runs += n
         if n < min_runs:
             failed.append(f"{cat}: {n} runs (need {min_runs})")
+
+    total_runs = len(all_run_ids)
 
     passed = len(failed) == 0
     if passed:

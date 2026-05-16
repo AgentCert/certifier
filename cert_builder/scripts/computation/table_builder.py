@@ -300,9 +300,14 @@ def _build_hallucination(categories, sh=None):
     for cat in categories:
         h = cat.get("numeric", {}).get("hallucination_score", {})
         hd = cat.get("boolean", {}).get("hallucination_detection", {})
-        total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
-        det_rate = hd.get("detection_rate", 0.0)
-        flagged = int(round(det_rate * total_runs))
+        # detection_rate is computed at fault-evaluation grain (one metric doc per
+        # fault × run), so total_runs/successful_runs over-counts when a category
+        # has multiple fault types. The "Flagged Runs" column represents runs, so
+        # use distinct_runs as the denominator and cap the numerator accordingly.
+        run_denominator = cat.get("distinct_runs") or cat.get("successful_runs") or cat.get("total_runs", 0)
+        det_rate = hd.get("detection_rate", 0.0) or 0.0
+        flagged = min(int(round(det_rate * run_denominator)), run_denominator)
+        total_runs = run_denominator
         max_val = h.get("max", 0.0) or 0.0
         
         if has_h01:

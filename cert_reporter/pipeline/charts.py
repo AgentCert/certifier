@@ -94,9 +94,20 @@ def _spec_to_svg(spec: dict[str, Any], width: int, height: int) -> str:
 def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
     """Radar chart from dimensions: [{dimension, value}].
 
-    Values are 0-1 normalised scores. Emits a full Vega 5 spec that
-    renders a real polar radar (spokes, concentric grid web, closed
-    filled polygon, vertex symbols, axis labels, radial ticks).
+    Values are 0-1 normalised scores where higher is better. Emits a full
+    Vega 5 spec that renders:
+      * a real polar radar (spokes + concentric grid web)
+      * a closed filled polygon for the agent values (fixed purple — the
+        chart colour is independent of the agent's score and matches the
+        §1.3.2 caption wording in report_assembler.py)
+      * any optional ``reference_polygons`` (e.g. the green dashed
+        Performance Threshold) as additional closed line marks
+      * a right-side legend listing each dimension's value with an
+        explicit "↑ higher is better" annotation
+
+    Numeric values are intentionally NOT drawn next to each vertex —
+    the right-side legend lists every value, so per-vertex labels would
+    only duplicate that information and crowd the axis labels.
     """
     dims = block.get("dimensions", [])
     if not dims:
@@ -117,8 +128,49 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
     if not rows:
         return _build_placeholder(block)
 
-    mean_val = sum(r["value"] for r in rows) / len(rows)
-    stroke = _score_colour(mean_val)
+    # Fixed agent colour (purple) — kept stable so the radar consistently
+    # reads as "this agent's performance" regardless of overall score.
+    agent_stroke = "#5b44ba"
+
+    # Reference polygons (e.g. Performance Threshold). Each is rendered as a
+    # closed dashed line over the radar.
+    ref_polys = block.get("reference_polygons") or []
+    ref_datasets: list[dict[str, Any]] = []
+    for i, rp in enumerate(ref_polys):
+        if isinstance(rp, dict):
+            values = rp.get("values") or []
+            label = str(rp.get("label", f"Reference {i + 1}"))
+            line_color = str(rp.get("line_color") or "#1a7f37")
+            line_dash = str(rp.get("line_dash") or "dash")
+        else:
+            continue
+        if len(values) != len(rows):
+            continue
+        ref_rows = [
+            {"key": rows[j]["key"], "value": max(0.0, min(1.0, float(values[j])))}
+            for j in range(len(rows))
+        ]
+        # Convert friendly dash names to Vega numeric strokeDash arrays.
+        if line_dash in ("dash", "dashed"):
+            dash_array = [6, 4]
+        elif line_dash in ("dot", "dotted"):
+            dash_array = [2, 3]
+        else:
+            dash_array = []
+        ref_datasets.append({
+            "name": f"ref_{i}",
+            "label": label,
+            "color": line_color,
+            "dash": dash_array,
+            "rows": ref_rows,
+        })
+
+    # Legend rows (right-hand side panel). Anchor y is set per-row so the
+    # block reads top-to-bottom alongside the radar.
+    legend_rows = [
+        {"key": r["key"], "value": r["value"], "idx": i}
+        for i, r in enumerate(rows)
+    ]
 
     grid_levels = [0.2, 0.4, 0.6, 0.8, 1.0]
     grid_rows = [
@@ -128,15 +180,33 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
     ]
     tick_rows = [{"v": lv} for lv in grid_levels]
 
-    spec = {
+    # Layout: left portion holds the radar (with outer axis labels), right
+    # portion holds the legend. Canvas is wide enough to keep the widest
+    # axis labels ("Hallucination Ctrl", "Action Correctness", ~110-120 px)
+    # off both the left edge and the legend column.
+    width = 780
+    height = 340
+
+    spec: dict[str, Any] = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
-        "width": 280,
-        "height": 280,
-        "padding": {"left": 90, "right": 90, "top": 40, "bottom": 40},
+        "width": width,
+        "height": height,
+        "padding": {"left": 20, "right": 20, "top": 30, "bottom": 30},
         "autosize": {"type": "none"},
         "background": "transparent",
         "signals": [
-            {"name": "radius", "update": "min(width, height) / 2 - 10"},
+            # Radar centre. cx leaves room on the left for the widest
+            # anchor=end axis label; radius is conservative so axis
+            # labels at radius+22 still clear the legend column.
+            {"name": "cx", "value": 260},
+            {"name": "cy", "value": 170},
+            {"name": "radius", "value": 120},
+            # Legend anchor (top-left of the legend block). Set so the
+            # rightmost axis label (cx + radius + 22 + ~120) ends before
+            # the legend names begin.
+            {"name": "legendX", "value": 540},
+            {"name": "legendYTop", "update": "cy - radius + 6"},
+            {"name": "legendStep", "value": 28},
         ],
         "data": [
             {"name": "table", "values": rows},
@@ -147,6 +217,9 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
             },
             {"name": "grid", "values": grid_rows},
             {"name": "ticks", "values": tick_rows},
+            {"name": "legend", "values": legend_rows},
+        ] + [
+            {"name": rd["name"], "values": rd["rows"]} for rd in ref_datasets
         ],
         "scales": [
             {
@@ -165,17 +238,18 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 "domain": [0, 1],
             },
         ],
-        "encode": {
-            "enter": {
-                "x": {"signal": "width / 2"},
-                "y": {"signal": "height / 2"},
-            },
-        },
         "marks": [
+            # Grid web (concentric polygons).
             {
                 "type": "group",
                 "from": {
                     "facet": {"data": "grid", "name": "grid_facet", "groupby": ["level"]},
+                },
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "cx"},
+                        "y": {"signal": "cy"},
+                    },
                 },
                 "marks": [
                     {
@@ -194,88 +268,183 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                     },
                 ],
             },
+            # Radial spokes.
             {
                 "type": "rule",
                 "from": {"data": "keys"},
                 "encode": {
                     "enter": {
-                        "x": {"value": 0},
-                        "y": {"value": 0},
-                        "x2": {"signal": "radius * cos(scale('angular', datum.key))"},
-                        "y2": {"signal": "radius * sin(scale('angular', datum.key))"},
+                        "x": {"signal": "cx"},
+                        "y": {"signal": "cy"},
+                        "x2": {"signal": "cx + radius * cos(scale('angular', datum.key))"},
+                        "y2": {"signal": "cy + radius * sin(scale('angular', datum.key))"},
                         "stroke": {"value": "#dcdcdc"},
                         "strokeWidth": {"value": 1},
                     },
                 },
             },
-            {
-                "type": "line",
-                "from": {"data": "table"},
-                "encode": {
-                    "enter": {
-                        "interpolate": {"value": "linear-closed"},
-                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
-                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
-                        "stroke": {"value": stroke},
-                        "strokeWidth": {"value": 2},
-                        "fill": {"value": stroke},
-                        "fillOpacity": {"value": 0.18},
-                    },
-                },
-            },
-            {
-                "type": "symbol",
-                "from": {"data": "table"},
-                "encode": {
-                    "enter": {
-                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
-                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
-                        "size": {"value": 60},
-                        "fill": {"value": stroke},
-                        "stroke": {"value": "#ffffff"},
-                        "strokeWidth": {"value": 1},
-                    },
-                },
-            },
-            {
-                "type": "text",
-                "from": {"data": "keys"},
-                "encode": {
-                    "enter": {
-                        "x": {"signal": "(radius + 12) * cos(scale('angular', datum.key))"},
-                        "y": {"signal": "(radius + 12) * sin(scale('angular', datum.key))"},
-                        "text": {"field": "key"},
-                        "align": [
-                            {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
-                            {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
-                            {"value": "right"},
-                        ],
-                        "baseline": [
-                            {"test": "abs(sin(scale('angular', datum.key))) < 0.15", "value": "middle"},
-                            {"test": "sin(scale('angular', datum.key)) > 0", "value": "top"},
-                            {"value": "bottom"},
-                        ],
-                        "fill": {"value": "#333"},
-                        "fontSize": {"value": 11},
-                    },
-                },
-            },
-            {
-                "type": "text",
-                "from": {"data": "ticks"},
-                "encode": {
-                    "enter": {
-                        "x": {"value": 4},
-                        "y": {"signal": "-scale('radial', datum.v)"},
-                        "text": {"signal": "format(datum.v, '.1f')"},
-                        "fontSize": {"value": 9},
-                        "fill": {"value": "#888"},
-                        "baseline": {"value": "middle"},
-                    },
-                },
-            },
         ],
     }
+
+    # Reference polygons (drawn UNDER the agent polygon so the agent stands out).
+    for rd in ref_datasets:
+        spec["marks"].append({
+            "type": "line",
+            "from": {"data": rd["name"]},
+            "encode": {
+                "enter": {
+                    "interpolate": {"value": "linear-closed"},
+                    "x": {"signal": f"cx + scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": f"cy + scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                    "stroke": {"value": rd["color"]},
+                    "strokeWidth": {"value": 2},
+                    "strokeDash": {"value": rd["dash"]} if rd["dash"] else {"value": []},
+                    "fill": {"value": "transparent"},
+                },
+            },
+        })
+
+    # Agent polygon (filled).
+    spec["marks"].extend([
+        {
+            "type": "line",
+            "from": {"data": "table"},
+            "encode": {
+                "enter": {
+                    "interpolate": {"value": "linear-closed"},
+                    "x": {"signal": "cx + scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                    "stroke": {"value": agent_stroke},
+                    "strokeWidth": {"value": 2},
+                    "fill": {"value": agent_stroke},
+                    "fillOpacity": {"value": 0.18},
+                },
+            },
+        },
+        # Vertex dots.
+        {
+            "type": "symbol",
+            "from": {"data": "table"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "cx + scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                    "size": {"value": 60},
+                    "fill": {"value": agent_stroke},
+                    "stroke": {"value": "#ffffff"},
+                    "strokeWidth": {"value": 1},
+                },
+            },
+        },
+        # Axis labels (dimension names around the perimeter). Pushed
+        # further out (radius + 22) so the names sit clearly outside the
+        # polygon and don't crowd the vertex dots.
+        {
+            "type": "text",
+            "from": {"data": "keys"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "cx + (radius + 22) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + (radius + 22) * sin(scale('angular', datum.key))"},
+                    "text": {"field": "key"},
+                    "align": [
+                        {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
+                        {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
+                        {"value": "right"},
+                    ],
+                    "baseline": [
+                        {"test": "abs(sin(scale('angular', datum.key))) < 0.15", "value": "middle"},
+                        {"test": "sin(scale('angular', datum.key)) > 0", "value": "top"},
+                        {"value": "bottom"},
+                    ],
+                    "fill": {"value": "#333"},
+                    "fontSize": {"value": 11},
+                },
+            },
+        },
+        # Radial tick labels (0.2, 0.4, …).
+        {
+            "type": "text",
+            "from": {"data": "ticks"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "cx + 4"},
+                    "y": {"signal": "cy - scale('radial', datum.v)"},
+                    "text": {"signal": "format(datum.v, '.1f')"},
+                    "fontSize": {"value": 9},
+                    "fill": {"value": "#888"},
+                    "baseline": {"value": "middle"},
+                },
+            },
+        },
+        # ---- Side legend (right of the radar) -------------------------
+        # Header: "↑ Higher is better"
+        {
+            "type": "text",
+            "encode": {
+                "enter": {
+                    "x": {"signal": "legendX"},
+                    "y": {"signal": "legendYTop - 6"},
+                    "text": {"value": "↑ Higher is better (0–1 normalized)"},
+                    "fill": {"value": "#555"},
+                    "fontSize": {"value": 10},
+                    "fontStyle": {"value": "italic"},
+                    "align": {"value": "left"},
+                    "baseline": {"value": "bottom"},
+                },
+            },
+        },
+        # Coloured dot per dimension.
+        {
+            "type": "symbol",
+            "from": {"data": "legend"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "legendX"},
+                    "y": {"signal": "legendYTop + datum.idx * legendStep"},
+                    "size": {"value": 60},
+                    "fill": {"value": agent_stroke},
+                    "stroke": {"value": agent_stroke},
+                },
+            },
+        },
+        # Dimension name. The per-row "↑" indicator is intentionally
+        # omitted here because the header already states the directional
+        # rule; including it on every row crowds the value column.
+        {
+            "type": "text",
+            "from": {"data": "legend"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "legendX + 14"},
+                    "y": {"signal": "legendYTop + datum.idx * legendStep"},
+                    "text": {"field": "key"},
+                    "fill": {"value": "#1b1f24"},
+                    "fontSize": {"value": 11},
+                    "align": {"value": "left"},
+                    "baseline": {"value": "middle"},
+                },
+            },
+        },
+        # Dimension value (right-aligned, in the dedicated value column).
+        {
+            "type": "text",
+            "from": {"data": "legend"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "width - 30"},
+                    "y": {"signal": "legendYTop + datum.idx * legendStep"},
+                    "text": {"signal": "format(datum.value, '.2f')"},
+                    "fill": {"value": agent_stroke},
+                    "fontSize": {"value": 11},
+                    "fontWeight": {"value": "bold"},
+                    "align": {"value": "right"},
+                    "baseline": {"value": "middle"},
+                },
+            },
+        },
+    ])
+
     return spec
 
 

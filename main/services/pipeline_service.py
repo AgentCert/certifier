@@ -406,6 +406,7 @@ def _build_skip_block(
 ) -> Dict[str, Any]:
     """Construct a stable ``statistical_hypothesis`` skip block for cert_builder."""
     observed: Dict[str, int] = {}
+    total_runs = 0
     if validation:
         per_cat = validation.get("per_category") or {}
         for cat, val in per_cat.items():
@@ -417,11 +418,16 @@ def _build_skip_block(
                 observed[cat] = int(count)
             except (TypeError, ValueError):
                 observed[cat] = 0
+        try:
+            total_runs = int(validation.get("total_runs") or 0)
+        except (TypeError, ValueError):
+            total_runs = 0
     return {
         "status": "skipped",
         "reason": reason,
         "min_required": min_required,
         "observed_per_category": observed,
+        "total_runs": total_runs,
         "message": message,
     }
 

@@ -128,7 +128,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
             f"P95={_stat(c, 'time_to_detect', 'p95')}s"
         )
-    lines.append(f"\nScorecard: Normalized TTD = {sc_map.get('Normalized TTD', 'N/A')}")
+    lines.append(f"\nScorecard: Detection Speed = {sc_map.get('Detection Speed', 'N/A')}")
     # Compute weighted overall but expose only as percentage with run-level framing.
     eval_total = sum(c["total_runs"] for c in cats)
     det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
@@ -152,7 +152,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"median={_stat(c, 'time_to_mitigate', 'median')}s, "
             f"std={_stat(c, 'time_to_mitigate', 'std_dev')}s"
         )
-    lines.append(f"\nScorecard: Normalized TTM = {sc_map.get('Normalized TTM', 'N/A')}")
+    lines.append(f"\nScorecard: Mitigation Speed = {sc_map.get('Mitigation Speed', 'N/A')}")
     mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
     overall_mit = (mit_count / eval_total * 100) if eval_total else 0
     lines.append(
@@ -169,7 +169,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             lines.append(f"  {c['label']}: mean={ac['mean']:.1f}")
         else:
             lines.append(f"  {c['label']}: N/A (not individually instrumented)")
-    lines.append(f"\nScorecard: Normalized Action Correctness = {sc_map.get('Normalized Action Correctness', 'N/A')}\n")
+    lines.append(f"\nScorecard: Action Correctness = {sc_map.get('Action Correctness', 'N/A')}\n")
 
     # 4. Reasoning & Response Quality
     lines.append("=== 4. REASONING & RESPONSE QUALITY ===\n")
@@ -187,7 +187,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"reasoning={_stat(c, 'reasoning_score', 'mean', '{:.2f}')}, "
             f"response_quality={_stat(c, 'response_quality_score', 'mean', '{:.2f}')}"
         )
-    lines.append(f"Scorecard: Normalized Reasoning = {sc_map.get('Normalized Reasoning', 'N/A')}\n")
+    lines.append(f"Scorecard: Reasoning Quality = {sc_map.get('Reasoning Quality', 'N/A')}\n")
 
     # 5. Safety (RAI)
     lines.append("=== 5. SAFETY (RAI COMPLIANCE) ===\n")
@@ -200,7 +200,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         )
     rai_line = ", ".join(f"{c['label']}={c['derived']['rai_compliance_rate']*100:.0f}%" for c in cats)
     lines.append(f"\nRAI rates: {rai_line}")
-    lines.append(f"Scorecard: Normalized Safety (RAI) = {sc_map.get('Normalized Safety (RAI)', 'N/A')}\n")
+    lines.append(f"Scorecard: Safety (RAI) = {sc_map.get('Safety (RAI)', 'N/A')}\n")
 
     # 6. Hallucination
     lines.append("=== 6. HALLUCINATION CONTROL ===\n")
@@ -233,7 +233,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"\nHallucinations observed in {len(cats) - clean_cats} of {len(cats)} categories; "
             f"highest score = {max_score:.2f}."
         )
-    lines.append(f"Scorecard: Normalized Hallucination = {sc_map.get('Normalized Hallucination', 'N/A')}\n")
+    lines.append(f"Scorecard: Hallucination Ctrl = {sc_map.get('Hallucination Ctrl', 'N/A')}\n")
 
     # 7. Security
     lines.append("=== 7. SECURITY COMPLIANCE ===\n")
@@ -250,7 +250,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         f"{c['label']}={'Yes' if c['boolean']['pii_detection']['any_detected'] else 'No'}" for c in cats
     )
     lines.append(f"PII detected: {pii_line}")
-    lines.append(f"Scorecard: Normalized Security = {sc_map.get('Normalized Security', 'N/A')}")
+    lines.append(f"Scorecard: Security = {sc_map.get('Security', 'N/A')}")
 
     return "\n".join(lines)
 
