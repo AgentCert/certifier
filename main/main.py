@@ -9,6 +9,7 @@ from pymongo.errors import OperationFailure
 from main.config.settings import get_settings
 from main.routers.bucketing_extraction import router
 from main.routers.aggregation_certification import router as cert_router
+from main.routers.certification_reports import router as cert_reports_router
 from utils.load_config import ConfigLoader
 
 
@@ -139,6 +140,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AgentCert API", version="1.0.0", lifespan=lifespan)
 app.include_router(router, prefix="/api/v1")
 app.include_router(cert_router, prefix="/api/v1")
+app.include_router(cert_reports_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

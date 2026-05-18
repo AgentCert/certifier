@@ -1,23 +1,12 @@
-"""FastAPI routes for the cert-reporter API."""
+"""FastAPI routes for fetching generated certification reports (HTML / PDF)."""
 
 from __future__ import annotations
 
 import io
-import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
-
-# Workspace root lives at certifier/workspace/.
-# If WORKSPACE_DIR is a relative path (e.g. "workspace"), resolve it from
-# _CERTIFIER_ROOT so it never ends up inside cert_reporter/.
-_CERTIFIER_ROOT = Path(__file__).resolve().parent.parent.parent   # cert_reporter/api/ → certifier/
-_ws_env = os.getenv("WORKSPACE_DIR")
-_WORKSPACE_DIR: Path = (
-    Path(_ws_env) if (_ws_env and Path(_ws_env).is_absolute())
-    else _CERTIFIER_ROOT / (_ws_env or "workspace")
-)
 
 router = APIRouter()
 
@@ -26,9 +15,9 @@ router = APIRouter()
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _find_latest(agent_id: str, experiment_id: str, ext: str) -> Path | None:
+def _find_latest(workspace_dir: Path, agent_id: str, experiment_id: str, ext: str) -> Path | None:
     """Return the most recently modified .html or .pdf in the certification dir."""
-    cert_dir = _WORKSPACE_DIR / agent_id / experiment_id / "certification"
+    cert_dir = workspace_dir / agent_id / experiment_id / "certification"
     if not cert_dir.is_dir():
         return None
     files = sorted(cert_dir.glob(f"*.{ext}"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -81,7 +70,8 @@ async def get_certification_pdf(
         if response is not None:
             return response
 
-    file_path = _find_latest(agent_id, experiment_id, "pdf")
+    workspace_dir = request.app.state.settings.workspace_dir
+    file_path = _find_latest(workspace_dir, agent_id, experiment_id, "pdf")
     if not file_path:
         raise HTTPException(status_code=404, detail="No PDF found")
     return FileResponse(
@@ -110,7 +100,8 @@ async def get_certification_html(
         if response is not None:
             return response
 
-    file_path = _find_latest(agent_id, experiment_id, "html")
+    workspace_dir = request.app.state.settings.workspace_dir
+    file_path = _find_latest(workspace_dir, agent_id, experiment_id, "html")
     if not file_path:
         raise HTTPException(status_code=404, detail="No HTML found")
     return FileResponse(
