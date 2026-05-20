@@ -106,6 +106,25 @@ class CertificationPipeline:
                 narratives = await narrative.assemble()
                 phase3_path = workdir / "narratives.json"
                 _save_json(narratives, phase3_path)
+                
+                # Extract Phase 3 tokens and update phase1 with them
+                phase_3_tokens = narratives.get("phase_3_tokens", {
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0
+                })
+                
+                # Load phase1, update pipeline_tokens with Phase 3, and save
+                parsed_context = json.loads(phase1_path.read_text(encoding="utf-8"))
+                if "meta" in parsed_context and "pipeline_tokens" in parsed_context["meta"]:
+                    parsed_context["meta"]["pipeline_tokens"]["phase_3_certification_builder"] = phase_3_tokens
+                    # Recalculate totals
+                    self._update_pipeline_tokens_totals(parsed_context["meta"]["pipeline_tokens"])
+                    phase1_path.write_text(
+                        json.dumps(parsed_context, indent=2, default=str, ensure_ascii=False),
+                        encoding="utf-8"
+                    )
+                    print(f"[pipeline] Phase 3 tokens: {phase_3_tokens}")
             except MyCustomError:
                 raise
             except Exception as exc:
@@ -148,6 +167,26 @@ class CertificationPipeline:
         print(f"=== Pipeline Completed in {elapsed:.1f}s ===")
         print(f"Output: {self.output_path}")
         return report
+
+    @staticmethod
+    def _update_pipeline_tokens_totals(pipeline_tokens: dict) -> None:
+        """Recalculate totals after updating all phase tokens."""
+        total_input = 0
+        total_output = 0
+        total_all = 0
+        
+        for phase_key in ["phase_0_fault_analyzer", "phase_1_metrics_extractor", 
+                         "phase_2_aggregator", "phase_3_certification_builder"]:
+            phase_data = pipeline_tokens.get(phase_key, {})
+            total_input += phase_data.get("input_tokens", 0)
+            total_output += phase_data.get("output_tokens", 0)
+            total_all += phase_data.get("total_tokens", 0)
+        
+        pipeline_tokens["totals"] = {
+            "input_tokens": total_input,
+            "output_tokens": total_output,
+            "total_tokens": total_all,
+        }
 
     def run_sync(self) -> dict:
         """Synchronous wrapper for run()."""

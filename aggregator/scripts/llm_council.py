@@ -171,6 +171,8 @@ class LLMCouncil:
             temperature=config.get("judge_temperature", 0.3),
             max_tokens=config.get("judge_max_tokens", 1500),
             system_prompt=system_prompt,
+            max_retries=config.get("llm_retry_max_attempts", 3),
+            initial_delay=config.get("llm_retry_initial_delay_seconds", 1.0),
         )
         logger.info(f"Judge {judge_index + 1} (model={judge_model}) completed.")
 
@@ -213,6 +215,8 @@ class LLMCouncil:
                 temperature=config.get("meta_judge_temperature", 0.1),
                 max_tokens=config.get("meta_judge_max_tokens", 2000),
                 system_prompt=prompts["meta_judge"]["system_prompt"],
+                max_retries=config.get("llm_retry_max_attempts", 3),
+                initial_delay=config.get("llm_retry_initial_delay_seconds", 1.0),
             )
         
         except Exception as exc:

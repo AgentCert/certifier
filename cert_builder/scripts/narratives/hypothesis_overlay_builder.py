@@ -4,7 +4,7 @@ Phase E — Hypothesis Overlay Builder.
 Consumes ``ParsedContext.statistical_hypothesis`` (the block emitted by the
 hypothesis framework when run with ``--advanced-analysis``) and produces the
 extra content blocks needed in §5–§7 (inline strips after metric chart-pairs)
-and §9–§10 (dedicated H-03..H-09 sections).
+and §9–§10 (dedicated H3..H9 sections).
 
 Two passes:
 
@@ -71,39 +71,39 @@ _CATEGORY_LABELS = {
 # Hypothesis metadata: title shown in strip + section, and the canonical
 # method line (deterministic — never written by the LLM).
 _HYP_META: dict[str, dict[str, str]] = {
-    "H-01": {
+    "H1": {
         "name": "Confidence Intervals for Continuous Metrics",
         "method": "IQM (25% trimmed mean) + Bootstrap BCa 95% CI, B = 10,000.",
     },
-    "H-02": {
+    "H2": {
         "name": "Success Rate Estimation with Safety Floor",
         "method": "Wilson score interval with continuity correction at α = 0.05.",
     },
-    "H-03": {
+    "H3": {
         "name": "Cross-Category Latency Significance",
         "method": "Two-sided Mann-Whitney U with rank-biserial effect size.",
     },
-    "H-04": {
+    "H4": {
         "name": "RAI Compliance",
         "method": "Wilson score interval with continuity correction at α = 0.05.",
     },
-    "H-05": {
+    "H5": {
         "name": "Security Compliance",
         "method": "Wilson score interval with continuity correction at α = 0.05.",
     },
-    "H-06": {
+    "H6": {
         "name": "SLA Threshold Compliance",
         "method": "Bootstrap of the per-run SLA-compliance fraction at α = 0.05.",
     },
-    "H-07": {
+    "H7": {
         "name": "SLA Breach Rate",
         "method": "Bootstrap of the breach-rate proportion at α = 0.05.",
     },
-    "H-08": {
+    "H8": {
         "name": "Tail-Risk Analysis",
         "method": "CVaR at the 95th percentile.",
     },
-    "H-09": {
+    "H9": {
         "name": "Temporal Stability",
         "method": "CUSUM + EWMA change-point detection on the run sequence.",
     },
@@ -187,7 +187,7 @@ def _category_label(name: str) -> str:
 
 
 def _category_short(name: str) -> str:
-    """Compact 3-letter category prefix used in H-04 contingency tables."""
+    """Compact 3-letter category prefix used in H4 contingency tables."""
     full = _category_label(name)
     return {"Application": "App", "Network": "Net", "Resource": "Res"}.get(
         full, full[:3]
@@ -225,7 +225,7 @@ def _fmt_count(value: float) -> str:
 # ---------------------------------------------------------------------------
 
 def _h01_strip(metric_key: str, h01_metric: dict) -> dict | None:
-    """H-01: per-category IQM + BCa CI; STABLE / WIDE-CI tag."""
+    """H1: per-category IQM + BCa CI; STABLE / WIDE-CI tag."""
     per_cat = h01_metric.get("per_category") or []
     if not per_cat:
         return None
@@ -262,16 +262,16 @@ def _h01_strip(metric_key: str, h01_metric: dict) -> dict | None:
     return {
         "type": "hypothesis_strip",
         "verdict": verdict,
-        "hypothesis_id": "H-01",
+        "hypothesis_id": "H1",
         "metric_label": metric_label,
         "facts": facts,
-        "method": _HYP_META["H-01"]["method"],
-        "summary": f"H-01 {metric_label} — verdict: {verdict}.",
+        "method": _HYP_META["H1"]["method"],
+        "summary": f"H1 {metric_label} — verdict: {verdict}.",
     }
 
 
 def _h02_strip(metric_key: str, h02_metric: dict) -> dict | None:
-    """H-02: per-category success rate with Wilson lower (certified floor)."""
+    """H2: per-category success rate with Wilson lower (certified floor)."""
     per_cat = h02_metric.get("per_category") or []
     if not per_cat:
         return None
@@ -319,11 +319,11 @@ def _h02_strip(metric_key: str, h02_metric: dict) -> dict | None:
     return {
         "type": "hypothesis_strip",
         "verdict": verdict,
-        "hypothesis_id": "H-02",
+        "hypothesis_id": "H2",
         "metric_label": metric_label,
         "facts": facts,
-        "method": _HYP_META["H-02"]["method"],
-        "summary": f"H-02 {metric_label} — verdict: {verdict}.",
+        "method": _HYP_META["H2"]["method"],
+        "summary": f"H2 {metric_label} — verdict: {verdict}.",
     }
 
 
@@ -332,7 +332,7 @@ def _generic_strip(
     metric_key: str,
     metric_block: dict,
 ) -> dict | None:
-    """Minimal strip used for H-03..H-09: verdict + assessment summary fact."""
+    """Minimal strip used for H3..H9: verdict + assessment summary fact."""
     if not isinstance(metric_block, dict) or metric_block.get("status") == "skipped":
         return None
     verdict_text = (
@@ -366,7 +366,7 @@ def _generic_strip(
 
 
 # ---------------------------------------------------------------------------
-# Deterministic detail tables (H-03..H-09)
+# Deterministic detail tables (H3..H9)
 # ---------------------------------------------------------------------------
 
 def _heading_block(title: str, detail: str | None = None) -> dict:
@@ -414,7 +414,7 @@ def _fmt_pct(x: Any, digits: int = 1) -> str:
 
 
 def _h03_table(metric_key: str, h03: dict) -> dict | None:
-    """H-03: omnibus row + pairwise rows. One table per metric."""
+    """H3: omnibus row + pairwise rows. One table per metric."""
     if not h03 or h03.get("status") == "skipped":
         return None
     metric_label = _metric_label(metric_key)
@@ -438,12 +438,12 @@ def _h03_table(metric_key: str, h03: dict) -> dict | None:
     return _table_block(
         headers=["Test", "Statistic", "p-value", "Effect Size", "Interpretation"],
         rows=rows,
-        title=f"H-03 — {metric_label} cross-category comparison",
+        title=f"H3 — {metric_label} cross-category comparison",
     )
 
 
 def _h04_table(metric_key: str, h04: dict) -> dict | None:
-    """H-04: per-category contingency rates + Chi-Square omnibus row."""
+    """H4: per-category contingency rates + Chi-Square omnibus row."""
     if not h04 or h04.get("status") == "skipped":
         return None
     metric_label = _metric_label(metric_key)
@@ -466,12 +466,12 @@ def _h04_table(metric_key: str, h04: dict) -> dict | None:
     return _table_block(
         headers=["Category", "Successes / Trials", "Rate", "χ² statistic", "p-value"],
         rows=rows,
-        title=f"H-04 — {metric_label} cross-category uniformity",
+        title=f"H4 — {metric_label} cross-category uniformity",
     )
 
 
 def _h05_table(metric_key: str, h05: dict) -> dict | None:
-    """H-05: per-category CV + Levene omnibus."""
+    """H5: per-category CV + Levene omnibus."""
     if not h05 or h05.get("status") == "skipped":
         return None
     metric_label = _metric_label(metric_key)
@@ -494,12 +494,12 @@ def _h05_table(metric_key: str, h05: dict) -> dict | None:
     return _table_block(
         headers=["Category", "Mean", "Std Dev", "CV", "Stability"],
         rows=rows,
-        title=f"H-05 — {metric_label} variance / consistency",
+        title=f"H5 — {metric_label} variance / consistency",
     )
 
 
 def _h06_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-06 combined table covering TTD + TTM SLA compliance."""
+    """H6 combined table covering TTD + TTM SLA compliance."""
     rows: list[list[Any]] = []
     for metric_key, h06 in metric_results:
         if not isinstance(h06, dict) or h06.get("status") == "skipped":
@@ -525,14 +525,14 @@ def _h06_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         ],
         rows=rows,
         title=(
-            "H-06 — SLA Threshold Compliance (Wilcoxon signed-rank one-sample "
+            "H6 — SLA Threshold Compliance (Wilcoxon signed-rank one-sample "
             "+ Bootstrap BCa CI + TOST equivalence)"
         ),
     )
 
 
 def _h07_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-07 combined table covering TTD + TTM breach rates."""
+    """H7 combined table covering TTD + TTM breach rates."""
     rows: list[list[Any]] = []
     for metric_key, h07 in metric_results:
         if not isinstance(h07, dict) or h07.get("status") == "skipped":
@@ -563,14 +563,14 @@ def _h07_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         ],
         rows=rows,
         title=(
-            "H-07 — SLA Breach Rate (Exact Binomial (Clopper-Pearson) on "
+            "H7 — SLA Breach Rate (Exact Binomial (Clopper-Pearson) on "
             "observed breaches vs allowed budget of 5%)"
         ),
     )
 
 
 def _h08_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-08 combined table covering TTD + TTM tail-risk (CVaR)."""
+    """H8 combined table covering TTD + TTM tail-risk (CVaR)."""
     rows: list[list[Any]] = []
     for metric_key, h08 in metric_results:
         if not isinstance(h08, dict) or h08.get("status") == "skipped":
@@ -596,13 +596,13 @@ def _h08_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         ],
         rows=rows,
         title=(
-            "H-08 — Tail-Risk Analysis (CVaR₉₅ + CVaR/IQM ratio)"
+            "H8 — Tail-Risk Analysis (CVaR₉₅ + CVaR/IQM ratio)"
         ),
     )
 
 
 def _h09_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-09 combined table covering TTD + TTM temporal stability."""
+    """H9 combined table covering TTD + TTM temporal stability."""
     rows: list[list[Any]] = []
     for metric_key, h09 in metric_results:
         if not isinstance(h09, dict) or h09.get("status") == "skipped":
@@ -630,7 +630,7 @@ def _h09_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         ],
         rows=rows,
         title=(
-            "H-09 — Temporal Stability (CUSUM (threshold h ≈ 0.2) "
+            "H9 — Temporal Stability (CUSUM (threshold h ≈ 0.2) "
             "+ EWMA smoothing Δ = 0.2)"
         ),
     )
@@ -648,7 +648,7 @@ _TABLE_BUILDERS = {
 
 
 # ---------------------------------------------------------------------------
-# §9 combined builders (H-03 / H-04 / H-05) — single table + strip per
+# §9 combined builders (H3 / H4 / H5) — single table + strip per
 # hypothesis covering both relevant metrics.
 # ---------------------------------------------------------------------------
 
@@ -661,7 +661,7 @@ _SECTION9_RATE_METRICS = (
 
 
 def _h03_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-03 combined table covering TTD + TTM with a Metric column."""
+    """H3 combined table covering TTD + TTM with a Metric column."""
     rows: list[list[Any]] = []
     for metric_key, h03 in metric_results:
         if not isinstance(h03, dict) or h03.get("status") == "skipped":
@@ -706,7 +706,7 @@ def _h03_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         headers=["Metric", "Test", "Statistic", "p-value", "Effect Size", "Interpretation"],
         rows=rows,
         title=(
-            "H-03 — Time-to-Detect & Time-to-Mitigate across categories "
+            "H3 — Time-to-Detect & Time-to-Mitigate across categories "
             "(Kruskal\u2013Wallis + pairwise Mann\u2013Whitney U with "
             "Holm-Bonferroni, Vargha-Delaney A\u2081\u2082 effect size)"
         ),
@@ -714,7 +714,7 @@ def _h03_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
 
 
 def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-04 combined table covering detection + mitigation rates.
+    """H4 combined table covering detection + mitigation rates.
 
     Mirrors the framework HTML format: one row per metric showing the
     contingency table inline plus the χ² omnibus statistic and p-value.
@@ -757,7 +757,7 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         ],
         rows=rows,
         title=(
-            "H-04 — Detection-rate & Mitigation-rate uniformity across "
+            "H4 — Detection-rate & Mitigation-rate uniformity across "
             "categories (Chi-Square test on contingency table; Fisher's "
             "Exact fallback)"
         ),
@@ -765,7 +765,7 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
 
 
 def _h05_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H-05 combined table covering TTD + TTM variance / CV.
+    """H5 combined table covering TTD + TTM variance / CV.
 
     Mirrors the framework HTML format: a Levene omnibus row per metric
     followed by per-category CV rows tagged with stability interpretation.
@@ -821,7 +821,7 @@ def _h05_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         ],
         rows=rows,
         title=(
-            "H-05 — Time-to-Detect & Time-to-Mitigate variance homogeneity "
+            "H5 — Time-to-Detect & Time-to-Mitigate variance homogeneity "
             "& per-category stability (Levene's Test + Coefficient of "
             "Variation)"
         ),
@@ -833,7 +833,7 @@ def _combined_section9_strip(
     combined_label: str,
     sub_strips: list[tuple[str, dict | None]],
 ) -> dict | None:
-    """Merge per-metric strips for H-03 / H-04 / H-05 into one strip.
+    """Merge per-metric strips for H3 / H4 / H5 into one strip.
 
     Facts from each input strip are prefixed with the metric label so the
     chips remain self-describing. Verdict is the worst across inputs.
@@ -895,7 +895,7 @@ def build_overlay_skeleton(ctx: Any) -> HypothesisOverlay:
     hyp_block = getattr(ctx, "statistical_hypothesis", {}) or {}
     overlay.ground_truth_provided = hyp_block.get("ground_truth_provided", True)
 
-    # ── H-01 (continuous metrics → §5 inline strips)
+    # ── H1 (continuous metrics → §5 inline strips)
     for metric_key, h01_metric in (results.get("h01") or {}).items():
         if not isinstance(h01_metric, dict):
             continue
@@ -903,7 +903,7 @@ def build_overlay_skeleton(ctx: Any) -> HypothesisOverlay:
         if strip is not None:
             overlay.inline_strips.setdefault(metric_key, []).append(strip)
 
-    # ── H-02 (rate metrics → §6 inline strips)
+    # ── H2 (rate metrics → §6 inline strips)
     for metric_key, h02_metric in (results.get("h02") or {}).items():
         if not isinstance(h02_metric, dict):
             continue
@@ -911,30 +911,30 @@ def build_overlay_skeleton(ctx: Any) -> HypothesisOverlay:
         if strip is not None:
             overlay.inline_strips.setdefault(metric_key, []).append(strip)
 
-    # ── H-03 / H-04 / H-05 (§9) — ONE combined table + strip per
+    # ── H3 / H4 / H5 (§9) — ONE combined table + strip per
     #     hypothesis covering both relevant metrics. tool_calls is excluded.
     _section9_specs = [
         (
-            "h03", "H-03", "h03_section_blocks",
+            "h03", "H3", "h03_section_blocks",
             _SECTION9_LATENCY_METRICS,
             _h03_combined_table,
-            "H-03 — Time-to-Detect & Time-to-Mitigate",
+            "H3 — Time-to-Detect & Time-to-Mitigate",
             "Cross-Category Latency Significance",
             "Time-to-Detect & Time-to-Mitigate",
         ),
         (
-            "h04", "H-04", "h04_section_blocks",
+            "h04", "H4", "h04_section_blocks",
             _SECTION9_RATE_METRICS,
             _h04_combined_table,
-            "H-04 — Detection & Mitigation Rates",
+            "H4 — Detection & Mitigation Rates",
             "Cross-Category Detection & Mitigation Uniformity",
             "Detection & Mitigation Rates",
         ),
         (
-            "h05", "H-05", "h05_section_blocks",
+            "h05", "H5", "h05_section_blocks",
             _SECTION9_LATENCY_METRICS,
             _h05_combined_table,
-            "H-05 — Time-to-Detect & Time-to-Mitigate",
+            "H5 — Time-to-Detect & Time-to-Mitigate",
             "Variance Homogeneity & Stability",
             "Time-to-Detect & Time-to-Mitigate",
         ),
@@ -960,28 +960,28 @@ def build_overlay_skeleton(ctx: Any) -> HypothesisOverlay:
             block_list.append(tbl)
         block_list.append(combined_strip)
 
-    # ── H-06..H-09 (§10) — combined TTD + TTM tables (no tool_calls).
+    # ── H6..H9 (§10) — combined TTD + TTM tables (no tool_calls).
     _SECTION10_SPECS = [
         (
-            "h06", "H-06", "h06_section_blocks",
+            "h06", "H6", "h06_section_blocks",
             _SECTION9_LATENCY_METRICS,
             _h06_combined_table,
             "SLA Threshold Compliance",
         ),
         (
-            "h07", "H-07", "h07_section_blocks",
+            "h07", "H7", "h07_section_blocks",
             _SECTION9_LATENCY_METRICS,
             _h07_combined_table,
             "SLA Breach Rate",
         ),
         (
-            "h08", "H-08", "h08_section_blocks",
+            "h08", "H8", "h08_section_blocks",
             _SECTION9_LATENCY_METRICS,
             _h08_combined_table,
             "Tail-Risk Analysis",
         ),
         (
-            "h09", "H-09", "h09_section_blocks",
+            "h09", "H9", "h09_section_blocks",
             _SECTION9_LATENCY_METRICS,
             _h09_combined_table,
             "Temporal Stability",
@@ -1062,7 +1062,7 @@ def _llm_one_strip(client, strip: dict) -> tuple[str | None, dict | None]:
 async def _enrich_strips_with_llm(overlay: HypothesisOverlay) -> HypothesisOverlay:
     """Run the LLM findings pass over every strip in the overlay.
 
-    The H-03..H-09 ``*_section_blocks`` lists contain a mix of headings,
+    The H3..H9 ``*_section_blocks`` lists contain a mix of headings,
     tables, and strips — we filter to ``hypothesis_strip`` blocks only
     before dispatching to the LLM.
     """
@@ -1333,7 +1333,7 @@ async def build_hypothesis_overlay(
             overlay.fallbacks_used = True
             overlay.errors.append(f"hypothesis_overlay: {exc}")
 
-        # §3.3 Statistical Findings — single LLM call synthesizing H-01..H-09
+        # §3.3 Statistical Findings — single LLM call synthesizing H1..H9
         # headlines, PLUS 2 limitations and 1 recommendation. Errors and timeouts
         # are tolerated: assembler falls back to all-Council items when stat items unavailable.
         try:

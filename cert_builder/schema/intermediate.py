@@ -67,6 +67,7 @@ ChartModel = RadarChartData | GroupedBarChartData | StackedBarChartData | Heatma
 class ChartsResult(BaseModel):
     """Phase 2C output: all 9 charts."""
     charts: dict[str, ChartModel]
+    mean_tokens: dict[str, Any] = {}  # {"mean_input_tokens": float, "mean_output_tokens": float}
 
 
 # ── Assessments (Phase 2D) ──────────────────────────────────────────
@@ -110,3 +111,4 @@ class ComputedContent(BaseModel):
     assessments: dict[str, Any]
     hardcoded: dict[str, Any]
     cards: dict[str, Any]
+    mean_tokens: dict[str, Any] = {}  # {"mean_input_tokens": float, "mean_output_tokens": float}

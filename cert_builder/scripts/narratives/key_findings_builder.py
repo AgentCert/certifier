@@ -45,10 +45,12 @@ class KeyFindingsResponse(BaseModel):
 
 class KeyFindingsSynthesis(BaseModel):
     """Envelope for Call 2 output."""
-    items:       list[KeyFinding] = Field(..., min_length=5, max_length=7)
-    source:      Literal["llm", "fallback"] = "llm"
-    model:       str | None = None
-    tokens_used: int = Field(default=0, ge=0)
+    items:          list[KeyFinding] = Field(..., min_length=5, max_length=7)
+    source:         Literal["llm", "fallback"] = "llm"
+    model:          str | None = None
+    tokens_used:    int = Field(default=0, ge=0)
+    input_tokens:   int = Field(default=0, ge=0)
+    output_tokens:  int = Field(default=0, ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +84,6 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     for key, label, fmt in [
         ("fault_detection_success_rate", "Detection %", lambda v: f"{v*100:.0f}%"),
         ("fault_mitigation_success_rate", "Mitigation %", lambda v: f"{v*100:.0f}%"),
-        ("false_negative_rate", "False Neg %", lambda v: f"{v*100:.0f}%"),
     ]:
         rows.append(_row(label, [fmt(c["derived"][key]) for c in cats]))
 
@@ -211,11 +212,11 @@ def _format_hypothesis_results_for_llm(hypothesis_data: dict) -> str:
     
     lines = []
     
-    # H-01: Continuous metrics with confidence intervals
+    # H1: Continuous metrics with confidence intervals
     h01 = results.get("h01") or {}
     if h01:
         lines.append("CONTINUOUS METRICS WITH CONFIDENCE INTERVALS (IQM + BCa 95% CI):")
-        # Extract ALL metrics from H-01
+        # Extract ALL metrics from H1
         for metric_name, metric_data in h01.items():
             if isinstance(metric_data, dict) and metric_data:
                 metric_label = metric_name.replace("_", "-").title()
@@ -230,11 +231,11 @@ def _format_hypothesis_results_for_llm(hypothesis_data: dict) -> str:
                         # Likely seconds or other unit
                         lines.append(f"  {metric_label}: {iqm:.1f}s [95% CI: {ci_lower:.1f}s, {ci_upper:.1f}s]")
     
-    # H-02: Success rates with safety floor (Wilson 95% CI)
+    # H2: Success rates with safety floor (Wilson 95% CI)
     h02 = results.get("h02") or {}
     if h02:
         lines.append("\nSUCCESS RATES WITH SAFETY FLOOR (Wilson 95% CI):")
-        # Extract ALL metrics from H-02
+        # Extract ALL metrics from H2
         for metric_name, metric_data in h02.items():
             if isinstance(metric_data, dict) and metric_data:
                 metric_label = metric_name.replace("_", "-").title()
@@ -254,7 +255,7 @@ def _format_hypothesis_results_for_llm(hypothesis_data: dict) -> str:
                     wilson_u = (metric_data.get("wilson_upper", 1.0) * 100.0)
                     lines.append(f"  {metric_label} (overall): [{wilson_l:.1f}%, {wilson_u:.1f}%] (95% CI)")
     
-    # H-03: Cross-category uniformity tests
+    # H3: Cross-category uniformity tests
     h03 = results.get("h03") or {}
     if h03:
         lines.append("\nCROSS-CATEGORY UNIFORMITY TESTS (Kruskal-Wallis):")
@@ -265,7 +266,7 @@ def _format_hypothesis_results_for_llm(hypothesis_data: dict) -> str:
                 sig = metric_data.get("omnibus_significant", False)
                 lines.append(f"  {metric_label}: p={kw_p}, Significant={sig}")
     
-    # H-04: Detection rate uniformity (Chi-squared)
+    # H4: Detection rate uniformity (Chi-squared)
     h04 = results.get("h04") or {}
     if h04:
         lines.append("\nDETECTION RATE UNIFORMITY (Chi-Squared Test):")
@@ -277,7 +278,7 @@ def _format_hypothesis_results_for_llm(hypothesis_data: dict) -> str:
                 sig = metric_data.get("significant", False)
                 lines.append(f"  {metric_label}: χ²={chi}, p={p}, Significant={sig}")
     
-    # H-05: Variance stability (Levene test)
+    # H5: Variance stability (Levene test)
     h05 = results.get("h05") or {}
     if h05:
         lines.append("\nVARIANCE STABILITY (Levene Test):")
@@ -314,45 +315,45 @@ def _build_statistical_findings_block(phase1: dict) -> str:
     
     findings_text = []
     
-    # H-01: Detection rate floor
+    # H1: Detection rate floor
     h01 = (inner.get("h01") or {}).get("fault_detection_success_rate") or {}
     if h01:
         floor = (h01.get("wilson_lower") or 0.0) * 100.0
-        findings_text.append(f"H-01: Detection rate certified floor is {floor:.1f}%")
+        findings_text.append(f"H1: Detection rate certified floor is {floor:.1f}%")
     
-    # H-02: Weakest per-category floor
+    # H2: Weakest per-category floor
     h02 = (inner.get("h02") or {}).get("fault_detection_success_rate") or {}
     per_cat_h02 = h02.get("per_category") or []
     if per_cat_h02:
         worst = min(per_cat_h02, key=lambda c: c.get("wilson_lower", 1.0))
         cat_label = (worst.get("category") or "").replace("_fault", "").title() or "—"
         floor = (worst.get("wilson_lower") or 0.0) * 100.0
-        findings_text.append(f"H-02: Weakest per-category detection floor is {cat_label} at {floor:.1f}%")
+        findings_text.append(f"H2: Weakest per-category detection floor is {cat_label} at {floor:.1f}%")
     
-    # H-03: Latency disparity
+    # H3: Latency disparity
     h03_ttd = (inner.get("h03") or {}).get("time_to_detect") or {}
     if h03_ttd.get("omnibus_significant"):
         p = h03_ttd.get("omnibus_p", "unknown")
-        findings_text.append(f"H-03: Detection latency differs significantly across categories (Kruskal-Wallis p={p})")
+        findings_text.append(f"H3: Detection latency differs significantly across categories (Kruskal-Wallis p={p})")
     
-    # H-04: Cross-category uniformity
+    # H4: Cross-category uniformity
     h04 = (inner.get("h04") or {}).get("fault_detection_success_rate") or {}
     if h04:
         sig = h04.get("significant")
         chi = h04.get("statistic", "unknown")
         p = h04.get("p_value", "unknown")
         if sig:
-            findings_text.append(f"H-04: Detection rates vary significantly across categories (χ²={chi}, p={p})")
+            findings_text.append(f"H4: Detection rates vary significantly across categories (χ²={chi}, p={p})")
         else:
-            findings_text.append(f"H-04: Detection rates are uniform across categories (χ²={chi}, p={p})")
+            findings_text.append(f"H4: Detection rates are uniform across categories (χ²={chi}, p={p})")
     
-    # H-05: Variance stability
+    # H5: Variance stability
     h05 = (inner.get("h05") or {}).get("time_to_detect") or {}
     unstable = h05.get("unstable_categories") or []
     if unstable:
         names = ", ".join((c.replace("_fault", "").title() for c in unstable))
         p = h05.get("levene_p", "unknown")
-        findings_text.append(f"H-05: Latency variance is unstable in {names} (Levene p={p})")
+        findings_text.append(f"H5: Latency variance is unstable in {names} (Levene p={p})")
     
     return "\n".join(findings_text) if findings_text else "(No statistical findings available.)"
 
@@ -407,6 +408,8 @@ def build_key_findings(phase1: dict, phase2: dict) -> dict:
             source="llm",
             model=result.get("model"),
             tokens_used=result.get("tokens_used", 0),
+            input_tokens=result.get("input_tokens", 0),
+            output_tokens=result.get("output_tokens", 0),
         )
 
     except Exception as exc:

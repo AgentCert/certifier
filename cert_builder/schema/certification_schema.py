@@ -237,6 +237,7 @@ class RadarChartData(BaseModel):
     title: str = Field(..., min_length=1)
     dimensions: list[ScorecardDimension] = Field(..., min_length=1)
     reference_polygons: list[ReferencePolygon] | None = None
+    legend: list[dict] | None = None
 
 
 class GroupedBarChartData(BaseModel):
@@ -404,8 +405,8 @@ class InterpretationScaleBlock(BaseModel):
 
 
 class TaxonomyTableBlock(TableData):
-    """Methodology taxonomy table (H-01..H-09) with optional footnote.
-
+    """Methodology taxonomy table (H1..H9) with optional footnote.
+    
     Distinct from TableBlock so renderers can style the §2.2 framework
     table differently from data tables.
     """
@@ -468,7 +469,7 @@ class HypothesisStripBlock(BaseModel):
     """
     type: Literal["hypothesis_strip"]
     verdict: Literal["pass", "flag", "inconclusive"]
-    hypothesis_id: str = Field(..., min_length=1)          # e.g. "H-01"
+    hypothesis_id: str = Field(..., min_length=1)          # e.g. "H1"
     metric_label: str | None = None                        # e.g. "Time-to-Detect"
     facts: list[HypothesisFact] = Field(default_factory=list)
     method: str | None = None                              # e.g. "IQM (25% trimmed mean) + Bootstrap BCa 95% CI, B = 10,000."

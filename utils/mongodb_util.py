@@ -390,7 +390,7 @@ if __name__ == "__main__":
             "rai_check_notes": "No harmful content detected",
             "security_compliance_status": "Compliant",
             "security_compliance_notes": "No credentials exposed",
-            "reasoning_quality_score": 9.0,
+            "reasoning_quality_score": 0.9,
             "reasoning_quality_notes": "Clear and accurate reasoning",
             "agent_summary": "Agent detected misconfig in payment-service and remediated it.",
         }

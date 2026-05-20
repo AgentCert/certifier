@@ -154,6 +154,12 @@ class FaultBucketingPipeline:
         self._fault_span_event_ids: Dict[str, str] = {}   # event_id → fault_id
         self._event_outcomes: Dict[str, Dict[str, Any]] = {}  # event_id → outcome
 
+        # Run-level token extraction from trace (before fault bucketing)
+        # These are extracted ONCE from the trace to avoid double-counting
+        # across fault buckets (each fault bucket would recount the same spans)
+        self.trace_input_tokens: int = 0
+        self.trace_output_tokens: int = 0
+
     @property
     def total_input_tokens(self) -> int:
         return self._classifier.total_input_tokens
@@ -507,6 +513,57 @@ class FaultBucketingPipeline:
 
         return sorted(events, key=_sort_key)
 
+    def _extract_tokens_from_trace(self, events: List[Dict[str, Any]]) -> None:
+        """
+        Extract input and output tokens from ALL trace spans ONCE, before bucketing.
+        
+        This prevents double-counting tokens when the same spans appear in multiple
+        fault buckets. Tokens are extracted from the Langfuse 'usage' field which
+        contains actual LLM API consumption metrics.
+        
+        Tokens are stored as immutable per-run values in:
+          - self.trace_input_tokens
+          - self.trace_output_tokens
+        
+        These are then passed through Phase 1 → 2 → 3 without recalculation.
+        """
+        total_input = 0
+        total_output = 0
+        
+        for event in events:
+            # Extract usage field (stored as JSON string in Langfuse)
+            usage_str = event.get("usage")
+            if not usage_str:
+                continue
+                
+            try:
+                if isinstance(usage_str, str):
+                    usage_data = json.loads(usage_str)
+                else:
+                    usage_data = usage_str
+                
+                # Langfuse usage format: {"input": N, "output": N, "total": N, ...}
+                input_tokens = usage_data.get("input", 0) or 0
+                output_tokens = usage_data.get("output", 0) or 0
+                
+                total_input += int(input_tokens)
+                total_output += int(output_tokens)
+                
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                if self.debug:
+                    logger.warning(
+                        f"Failed to parse usage field for event {event.get('id', 'unknown')}: {e}"
+                    )
+                continue
+        
+        self.trace_input_tokens = total_input
+        self.trace_output_tokens = total_output
+        
+        logger.info(
+            f"Extracted run-level tokens from trace: input={self.trace_input_tokens}, "
+            f"output={self.trace_output_tokens}"
+        )
+
     # ------------------------------------------------------------------
     # Ground-truth extraction from fault span metadata
     # ------------------------------------------------------------------
@@ -819,9 +876,16 @@ class FaultBucketingPipeline:
             sorted_events = self._sort_events_chronologically(raw_events)
 
             # ----------------------------------------------------------
+            # Extract run-level tokens from trace BEFORE bucketing
+            # This prevents double-counting across fault buckets
+            # ----------------------------------------------------------
+            self._extract_tokens_from_trace(sorted_events)
+
+            # ----------------------------------------------------------
             # Extract agent metadata from the first trace event
             # ----------------------------------------------------------
             self._extract_agent_metadata(sorted_events)
+
 
             # ----------------------------------------------------------
             # Pass 1: Create fault buckets from "fault: *" spans
@@ -1437,7 +1501,14 @@ class FaultBucketingPipeline:
             ),
             "other_detected_faults_count": len(self.other_detected_faults),
             "unclassified_event_count": len(self.unclassified_events),
+            "trace_tokens": {
+                "description": "Tokens extracted ONCE from entire trace (before bucketing) to avoid double-counting",
+                "input_tokens": self.trace_input_tokens,
+                "output_tokens": self.trace_output_tokens,
+                "total_tokens": self.trace_input_tokens + self.trace_output_tokens,
+            },
             "llm_tokens_used": {
+                "description": "Tokens used by LLM classifier to assign events to fault buckets",
                 "input_tokens": self.total_input_tokens,
                 "output_tokens": self.total_output_tokens,
                 "total_tokens": self.total_input_tokens + self.total_output_tokens,
