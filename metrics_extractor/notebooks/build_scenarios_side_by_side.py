@@ -13,6 +13,9 @@ LEGACY_JSON = ROOT / "validate_ttd_logic_scenarios_output.json"
 OUT_HTML = ROOT / "scenarios_side_by_side.html"
 
 # ---------- new-pipeline logic (mirrors metric_scorecard_pipeline.ipynb) ----------
+# Detection-weighted: central tendency over the DETECTED subset, multiplied by
+# detection_rate. Misses contribute via the multiplier, not as 0s injected into
+# the central-tendency input.
 SKEW, IMBAL = 0.15, 0.15
 
 def normalize(value, sla):
@@ -23,59 +26,102 @@ def normalize(value, sla):
         return 1 - 0.85 * r
     return max(0.0, 0.15 - 0.3 * (r - 1.0))
 
+def _central(detected, n_total):
+    """Confidence-tiered central tendency on detected scores only."""
+    if n_total < 3:
+        return None
+    if len(detected) == 0:
+        return 0.0
+    if n_total < 5:
+        return float(detected.mean())
+    if n_total < 20:
+        return float(0.7 * np.median(detected) + 0.3 * np.percentile(detected, 5))
+    return float(0.5 * np.median(detected)
+                 + 0.3 * np.percentile(detected, 5)
+                 + 0.2 * np.percentile(detected, 1))
+
+def _weighted(detected_list, n_total):
+    central = _central(np.array(detected_list), n_total)
+    if central is None:
+        return None, 0.0
+    det_rate = len(detected_list) / n_total if n_total else 0.0
+    return central * det_rate, det_rate
+
 def run_new(data):
     sla = data["sla"]
+    # Tuple shape: (run_id, cat, sub_fault, status, score, compliant)
     pool = []
-    for cats in data["runs"].values():
+    for run_id, cats in data["runs"].items():
         for cat, faults in cats.items():
             for f, ttd in faults.items():
                 s = sla.get(f)
                 if s is None:
-                    pool.append((cat, f, "NO_SLA", None, None))
+                    pool.append((run_id, cat, f, "NO_SLA", None, None))
                 elif ttd is None:
-                    pool.append((cat, f, "MISSING", 0.0, False))
+                    pool.append((run_id, cat, f, "MISSING", 0.0, False))
                 elif ttd <= 0:
-                    pool.append((cat, f, "INVALID_ZERO", 0.0, False))
+                    pool.append((run_id, cat, f, "INVALID_ZERO", 0.0, False))
                 else:
-                    pool.append((cat, f, "VALID", normalize(ttd, s), ttd <= s))
+                    pool.append((run_id, cat, f, "VALID", normalize(ttd, s), ttd <= s))
 
-    in_pool = [p for p in pool if p[2] != "NO_SLA"]
+    in_pool = [p for p in pool if p[3] != "NO_SLA"]
     if not in_pool:
         return {"category": {}, "cumulative": {}}
 
     cat_out = {}
-    for cat in sorted({p[0] for p in in_pool}):
-        rows = [p for p in in_pool if p[0] == cat]
-        scores = np.array([r[3] for r in rows])
-        n_valid = sum(1 for r in rows if r[2] == "VALID")
-        n_compl = sum(1 for r in rows if r[4])
+    for cat in sorted({p[1] for p in in_pool}):
+        rows = [p for p in in_pool if p[1] == cat]
+        detected = [r[4] for r in rows if r[3] == "VALID"]
+        n_compl = sum(1 for r in rows if r[5])
+        n_runs_cat = len({r[0] for r in rows})
+        if detected:
+            cat_central = float(np.median(np.array(detected)))
+            det_rate = len(detected) / len(rows)
+            score = cat_central * det_rate
+        else:
+            score, det_rate = 0.0, 0.0
         cat_out[cat] = {
-            "category_score": round(float(np.median(scores)), 3),
-            "detection_rate": round(n_valid / len(rows), 3),
+            "category_score": round(score, 3),
+            "detection_rate": round(det_rate, 3),
             "sla_compliance": round(n_compl / len(rows), 3),
-            "n": len(rows),
+            "n": n_runs_cat,
         }
 
-    scores = np.array([p[3] for p in in_pool])
-    median = float(np.median(scores))
-    mean = float(scores.mean())
-    mean_cats = float(np.mean([c["category_score"] for c in cat_out.values()]))
-    n_valid = sum(1 for p in in_pool if p[2] == "VALID")
-    n_compl = sum(1 for p in in_pool if p[4])
-    n_no_sla = sum(1 for p in pool if p[2] == "NO_SLA")
+    detected_all = [p[4] for p in in_pool if p[3] == "VALID"]
+    n_obs = len(in_pool)
+    n_runs = len({p[0] for p in in_pool})
+    n_valid = len(detected_all)
+    n_compl = sum(1 for p in in_pool if p[5])
+    n_no_sla = sum(1 for p in pool if p[3] == "NO_SLA")
+
+    if n_valid:
+        d_median = float(np.median(detected_all))
+        det_rate = n_valid / n_obs
+        headline = d_median * det_rate
+    else:
+        d_median = 0.0
+        det_rate = 0.0
+        headline = 0.0
 
     flags = []
-    if abs(mean - median) > SKEW: flags.append("skewed_distribution")
-    if abs(mean_cats - median) > IMBAL: flags.append("mixed_category_health")
-    if n_no_sla: flags.append(f"{n_no_sla}_obs_excluded_no_sla")
+    if n_valid >= 2:
+        det_arr = np.array(detected_all)
+        if abs(float(det_arr.mean()) - d_median) > SKEW:
+            flags.append("skewed_distribution")
+    if len(cat_out) >= 2:
+        scores = [c["category_score"] for c in cat_out.values()]
+        if max(scores) - min(scores) > IMBAL:
+            flags.append("mixed_category_health")
+    if n_no_sla:
+        flags.append(f"{n_no_sla}_obs_excluded_no_sla")
 
     return {
         "category": cat_out,
         "cumulative": {
-            "cumulative_score": round(median, 3),
-            "detection_rate": round(n_valid / len(in_pool), 3),
-            "sla_compliance": round(n_compl / len(in_pool), 3),
-            "n_attempted": len(in_pool),
+            "cumulative_score": round(headline, 3),
+            "detection_rate": round(det_rate, 3),
+            "sla_compliance": round(n_compl / n_obs, 3),
+            "n_attempted": n_runs,
             "quality_flags": flags or ["none"],
         },
     }
@@ -159,10 +205,11 @@ VERDICTS = {
     "scenario2_null_heavy": {
         "winner": "new",
         "text": "Legacy reports 0.16 / 0.21 for an agent that misses 67% of faults — a number "
-                "no single run actually produced. New reports <b>0.0</b> with "
-                "<code>detection_rate=0.33</code> and <code>skewed_distribution</code> flag: "
-                "the typical attempt failed, and the flag tells the customer the tail of "
-                "successful detects is being hidden. Honest signal beats inflated average.",
+                "no single run actually produced. New reports a <b>detection-weighted</b> headline: "
+                "<code>median(detected) × detection_rate</code>. The headline is non-zero (the "
+                "successful tail scored ~0.4 on average), but is heavily discounted by the 33% "
+                "detection rate. Customer sees both signals fused into one honest number, plus "
+                "<code>detection_rate</code> reported alongside for clarity.",
     },
     "scenario3_low_variance": {
         "winner": "tie",
@@ -173,10 +220,10 @@ VERDICTS = {
     "scenario4_sla_breach": {
         "winner": "new",
         "text": "80% of detects breach SLA. Legacy mean (0.12 / 0.14) is inflated by the 20% "
-                "within-SLA tail — a customer reads it as 'weakly okay'. New median "
-                "(<b>0.07</b>) sits inside the breach band where the typical attempt actually "
-                "lives, and <code>sla_compliance=0.24</code> tells the rest of the story: "
-                "agent detects fine but is consistently too slow.",
+                "within-SLA tail — a customer reads it as 'weakly okay'. New <code>median(detected) "
+                "× detection_rate</code> lands very low (breach band × high detection); "
+                "<code>sla_compliance</code> shows the rest of the story: agent detects fine but "
+                "is consistently too slow.",
     },
     "scenario5_small_sample": {
         "winner": "new-with-caveat",
@@ -190,12 +237,14 @@ VERDICTS = {
     "scenario6_category_imbalance": {
         "winner": "new",
         "text": "Two categories, very different health: resource_fault healthy (~0.65), "
-                "network_fault failing (0.00 with 67% miss rate). Legacy reports each category "
+                "network_fault failing (0.0 with 33% detection). Legacy reports each category "
                 "separately but provides no single headline that surfaces the imbalance — the "
-                "consumer has to spot it by eye. New pipeline's <code>cumulative_score=0.644</code> "
-                "comes with a <code>mixed_category_health</code> flag that says explicitly: "
-                "<em>the categories disagree, don't trust the headline alone</em>. This is the "
-                "single flag the new pipeline was designed for.",
+                "consumer has to spot it by eye. New pipeline emits a detection-weighted "
+                "<code>cumulative_score</code> that's discounted by the failing category, "
+                "plus a <code>mixed_category_health</code> flag that says explicitly: "
+                "<em>the categories disagree, don't trust the headline alone</em>. Failing "
+                "network category drops to ~0.26 (still non-zero — surfaces the successful "
+                "detect-tail) rather than flat 0.",
     },
     "scenario7a_small_n_baseline": {
         "winner": "tie",
@@ -281,8 +330,8 @@ for s in scenarios:
         </div>
         <div class="col new">
           <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
-          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
-             Category = median of pool. Cumulative + quality_flags.</p>
+          <p class="hint">Detection-weighted: pool every obs, separate detected vs missed,
+             score = <code>detection_rate × median(detected)</code>. NO_SLA flagged.</p>
           {new_tables(s['new'])}
         </div>
       </div>
