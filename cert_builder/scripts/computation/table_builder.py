@@ -63,7 +63,7 @@ def _fmt_time(val):
 
 
 def _h01_per_cat_lookup(sh, metric_key):
-    """Return {category: per-category record} from H-01 for a given metric.
+    """Return {category: per-category record} from H1 for a given metric.
 
     Returns empty dict when statistical_hypothesis is missing or skipped.
     """
@@ -77,7 +77,7 @@ def _h01_per_cat_lookup(sh, metric_key):
 
 
 def _h02_per_cat_lookup(sh, metric_key):
-    """Return {category: per-category record} from H-02 for a given metric."""
+    """Return {category: per-category record} from H2 for a given metric."""
     if not sh or sh.get("status") != "ok":
         return {}
     inner = _safe_get(sh, "results", "results", default={}) or {}
@@ -534,8 +534,8 @@ def build_all_tables(categories, sh=None):
 
     When ``sh`` (statistical_hypothesis dict from parsed_context) is provided
     AND has status == 'ok', TTD/TTM stats tables include IQM + BCa CI columns
-    from H-01, and the detection-rates table includes Wilson CI + Certified
-    Floor columns from H-02.
+    from H1, and the detection-rates table includes Wilson CI + Certified
+    Floor columns from H2.
     """
     result = TablesResult.model_validate({
         "tables": {

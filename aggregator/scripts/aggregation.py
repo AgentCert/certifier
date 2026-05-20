@@ -257,6 +257,116 @@ class DirectoryQueryService:
 
 
 # ---------------------------------------------------------------------------
+# Pipeline Token Tracking
+# ---------------------------------------------------------------------------
+
+
+class PipelineTokenTracker:
+    """Accumulates LLM tokens across pipeline phases for final reporting."""
+
+    def __init__(self):
+        self.phase_0_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        self.phase_1_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        self.phase_2_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        self.phase_3_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+
+    def set_phase_0_tokens(self, tokens: Dict[str, int]) -> None:
+        """Set Phase 0 (Fault Analyzer) tokens."""
+        if tokens:
+            self.phase_0_tokens = tokens.copy()
+
+    def set_phase_1_tokens(self, tokens: Dict[str, int]) -> None:
+        """Set Phase 1 (Metrics Extractor) tokens (average across faults)."""
+        if tokens:
+            self.phase_1_tokens = tokens.copy()
+
+    def add_phase_2_tokens(self, tokens: Dict[str, int]) -> None:
+        """Accumulate Phase 2 (Aggregator/LLM Council) tokens."""
+        if tokens:
+            self.phase_2_tokens["input_tokens"] += tokens.get("input_tokens", 0)
+            self.phase_2_tokens["output_tokens"] += tokens.get("output_tokens", 0)
+            self.phase_2_tokens["total_tokens"] += tokens.get("total_tokens", 0)
+
+    def set_phase_3_tokens(self, tokens: Dict[str, int]) -> None:
+        """Set Phase 3 (Certification Builder) tokens."""
+        if tokens:
+            self.phase_3_tokens = tokens.copy()
+
+    def build_report(self) -> Dict[str, Any]:
+        """Build final pipeline token report across all phases."""
+        total_input = (
+            self.phase_0_tokens.get("input_tokens", 0) +
+            self.phase_1_tokens.get("input_tokens", 0) +
+            self.phase_2_tokens.get("input_tokens", 0) +
+            self.phase_3_tokens.get("input_tokens", 0)
+        )
+        total_output = (
+            self.phase_0_tokens.get("output_tokens", 0) +
+            self.phase_1_tokens.get("output_tokens", 0) +
+            self.phase_2_tokens.get("output_tokens", 0) +
+            self.phase_3_tokens.get("output_tokens", 0)
+        )
+        total_all = total_input + total_output
+
+        return {
+            "phase_0_fault_analyzer": self.phase_0_tokens,
+            "phase_1_metrics_extractor": self.phase_1_tokens,
+            "phase_2_aggregator": self.phase_2_tokens,
+            "phase_3_certification_builder": self.phase_3_tokens,
+            "totals": {
+                "input_tokens": total_input,
+                "output_tokens": total_output,
+                "total_tokens": total_all,
+            },
+        }
+
+
+def _calculate_phase_0_1_tokens(all_docs: List[Dict[str, Any]]) -> tuple[Dict[str, int], Dict[str, int]]:
+    """Extract Phase 0 and Phase 1 tokens from metrics documents.
+    
+    Phase 0: Extracted from manifest during metrics extraction, stored in metrics docs as phase_0_tokens.
+             Note: Phase 0 is run-level (not fault-level), so multiple metrics docs from the same run
+             have identical phase_0_tokens. Deduplicate by run_id to avoid over-counting.
+    Phase 1: Extracted from token_usage field in metrics documents (LLM extraction tokens).
+             Each metrics doc (fault × run) gets its own token_usage.
+    
+    Returns: (phase_0_tokens, phase_1_tokens) - sum of tokens across all documents
+    """
+    phase_0_total = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    phase_1_total = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    
+    # Deduplicate Phase 0 tokens by run_id (since Phase 0 is run-level, not fault-level)
+    phase_0_by_run: Dict[str, Dict[str, int]] = {}
+    
+    for doc in all_docs:
+        run_id = doc.get("run_id")
+        
+        # Phase 0: Store once per run_id to avoid double-counting
+        if run_id and run_id not in phase_0_by_run:
+            phase_0_tokens = doc.get("phase_0_tokens", {})
+            if phase_0_tokens is not None:
+                phase_0_by_run[run_id] = phase_0_tokens
+        
+        # Phase 1: Tokens from metrics extraction (one per metrics doc)
+        token_usage = doc.get("token_usage", {})
+        input_tokens = token_usage.get("input_tokens")
+        output_tokens = token_usage.get("output_tokens")
+        
+        if input_tokens is not None and output_tokens is not None:
+            phase_1_total["input_tokens"] += input_tokens
+            phase_1_total["output_tokens"] += output_tokens
+            phase_1_total["total_tokens"] += input_tokens + output_tokens
+    
+    # Sum Phase 0 tokens across all unique runs
+    for tokens_dict in phase_0_by_run.values():
+        phase_0_total["input_tokens"] += tokens_dict.get("input_tokens", 0)
+        phase_0_total["output_tokens"] += tokens_dict.get("output_tokens", 0)
+        phase_0_total["total_tokens"] += tokens_dict.get("total_tokens", 0)
+    
+    return phase_0_total, phase_1_total
+
+
+# ---------------------------------------------------------------------------
 # Scorecard assembly
 # ---------------------------------------------------------------------------
 
@@ -530,6 +640,7 @@ class AggregationOrchestrator:
         self,
         fault_category: str,
         agent_id: Optional[str] = None,
+        token_tracker: Optional[PipelineTokenTracker] = None,
     ) -> Dict[str, Any]:
         """
         Full aggregation pipeline for a single fault category.
@@ -584,6 +695,9 @@ class AggregationOrchestrator:
                 f"Completed LLM Council synthesis for {len(textual_aggs)} textual metrics "
                 f"(tokens: {textual_usage})"
             )
+            # Track Phase 2 tokens if tracker provided
+            if token_tracker:
+                token_tracker.add_phase_2_tokens(textual_usage)
 
             # Step 5b: Synthesize known_limitations & recommendations
             fault_names = set()
@@ -607,6 +721,9 @@ class AggregationOrchestrator:
                 f"Synthesized known_limitations and recommendations "
                 f"(tokens: {synthesis_usage})"
             )
+            # Track Phase 2 tokens if tracker provided
+            if token_tracker:
+                token_tracker.add_phase_2_tokens(synthesis_usage)
 
             # Step 6: Assemble category scorecard
             scorecard = self.assembler.assemble_category_scorecard(
@@ -692,6 +809,10 @@ class AggregationOrchestrator:
             category_scorecards: List[Dict[str, Any]] = []
             # Distinct run_ids that contributed to at least one mapped category.
             successful_run_ids: set = set()
+            
+            # Initialize token tracker for pipeline Phase 0-2
+            token_tracker = PipelineTokenTracker()
+            all_docs_for_tokens: List[Dict[str, Any]] = []
 
             # If validation failed, skip aggregation and proceed directly to Phase 3
             if not metrics_validation_failed:
@@ -699,12 +820,14 @@ class AggregationOrchestrator:
                     scorecard = await self.aggregate_fault_category(
                         fault_category=category,
                         agent_id=agent_id or None,
+                        token_tracker=token_tracker,
                     )
                     category_scorecards.append(scorecard)
                     cat_docs = self.query_service.query_runs_by_fault_category(
                         category, agent_id=agent_id or None
                     )
                     successful_run_ids.update(_distinct_run_ids(cat_docs))
+                    all_docs_for_tokens.extend(cat_docs)
                 logger.info(
                     f"Completed aggregation for {len(category_scorecards)} fault categories"
                 )
@@ -769,6 +892,90 @@ class AggregationOrchestrator:
 
             # ── Attach metrics validation flag ──
             final_scorecard["metrics_validation_failed"] = metrics_validation_failed
+
+            # ── Collect Phase 0-1 tokens and build final pipeline_tokens ──
+            try:
+                phase_0_tokens, phase_1_tokens = _calculate_phase_0_1_tokens(all_docs_for_tokens)
+                token_tracker.set_phase_0_tokens(phase_0_tokens)
+                token_tracker.set_phase_1_tokens(phase_1_tokens)
+                pipeline_tokens = token_tracker.build_report()
+                final_scorecard["pipeline_tokens"] = pipeline_tokens
+                logger.info(
+                    f"Pipeline token report: "
+                    f"Phase 0={pipeline_tokens['phase_0_fault_analyzer'].get('total_tokens', 0)}, "
+                    f"Phase 1={pipeline_tokens['phase_1_metrics_extractor'].get('total_tokens', 0)}, "
+                    f"Phase 2={pipeline_tokens['phase_2_aggregator'].get('total_tokens', 0)}, "
+                    f"Phase 3={pipeline_tokens['phase_3_certification_builder'].get('total_tokens', 0)}, "
+                    f"TOTAL={pipeline_tokens['totals'].get('total_tokens', 0)}"
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"Pipeline token collection failed, continuing without pipeline_tokens: {exc}",
+                    exc_info=True,
+                )
+                final_scorecard["pipeline_tokens"] = {
+                    "phase_0_fault_analyzer": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                    "phase_1_metrics_extractor": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                    "phase_2_aggregator": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                    "phase_3_certification_builder": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                    "totals": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                }
+
+            # ── Collect run-level tokens (deduplicate by run_id) ──
+            # trace_tokens is run-level data; multiple faults in same run have identical values.
+            # Use dict to deduplicate by run_id, keeping first occurrence.
+            try:
+                seen_run_ids = {}
+                total_docs_checked = 0
+                for category in categories:
+                    docs = self.query_service.query_runs_by_fault_category(
+                        category, agent_id=agent_id or None
+                    )
+                    logger.debug(f"Token collection: category='{category}' has {len(docs)} docs")
+                    total_docs_checked += len(docs)
+                    
+                    for doc in docs:
+                        run_id = _extract_run_id(doc)
+                        if not run_id or run_id in seen_run_ids:
+                            continue  # Skip empty or duplicate run_ids
+                        
+                        trace_tokens = doc.get("trace_tokens", {})
+                        input_tok = trace_tokens.get("input_tokens")
+                        output_tok = trace_tokens.get("output_tokens")
+                        
+                        if input_tok is not None and output_tok is not None:
+                            seen_run_ids[run_id] = {
+                                "input_tokens": input_tok,
+                                "output_tokens": output_tok,
+                            }
+                        else:
+                            logger.debug(
+                                f"Skipping run_id='{run_id}': trace_tokens missing or incomplete "
+                                f"(input={input_tok}, output={output_tok})"
+                            )
+                
+                # Extract deduplicated token lists
+                run_level_tokens = {
+                    "run_ids": list(seen_run_ids.keys()),
+                    "input_tokens": [v["input_tokens"] for v in seen_run_ids.values()],
+                    "output_tokens": [v["output_tokens"] for v in seen_run_ids.values()],
+                }
+                
+                final_scorecard["run_level_tokens"] = run_level_tokens
+                logger.info(
+                    f"Collected {len(run_level_tokens['run_ids'])} unique run-level token entries "
+                    f"(deduplicated from {total_docs_checked} total docs across {len(categories)} categories)"
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"Token collection failed, continuing without token data: {exc}",
+                    exc_info=True,
+                )
+                final_scorecard["run_level_tokens"] = {
+                    "run_ids": [],
+                    "input_tokens": [],
+                    "output_tokens": [],
+                }
 
             if store_results:
                 if self.storage is None:

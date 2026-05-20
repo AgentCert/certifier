@@ -50,7 +50,7 @@ class NarrativeAssembler:
         """Run all 6 LLM calls and merge into a single dict.
 
         Returns:
-            Combined dict with narrative outputs + metadata.
+            Combined dict with narrative outputs + metadata + phase_3_tokens.
         """
         t0 = time.time()
 
@@ -59,6 +59,7 @@ class NarrativeAssembler:
 
         results = {}
         errors = []
+        phase_3_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
         # Concurrent: Calls 1-5
         outcomes = await asyncio.gather(
@@ -74,6 +75,9 @@ class NarrativeAssembler:
                 errors.append(error)
             elif output:
                 results[phase_id] = output
+                # Extract tokens from each narrative
+                self._accumulate_tokens_from_output(output, phase_3_tokens)
+                print(f"[narrative-assembler] After {phase_id}: {phase_3_tokens}")
 
         # Sequential: Call 6 (depends on limitations output)
         result_limitations = results.get("limitations", {})
@@ -86,6 +90,9 @@ class NarrativeAssembler:
             errors.append(error)
         elif output:
             results["recommendations"] = output
+            # Extract tokens from recommendations
+            self._accumulate_tokens_from_output(output, phase_3_tokens)
+            print(f"[narrative-assembler] After recommendations: {phase_3_tokens}")
 
         # Merge
         merged = {}
@@ -101,7 +108,30 @@ class NarrativeAssembler:
 
         merged["fallbacks_used"] = fallbacks_used
         merged["errors"] = errors
+        merged["phase_3_tokens"] = phase_3_tokens
 
         elapsed = time.time() - t0
         print(f"[narrative-assembler] Done in {elapsed:.1f}s")
+        print(f"[narrative-assembler] Phase 3 tokens: {phase_3_tokens}")
         return merged
+
+    @staticmethod
+    def _accumulate_tokens_from_output(output: dict, phase_3_tokens: dict) -> None:
+        """Extract token counts from each narrative object and accumulate totals.
+        
+        Each output dict has structure: {"narrative_key": {"text": ..., "tokens_used": ..., "input_tokens": ..., "output_tokens": ...}}
+        """
+        for key, value in output.items():
+            if isinstance(value, dict):
+                # Try to get separate input/output tokens first
+                input_tok = value.get("input_tokens")
+                output_tok = value.get("output_tokens")
+                if isinstance(input_tok, int) and isinstance(output_tok, int):
+                    phase_3_tokens["input_tokens"] += input_tok
+                    phase_3_tokens["output_tokens"] += output_tok
+                    phase_3_tokens["total_tokens"] += input_tok + output_tok
+                else:
+                    # Fall back to total_tokens if separate breakdown not available
+                    tokens_used = value.get("tokens_used", 0)
+                    if isinstance(tokens_used, int):
+                        phase_3_tokens["total_tokens"] += tokens_used

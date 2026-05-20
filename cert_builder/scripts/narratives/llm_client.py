@@ -149,6 +149,8 @@ def call_llm(
             )
 
             raw_text = response.choices[0].message.content.strip()
+            input_tokens = response.usage.prompt_tokens if response.usage else 0
+            output_tokens = response.usage.completion_tokens if response.usage else 0
             total_tokens = response.usage.total_tokens if response.usage else 0
             model_name = response.model or deployment
 
@@ -163,6 +165,8 @@ def call_llm(
                 "content": content,
                 "model": model_name,
                 "tokens_used": total_tokens,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
                 "raw_response": raw_text,
             }
 

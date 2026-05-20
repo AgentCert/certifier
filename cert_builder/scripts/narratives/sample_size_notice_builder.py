@@ -66,7 +66,7 @@ def _build_notice_body(
         f"({total_runs} runs total), which is below the framework-mandated "
         f"minimum of n \u2265 {min_required} per category required for valid "
         "statistical inference. As a result, the 9-hypothesis statistical "
-        "framework (H-01 \u2013 H-09) has not been evaluated for this run. "
+        "framework (H1 – H9) has not been evaluated for this run. "
         "Metrics reported below (means, medians, P95, success rates) are "
         "directional indicators only and must not be interpreted as "
         "statistically robust bounds or confidence-certified estimates. "

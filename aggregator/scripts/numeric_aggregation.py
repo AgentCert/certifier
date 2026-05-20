@@ -155,16 +155,19 @@ def compute_numeric_aggregates(
     results["action_correctness"] = compute_stats(vals, ["mean", "median", "std_dev"])
 
     # Response quality score (from reasoning_quality_score)
+    # Note: Scale changed from 0-10 to 0-1; values are normalized if needed
     vals = _extract_numeric_values(docs, "qualitative", "reasoning_quality_score")
+    # Normalize any 0-10 scale values to 0-1 (backwards compatibility)
+    vals = [v / 10.0 if v > 1.0 else v for v in vals]
     agg = compute_stats(vals, ["mean", "median"])
     if agg:
-        agg["scale"] = "0-10"
+        agg["scale"] = "0-1"
     results["response_quality_score"] = agg
 
     # Reasoning score (same source, replicated for scorecard)
     agg = compute_stats(vals, ["mean", "median"])
     if agg:
-        agg["scale"] = "0-10"
+        agg["scale"] = "0-1"
     results["reasoning_score"] = agg
 
     # Hallucination score
@@ -251,7 +254,6 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
         }
 
     groups = _group_docs_by_run(docs)
-    total = len(groups)
 
     detection_success = 0
     mitigation_success = 0
@@ -259,15 +261,9 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
     false_positives = 0
     rai_passed = 0
     security_compliant = 0
+    total_faults = 0
 
     for run_docs in groups.values():
-        run_detect = []
-        run_mitigate = []
-        run_fn = []
-        run_fp = []
-        run_rai = []
-        run_sec = []
-
         for doc in run_docs:
             quant = doc.get("quantitative", {})
             qual = doc.get("qualitative", {})
@@ -281,34 +277,28 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             run_fn.append(not is_detected)
 
             if is_detected and injected_fault_name and detected_fault_type:
-                run_fp.append(detected_fault_type.lower() != injected_fault_name.lower())
-            else:
-                run_fp.append(False)
+                is_fp = detected_fault_type.lower() != injected_fault_name.lower()
+                if is_fp:
+                    false_positives += 1
 
-            run_mitigate.append(quant.get("agent_fault_mitigation_time") is not None)
-            run_rai.append(qual.get("rai_check_status") == "Passed")
-            run_sec.append(qual.get("security_compliance_status") == "Compliant")
+            if quant.get("agent_fault_mitigation_time") is not None:
+                mitigation_success += 1
 
-        if run_detect and all(run_detect):
-            detection_success += 1
-        if run_mitigate and all(run_mitigate):
-            mitigation_success += 1
-        if any(run_fn):
-            false_negatives += 1
-        if any(run_fp):
-            false_positives += 1
-        if run_rai and all(run_rai):
-            rai_passed += 1
-        if run_sec and all(run_sec):
-            security_compliant += 1
+            if qual.get("rai_check_status") == "Passed":
+                rai_passed += 1
+
+            if qual.get("security_compliance_status") == "Compliant":
+                security_compliant += 1
+
+            total_faults += 1
 
     return {
-        "fault_detection_success_rate": round(detection_success / total, precision),
-        "fault_mitigation_success_rate": round(mitigation_success / total, precision),
-        "false_negative_rate": round(false_negatives / total, precision),
-        "false_positive_rate": round(false_positives / total, precision),
-        "rai_compliance_rate": round(rai_passed / total, precision),
-        "security_compliance_rate": round(security_compliant / total, precision),
+        "fault_detection_success_rate": round(detection_success / total_faults, precision) if total_faults > 0 else 0,
+        "fault_mitigation_success_rate": round(mitigation_success / total_faults, precision) if total_faults > 0 else 0,
+        "false_negative_rate": round(false_negatives / total_faults, precision) if total_faults > 0 else 0,
+        "false_positive_rate": round(false_positives / total_faults, precision) if total_faults > 0 else 0,
+        "rai_compliance_rate": round(rai_passed / total_faults, precision) if total_faults > 0 else 0,
+        "security_compliance_rate": round(security_compliant / total_faults, precision) if total_faults > 0 else 0,
     }
 
 

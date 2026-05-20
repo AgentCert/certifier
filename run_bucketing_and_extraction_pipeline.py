@@ -166,6 +166,21 @@ async def run_pipeline(
     logger.info("STEP 2: Metric Extraction from Fault Buckets")
     logger.info("=" * 60)
 
+    # Read trace tokens and Phase 0 tokens from the bucketing manifest
+    trace_tokens_map: Dict[str, Any] = {}
+    phase_0_tokens: Dict[str, Any] = {}
+    manifest_file = buckets_dir / f"{Path(trace_file).stem}_bucketing_manifest.json"
+    if manifest_file.exists():
+        try:
+            with open(manifest_file, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+                trace_tokens_map = manifest.get("trace_tokens", {})
+                phase_0_tokens = manifest.get("llm_tokens_used", {})
+                logger.info(f"Loaded trace tokens from manifest: {trace_tokens_map}")
+                logger.info(f"Loaded Phase 0 (bucketing) tokens from manifest: {phase_0_tokens}")
+        except Exception as exc:
+            logger.warning(f"Could not load tokens from manifest: {exc}")
+
     results: List[Dict[str, Any]] = []
 
     for fault_id, bucket in buckets.items():
@@ -232,6 +247,8 @@ async def run_pipeline(
             "quantitative": quant.model_dump(mode="json"),
             "qualitative": extraction_result.qualitative.model_dump(mode="json"),
             "token_usage": extraction_result.token_usage.to_dict(),
+            "trace_tokens": trace_tokens_map,
+            "phase_0_tokens": phase_0_tokens,
         }
         if extraction_result.mongodb_document_id:
             result_dict["mongodb_document_id"] = extraction_result.mongodb_document_id

@@ -46,10 +46,12 @@ class FaultCategoryAnalysisResponse(BaseModel):
 
 class FaultCategoryAnalysisResult(BaseModel):
     """Envelope for Call 4 output."""
-    categories:  dict[str, dict]
-    source:      Literal["llm", "fallback"] = "llm"
-    model:       str | None = None
-    tokens_used: int = Field(default=0, ge=0)
+    categories:   dict[str, dict]
+    source:       Literal["llm", "fallback"] = "llm"
+    model:        str | None = None
+    tokens_used:  int = Field(default=0, ge=0)
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +237,8 @@ def build_fault_analysis(phase1: dict, phase2: dict) -> dict:
             source="llm",
             model=result.get("model"),
             tokens_used=result.get("tokens_used", 0),
+            input_tokens=result.get("input_tokens", 0),
+            output_tokens=result.get("output_tokens", 0),
         )
 
     except Exception as exc:
