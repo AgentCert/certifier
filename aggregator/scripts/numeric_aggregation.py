@@ -273,10 +273,8 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             injected_fault_name = quant.get("injected_fault_name")
 
             is_detected = agent_fault_detection_time is not None
-            if is_detected:
-                detection_success += 1
-            else:
-                false_negatives += 1
+            run_detect.append(is_detected)
+            run_fn.append(not is_detected)
 
             if is_detected and injected_fault_name and detected_fault_type:
                 is_fp = detected_fault_type.lower() != injected_fault_name.lower()
