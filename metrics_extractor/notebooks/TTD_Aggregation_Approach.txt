@@ -1,0 +1,145 @@
+================================================================================
+TTD AGGREGATION — APPROACH
+================================================================================
+Input    : ttd_by_category[run_id][category][sub_fault] = ttd_seconds | None
+Output   : sub-fault → category → cumulative scores (+ diagnostics)
+Grounded : TTD_TTM_Logic.txt, validate_ttd_logic.ipynb (38 runs, 102 obs, 42 nulls)
+
+
+================================================================================
+PIPELINE (one sentence)
+================================================================================
+
+Normalize each observation against its SLA → median across runs per sub-fault
+→ median across pooled observations per category → median across all pooled
+observations for the agent-level number. Always report detection_rate next
+to every score.
+
+
+================================================================================
+1. OBSERVATION = (run, category, sub_fault)
+================================================================================
+
+For each observation classify, then score:
+
+  if sla is None                       → NO_SLA       (excluded, diagnostics only)
+  elif ttd is None                     → MISSED       (score = 0)
+  elif ttd <= 0                        → INVALID_ZERO (score = 0, treat as miss)
+  else                                 → DETECTED     (score = f(ttd, sla))
+
+`sla_compliant` = DETECTED ∧ ttd ≤ sla.
+
+
+================================================================================
+2. PER-OBSERVATION SCORE  (piecewise, SLA-aware)
+================================================================================
+
+  ratio = ttd / sla
+  if ratio <= 1.0:    score = 1 - 0.85 * ratio                # within SLA
+  else:               score = max(0, 0.15 - 0.3 * (ratio - 1.0))  # breach
+
+  At 0s : 1.00   At SLA : 0.15   At 1.5×SLA : 0.00   Beyond : 0.00
+
+A miss (0) and a severe breach (0) collide on purpose — both are operationally
+unacceptable. Use detection_rate to distinguish them.
+
+
+================================================================================
+3. SUB-FAULT GRAIN (e.g., pod-cpu-hog across runs)
+================================================================================
+
+Pool all observations except NO_SLA. Misses are kept as 0.
+
+  n_attempted    = len(pool)
+  detection_rate = count(DETECTED) / n_attempted
+  sla_compliance = count(sla_compliant) / n_attempted
+  weighted_score = by sample size:
+                     n < 5    → mean(scores)              (confidence LOW)
+                     n < 20   → 0.7*median + 0.3*p5       (MEDIUM)
+                     n ≥ 20   → 0.5*median + 0.3*p5 + 0.2*p1   (HIGH)
+
+p5 and p1 are the WORST 5% / 1% of scores (low score = bad). Surface
+(weighted_score, detection_rate, sla_compliance, confidence, n_attempted)
+together — never collapse to a single number.
+
+
+================================================================================
+4. CATEGORY GRAIN (e.g., resource_fault)
+================================================================================
+
+  category_score          = median of pooled observation scores (excl. NO_SLA)
+  category_detection_rate = sum(n_detected) / sum(n_attempted)
+  per_subfault_breakdown  = §3 output per sub-fault, verbatim
+
+Pooled-observation median means every observation has equal weight regardless
+of which sub-fault produced it. Rare sub-faults aren't drowned by frequent ones.
+
+
+================================================================================
+5. CUMULATIVE TTD (agent-level)
+================================================================================
+
+  cumulative_score          = median of all observation scores, all categories
+  cumulative_detection_rate = global n_detected / global n_attempted
+  category_breakdown        = §4 output per category
+
+Optional second view for diagnostics: mean of category_scores. Flag if it
+differs from cumulative_score by > 0.15 → "category imbalance".
+
+
+================================================================================
+6. NULL / ZERO / NO-SLA POLICY  (one table — the cornerstone)
+================================================================================
+
+  VALUE            STATUS          SCORE   IN SCORE POOL?   IN RAW TTD STATS?
+  None             MISSED          0.0     yes              no
+  0                INVALID_ZERO    0.0     yes              no
+  negative         INVALID_ZERO    0.0     yes (warn)       no
+  positive < sla   DETECTED        f(r)    yes              yes
+  positive ≥ sla   DETECTED        low     yes              yes
+  any, sla=None    NO_SLA          None    NO  (diagnostics) yes (diagnostics)
+
+Every observation lands in exactly one of: score pool, or diagnostics. Never
+both, never neither.
+
+
+================================================================================
+7. EDGE-CASE PLAYBOOK
+================================================================================
+
+  SCENARIO          WHAT HAPPENS                          ACTION
+  ─────────         ─────────                              ──────
+  Normal            Most detected, low variance           Standard §3 (HIGH conf)
+  Null-heavy        detection_rate is the headline        Score will be ~0 correctly;
+                                                          surface detection_rate;
+                                                          if rate=0 → flag CHRONIC_NON_DETECTION
+  Low variance      median ≈ mean ≈ p5                    Standard §3
+  High variance     0.44s … 69.51s span                   Percentile weighting handles it;
+                                                          add cov = stdev/mean; flag if > 0.5
+  SLA breach        Per-obs handled by curve              Add breach_rate = breached/detected;
+                                                          severity buckets: NEAR(1–1.2×),
+                                                          BREACH(1.2–1.5×), SEVERE(>1.5×)
+  Small sample n<5  Stats unstable                        Use mean only, mark LOW confidence;
+                                                          n<3 → no score, raw values only
+  NO_SLA            No groundtruth                        Never impute; diagnostics block;
+                                                          report "k runs not scorable"
+  TTD == 0          Ambiguous                             Default = MISSED. Override at ingest
+                                                          if pipeline can prove instant detect
+  Name drift        e.g. pod-cpu-hoggx2b8                 Strip run-specific suffix regex
+                                                          BEFORE SLA lookup or they go NO_SLA
+
+
+================================================================================
+8. KEY DECISIONS (one-liners)
+================================================================================
+
+  Normalize first, aggregate second. Never average raw TTDs across different SLAs.
+  Misses = score 0, included in score aggregation, excluded from raw TTD stats.
+  NO_SLA never imputed — diagnostics only.
+  Sub-fault grain uses percentile-weighted score (50/30/20) when n ≥ 20.
+  Category & cumulative grain use pooled-observation median (simpler, robust).
+  Always pair every score with detection_rate. Never report a score alone.
+
+================================================================================
+END
+================================================================================

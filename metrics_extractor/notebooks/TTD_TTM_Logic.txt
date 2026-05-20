@@ -1,0 +1,53 @@
+Current Implementation:
+
+**Example (fixed 1800s ceiling):**
+```
+Application:  mean_ttd = 366.3s  → 1 - 366.3/1800 = 0.797
+Network:      mean_ttd = 536.6s  → 1 - 536.6/1800 = 0.702
+Resource:     mean_ttd = 1364.5s → 1 - 1364.5/1800 = 0.242
+Final = avg(0.797, 0.702, 0.242) = 0.58
+
+dict = app:f1,f2
+
+Enhancement 1: Fault-category-Based Scaling
+
+fault_category:
+  network:
+    ttd_threshold: 60          # detect within 60s
+    ttm_threshold: 300         # mitigate within 300s
+  resource:
+    ttd_threshold: 120
+    ttm_threshold: 600
+
+SLA Aware 
+def normalize_speed_sla_aware(mean_seconds, sla_threshold, percentile=None):
+    """
+    SLA-aware normalization with continuous monotonic decay.
+    - Within SLA: 1.0 (at 0s) → 0.15 (at threshold)
+    - Over SLA: 0.15 (at threshold) → 0 (at 1.5x threshold)
+    """
+    if mean_seconds is None or mean_seconds == 0:
+        return 0.0
+    
+    ratio = mean_seconds / sla_threshold
+    
+    if ratio <= 1.0:
+        # Within SLA: linear scale from ~1.0 to 0.15
+        return 1 - ratio * 0.85
+    else:
+        # Over SLA: decay from 0.15 to 0
+        # slope = -0.3 reaches 0 at 1.5x threshold
+        overage_ratio = ratio - 1.0
+        return max(0, 0.15 - overage_ratio * 0.3)
+
+
+Enhancement 2: Percentile-Based Scoring for Reliability
+
+"""
+    Score based on multiple percentiles:
+    - median: 50% weight (typical case)
+    - p95: 30% weight (strong tail)
+    - p99/max: 20% weight (worst case)
+    """
+
+Combining across categories: avg (now); run-weighted avg
