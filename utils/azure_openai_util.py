@@ -1,7 +1,9 @@
 """This module provides an Azure OpenAI client for interacting with Azure OpenAI services."""
 
+import asyncio
 import json
 import os
+import random
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, List, Optional, Type, Union
 
@@ -185,10 +187,12 @@ class AzureLLMClient:
         max_tokens: int = 800,
         system_prompt: str = "",
         logging_extra: Optional[Dict] = None,
+        max_retries: int = 3,
+        initial_delay: float = 1.0,
         **kwargs,
     ) -> tuple:
         """
-        Call the LLM with the given parameters.
+        Call the LLM with exponential backoff + retry for rate limits.
 
         Args:
             model_name: Identifier for the model/agent
@@ -197,60 +201,90 @@ class AzureLLMClient:
             max_tokens: Maximum tokens for completion
             system_prompt: System instructions for the agent
             logging_extra: Additional logging context
+            max_retries: Max retry attempts for 429 errors (default: 3)
+            initial_delay: Initial backoff delay in seconds (default: 1.0)
             **kwargs: Additional arguments
 
         Returns:
-            Tuple of (response_dict, cost)
+            Tuple of (response_dict, usage_dict)
         """
         logging_extra = logging_extra or {}
+        attempt = 0
+        last_exception = None
 
-        try:
-            # Create or get agent
-            agent = self._get_or_create_agent(
-                model_name=model_name,
-                system_prompt=system_prompt,
-            )
-
-            # Convert messages to ChatMessage format
-            chat_messages = self._convert_messages_to_chat_messages(messages)
-
-            # Build generation kwargs — reasoning models (o-series, GPT-5)
-            # don't support temperature.
-            gen_kwargs: Dict[str, Any] = {}
-            if not self.is_reasoning_model(model_name):
-                gen_kwargs["temperature"] = temperature
-
-            # Run the agent
-            result = await agent.run(messages=chat_messages, **gen_kwargs)
-
-            # Try to parse as JSON, otherwise return as text
+        while attempt <= max_retries:
             try:
-                response_text = result.text
-                # Strip markdown code fences if present
-                if response_text.startswith("```json"):
-                    response_text = response_text[7:]
-                if response_text.startswith("```"):
-                    response_text = response_text[3:]
-                if response_text.endswith("```"):
-                    response_text = response_text[:-3]
-                response_content = json.loads(response_text.strip())
-            except json.JSONDecodeError:
-                response_content = {"response": result.text}
+                # Create or get agent
+                agent = self._get_or_create_agent(
+                    model_name=model_name,
+                    system_prompt=system_prompt,
+                )
 
-            return response_content, {
-                "input_tokens": result.usage_details.input_token_count,
-                "output_tokens": result.usage_details.output_token_count,
-                "total_tokens": result.usage_details.total_token_count,
-            }
+                # Convert messages to ChatMessage format
+                chat_messages = self._convert_messages_to_chat_messages(messages)
 
-        except custom_errors.MyCustomError as specific_error:
-            raise specific_error
-        except Exception as e:
-            logger.error(f"Error in call_llm: {str(e)}", extra=logging_extra)
-            raise custom_errors.LLMError(
-                f"Error in {self.__class__.__name__}.call_llm: {str(e)}",
-                e,
-            ) from e
+                # Build generation kwargs — reasoning models (o-series, GPT-5)
+                # don't support temperature.
+                gen_kwargs: Dict[str, Any] = {}
+                if not self.is_reasoning_model(model_name):
+                    gen_kwargs["temperature"] = temperature
+
+                # Run the agent
+                result = await agent.run(messages=chat_messages, **gen_kwargs)
+
+                # Try to parse as JSON, otherwise return as text
+                try:
+                    response_text = result.text
+                    # Strip markdown code fences if present
+                    if response_text.startswith("```json"):
+                        response_text = response_text[7:]
+                    if response_text.startswith("```"):
+                        response_text = response_text[3:]
+                    if response_text.endswith("```"):
+                        response_text = response_text[:-3]
+                    response_content = json.loads(response_text.strip())
+                except json.JSONDecodeError:
+                    response_content = {"response": result.text}
+
+                return response_content, {
+                    "input_tokens": result.usage_details.input_token_count,
+                    "output_tokens": result.usage_details.output_token_count,
+                    "total_tokens": result.usage_details.total_token_count,
+                }
+
+            except custom_errors.MyCustomError as specific_error:
+                raise specific_error
+            except Exception as e:
+                error_str = str(e)
+                is_rate_limit = "429" in error_str or "too_many_requests" in error_str.lower()
+                last_exception = e
+
+                if is_rate_limit and attempt < max_retries:
+                    # Exponential backoff with jitter
+                    delay = initial_delay * (2 ** attempt) + random.uniform(0, 0.1 * (2 ** attempt))
+                    logger.warning(
+                        f"Rate limit hit (429). Retrying in {delay:.2f}s "
+                        f"(attempt {attempt + 1}/{max_retries})...",
+                        extra=logging_extra,
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                else:
+                    logger.error(f"Error in call_llm: {error_str}", extra=logging_extra)
+                    raise custom_errors.LLMError(
+                        f"Error in {self.__class__.__name__}.call_llm: {error_str}",
+                        e,
+                    ) from e
+
+        # All retries exhausted
+        logger.error(
+            f"All {max_retries} retries exhausted for LLM call",
+            extra=logging_extra,
+        )
+        raise custom_errors.LLMError(
+            f"Error in {self.__class__.__name__}.call_llm: All retries exhausted",
+            last_exception,
+        ) from last_exception
 
     async def with_structured_output(
         self,

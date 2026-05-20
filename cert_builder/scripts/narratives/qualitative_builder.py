@@ -84,6 +84,8 @@ class QualitativeSynthesis(BaseModel):
     source:             Literal["llm", "fallback"] = "llm"
     model:              str | None = None
     tokens_used:        int = Field(default=0, ge=0)
+    input_tokens:       int = Field(default=0, ge=0)
+    output_tokens:      int = Field(default=0, ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -118,11 +120,10 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     lines.append("Per-category detection metrics:")
     for c in cats:
         det = c["derived"]["fault_detection_success_rate"]
-        fn = c["derived"]["false_negative_rate"]
         cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         lines.append(
             f"  {c['label']} [{cat_runs} successful runs]: "
-            f"detection_rate={det*100:.0f}%, false_neg={fn*100:.0f}%, "
+            f"detection_rate={det*100:.0f}%, "
             f"TTD mean={_stat(c, 'time_to_detect', 'mean')}s, "
             f"median={_stat(c, 'time_to_detect', 'median')}s, "
             f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
@@ -381,6 +382,8 @@ def build_qualitative_findings(phase1: dict, phase2: dict) -> dict:
             source="llm",
             model=result.get("model"),
             tokens_used=result.get("tokens_used", 0),
+            input_tokens=result.get("input_tokens", 0),
+            output_tokens=result.get("output_tokens", 0),
         )
         _scrub_kn_fractions(synthesis)
 

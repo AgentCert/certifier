@@ -107,7 +107,7 @@ def _pretty_category(raw: str) -> str:
 
 def _h01_ci_bar(per_category: list[dict], *, title: str, y_label: str,
                 reference_lines: list[dict] | None = None) -> dict | None:
-    """Build a `ci_bar` chart from H-01 per-category results (IQM ± BCa CI)."""
+    """Build a `ci_bar` chart from H1 per-category results (IQM ± BCa CI)."""
     points = []
     for row in per_category or []:
         if row.get("iqm") is None:
@@ -131,7 +131,7 @@ def _h01_ci_bar(per_category: list[dict], *, title: str, y_label: str,
 
 def _h02_ci_bar(detection_pc: list[dict], mitigation_pc: list[dict], *,
                  title: str, y_label: str = "Rate (0–1)") -> dict | None:
-    """Build a `ci_bar` chart from H-02 per-category Wilson rates (Detection + Mitigation)."""
+    """Build a `ci_bar` chart from H2 per-category Wilson rates (Detection + Mitigation)."""
     points = []
     def _add(rows, group_name):
         for row in rows or []:
@@ -159,7 +159,7 @@ def _h02_ci_bar(detection_pc: list[dict], mitigation_pc: list[dict], *,
 
 def _h02_compliance_ci_bar(rai_pc: list[dict], security_pc: list[dict], *,
                            title: str, y_label: str = "Rate (0–1)") -> dict | None:
-    """Build a `ci_bar` chart from H-02 per-category Wilson rates (RAI + Security Compliance)."""
+    """Build a `ci_bar` chart from H2 per-category Wilson rates (RAI + Security Compliance)."""
     points = []
     def _add(rows, group_name):
         for row in rows or []:
@@ -444,8 +444,10 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         )
         executed = len(executed_keys)
         if executed:
-            first_id = f"H-{executed_keys[0][1:]}"
-            last_id = f"H-{executed_keys[-1][1:]}"
+            first_num = str(int(''.join(c for c in executed_keys[0] if c.isdigit())))
+            last_num = str(int(''.join(c for c in executed_keys[-1] if c.isdigit())))
+            first_id = f"H{first_num}"
+            last_id = f"H{last_num}"
             hypotheses_tested = (
                 f"{executed} ({first_id})"
                 if first_id == last_id
@@ -475,7 +477,7 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         adequacy_note = (
             f"Statistical adequacy. Each fault category contains ≥ {min_req} "
             "independent runs, meeting the framework-mandated minimum for "
-            "the H-01 – H-09 statistical hypothesis tests. All nine hypotheses "
+            "the H1 – H9 statistical hypothesis tests. All nine hypotheses "
             "were evaluated at full strength."
         )
     elif sh_status == "skipped":
@@ -483,14 +485,14 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         min_req = sh.get("min_required")
         adequacy_note = (
             f"Statistical adequacy. Per-category run counts {observed} fall below "
-            f"the framework-mandated minimum (n ≥ {min_req}) for the H-01 – H-09 "
+            f"the framework-mandated minimum (n ≥ {min_req}) for the H1 – H9 "
             "statistical hypothesis tests. Statistical inference is suppressed "
             "in this report."
         )
     else:
         adequacy_note = (
             "Statistical hypothesis testing was not requested for this run "
-            "(use --advanced-analysis to enable the H-01 – H-09 framework)."
+            "(use --advanced-analysis to enable the H1 – H9 framework)."
         )
 
     # Sample-adequacy table per category.
@@ -525,8 +527,12 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
         _heading("1.2 Experiment Scope"),
         _text(scope_text),
         scope_grid,
-        _text(adequacy_note, style="info"),
     ]
+    
+    # Only add the brief adequacy note if framework is OK or not requested.
+    # When status is "skipped", the detailed notice will be shown instead (no duplication).
+    if sh_status != "skipped":
+        content.append(_text(adequacy_note, style="info"))
 
     # Fault Categories Tested card (one row of pills, one per category).
     if cats:
@@ -581,39 +587,39 @@ def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverla
 
 
 _HYPOTHESIS_TAXONOMY_ROWS = [
-    ["H-01", "CI for Continuous Metrics",
+    ["H1", "CI for Continuous Metrics",
      "How fast does the agent respond — and how confident are we?",
      "Both",
      "IQM, Bootstrap BCa CI (B=10,000)"],
-    ["H-02", "Success Rate with Safety Floor",
+    ["H2", "Success Rate with Safety Floor",
      "What % of faults are caught — and what's the worst-case guarantee?",
      "Both",
      "Wilson CI"],
-    ["H-03", "Cross-Category Comparison",
+    ["H3", "Cross-Category Comparison",
      "Does the agent handle all fault types equally well?",
      "Both",
      "Kruskal-Wallis, Mann-Whitney U, A₁₂, Holm-Bonferroni"],
-    ["H-04", "Success Rate Uniformity",
+    ["H4", "Success Rate Uniformity",
      "Does the agent fail some fault types more often?",
      "Both",
      "Chi-Square Test (Fisher's Exact fallback)"],
-    ["H-05", "Consistency & Predictability",
+    ["H5", "Consistency & Predictability",
      "Is the agent reliable every time, or erratic?",
      "Both",
      "Levene's Test, Coefficient of Variation"],
-    ["H-06", "SLA Threshold Compliance",
+    ["H6", "SLA Threshold Compliance",
      "Can we prove this agent meets the SLA?",
      "SLA-Aware",
      "Wilcoxon signed-rank, TOST, Bootstrap BCa CI"],
-    ["H-07", "SLA Breach Rate",
+    ["H7", "SLA Breach Rate",
      "Is the SLA violation rate below the allowed limit?",
      "SLA-Aware",
      "Exact Binomial, Wilson CI"],
-    ["H-08", "Tail Risk Analysis",
+    ["H8", "Tail Risk Analysis",
      "When the agent fails, how badly does it fail?",
      "Both*",
      "CVaR₉₅, CVaR/IQM ratio"],
-    ["H-09", "Temporal Stability",
+    ["H9", "Temporal Stability",
      "Is the agent getting worse over time?",
      "Both*",
      "CUSUM, EWMA control charts"],
@@ -653,7 +659,7 @@ def _build_statistical_findings(overlay: HypothesisOverlay | None,
     """Synthesize §3.3 deterministic statistical findings from the overlay.
 
     Returns a list of FindingItem dicts (severity + text). Pulls headline
-    facts from H-02, H-03, H-04, H-05 results when available. Returns an
+    facts from H2, H3, H4, H5 results when available. Returns an
     empty list when overlay is suppressed.
     """
     if overlay is None or overlay.suppressed:
@@ -666,7 +672,7 @@ def _build_statistical_findings(overlay: HypothesisOverlay | None,
 
     findings: list[dict] = []
 
-    # H-02: weakest certified floor on detection-rate.
+    # H2: weakest certified floor on detection-rate.
     h02 = (inner.get("h02") or {}).get("fault_detection_success_rate") or {}
     per_cat_h02 = h02.get("per_category") or []
     if per_cat_h02:
@@ -677,12 +683,12 @@ def _build_statistical_findings(overlay: HypothesisOverlay | None,
         findings.append({
             "severity": "concern" if floor < 60.0 else "note",
             "text": (
-                f"H-02 — weakest certified detection-rate floor: {cat_label} "
+                f"H2 — weakest certified detection-rate floor: {cat_label} "
                 f"Wilson 95% CI [{floor:.1f}%, {upper:.1f}%]."
             ),
         })
 
-    # H-04: chi-square verdict on cross-category uniformity.
+    # H4: chi-square verdict on cross-category uniformity.
     h04 = (inner.get("h04") or {}).get("fault_detection_success_rate") or {}
     if h04:
         sig = h04.get("significant")
@@ -691,31 +697,31 @@ def _build_statistical_findings(overlay: HypothesisOverlay | None,
         weakest = (h04.get("weakest_category") or "").replace("_fault", "").title()
         if sig:
             text = (
-                f"H-04 — detection-rate disparity is statistically significant "
+                f"H4 — detection-rate disparity is statistically significant "
                 f"(χ² = {chi:.2f}, p = {p:.3f}); weakest category: {weakest}."
             )
             sev = "concern"
         else:
             text = (
-                f"H-04 — detection rates are statistically uniform across categories "
+                f"H4 — detection rates are statistically uniform across categories "
                 f"(χ² = {chi:.2f}, p = {p:.3f})."
             )
             sev = "good"
         findings.append({"severity": sev, "text": text})
 
-    # H-03: cross-category latency disparity (TTD).
+    # H3: cross-category latency disparity (TTD).
     h03_ttd = (inner.get("h03") or {}).get("time_to_detect") or {}
     if h03_ttd.get("omnibus_significant"):
         findings.append({
             "severity": "concern",
             "text": (
-                f"H-03 — time-to-detect differs significantly across categories "
+                f"H3 — time-to-detect differs significantly across categories "
                 f"(Kruskal-Wallis p = {_p_str(h03_ttd.get('omnibus_p'))}). "
                 "Aggregated mean understates per-category dispersion."
             ),
         })
 
-    # H-05: variance instability.
+    # H5: variance instability.
     h05 = (inner.get("h05") or {}).get("time_to_detect") or {}
     unstable = h05.get("unstable_categories") or []
     if unstable:
@@ -723,7 +729,7 @@ def _build_statistical_findings(overlay: HypothesisOverlay | None,
         findings.append({
             "severity": "concern",
             "text": (
-                f"H-05 — variance instability detected in {names} "
+                f"H5 — variance instability detected in {names} "
                 f"(Levene p = {_p_str(h05.get('levene_p'))})."
             ),
         })
@@ -921,27 +927,27 @@ def _section_scorecard(phase2, phase3, phase1, overlay: HypothesisOverlay | None
 
 
 def _section_appendix(overlay: HypothesisOverlay | None = None):
-    """Appendix A1: Statistical Hypothesis Framework (H-01 – H-09)."""
+    """Appendix A1: Statistical Hypothesis Framework (H1 – H9)."""
     if overlay is None or overlay.suppressed:
         return None
 
     content = [
-        _heading("A1. Statistical Hypothesis Framework (H-01 – H-09)"),
+        _heading("A1. Statistical Hypothesis Framework"),
         _text(
             "Beyond descriptive statistics, this certification applies a formal "
             "<strong>9-hypothesis inference framework</strong> grounded in 20 peer-reviewed papers (NeurIPS, ICLR, AAAI, ACL, "
             "ICSE, CCS, JRSS-B, JASA, Biometrika, Mathematical Finance). Each hypothesis replaces single-number "
             "summaries with probabilistic inference — confidence intervals, effect sizes, and worst-case guarantees — "
-            "enabling defensible <strong>pass / conditional / fail</strong> decisions. Hypotheses <strong>H-01 to H-05</strong> are "
-            "always active; <strong>H-06 & H-07</strong> activate only when SLA thresholds are provided; "
-            "<strong>H-08 & H-09</strong> provide informational tail-risk and temporal-stability analysis in both modes."
+            "enabling defensible <strong>pass / conditional / fail</strong> decisions. Hypotheses <strong>H1 to H5</strong> are "
+            "always active; <strong>H6 & H7</strong> activate only when SLA thresholds are provided; "
+            "<strong>H8 & H9</strong> provide informational tail-risk and temporal-stability analysis in both modes."
         ),
         _taxonomy_table(
             headers=["ID", "Hypothesis", "Question", "Mode", "Primary Methods"],
             rows=_HYPOTHESIS_TAXONOMY_ROWS,
-            title="H-01 – H-09 Framework Reference",
+            title="H1 – H9 Framework Reference",
             footnote=(
-                "* H-08 and H-09 provide informational analysis even without SLAs."
+                "* H8 and H9 provide informational analysis even without SLAs."
             ),
         ),
     ]
@@ -957,10 +963,10 @@ def _section_appendix(overlay: HypothesisOverlay | None = None):
 
 
 def _section_appendix_a2(overlay: HypothesisOverlay | None = None):
-    """Appendix A2: Statistical Evidence — Performance & Safety Validation (H-01 – H-02).
+    """Appendix A2: Statistical Evidence — Performance & Safety Validation (H1 – H2).
     
     Collects hypothesis strips from sections 5 (Detection & Response), 6 (Reasoning & Quality),
-    and 7 (Safety & Compliance) and organizes them into H-01 and H-02 subsections.
+    and 7 (Safety & Compliance) and organizes them into H1 and H2 subsections.
     
     Details are derived from the strips themselves, not hardcoded.
     """
@@ -969,10 +975,10 @@ def _section_appendix_a2(overlay: HypothesisOverlay | None = None):
     
     strips = (overlay.inline_strips if overlay else {}) or {}
     
-    # Collect H-01 strips: continuous metrics with confidence intervals
+    # Collect H1 strips: continuous metrics with confidence intervals
     h01_content = [
-        _heading("A2. Statistical Evidence: Performance & Safety Validation (H-01 – H-02)"),
-        _heading("H-01: Confidence Intervals for Continuous Metrics", detail="Timing, quality, and hallucination via IQM ± Bootstrap BCa 95% CI"),
+        _heading("A2. Statistical Evidence: Performance & Safety Validation (H1 – H2)"),
+        _heading("H1: Confidence Intervals for Continuous Metrics", detail="Timing, quality, and hallucination via IQM ± Bootstrap BCa 95% CI"),
     ]
     
     # Time-to-Detect (from section 5)
@@ -999,8 +1005,8 @@ def _section_appendix_a2(overlay: HypothesisOverlay | None = None):
         h01_content.append(_heading("Hallucination"))
         h01_content.extend(halluc_strips)
     
-    # Collect H-02 strips: success rates with safety floor
-    h01_content.append(_heading("H-02: Success Rates with Safety Floor", detail="Detection, mitigation, and compliance rates via Wilson 95% CI"))
+    # Collect H2 strips: success rates with safety floor
+    h01_content.append(_heading("H2: Success Rates with Safety Floor", detail="Detection, mitigation, and compliance rates via Wilson 95% CI"))
     
     # Detection & Mitigation Rates (from section 5)
     det_strips = strips.get("fault_detection_success_rate", []) or []
@@ -1030,19 +1036,19 @@ def _section_appendix_a2(overlay: HypothesisOverlay | None = None):
         "id": "appendix_a2",
         "number": 0,
         "part": None,
-        "title": "Statistical Evidence: Performance & Safety Validation (H-01 \u2013 H-02)",
+        "title": "Statistical Evidence: Performance & Safety Validation (H1 \u2013 H2)",
         "intro": "",
         "content": h01_content,
     }
 
 
 def _section_qualitative_findings(phase1, phase2, phase3):
-    """Section 4: Overall Qualitative Findings (LLM Council).
+    """Section 3: Overall Qualitative Findings (LLM Council).
 
     Each subsection is capped at the most-salient ~2 items to mirror the
-    framework HTML target (4.1: 2 items, 4.2: 2–3 items, 4.3: 1–2 items).
+    framework HTML target (3.1: 2 items, 3.2: 2–3 items, 3.3: 1–2 items).
     The safety summary table is intentionally NOT emitted here — it lives
-    in §8 Safety & Compliance — but §4.2 receives a synthesized 1-line
+    in §6 Safety & Compliance — but §3.2 receives a synthesized 1-line
     bullet summarizing that table as its 3rd item.
     """
     intros = phase2["hardcoded"]["section_intros"]
@@ -1096,11 +1102,11 @@ def _section_qualitative_findings(phase1, phase2, phase3):
         "title": "Overall Qualitative Findings (LLM Council Output)",
         "intro": intros.get("reasoning", "Cross-category consensus from the LLM Council."),
         "content": [
-            _heading("4.1 Response & Reasoning Quality"),
+            _heading("3.1 Response & Reasoning Quality"),
             _findings(group1),
-            _heading("4.2 Safety & Compliance"),
+            _heading("3.2 Safety & Compliance"),
             _findings(group2),
-            _heading("4.3 Hallucination Assessment"),
+            _heading("3.3 Hallucination Assessment"),
             _findings(group3),
         ],
     }
@@ -1108,9 +1114,9 @@ def _section_qualitative_findings(phase1, phase2, phase3):
 
 def _combine_h02_rate_strips(det_strips: list[dict],
                              mit_strips: list[dict]) -> dict | None:
-    """Merge the H-02 detection-rate and mitigation-rate strips into one.
+    """Merge the H2 detection-rate and mitigation-rate strips into one.
 
-    The framework HTML presents §5.3 with a single ``H-02 Detection &
+    The framework HTML presents §5.3 with a single ``H2 Detection &
     Mitigation Rates`` strip whose chips and prose cover both metrics
     together. The overlay builder, however, emits one strip per metric.
     This helper folds them into a single composite strip:
@@ -1160,20 +1166,20 @@ def _combine_h02_rate_strips(det_strips: list[dict],
     return {
         "type": "hypothesis_strip",
         "verdict": verdict,
-        "hypothesis_id": "H-02",
+        "hypothesis_id": "H2",
         "metric_label": "Detection & Mitigation Rates",
         "facts": facts,
         "method": method,
-        "summary": f"H-02 Detection & Mitigation Rates — verdict: {verdict}.",
+        "summary": f"H2 Detection & Mitigation Rates — verdict: {verdict}.",
         "findings": findings,
     }
 
 
 def _section_detection_response(phase2, phase1: dict | None = None,
                                   overlay: HypothesisOverlay | None = None):
-    """Section 5: Detection & Response (§5.1 TTD, §5.2 TTM, §5.3 Rates folded in).
+    """Section 4: Detection & Response (§4.1 Rates, §4.2 TTD, §4.3 TTM).
 
-    When `phase1` is provided and contains H-01/H-02 results, BCa/Wilson CI
+    When `phase1` is provided and contains H1/H2 results, BCa/Wilson CI
     bar charts are appended after each grouped-bar chart — mirroring the
     "TTD/TTM Statistical Inference" pair shown in the framework HTML.
     """
@@ -1208,33 +1214,7 @@ def _section_detection_response(phase2, phase1: dict | None = None,
     )
 
     content = [
-        _text(defs["ttd"], style="info"),
-        _text(defs["ttm"], style="info"),
-        _heading("5.1 Time-to-Detect"),
-        _chart(phase2["charts"]["ttd_bar"]),
-    ]
-    if ttd_ci is not None:
-        content.append(_chart(ttd_ci))
-    content.append(_table(**phase2["tables"]["ttd_stats"]))
-    ttd_findings_text = _get_table_findings(phase2["tables"]["ttd_stats"], "Time-to-Detect")
-    if ttd_findings_text:
-        ttd_findings_block = _findings_from_text(ttd_findings_text)
-        if ttd_findings_block:
-            content.append(ttd_findings_block)
-    content.extend([
-        _heading("5.2 Time-to-Mitigate"),
-        _chart(phase2["charts"]["ttm_bar"]),
-    ])
-    if ttm_ci is not None:
-        content.append(_chart(ttm_ci))
-    content.append(_table(**phase2["tables"]["ttm_stats"]))
-    ttm_findings_text = _get_table_findings(phase2["tables"]["ttm_stats"], "Time-to-Mitigate")
-    if ttm_findings_text:
-        ttm_findings_block = _findings_from_text(ttm_findings_text)
-        if ttm_findings_block:
-            content.append(ttm_findings_block)
-    content.extend([
-        _heading("5.3 Detection & Mitigation Rates"),
+        _heading("4.1 Detection & Mitigation Rates"),
         _text(
             (
                 "**Detection Rate** \u2014 percentage of runs where the agent's "
@@ -1250,7 +1230,7 @@ def _section_detection_response(phase2, phase1: dict | None = None,
             style="info",
         ),
         _chart(phase2["charts"]["rates_bar"]),
-    ])
+    ]
     if rates_ci is not None:
         content.append(_chart(rates_ci))
     content.append(_table(**phase2["tables"]["detection_rates"]))
@@ -1259,6 +1239,36 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         rates_findings_block = _findings_from_text(rates_findings_text)
         if rates_findings_block:
             content.append(rates_findings_block)
+    content.extend([
+        _heading("4.2 Time-to-Detect"),
+    ])
+    content.append(_text(defs["ttd"], style="info"))
+    content.extend([
+        _chart(phase2["charts"]["ttd_bar"]),
+    ])
+    if ttd_ci is not None:
+        content.append(_chart(ttd_ci))
+    content.append(_table(**phase2["tables"]["ttd_stats"]))
+    ttd_findings_text = _get_table_findings(phase2["tables"]["ttd_stats"], "Time-to-Detect")
+    if ttd_findings_text:
+        ttd_findings_block = _findings_from_text(ttd_findings_text)
+        if ttd_findings_block:
+            content.append(ttd_findings_block)
+    content.extend([
+        _heading("4.3 Time-to-Mitigate"),
+    ])
+    content.append(_text(defs["ttm"], style="info"))
+    content.extend([
+        _chart(phase2["charts"]["ttm_bar"]),
+    ])
+    if ttm_ci is not None:
+        content.append(_chart(ttm_ci))
+    content.append(_table(**phase2["tables"]["ttm_stats"]))
+    ttm_findings_text = _get_table_findings(phase2["tables"]["ttm_stats"], "Time-to-Mitigate")
+    if ttm_findings_text:
+        ttm_findings_block = _findings_from_text(ttm_findings_text)
+        if ttm_findings_block:
+            content.append(ttm_findings_block)
     content.extend([
         _text(stats["median_p95"], style="info"),
         _text(stats["detection_vs_mitigation"], style="info"),
@@ -1274,47 +1284,15 @@ def _section_detection_response(phase2, phase1: dict | None = None,
     }
 
 
-def _section_accuracy(phase2, overlay: HypothesisOverlay | None = None):
-    """Section 6: Accuracy & Efficiency."""
-    defs = phase2["hardcoded"]["definitions"]
-    strips = (overlay.inline_strips if overlay else {}) or {}
-
-    content = [
-        _chart(phase2["charts"]["accuracy_heatmap"]),
-        _heading("Action Correctness"),
-        _interpretation_scale(
-            bands=[
-                "0.0 – 0.3 Poor",
-                "0.3 – 0.6 Fair",
-                "0.6 – 0.8 Good",
-                "0.8 – 0.95 Strong",
-                "0.95 – 1.0 Excellent",
-            ],
-            title="Action Correctness Scale (0.0 – 1.0)",
-        ),
-        _table(**phase2["tables"]["action_correctness"]),
-        _text(defs["na_explanation"], style="info"),
-    ]
-    content.extend(strips.get("tool_calls", []))
-
-    return {
-        "id": "accuracy_efficiency",
-        "number": 6,
-        "part": "Agent Capability Assessment",
-        "title": "Accuracy & Efficiency",
-        "intro": defs["action_correctness"],
-        "content": content,
-    }
-
 
 def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None):
-    """Section 7: Reasoning & Quality (§6.1 + §6.2 with H-01 strips)."""
+    """Section 5: Reasoning & Quality (§5.1 + §5.2 with H1 strips)."""
     defs = phase2["hardcoded"]["definitions"]
     intros = phase2["hardcoded"]["section_intros"]
     cats = phase1.get("categories", []) or []
     strips = (overlay.inline_strips if overlay else {}) or {}
 
-    # Extract H-01 reasoning_quality_score and hallucination_score data for CI charts
+    # Extract H1 reasoning_quality_score and hallucination_score data for CI charts
     h01, _ = _phase1_h01_h02(phase1)
     reas_pc = (h01.get("reasoning_quality_score") or {}).get("per_category") or []
     halluc_pc = (h01.get("hallucination_score") or {}).get("per_category") or []
@@ -1323,13 +1301,13 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
     reas_ci = _h01_ci_bar(
         reas_pc,
         title="Reasoning IQM with BCa 95% CI",
-        y_label="Score (0-10)",
+        y_label="Score (0-1)",
     )
     
     halluc_ci = _h01_ci_bar(
         halluc_pc,
         title="Hallucination IQM with BCa 95% CI",
-        y_label="Score (0-10)",
+        y_label="Score (0-1)",
     )
 
     return {
@@ -1339,23 +1317,22 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
         "title": "Reasoning & Quality",
         "intro": intros.get("reasoning", ""),
         "content": [
-            _heading("6.1 Reasoning & Response Quality"),
-            _text(defs["reasoning_scale"], style="info"),
+            _heading("5.1 Reasoning & Response Quality"),
             _interpretation_scale(
                 bands=[
-                    "0 – 3 Poor",
-                    "4 – 5 Fair",
-                    "6 – 7 Good",
-                    "8 – 9 Strong",
-                    "10 Excellent",
+                    "0.0 – 0.3 Poor",
+                    "0.4 – 0.5 Fair",
+                    "0.6 – 0.7 Good",
+                    "0.8 – 0.9 Strong",
+                    "1.0 Excellent",
                 ],
-                title="Reasoning / Response Quality Scale (0 – 10)",
+                title="Reasoning / Response Quality Scale (0 – 1)",
             ),
             _chart(phase2["charts"]["reasoning_bar"]),
             *([_chart(reas_ci)] if reas_ci is not None else []),
             _table(**phase2["tables"]["reasoning_quality"]),
             *((reasoning_findings_block,) if (reasoning_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["reasoning_quality"], "Reasoning & Response Quality"))) else ()),
-            _heading("6.2 Hallucination Assessment"),
+            _heading("5.2 Hallucination Assessment"),
             _text(defs["hallucination_score"], style="info"),
             _chart(phase2["charts"]["hallucination_bar"]),
             *([_chart(halluc_ci)] if halluc_ci is not None else []),
@@ -1366,7 +1343,7 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
 
 
 def _section_safety(phase1, phase2, overlay: HypothesisOverlay | None = None):
-    """Section 8: Safety & Compliance (§7.1 + §7.2 with H-02 data and dynamic strips)."""
+    """Section 6: Safety & Compliance (§6.1 + §6.2 with H2 data and dynamic strips)."""
     intros = phase2["hardcoded"]["section_intros"]
     strips = (overlay.inline_strips if overlay else {}) or {}
     
@@ -1388,10 +1365,10 @@ def _section_safety(phase1, phase2, overlay: HypothesisOverlay | None = None):
         "content": [
             _chart(phase2["charts"]["compliance_bar"]),
             *([_chart(compliance_ci)] if compliance_ci is not None else []),
-            _heading("7.1 RAI Compliance"),
+            _heading("6.1 RAI Compliance"),
             _table(**phase2["tables"]["rai_compliance"]),
             *((rai_findings_block,) if (rai_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["rai_compliance"], "RAI Compliance"))) else ()),
-            _heading("7.2 Security Compliance"),
+            _heading("6.2 Security Compliance"),
             _table(**phase2["tables"]["security_compliance"]),
             *((sec_findings_block,) if (sec_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["security_compliance"], "Security Compliance"))) else ()),
         ],
@@ -1399,9 +1376,33 @@ def _section_safety(phase1, phase2, overlay: HypothesisOverlay | None = None):
 
 
 def _section_resource(phase2):
-    """Section 9: Resource Utilization."""
+    """Section 7: Resource Utilization."""
     defs = phase2["hardcoded"]["definitions"]
     intros = phase2["hardcoded"]["section_intros"]
+    
+    # Extract mean tokens from chart data
+    chart_data = phase2["charts"]["token_stacked"]
+    mean_tokens = chart_data.get("mean_tokens", {})
+    mean_input = mean_tokens.get("mean_input_tokens")
+    mean_output = mean_tokens.get("mean_output_tokens")
+    
+    # Build content with chart and mean tokens in single card
+    content = [
+        _text(intros.get("token_usage", ""), style="info"),
+        _chart(phase2["charts"]["token_stacked"]),
+    ]
+    
+    # Add mean tokens as single card with both lines
+    mean_tokens_lines = []
+    if mean_input is not None:
+        formatted_input = f"{mean_input:,.0f}" if isinstance(mean_input, (int, float)) else "N/A"
+        mean_tokens_lines.append(f"**Mean Input Tokens per Run:** {formatted_input}")
+    if mean_output is not None:
+        formatted_output = f"{mean_output:,.0f}" if isinstance(mean_output, (int, float)) else "N/A"
+        mean_tokens_lines.append(f"**Mean Output Tokens per Run:** {formatted_output}")
+    
+    if mean_tokens_lines:
+        content.append(_text("\n".join(mean_tokens_lines), style="info"))
 
     return {
         "id": "resource_utilization",
@@ -1409,19 +1410,14 @@ def _section_resource(phase2):
         "part": None,
         "title": "Resource Utilization",
         "intro": "",
-        "content": [
-            _text(intros.get("token_usage", ""), style="info"),
-            _chart(phase2["charts"]["token_stacked"]),
-            _table(**phase2["tables"]["token_usage"]),
-            _text("Data quality note: Token counts are derived from aggregated LLM telemetry across all runs. Zero or missing values in any category may indicate incomplete instrumentation or silent failures in token tracking. Token metrics should be treated as representative estimates rather than exact values.", style="info"),
-        ],
+        "content": content,
     }
 
 
 def _section_fault_analysis(phase1, phase2, phase3):
-    """Section 13: Fault Category Analysis (CategoryPanelBlock per category).
+    """Section 8: Fault Category Analysis (CategoryPanelBlock per category).
 
-    Each category is preceded by a numbered sub-heading (e.g. "13.1
+    Each category is preceded by a numbered sub-heading (e.g. "8.1
     Application Faults"). The section number prefix uses a "{N}" placeholder
     that is patched in ``ReportAssembler.assemble()`` after the global
     section renumbering pass.
@@ -1495,7 +1491,7 @@ def _section_fault_analysis(phase1, phase2, phase3):
 def _section_limitations(phase2, phase3,
                          overlay: HypothesisOverlay | None = None,
                          phase1: dict | None = None):
-    """Section 12: Limitations — Statistical Inference items (from §3.3) first, then LLM Council items.
+    """Section 9: Limitations — Statistical Inference items (from §3.3) first, then LLM Council items.
     
     Cap total at 10 items. If stat items not available (LLM call failed), use only Council items.
     """
@@ -1568,7 +1564,7 @@ def _section_limitations(phase2, phase3,
 def _section_recommendations(phase2, phase3,
                              overlay: HypothesisOverlay | None = None,
                              phase1: dict | None = None):
-    """Section 13: Recommendations — Statistical Inference item (from §3.3) first, then LLM Council items.
+    """Section 10: Recommendations — Statistical Inference item (from §3.3) first, then LLM Council items.
     
     Cap total at 8 items. If stat item not available (LLM call failed), use only Council items.
     """
@@ -1633,10 +1629,85 @@ def _section_recommendations(phase2, phase3,
     }
 
 
+def _section_pipeline_tokens(phase1: dict) -> list[dict]:
+    """Build content blocks for Pipeline Token Metrics section.
+    
+    Displays 4-phase token consumption with input/output breakdown and totals.
+    """
+    pipeline_tokens = phase1.get("meta", {}).get("pipeline_tokens", {})
+    
+    if not pipeline_tokens:
+        # Fallback if no token data available
+        return [_text("No pipeline token data available.")]
+    
+    # Build table: Phase, Input Tokens, Output Tokens, Total Tokens
+    rows = []
+    
+    for phase_key, phase_label in [
+        ("phase_0_fault_analyzer", "Phase 0: Fault Analyzer"),
+        ("phase_1_metrics_extractor", "Phase 1: Metrics Extractor"),
+        ("phase_2_aggregator", "Phase 2: Aggregator"),
+        ("phase_3_certification_builder", "Phase 3: Certification Builder"),
+    ]:
+        phase_data = pipeline_tokens.get(phase_key, {})
+        input_toks = phase_data.get("input_tokens", 0)
+        output_toks = phase_data.get("output_tokens", 0)
+        total_toks = phase_data.get("total_tokens", 0)
+        
+        rows.append([
+            phase_label,
+            f"{input_toks:,}",
+            f"{output_toks:,}",
+            f"{total_toks:,}",
+        ])
+    
+    # Add totals row
+    totals = pipeline_tokens.get("totals", {})
+    total_input = totals.get("input_tokens", 0)
+    total_output = totals.get("output_tokens", 0)
+    total_all = totals.get("total_tokens", 0)
+    
+    rows.append([
+        "Total",
+        f"{total_input:,}",
+        f"{total_output:,}",
+        f"{total_all:,}",
+    ])
+    
+    # Build narrative summary
+    narrative = (
+        f"The certification pipeline consumed **{total_all:,} tokens** across all four phases: "
+        f"{total_input:,} input tokens (prompt context) and {total_output:,} output tokens (LLM completion). "
+        f"This reflects the cumulative cost of fault classification, metrics extraction, aggregation via LLM Council, "
+        f"and synthesis of narrative sections."
+    )
+    
+    return [
+        _table(
+            headers=["Phase", "Input Tokens", "Output Tokens", "Total Tokens"],
+            rows=rows,
+        ),
+        _text(narrative),
+    ]
+
+
+def _build_pipeline_tokens_section(phase1: dict) -> dict:
+    """Section 11: Pipeline Token Metrics — LLM token consumption across all 4 phases."""
+    content = _section_pipeline_tokens(phase1)
+    return {
+        "id": "pipeline_tokens",
+        "number": 11,
+        "part": None,
+        "title": "Pipeline Token Metrics",
+        "intro": "",
+        "content": content,
+    }
+
+
 # ── Phase E hypothesis sections ─────────────────────────────────────
 
 def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
-    """Appendix A3: Statistical Inference — Cross-Category Comparison (H-03, H-04, H-05)."""
+    """Appendix A3: Statistical Inference — Cross-Category Comparison (H3, H4, H5)."""
     if overlay is None or overlay.suppressed:
         return None
     
@@ -1651,16 +1722,16 @@ def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
         "id": "appendix_a3",
         "number": 0,
         "part": None,
-        "title": "Statistical Inference: Cross-Category Uniformity & Variance (H-03 \u2013 H-05)",
+        "title": "Statistical Inference: Cross-Category Uniformity & Variance (H3 \u2013 H5)",
         "intro": "",
         "content": [
-            _heading("A3. Statistical Inference: Cross-Category Comparison (H-03, H-04, H-05)"),
+            _heading("A3. Statistical Inference: Cross-Category Comparison (H3, H4, H5)"),
             _text(
                 "Does the agent handle all fault categories equally well? Three "
-                "hypotheses jointly answer this question: <strong>H-03</strong> compares "
+                "hypotheses jointly answer this question: <strong>H3</strong> compares "
                 "continuous metrics across categories using rank-based tests, "
-                "<strong>H-04</strong> compares success rates with Chi-Square (Fisher's Exact "
-                "fallback for sparse cells), and <strong>H-05</strong> tests variance homogeneity "
+                "<strong>H4</strong> compares success rates with Chi-Square (Fisher's Exact "
+                "fallback for sparse cells), and <strong>H5</strong> tests variance homogeneity "
                 "and per-category stability."
             ),
             *blocks,
@@ -1669,7 +1740,7 @@ def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
 
 
 def _section_hypothesis_latency_compliance(overlay: HypothesisOverlay):
-    """Optional Phase E section: H-03..H-05 (latency + compliance hypotheses)."""
+    """Optional Phase E section: H3..H5 (latency + compliance hypotheses)."""
     blocks: list[dict] = []
     blocks.extend(overlay.h03_section_blocks)
     blocks.extend(overlay.h04_section_blocks)
@@ -1680,13 +1751,13 @@ def _section_hypothesis_latency_compliance(overlay: HypothesisOverlay):
         "id": "hypothesis_latency_compliance",
         "number": 0,  # renumbered later
         "part": None,
-        "title": "Statistical Inference: Cross-Category Comparison (H-03, H-04, H-05)",
+        "title": "Statistical Inference: Cross-Category Comparison (H3, H4, H5)",
         "intro": (
             "Does the agent handle all fault categories equally well? Three "
-            "hypotheses jointly answer this question: H-03 compares "
+            "hypotheses jointly answer this question: H3 compares "
             "continuous metrics across categories using rank-based tests, "
-            "H-04 compares success rates with Chi-Square (Fisher's Exact "
-            "fallback for sparse cells), and H-05 tests variance homogeneity "
+            "H4 compares success rates with Chi-Square (Fisher's Exact "
+            "fallback for sparse cells), and H5 tests variance homogeneity "
             "and per-category stability."
         ),
         "content": blocks,
@@ -1694,9 +1765,9 @@ def _section_hypothesis_latency_compliance(overlay: HypothesisOverlay):
 
 
 
-# ─ COMMENTED OUT: Section 10 (SLA-Aware Hypothesis Analysis H-06 – H-09)
+# ─ COMMENTED OUT: Section 10 (SLA-Aware Hypothesis Analysis H6 – H9)
 # def _section_hypothesis_safety_stability(overlay: HypothesisOverlay):
-#     """Optional Phase E section: H-06..H-09 (SLA, tail risk, stability)."""
+#     """Optional Phase E section: H6..H9 (SLA, tail risk, stability)."""
 #     blocks: list[dict] = []
 #     blocks.extend(overlay.h06_section_blocks)
 #     blocks.extend(overlay.h07_section_blocks)
@@ -1708,23 +1779,23 @@ def _section_hypothesis_latency_compliance(overlay: HypothesisOverlay):
 #     # Build intro text, noting if ground truth (SLA thresholds) was not provided
 #     intro_text = (
 #         "This subsection activates the SLA-Aware branch of the framework. Illustrative SLA thresholds applied: "
-#         "TTD ≤ 600 s, TTM ≤ 900 s, allowed breach rate ≤ 5%. H-06 proves threshold compliance with statistical confidence; "
-#         "H-07 estimates the SLA breach rate against the 5% budget; H-08 quantifies tail severity; "
-#         "H-09 checks for drift across the ordered run sequence."
+#         "TTD ≤ 600 s, TTM ≤ 900 s, allowed breach rate ≤ 5%. H6 proves threshold compliance with statistical confidence; "
+#         "H7 estimates the SLA breach rate against the 5% budget; H8 quantifies tail severity; "
+#         "H9 checks for drift across the ordered run sequence."
 #     )
 #     
 #     if not overlay.ground_truth_provided:
 #         intro_text += (
 #             " **Note:** No ground-truth SLA directory was provided; therefore, "
-#             "H-06 (SLA Threshold Compliance) and H-07 (SLA Breach Rate) were skipped. "
-#             "H-08 and H-09 were computed without SLA guidance."
+#             "H6 (SLA Threshold Compliance) and H7 (SLA Breach Rate) were skipped. "
+#             "H8 and H9 were computed without SLA guidance."
 #         )
 #     
 #     return {
 #         "id": "hypothesis_safety_stability",
 #         "number": 0,  # renumbered later
 #         "part": None,
-#         "title": "Statistical Inference: SLA-Aware Hypothesis Analysis (H-06 – H-09)",
+#         "title": "Statistical Inference: SLA-Aware Hypothesis Analysis (H6 – H9)",
 #         "intro": intro_text,
 #         "content": blocks,
 #     }
@@ -1903,6 +1974,9 @@ class ReportAssembler:
             _section_recommendations(phase2, phase3, overlay, phase1),
         ])
 
+        # Pipeline Token Metrics — after recommendations, before appendices
+        sections.append(_build_pipeline_tokens_section(phase1))
+
         # Appendix — only when statistical hypothesis testing is active
         appendix = _section_appendix(overlay)
         if appendix is not None:
@@ -1917,12 +1991,12 @@ class ReportAssembler:
             })
             sections.append(appendix)
 
-        # Appendix A2 — Statistical Evidence (H-01 – H-02 strips from sections 5, 6, 7)
+        # Appendix A2 — Statistical Evidence (H1 – H2 strips from sections 5, 6, 7)
         appendix_a2 = _section_appendix_a2(overlay)
         if appendix_a2 is not None:
             sections.append(appendix_a2)
 
-        # Appendix A3 — Statistical Inference: Cross-Category Comparison (H-03, H-04, H-05)
+        # Appendix A3 — Statistical Inference: Cross-Category Comparison (H3, H4, H5)
         appendix_a3 = _section_appendix_a3(overlay)
         if appendix_a3 is not None:
             sections.append(appendix_a3)

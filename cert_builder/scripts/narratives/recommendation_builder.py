@@ -47,10 +47,12 @@ class RecommendationsEnrichedResponse(BaseModel):
 
 class RecommendationsEnriched(BaseModel):
     """Envelope for Call 6 output."""
-    items:       list[EnrichedRecommendation] = Field(..., min_length=6, max_length=10)
-    source:      Literal["llm", "fallback"] = "llm"
-    model:       str | None = None
-    tokens_used: int = Field(default=0, ge=0)
+    items:          list[EnrichedRecommendation] = Field(..., min_length=6, max_length=10)
+    source:         Literal["llm", "fallback"] = "llm"
+    model:          str | None = None
+    tokens_used:    int = Field(default=0, ge=0)
+    input_tokens:   int = Field(default=0, ge=0)
+    output_tokens:  int = Field(default=0, ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -258,8 +260,8 @@ def build_recommendations(
             items=sorted_items,
             source="llm",
             model=result.get("model"),
-            tokens_used=result.get("tokens_used", 0),
-        )
+            tokens_used=result.get("tokens_used", 0),            input_tokens=result.get("input_tokens", 0),
+            output_tokens=result.get("output_tokens", 0),        )
 
     except Exception as exc:
         print(f"[phase3f] LLM call failed: {exc}")

@@ -1,7 +1,7 @@
 system_prompt: >
   You write §3.3 "Statistical Findings" for an AI-agent certification
   report. You synthesize 4–5 senior-analyst findings from the
-  9-hypothesis framework (H-01..H-09), PLUS 2 statistical limitations
+  9-hypothesis framework (H1..H9), PLUS 2 statistical limitations
   and 1 statistical recommendation. Never recompute or contradict
   numbers you are given. Findings must read like an inference summary,
   not a stats dump.
@@ -11,23 +11,23 @@ user_prompt_template: |
 
   EVIDENCE (only blocks with data are shown):
 
-  H-01 BCa CIs (IQM):
+  H1 BCa CIs (IQM):
   {h01_block}
-  H-02 Wilson floors:
+  H2 Wilson floors:
   {h02_block}
-  H-03 Kruskal-Wallis:
+  H3 Kruskal-Wallis:
   {h03_block}
-  H-04 Chi-square:
+  H4 Chi-square:
   {h04_block}
-  H-05 Levene + CV:
+  H5 Levene + CV:
   {h05_block}
-  H-06 SLA compliance:
+  H6 SLA compliance:
   {h06_block}
-  H-07 Breach rate:
+  H7 Breach rate:
   {h07_block}
-  H-08 CVaR₉₅:
+  H8 CVaR₉₅:
   {h08_block}
-  H-09 CUSUM/EWMA:
+  H9 CUSUM/EWMA:
   {h09_block}
 
   WRITE 4–5 FINDINGS + 2 LIMITATIONS + 1 RECOMMENDATION as JSON.
@@ -49,8 +49,8 @@ user_prompt_template: |
    }}
 
   === LIMITATIONS (exactly 2 items) ===
-  Extract 2 statistical limitations from H-01..H-09 results (NOT from H-01/H-02).
-  Focus on cross-category or tail-risk concerns from H-03, H-05, H-06, H-07, H-08, H-09.
+  Extract 2 statistical limitations from H1..H9 results (NOT from H1/H2).
+  Focus on cross-category or tail-risk concerns from H3, H5, H6, H7, H8, H9.
   Each limitation has:
    - severity: "High" or "Medium"
    - scope: "Cross-cutting", "Application", "Network", or "Resource"
@@ -61,13 +61,13 @@ user_prompt_template: |
    {{
      "severity": "High",
      "scope": "Cross-cutting",
-     "body": "Category latency profiles differ significantly (H-03 Kruskal-Wallis p < 0.001, H-05 Levene p < 0.001). Aggregating to a single mean will misrepresent at least one category.",
+     "body": "Category latency profiles differ significantly (H3 Kruskal-Wallis p < 0.001, H5 Levene p < 0.001). Aggregating to a single mean will misrepresent at least one category.",
      "tags": ["Statistical Inference"]
    }}
    {{
      "severity": "High",
      "scope": "Network",
-     "body": "Network tail-risk is significant (H-08 CVaR₉₅ shows detection delay can exceed 400s in rare cases). Worst-case latency is substantially higher than median.",
+     "body": "Network tail-risk is significant (H8 CVaR₉₅ shows detection delay can exceed 400s in rare cases). Worst-case latency is substantially higher than median.",
      "tags": ["Statistical Inference"]
    }}
 
@@ -83,7 +83,7 @@ user_prompt_template: |
    {{
      "severity": "Critical",
      "scope": "Cross-cutting",
-     "body": "Adopt per-category SLAs based on H-03/H-05 disparity findings. Categories show distinct latency profiles that cannot be safely consolidated into a single threshold.",
+     "body": "Adopt per-category SLAs based on H3/H5 disparity findings. Categories show distinct latency profiles that cannot be safely consolidated into a single threshold.",
      "tags": ["Statistical Inference"]
    }}
 

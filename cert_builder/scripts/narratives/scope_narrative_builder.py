@@ -37,10 +37,12 @@ class ScopeNarrativeResponse(BaseModel):
 
 class ScopeNarrative(BaseModel):
     """Envelope for Call 1 output. Maps to sections[0].intro (str)."""
-    text:        str = Field(..., min_length=1)
-    source:      Literal["llm", "fallback"] = "llm"
-    model:       str | None = None
-    tokens_used: int = Field(default=0, ge=0)
+    text:           str = Field(..., min_length=1)
+    source:         Literal["llm", "fallback"] = "llm"
+    model:          str | None = None
+    tokens_used:    int = Field(default=0, ge=0)
+    input_tokens:   int = Field(default=0, ge=0)
+    output_tokens:  int = Field(default=0, ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +85,7 @@ def _build_scope_context(meta: dict) -> str:
         f"Total Runs:        {meta['total_runs']}\n"
         f"{run_quality}"
         f"Total Faults:      {meta['total_faults_tested']}\n"
-        f"Runs per Fault:    {meta['runs_per_fault']}\n"
+        f"Runs per Fault:    {meta['total_runs']}\n"
         f"Evaluation Method: Multi-judge LLM Council\n"
         f"                   k=3 judges + meta-reconciliation"
     )
@@ -105,7 +107,7 @@ def _fallback_narrative(meta: dict) -> str:
         total_runs=meta["total_runs"],
         total_faults=meta["total_faults_tested"],
         fault_list=", ".join(c["fault"] for c in cats),
-        runs_per_fault=meta["runs_per_fault"],
+        runs_per_fault=meta["total_runs"],
     ) + (f" {failed} run(s) failed to produce evaluation data." if failed > 0 else "")
 
 
@@ -144,6 +146,8 @@ def build_scope_narrative(phase1: dict) -> dict:
             source="llm",
             model=result.get("model"),
             tokens_used=result.get("tokens_used", 0),
+            input_tokens=result.get("input_tokens", 0),
+            output_tokens=result.get("output_tokens", 0),
         )
 
     except Exception as exc:

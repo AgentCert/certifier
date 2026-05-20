@@ -69,6 +69,14 @@ def ingest(raw: dict) -> ParsedContext:
         "runs_per_fault": _compute_runs_per_fault(raw),
         "categories_summary": [],
         "llm_council": raw.get("llm_council", {}) or {},
+        "run_level_tokens": raw.get("run_level_tokens", {"input_tokens": [], "output_tokens": [], "run_ids": []}),
+        "pipeline_tokens": raw.get("pipeline_tokens", {
+            "phase_0_fault_analyzer": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            "phase_1_metrics_extractor": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            "phase_2_aggregator": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            "phase_3_certification_builder": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            "totals": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        }),
     }
 
     categories = []
