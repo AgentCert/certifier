@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Metric Scorecard Pipeline — Workflow</title>
+<style>
+  :root {
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --bg:#fafafa; --card:#fff; --accent:#2563eb; --accent-soft:#eff6ff;
+    --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+    --mono:'SFMono-Regular',Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:920px;margin:40px auto;padding:0 24px}
+  h1{font-size:24px;margin:0 0 4px}
+  h2{font-size:16px;margin:0 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:32px}
+  .pipe{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 32px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:8px}
+  .pipe .step{flex:1;min-width:130px;text-align:center;padding:10px 8px;background:var(--accent-soft);border-radius:6px;font-size:13px;font-weight:600;color:var(--accent)}
+  .pipe .arr{align-self:center;color:var(--muted);font-weight:700}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin:0 0 14px}
+  .card .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .card .tag{font:11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .card p{margin:6px 0}
+  code{font:13px var(--mono);background:#f3f4f6;padding:1px 5px;border-radius:3px}
+  .formula{background:#f9fafb;border-left:3px solid var(--accent);padding:8px 12px;margin:8px 0;font:13px var(--mono)}
+  .key{background:#fffbeb;border-left:3px solid var(--warn);padding:8px 12px;margin:10px 0;font-size:13px}
+  .key b{color:var(--warn);text-transform:uppercase;letter-spacing:.4px;font-size:11px}
+  .flow{background:#ecfdf5;border-left:3px solid var(--good);padding:8px 12px;margin:10px 0;font-size:13px}
+  .flow b{color:var(--good);text-transform:uppercase;letter-spacing:.4px;font-size:11px}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px}
+  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}
+  th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-right:4px}
+  .p-good{background:#dcfce7;color:var(--good)}
+  .p-warn{background:#fef3c7;color:var(--warn)}
+  .p-bad{background:#fee2e2;color:var(--bad)}
+  .p-mute{background:#f3f4f6;color:var(--muted)}
+  .foot{color:var(--muted);font-size:12px;margin-top:32px;text-align:center}
+  .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;margin:10px 0;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Metric Scorecard Pipeline</h1>
+  <p class="sub">How raw TTD / TTM observations become a single agent-level score —
+    metric-agnostic, SLA-aware, reproducible.</p>
+
+  <div class="pipe">
+    <div class="step">§1 Observe</div><div class="arr">→</div>
+    <div class="step">§2 Normalize</div><div class="arr">→</div>
+    <div class="step">§3 Sub-fault</div><div class="arr">→</div>
+    <div class="step">§4 Category</div><div class="arr">→</div>
+    <div class="step">§5 Cumulative</div>
+  </div>
+
+  <!-- §1 -->
+  <div class="card">
+    <div class="hdr"><h2>§1 — Observe</h2><span class="tag">per (run, category, sub_fault)</span></div>
+    <p>Each measurement is tagged with a <em>status</em> based on its raw value and whether an SLA exists.</p>
+    <table>
+      <tr><th>Status</th><th>Condition</th><th>In score pool?</th></tr>
+      <tr><td><span class="pill p-good">VALID</span></td><td><code>raw &gt; 0</code> and SLA present</td><td>yes</td></tr>
+      <tr><td><span class="pill p-bad">MISSING</span></td><td><code>raw is None</code></td><td>yes — score 0</td></tr>
+      <tr><td><span class="pill p-bad">INVALID_ZERO</span></td><td><code>raw &le; 0</code></td><td>yes — score 0</td></tr>
+      <tr><td><span class="pill p-mute">NO_SLA</span></td><td>SLA is null</td><td>no (diagnostics only)</td></tr>
+    </table>
+    <div class="key"><b>Key output</b> · <code>status</code> — gates every downstream calculation; misclassifying here corrupts every later grain.</div>
+    <div class="flow"><b>Feeds §2</b> · only VALID rows get normalized; MISSING / INVALID_ZERO short-circuit to 0; NO_SLA is dropped from all pools.</div>
+  </div>
+
+  <!-- §2 -->
+  <div class="card">
+    <div class="hdr"><h2>§2 — Normalize</h2><span class="tag">VALID rows only</span></div>
+    <p>Map each raw value to a <code>[0, 1]</code> score via a piecewise SLA-aware curve.
+      Within-SLA decays gently; breach penalises hard.</p>
+    <div class="formula">
+      ratio = raw / sla<br>
+      score = (ratio ≤ 1)  →  1 − 0.85·ratio<br>
+      score = (ratio &gt; 1) →  max(0, 0.15 − 0.3·(ratio − 1))
+    </div>
+    <p style="color:var(--muted);font-size:13px">
+      Anchors: <code>0s → 1.00</code> · <code>SLA → 0.15</code> · <code>1.5×SLA → 0.00</code>.
+      A miss (0) and a severe breach (0) collide on purpose — both are operationally unacceptable;
+      <code>detection_rate</code> distinguishes them.
+    </p>
+    <div class="key"><b>Key output</b> · <code>normalized_score ∈ [0,1]</code> — the only number §3/§4/§5 ever aggregate. Raw seconds never cross grain boundaries.</div>
+    <div class="flow"><b>Feeds §3</b> · scores get pooled per sub-fault; the normalization is what makes mixing pod-cpu-hog (SLA 120s) with pod-network-loss (SLA 180s) meaningful.</div>
+  </div>
+
+  <!-- §3 -->
+  <div class="card">
+    <div class="hdr"><h2>§3 — Sub-fault grain</h2><span class="tag">e.g. pod-cpu-hog across runs</span></div>
+    <p>Pool all observations per sub-fault (misses kept as 0, NO_SLA excluded). Aggregate with
+      a percentile-weighted score that focuses on the worst tail — confidence label scales with sample size.</p>
+    <table>
+      <tr><th>n</th><th>Confidence</th><th>Score formula</th></tr>
+      <tr><td>&lt; 3</td><td><span class="pill p-mute">INSUFFICIENT</span></td><td>none — raw values only</td></tr>
+      <tr><td>&lt; 5</td><td><span class="pill p-warn">LOW</span></td><td>mean(scores)</td></tr>
+      <tr><td>&lt; 20</td><td><span class="pill p-warn">MEDIUM</span></td><td>0.7·median + 0.3·p5</td></tr>
+      <tr><td>≥ 20</td><td><span class="pill p-good">HIGH</span></td><td>0.5·median + 0.3·p5 + 0.2·p1</td></tr>
+    </table>
+    <div class="key"><b>Key outputs</b> · <code>weighted_score</code> (headline) + <code>confidence</code> (trust) + <code>sla_compliance</code> (raw signal). Never read one alone.</div>
+    <div class="flow"><b>Feeds §4</b> · the raw obs pool flows to §4 (not the weighted_score). §3 is a <em>view</em> on the same pool §4 will re-group.</div>
+  </div>
+
+  <!-- §4 -->
+  <div class="card">
+    <div class="hdr"><h2>§4 — Category grain</h2><span class="tag">e.g. resource_fault</span></div>
+    <p>Pool every observation across all sub-faults in the category.
+      <code>category_score = median(pooled scores)</code>.</p>
+
+    <div class="note">
+      <strong>Why median, not mean?</strong> Three reasons:
+      <ul style="margin:6px 0 0 18px;padding:0">
+        <li><b>Robust to outliers.</b> A single severe breach (score 0) or a few misses don't pull the headline down disproportionately — mean would.</li>
+        <li><b>Hits a real observation.</b> Median is a value that actually occurred; mean is a synthetic midpoint that may match nothing in the data.</li>
+        <li><b>Bimodal-safe.</b> When a category has half perfect runs + half misses, mean reports a misleading "average" (~0.3). Median reports either the good half or the bad half — a customer can tell which side they're on.</li>
+      </ul>
+      Mean <em>is</em> computed at §5 — but only as a diagnostic to flag distribution skew, never as the headline.
+    </div>
+
+    <div class="key"><b>Key outputs</b> · <code>category_score</code> (headline) + <code>detection_rate</code> + <code>sla_compliance</code>. Pooled-obs median ensures every observation gets equal weight, so rare sub-faults aren't drowned by frequent ones.</div>
+    <div class="flow"><b>Feeds §5</b> · two channels: (a) the raw obs pool → §5's headline median, (b) the per-category scores → §5's <code>mixed_category_health</code> diagnostic.</div>
+  </div>
+
+  <!-- §5 -->
+  <div class="card">
+    <div class="hdr"><h2>§5 — Cumulative (agent-level)</h2><span class="tag">one headline number</span></div>
+    <p>Pool every observation across every category. Headline is the median; reliability concerns are collapsed
+      into a single <code>quality_flags</code> list so the customer view stays clean.</p>
+    <table>
+      <tr><th>Column</th><th>Meaning</th></tr>
+      <tr><td><code>cumulative_score</code></td><td>median of all pooled obs (headline)</td></tr>
+      <tr><td><code>detection_rate</code></td><td>VALID / attempted</td></tr>
+      <tr><td><code>sla_compliance</code></td><td>VALID ∧ within-SLA / attempted</td></tr>
+      <tr><td><code>n_attempted</code></td><td>obs in pool (excl. NO_SLA)</td></tr>
+      <tr><td><code>quality_flags</code></td><td><code>['none']</code> when trustworthy, else lists what to worry about</td></tr>
+    </table>
+    <p style="font-size:13px"><strong>quality_flags vocabulary:</strong>
+      <span class="pill p-warn">skewed_distribution</span> |mean − median| &gt; 0.15 (long tail of misses or breaches) ·
+      <span class="pill p-warn">mixed_category_health</span> |mean(category_scores) − median| &gt; 0.15 (one category dominates) ·
+      <span class="pill p-mute">N_obs_excluded_no_sla</span> some obs had no SLA</p>
+    <div class="key"><b>Key output</b> · <code>cumulative_score</code> + <code>quality_flags</code> together. A high score with empty flags = ship it. A high score with flags = read §4 before trusting.</div>
+    <div class="flow"><b>Terminal stage</b> · this is what the customer sees. Every preceding step exists to make this one number defensible.</div>
+  </div>
+
+  <p class="foot">
+    Entrypoint: <code>compute_metric_scorecard(scenario_file, metric_name='ttd' | 'ttm')</code>
+    &middot; see <code>metric_scorecard_pipeline.ipynb</code> &amp; <code>TTD_Aggregation_Approach.txt</code>
+  </p>
+</div>
+</body>
+</html>

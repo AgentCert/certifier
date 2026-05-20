@@ -1,0 +1,297 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/>
+<title>TTD Scenarios — Legacy vs New, Side by Side</title>
+<style>
+  :root {
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --bg:#fafafa; --card:#fff; --legacy:#b45309; --new:#2563eb;
+    --legacy-bg:#fffbeb; --new-bg:#eff6ff;
+    --mono:'SFMono-Regular',Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1180px;margin:36px auto;padding:0 24px}
+  h1{font-size:24px;margin:0 0 6px}
+  .sub{color:var(--muted);margin-bottom:28px}
+  .scenario{background:var(--card);border:1px solid var(--line);border-radius:8px;
+            padding:18px 22px;margin:0 0 18px}
+  .scenario h2{font-size:17px;margin:0 0 14px}
+  .scenario .meta{color:var(--muted);font-weight:400;font-size:12.5px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .col{padding:14px;border-radius:6px}
+  .col.legacy{background:var(--legacy-bg);border:1px solid #fde68a}
+  .col.new{background:var(--new-bg);border:1px solid #bfdbfe}
+  .col.legacy h3{color:var(--legacy)}
+  .col.new h3{color:var(--new)}
+  h3{margin:0 0 6px;font-size:13.5px}
+  h4{margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .hint{margin:0 0 10px;font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px;background:#fff}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+  th{font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+  code{font:12px var(--mono);background:#f3f4f6;padding:1px 5px;border-radius:3px}
+  table.cum{margin-top:8px}
+  table.cum th{width:46%}
+  .flag{display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;
+        padding:1px 6px;border-radius:8px;margin-right:3px}
+  .delta-block{margin-top:14px;padding:10px 14px;background:#f9fafb;border-radius:6px;border:1px solid var(--line)}
+  table.delta td.pos{color:#16a34a;font-weight:600}
+  table.delta td.neg{color:#dc2626;font-weight:600}
+  table.delta td.zer{color:var(--muted)}
+  .verdict{margin-top:14px;padding:12px 14px;border-radius:6px;font-size:13px;line-height:1.55}
+  .verdict.v-new{background:#ecfdf5;border:1px solid #a7f3d0}
+  .verdict.v-new-with-caveat{background:#fefce8;border:1px solid #fde68a}
+  .verdict.v-legacy{background:#fef2f2;border:1px solid #fecaca}
+  .verdict.v-tie{background:#f3f4f6;border:1px solid var(--line)}
+  .verdict-text{color:var(--ink)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;
+         letter-spacing:.4px;padding:2px 8px;border-radius:10px;margin-right:8px}
+  .badge-new{background:#16a34a;color:#fff}
+  .badge-new-caveat{background:#d97706;color:#fff}
+  .badge-legacy{background:#dc2626;color:#fff}
+  .badge-tie{background:#6b7280;color:#fff}
+  .summary{background:var(--card);border:1px solid var(--line);border-radius:8px;
+           padding:18px 22px;margin:0 0 24px}
+  .summary table th,.summary table td{padding:7px 10px;vertical-align:top}
+  .summary-foot{margin:14px 0 0;font-size:13px;color:var(--ink);
+                background:#eff6ff;border-left:3px solid var(--new);padding:10px 14px;border-radius:4px}
+  .foot{color:var(--muted);font-size:12px;margin-top:32px;text-align:center}
+</style>
+</head><body><div class="wrap">
+
+<h1>TTD Scenarios — Legacy vs New, Side by Side</h1>
+<p class="sub">Legacy numbers loaded from
+<code>validate_ttd_logic_scenarios_output.json</code> (notebook output).
+New numbers computed by running the <code>metric_scorecard_pipeline</code> logic against the
+same 5 scenario JSONs in <code>data/scenarios/</code>.</p>
+
+<div class='summary'><h2 style='margin:0 0 10px;font-size:16px'>Verdict summary — which pipeline tells the truth?</h2><table><tr><th>Scenario</th><th>Winner</th><th>Why</th></tr><tr><td><b>Normal</b></td><td>Tie</td><td>Distribution is dense → mean ≈ median. Both fine.</td></tr><tr><td><b>Null-heavy</b></td><td>New</td><td>Legacy hides 67% miss rate behind a fractional mean. New surfaces it with score 0 + detection_rate + flag.</td></tr><tr><td><b>Low variance</b></td><td>Tie</td><td>Tight cluster → mean ≈ median. Both fine.</td></tr><tr><td><b>SLA breach</b></td><td>New</td><td>Legacy mean inflated by within-SLA tail. New median sits in the breach band where typical attempt lives.</td></tr><tr><td><b>Small sample</b></td><td>New (with caveat)</td><td>New treats each obs as one vote (more honest). But neither flags low sample size — fix recommended.</td></tr><tr><td><b>Category imbalance</b></td><td>New</td><td>Two categories with very different health. New surfaces it via mixed_category_health flag; legacy has no equivalent.</td></tr><tr><td><b>Small-n baseline</b></td><td>Tie</td><td>n=3, all good. Both converge on 0.66 as expected.</td></tr><tr><td><b>Small-n blind median</b></td><td>Legacy</td><td>n=3 with 1 breach. Median is pinned to middle obs → ignores the breach. Legacy mean responds. sla_compliance still catches it.</td></tr></table><p class='summary-foot'>Bottom line: legacy and new agree on benign distributions. On the failure modes that <em>actually matter</em> at production scale (lots of misses, lots of breaches, bimodal data, mixed-health categories), legacy systematically over-reports because mean is pulled by tails — new pipeline's pooled median + <code>quality_flags</code> + <code>detection_rate</code> together produce a customer-honest summary. The one place legacy still wins is very small n (Scenario 7b): the median can be pinned to a middle obs and miss real changes at the tails. Mitigation: pool over longer windows or lean on <code>sla_compliance</code> + <code>cumulative_mean</code> when n is small.</p></div>
+
+
+    <section class="scenario">
+      <h2>Scenario 1 normal <span class="meta">·
+          30 runs · 90 valid obs · 0 nulls ·
+          <code>scenario1_normal.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.677</b></td><td>0.68</td><td>0.1</td><td>0.496 – 0.823</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.653</b></td><td>0.663</td><td>0.058</td><td>0.55 – 0.753</td><td>30</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.68</b></td><td>1.0</td><td>1.0</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.656</b></td><td>1.0</td><td>1.0</td><td>60</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.66</b></td></tr><tr><th>detection_rate</th><td>1.0</td></tr><tr><th>sla_compliance</th><td>1.0</td></tr><tr><th>n_attempted</th><td>90</td></tr><tr><th>quality_flags</th><td><span class='flag'>none</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.677</td><td>0.68</td><td class='pos'>+0.003</td></tr><tr><td><code>resource_fault</code></td><td>0.653</td><td>0.656</td><td class='pos'>+0.003</td></tr></table>
+      </div>
+
+      <div class='verdict v-tie'><span class='badge badge-tie'>Tie — both agree</span> <span class='verdict-text'>Both pipelines converge (mean ≈ median when the distribution is dense and well-behaved). The new pipeline is no <em>more</em> accurate here, but it adds <code>detection_rate</code> and <code>quality_flags</code> at no cost. Tie on the headline, edge to new on diagnostics.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 2 null heavy <span class="meta">·
+          30 runs · 30 valid obs · 60 nulls ·
+          <code>scenario2_null_heavy.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.156</b></td><td>0.0</td><td>0.297</td><td>0.0 – 0.819</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.208</b></td><td>0.229</td><td>0.195</td><td>0.0 – 0.683</td><td>30</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.0</b></td><td>0.233</td><td>0.233</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.0</b></td><td>0.383</td><td>0.383</td><td>60</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.0</b></td></tr><tr><th>detection_rate</th><td>0.333</td></tr><tr><th>sla_compliance</th><td>0.333</td></tr><tr><th>n_attempted</th><td>90</td></tr><tr><th>quality_flags</th><td><span class='flag'>skewed_distribution</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.156</td><td>0.0</td><td class='neg'>-0.156</td></tr><tr><td><code>resource_fault</code></td><td>0.208</td><td>0.0</td><td class='neg'>-0.208</td></tr></table>
+      </div>
+
+      <div class='verdict v-new'><span class='badge badge-new'>New pipeline wins</span> <span class='verdict-text'>Legacy reports 0.16 / 0.21 for an agent that misses 67% of faults — a number no single run actually produced. New reports <b>0.0</b> with <code>detection_rate=0.33</code> and <code>skewed_distribution</code> flag: the typical attempt failed, and the flag tells the customer the tail of successful detects is being hidden. Honest signal beats inflated average.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 3 low variance <span class="meta">·
+          30 runs · 90 valid obs · 0 nulls ·
+          <code>scenario3_low_variance.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.663</b></td><td>0.664</td><td>0.027</td><td>0.607 – 0.721</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.667</b></td><td>0.666</td><td>0.02</td><td>0.634 – 0.73</td><td>30</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.664</b></td><td>1.0</td><td>1.0</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.666</b></td><td>1.0</td><td>1.0</td><td>60</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.665</b></td></tr><tr><th>detection_rate</th><td>1.0</td></tr><tr><th>sla_compliance</th><td>1.0</td></tr><tr><th>n_attempted</th><td>90</td></tr><tr><th>quality_flags</th><td><span class='flag'>none</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.663</td><td>0.664</td><td class='pos'>+0.001</td></tr><tr><td><code>resource_fault</code></td><td>0.667</td><td>0.666</td><td class='neg'>-0.001</td></tr></table>
+      </div>
+
+      <div class='verdict v-tie'><span class='badge badge-tie'>Tie — both agree</span> <span class='verdict-text'>Tight cluster around 40% of SLA → mean and median are nearly identical. Both pipelines agree. As with Scenario 1, the new pipeline adds trust signals for free but produces the same headline.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 4 sla breach <span class="meta">·
+          30 runs · 81 valid obs · 9 nulls ·
+          <code>scenario4_sla_breach.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.116</b></td><td>0.031</td><td>0.155</td><td>0.0 – 0.472</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.135</b></td><td>0.083</td><td>0.14</td><td>0.0 – 0.493</td><td>30</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.031</b></td><td>0.8</td><td>0.267</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.074</b></td><td>0.95</td><td>0.233</td><td>60</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.068</b></td></tr><tr><th>detection_rate</th><td>0.9</td></tr><tr><th>sla_compliance</th><td>0.244</td></tr><tr><th>n_attempted</th><td>90</td></tr><tr><th>quality_flags</th><td><span class='flag'>none</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.116</td><td>0.031</td><td class='neg'>-0.085</td></tr><tr><td><code>resource_fault</code></td><td>0.135</td><td>0.074</td><td class='neg'>-0.061</td></tr></table>
+      </div>
+
+      <div class='verdict v-new'><span class='badge badge-new'>New pipeline wins</span> <span class='verdict-text'>80% of detects breach SLA. Legacy mean (0.12 / 0.14) is inflated by the 20% within-SLA tail — a customer reads it as 'weakly okay'. New median (<b>0.07</b>) sits inside the breach band where the typical attempt actually lives, and <code>sla_compliance=0.24</code> tells the rest of the story: agent detects fine but is consistently too slow.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 5 small sample <span class="meta">·
+          5 runs · 11 valid obs · 4 nulls ·
+          <code>scenario5_small_sample.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.565</b></td><td>0.515</td><td>0.153</td><td>0.441 – 0.813</td><td>5</td></tr><tr><td><code>resource_fault</code></td><td><b>0.339</b></td><td>0.371</td><td>0.106</td><td>0.216 – 0.479</td><td>5</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.515</b></td><td>1.0</td><td>1.0</td><td>5</td></tr><tr><td><code>resource_fault</code></td><td><b>0.432</b></td><td>0.6</td><td>0.6</td><td>10</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.451</b></td></tr><tr><th>detection_rate</th><td>0.733</td></tr><tr><th>sla_compliance</th><td>0.733</td></tr><tr><th>n_attempted</th><td>15</td></tr><tr><th>quality_flags</th><td><span class='flag'>none</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.565</td><td>0.515</td><td class='neg'>-0.05</td></tr><tr><td><code>resource_fault</code></td><td>0.339</td><td>0.432</td><td class='pos'>+0.093</td></tr></table>
+      </div>
+
+      <div class='verdict v-new-with-caveat'><span class='badge badge-new-caveat'>New pipeline wins (with caveat)</span> <span class='verdict-text'>Both pipelines are fragile at n=5 runs. New is structurally better — every obs gets one vote instead of being halved inside per-run means — but it currently does <em>not</em> flag low sample size. Recommended fix: add <code>low_sample_size</code> to <code>quality_flags</code> when <code>n_attempted &lt; 20</code>. Without that, neither pipeline warns the customer that the headline is built on thin data.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 6 category imbalance <span class="meta">·
+          30 runs · 70 valid obs · 20 nulls ·
+          <code>scenario6_category_imbalance.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.199</b></td><td>0.0</td><td>0.298</td><td>0.0 – 0.801</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.656</b></td><td>0.651</td><td>0.017</td><td>0.629 – 0.689</td><td>30</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.0</b></td><td>0.333</td><td>0.333</td><td>30</td></tr><tr><td><code>resource_fault</code></td><td><b>0.654</b></td><td>1.0</td><td>1.0</td><td>60</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.644</b></td></tr><tr><th>detection_rate</th><td>0.778</td></tr><tr><th>sla_compliance</th><td>0.778</td></tr><tr><th>n_attempted</th><td>90</td></tr><tr><th>quality_flags</th><td><span class='flag'>mixed_category_health</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.199</td><td>0.0</td><td class='neg'>-0.199</td></tr><tr><td><code>resource_fault</code></td><td>0.656</td><td>0.654</td><td class='neg'>-0.002</td></tr></table>
+      </div>
+
+      <div class='verdict v-new'><span class='badge badge-new'>New pipeline wins</span> <span class='verdict-text'>Two categories, very different health: resource_fault healthy (~0.65), network_fault failing (0.00 with 67% miss rate). Legacy reports each category separately but provides no single headline that surfaces the imbalance — the consumer has to spot it by eye. New pipeline's <code>cumulative_score=0.644</code> comes with a <code>mixed_category_health</code> flag that says explicitly: <em>the categories disagree, don't trust the headline alone</em>. This is the single flag the new pipeline was designed for.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 7a small n baseline <span class="meta">·
+          3 runs · 3 valid obs · 0 nulls ·
+          <code>scenario7a_small_n_baseline.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.66</b></td><td>0.66</td><td>0.085</td><td>0.575 – 0.745</td><td>3</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.66</b></td><td>1.0</td><td>1.0</td><td>3</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.66</b></td></tr><tr><th>detection_rate</th><td>1.0</td></tr><tr><th>sla_compliance</th><td>1.0</td></tr><tr><th>n_attempted</th><td>3</td></tr><tr><th>quality_flags</th><td><span class='flag'>none</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.66</td><td>0.66</td><td class='zer'>0.0</td></tr></table>
+      </div>
+
+      <div class='verdict v-tie'><span class='badge badge-tie'>Tie — both agree</span> <span class='verdict-text'>Baseline for the n=3 pair. All three obs within SLA (0.3/0.4/0.5 &times; SLA). Legacy mean, new median, new pool-mean all converge on <b>0.66</b>. Sets the reference point against which Scenario 7b's blind-median pathology can be measured.</span></div>
+    </section>
+    
+    <section class="scenario">
+      <h2>Scenario 7b small n blind median <span class="meta">·
+          3 runs · 3 valid obs · 0 nulls ·
+          <code>scenario7b_small_n_blind_median.json</code></span></h2>
+
+      <div class="grid">
+        <div class="col legacy">
+          <h3>Legacy — <code>validate_ttd_logic_scenarios.ipynb</code></h3>
+          <p class="hint">Per-run mean of fault scores → mean/median/stdev across runs.
+             Stops at category. NO_SLA silently dropped.</p>
+          <table><tr><th>category</th><th>mean</th><th>median</th><th>stdev</th><th>range</th><th>runs</th></tr><tr><td><code>network_fault</code></td><td><b>0.468</b></td><td>0.66</td><td>0.408</td><td>0.0 – 0.745</td><td>3</td></tr></table>
+        </div>
+        <div class="col new">
+          <h3>New — <code>metric_scorecard_pipeline.ipynb</code></h3>
+          <p class="hint">Pool every obs (misses=0, NO_SLA tagged).
+             Category = median of pool. Cumulative + quality_flags.</p>
+          <table><tr><th>category</th><th>score</th><th>detect</th><th>sla_compl</th><th>n</th></tr><tr><td><code>network_fault</code></td><td><b>0.66</b></td><td>1.0</td><td>0.667</td><td>3</td></tr></table><table class='cum'><tr><th>cumulative_score</th><td><b>0.66</b></td></tr><tr><th>detection_rate</th><td>1.0</td></tr><tr><th>sla_compliance</th><td>0.667</td></tr><tr><th>n_attempted</th><td>3</td></tr><tr><th>quality_flags</th><td><span class='flag'>skewed_distribution</span></td></tr></table>
+        </div>
+      </div>
+
+      <div class="delta-block">
+        <h4>Side-by-side delta</h4>
+        <table class='delta'><tr><th>category</th><th>legacy mean</th><th>new median</th><th>Δ (new − legacy)</th></tr><tr><td><code>network_fault</code></td><td>0.468</td><td>0.66</td><td class='pos'>+0.192</td></tr></table>
+      </div>
+
+      <div class='verdict v-legacy'><span class='badge badge-legacy'>Legacy pipeline wins</span> <span class='verdict-text'><b>One of the few cases where legacy genuinely wins.</b> Swap the 3rd good obs for a breach (1.5 &times; SLA, normalized 0.0). Legacy mean drops from 0.66 to <b>0.468</b> (Δ −0.192). New median stays at <b>0.66</b> — at n=3 the median is pinned to the middle obs, and the changed value lands at position 3, so the headline ignores a real degradation. Mitigations the new pipeline still provides: <code>sla_compliance</code> drops 1.00 → 0.67, pool mean drops by the same magnitude as legacy, and a <code>low_sample_size</code> flag (if added at n &lt; 20) would warn the consumer. Lesson: at very small n, median's robustness becomes blindness — widen the window or lean on <code>sla_compliance</code>.</span></div>
+    </section>
+    
+
+<p class="foot">Generated by <code>build_scenarios_side_by_side.py</code></p>
+</div></body></html>

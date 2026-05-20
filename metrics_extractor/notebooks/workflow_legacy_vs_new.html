@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TTD Aggregation — Legacy vs New Workflow</title>
+<style>
+  :root {
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --bg:#fafafa; --card:#fff;
+    --legacy:#b45309; --legacy-soft:#fffbeb; --legacy-border:#fde68a;
+    --new:#2563eb;    --new-soft:#eff6ff;    --new-border:#bfdbfe;
+    --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+    --mono:'SFMono-Regular',Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1280px;margin:36px auto;padding:0 24px}
+  h1{font-size:24px;margin:0 0 6px}
+  .sub{color:var(--muted);margin-bottom:24px}
+  .legend{display:flex;gap:18px;font-size:12.5px;color:var(--muted);margin-bottom:18px}
+  .legend .sw{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-2px;border:1px solid}
+  .sw-legacy{background:var(--legacy-soft);border-color:var(--legacy-border)}
+  .sw-new{background:var(--new-soft);border-color:var(--new-border)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .col{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px 20px}
+  .col.legacy{border-top:4px solid var(--legacy)}
+  .col.new{border-top:4px solid var(--new)}
+  .col h2{margin:0 0 4px;font-size:16px}
+  .col.legacy h2{color:var(--legacy)} .col.new h2{color:var(--new)}
+  .col .src{font:12px var(--mono);color:var(--muted);margin-bottom:14px;display:block}
+
+  /* block diagram */
+  .blk{padding:12px 14px;border-radius:6px;margin:8px 0;font-size:13px;border:1px solid}
+  .blk b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .blk code{font:12px var(--mono);background:rgba(0,0,0,.04);padding:1px 5px;border-radius:3px}
+  .legacy .blk{background:var(--legacy-soft);border-color:var(--legacy-border)}
+  .legacy .blk b{color:var(--legacy)}
+  .new .blk{background:var(--new-soft);border-color:var(--new-border)}
+  .new .blk b{color:var(--new)}
+  .arr{text-align:center;color:var(--muted);font-size:18px;line-height:1;margin:-2px 0}
+
+  .blk.out{background:#ecfdf5;border-color:#a7f3d0}
+  .blk.out b{color:var(--good)}
+  .blk.drop{background:#fef2f2;border-color:#fecaca;font-size:12.5px}
+  .blk.drop b{color:var(--bad)}
+
+  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
+  .p-good{background:#dcfce7;color:var(--good)}
+  .p-warn{background:#fef3c7;color:var(--warn)}
+  .p-bad{background:#fee2e2;color:var(--bad)}
+  .p-mute{background:#f3f4f6;color:var(--muted)}
+
+  /* diff table */
+  .diff{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px 22px;margin:18px 0}
+  .diff h2{margin:0 0 12px;font-size:16px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-weight:600;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;background:#f9fafb}
+  td.dim{color:var(--muted)}
+  td code{font:12px var(--mono);background:#f3f4f6;padding:1px 5px;border-radius:3px}
+  td.legacy-col{background:var(--legacy-soft)}
+  td.new-col{background:var(--new-soft)}
+
+  .foot{color:var(--muted);font-size:12px;margin-top:32px;text-align:center}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>TTD Aggregation Workflow — Legacy vs New</h1>
+<p class="sub">Side-by-side block diagram: what each pipeline does at every stage, where they diverge,
+and what the new pipeline preserves that the legacy one drops on the floor.</p>
+
+<div class="legend">
+  <span><span class="sw sw-legacy"></span>Legacy — <code>validate_ttd_logic.ipynb</code></span>
+  <span><span class="sw sw-new"></span>New — <code>metric_scorecard_pipeline.ipynb</code></span>
+</div>
+
+<!-- ============== BLOCK DIAGRAMS ============== -->
+<div class="grid">
+
+  <!-- LEGACY -->
+  <div class="col legacy">
+    <h2>Legacy workflow</h2>
+    <span class="src">validate_ttd_logic.ipynb · 3 stages · stops at category</span>
+
+    <div class="blk">
+      <b>Input</b>
+      Per-run dict: <code>{run_id → {category → {fault → ttd}}}</code> + <code>sla[fault]</code>.
+      <code>ttd</code> may be <code>None</code> (miss).
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>Step 1 · Normalize per fault</b>
+      <code>normalize_ttd_with_fault_sla(fault, ttd, sla)</code> →
+      score in [0, 1] using piecewise SLA-aware curve.<br>
+      <span class="pill p-mute">ttd = None → score 0</span>
+      <span class="pill p-bad">sla = None → score = None (dropped)</span>
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>Step 2 · Per-run-per-category mean</b>
+      For each (run, category): take <code>mean(fault_scores)</code> across all faults in that category.
+      Scores of <code>None</code> are skipped.
+      <span class="pill p-warn">2 faults in a category → each fault contributes 50% of the run's category number</span>
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>Step 3 · Per-category overall (across runs)</b>
+      For each category: <code>mean / median / stdev / min / max / count_runs</code> of the per-run means.
+      Headline = <b>mean of per-run means</b>.
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk out">
+      <b>Output</b>
+      One row per category with {mean, median, stdev, min, max, count_runs}.
+      <br><span class="pill p-bad">No cumulative / agent-level number</span>
+      <span class="pill p-bad">No quality flags</span>
+      <span class="pill p-bad">No detection_rate / sla_compliance</span>
+    </div>
+
+    <div class="blk drop">
+      <b>What gets dropped</b>
+      <ul style="margin:4px 0 0 18px;padding:0">
+        <li><code>NO_SLA</code> obs are silently filtered out (no audit trail)</li>
+        <li>A run that misses every fault in a category contributes <em>nothing</em> (it's excluded), so miss rate is invisible</li>
+        <li>No way to tell why a low score is low: is it slow detect? lots of misses? lots of breaches? legacy mean averages them all into one number</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- NEW -->
+  <div class="col new">
+    <h2>New workflow</h2>
+    <span class="src">metric_scorecard_pipeline.ipynb · 5 stages · 4 grains of output</span>
+
+    <div class="blk">
+      <b>Input</b>
+      Same per-run dict + SLA. Plus a <code>metric_name</code> param so the same pipeline runs on TTD, TTM, etc.
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>§1 · Classify every observation</b>
+      Each (run, category, sub_fault) becomes one <code>Observation</code> with a <code>status</code>:
+      <span class="pill p-good">VALID</span>
+      <span class="pill p-mute">MISSING (ttd = None)</span>
+      <span class="pill p-warn">INVALID_ZERO</span>
+      <span class="pill p-bad">NO_SLA</span>
+      Misses stay in the pool with score 0; <code>NO_SLA</code> stays in the dataframe but is excluded from aggregation (audit trail kept).
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>§2 · Normalize</b>
+      Same piecewise SLA-aware curve as legacy:
+      <code>within SLA → 1 − 0.85·ratio</code>, <code>breach → max(0, 0.15 − 0.3·(ratio−1))</code>.
+      One score per obs, never <code>None</code>.
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>§3 · Sub-fault grain</b>
+      Pool all obs of a sub-fault. Confidence tiered by n:
+      <span class="pill p-bad">n&lt;3 INSUFFICIENT</span>
+      <span class="pill p-warn">n&lt;5 LOW (mean)</span>
+      <span class="pill p-mute">n&lt;20 MEDIUM (0.7·median + 0.3·p5)</span>
+      <span class="pill p-good">n≥20 HIGH (0.5·median + 0.3·p5 + 0.2·p1)</span>
+      <br>Each obs gets one vote — rare sub-faults aren't drowned by frequent ones.
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>§4 · Category grain</b>
+      Pool all obs across sub-faults in the category. <code>category_score = median(pool)</code>.
+      Also emits <code>detection_rate</code> + <code>sla_compliance</code>.
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk">
+      <b>§5 · Cumulative (agent-level)</b>
+      Pool every obs across all categories. <code>cumulative_score = median(pool)</code>.
+      Diagnostics collapsed into <code>quality_flags</code>:
+      <span class="pill p-warn">skewed_distribution</span> |mean−median| &gt; 0.15
+      <span class="pill p-warn">mixed_category_health</span> |mean(cat_scores)−median| &gt; 0.15
+      <span class="pill p-mute">N_obs_excluded_no_sla</span>
+    </div>
+    <div class="arr">↓</div>
+
+    <div class="blk out">
+      <b>Output</b>
+      Four dataframes (obs → sub-fault → category → cumulative). One headline number <em>plus</em>
+      the diagnostics needed to know whether to trust it.
+    </div>
+  </div>
+</div>
+
+<!-- ============== STAGE-BY-STAGE DIFF TABLE ============== -->
+<div class="diff">
+  <h2>Stage-by-stage differences</h2>
+  <table>
+    <tr>
+      <th style="width:14%">Concern</th>
+      <th style="width:43%" class="legacy-col">Legacy</th>
+      <th style="width:43%" class="new-col">New</th>
+    </tr>
+    <tr>
+      <td>Atomic unit</td>
+      <td class="legacy-col">Per-fault score, may be <code>None</code></td>
+      <td class="new-col"><code>Observation</code> with explicit <code>status</code> — never <code>None</code></td>
+    </tr>
+    <tr>
+      <td>Missing TTD</td>
+      <td class="legacy-col">Score = 0, but the obs is averaged inside per-run mean — its weight depends on how many other faults the run had</td>
+      <td class="new-col">Score = 0, kept as one vote in the pool; <code>detection_rate</code> separately reports miss rate</td>
+    </tr>
+    <tr>
+      <td>NO_SLA</td>
+      <td class="legacy-col"><span class="pill p-bad">Silently dropped</span> — no record kept</td>
+      <td class="new-col">Kept in observation dataframe with <code>status=NO_SLA</code>; excluded from aggregation; counted in <code>N_obs_excluded_no_sla</code> flag</td>
+    </tr>
+    <tr>
+      <td>Aggregation grain</td>
+      <td class="legacy-col"><b>Per-run</b> — each run produces one number per category, then averaged across runs</td>
+      <td class="new-col"><b>Per-obs</b> — every observation is one vote in the pool, then median taken</td>
+    </tr>
+    <tr>
+      <td>Headline statistic</td>
+      <td class="legacy-col"><code>mean</code> of per-run category means</td>
+      <td class="new-col"><code>median</code> of pooled obs scores</td>
+    </tr>
+    <tr>
+      <td>Output grains</td>
+      <td class="legacy-col">Category only</td>
+      <td class="new-col">Observation · sub-fault · category · cumulative (all four available)</td>
+    </tr>
+    <tr>
+      <td>Confidence signal</td>
+      <td class="legacy-col">None — count_runs is reported but no tier</td>
+      <td class="new-col">Per-sub-fault tier: INSUFFICIENT / LOW / MEDIUM / HIGH; weighting changes with tier</td>
+    </tr>
+    <tr>
+      <td>Detection / breach split</td>
+      <td class="legacy-col">Both folded into the score — caller can't tell whether agent is slow or missing</td>
+      <td class="new-col">Separate <code>detection_rate</code> and <code>sla_compliance</code> at every grain</td>
+    </tr>
+    <tr>
+      <td>Quality flags</td>
+      <td class="legacy-col">None</td>
+      <td class="new-col"><code>skewed_distribution</code> · <code>mixed_category_health</code> · <code>N_obs_excluded_no_sla</code></td>
+    </tr>
+    <tr>
+      <td>Cumulative number</td>
+      <td class="legacy-col">Not produced</td>
+      <td class="new-col"><code>cumulative_score</code> at agent grain</td>
+    </tr>
+    <tr>
+      <td>Metric-agnostic</td>
+      <td class="legacy-col">TTD-specific naming throughout</td>
+      <td class="new-col"><code>metric_name</code> param — same pipeline runs on TTD, TTM, or anything else with an SLA</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============== WHAT THIS BUYS YOU ============== -->
+<div class="diff">
+  <h2>What the new shape gives the downstream consumer</h2>
+  <table>
+    <tr>
+      <th style="width:30%">Question consumer asks</th>
+      <th style="width:35%" class="legacy-col">Legacy answer</th>
+      <th style="width:35%" class="new-col">New answer</th>
+    </tr>
+    <tr>
+      <td>"Is the agent healthy overall?"</td>
+      <td class="legacy-col"><span class="pill p-bad">Can't say</span> — no cumulative number</td>
+      <td class="new-col"><code>cumulative_score</code> + flags</td>
+    </tr>
+    <tr>
+      <td>"Is the agent missing faults or just slow?"</td>
+      <td class="legacy-col"><span class="pill p-bad">Conflated</span> in the mean</td>
+      <td class="new-col"><code>detection_rate</code> vs <code>sla_compliance</code> tell them apart</td>
+    </tr>
+    <tr>
+      <td>"Are the categories evenly healthy?"</td>
+      <td class="legacy-col">Eyeball per-category means side by side</td>
+      <td class="new-col"><code>mixed_category_health</code> flag fires automatically</td>
+    </tr>
+    <tr>
+      <td>"Is the headline trustworthy?"</td>
+      <td class="legacy-col">No diagnostic — stdev is the only hint</td>
+      <td class="new-col"><code>quality_flags</code> = <code>['none']</code> ⇒ yes; any flag ⇒ look deeper</td>
+    </tr>
+    <tr>
+      <td>"How much data backed this?"</td>
+      <td class="legacy-col"><code>count_runs</code>, but no minimum-n warning</td>
+      <td class="new-col"><code>n_attempted</code> + confidence tier at sub-fault grain</td>
+    </tr>
+    <tr>
+      <td>"Can we score TTM the same way?"</td>
+      <td class="legacy-col">No — TTD-specific code paths</td>
+      <td class="new-col">Yes — pass <code>metric_name='ttm'</code></td>
+    </tr>
+  </table>
+</div>
+
+<p class="foot">Workflow comparison · <code>validate_ttd_logic.ipynb</code> vs
+<code>metric_scorecard_pipeline.ipynb</code></p>
+
+</div></body></html>
