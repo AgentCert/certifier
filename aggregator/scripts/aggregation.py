@@ -466,11 +466,9 @@ class ScorecardAssembler:
             "certification_run_id": certification_run_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "total_runs": total_input_runs,
-            "total_successful_runs": total_successful_runs,
             "total_failed_runs": total_failed_runs,
             "total_faults_tested": len(all_faults),
             "total_fault_categories": len(category_scorecards),
-            "runs_per_fault": runs_per_fault,
             "fault_category_scorecards": category_scorecards,
         }
 
@@ -885,10 +883,13 @@ class AggregationOrchestrator:
             )
 
             # Attach LLM Council model metadata
-            llm_council_info = self.council.get_council_model_info(
-                self.council.llm_client.config
-            )
-            final_scorecard["llm_council"] = llm_council_info
+            if self.council.llm_client:
+                llm_council_info = self.council.get_council_model_info(
+                    self.council.llm_client.config
+                )
+                final_scorecard["llm_council"] = llm_council_info
+            else:
+                final_scorecard["llm_council"] = {}
 
             # ── Attach metrics validation flag ──
             final_scorecard["metrics_validation_failed"] = metrics_validation_failed
@@ -1159,11 +1160,13 @@ async def main():
 
             num = sc.get("numeric_metrics", {})
             ttd = num.get("time_to_detect", {})
-            if ttd.get("median") is not None:
-                print(f"    Time to detect (median): {ttd['median']}s")
+            ttd_score = ttd.get("cumulative", {}).get("cumulative_score")
+            if ttd_score is not None:
+                print(f"    Time to detect (cumulative score): {ttd_score}")
             ttm = num.get("time_to_mitigate", {})
-            if ttm.get("median") is not None:
-                print(f"    Time to mitigate (median): {ttm['median']}s")
+            ttm_score = ttm.get("cumulative", {}).get("cumulative_score")
+            if ttm_score is not None:
+                print(f"    Time to mitigate (cumulative score): {ttm_score}")
 
         print("\n" + "=" * 70)
         print(f"Scorecard stored in MongoDB collection: '{collection_name}'")

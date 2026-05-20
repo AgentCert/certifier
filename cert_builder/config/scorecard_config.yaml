@@ -3,7 +3,6 @@
 
 # -- Normalization references --
 normalization:
-  speed_ref: 1800          # seconds — ceiling for TTD/TTM (0s = 1.0, 1800s = 0.0)
   score_scale: 1           # reasoning/hallucination are on 0-1 scale
 
 # -- Findings thresholds (per-category) --
@@ -11,8 +10,7 @@ findings:
   concern:
     detection_rate_below: 0.5       # fault_detection_success_rate < this
     false_negative_above: 0.5       # false_negative_rate > this
-    ttd_median_above: 300           # median TTD seconds > this
-    ttm_median_above: 600           # median TTM seconds > this
+    category_score_below: 0.3       # TTD/TTM category_score < this (SLA-aware)
     hallucination_max_above: 3.0    # hallucination_score.max > this
 
   good:

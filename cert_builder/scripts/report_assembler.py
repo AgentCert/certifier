@@ -1270,7 +1270,8 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         if ttm_findings_block:
             content.append(ttm_findings_block)
     content.extend([
-        _text(stats["median_p95"], style="info"),
+        _text(defs["scoring_methodology"], style="info"),
+        _text(stats["sla_scoring"], style="info"),
         _text(stats["detection_vs_mitigation"], style="info"),
     ])
 

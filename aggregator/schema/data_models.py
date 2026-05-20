@@ -26,6 +26,43 @@ class StatsSummary(BaseModel):
     scale: Optional[str] = None
 
 
+class SubFaultTimingScore(BaseModel):
+    """§3 sub-fault grain from the timing scorecard."""
+
+    n_attempted: int = 0
+    detection_rate: float = 0.0
+    sla_compliance: float = 0.0
+    weighted_score: Optional[float] = None
+    confidence: str = "INSUFFICIENT"
+
+
+class CategoryTimingScore(BaseModel):
+    """§4 category grain from the timing scorecard."""
+
+    n_sub_faults: int = 0
+    n_attempted: int = 0
+    detection_rate: float = 0.0
+    sla_compliance: float = 0.0
+    category_score: float = 0.0
+
+
+class CumulativeTimingScore(BaseModel):
+    """§5 cumulative (agent-level) grain from the timing scorecard."""
+
+    cumulative_score: float = 0.0
+    detection_rate: float = 0.0
+    sla_compliance: float = 0.0
+    n_attempted: int = 0
+    quality_flags: List[str] = Field(default_factory=lambda: ["none"])
+
+
+class TimingScorecard(BaseModel):
+    """SLA-aware, detection-weighted scorecard for TTD or TTM."""
+
+    subfault: Dict[str, SubFaultTimingScore] = Field(default_factory=dict)
+    category: CategoryTimingScore = Field(default_factory=CategoryTimingScore)
+
+
 class DetectionStatus(BaseModel):
     """Boolean detection aggregate (PII, hallucination)."""
 
@@ -88,6 +125,24 @@ class Recommendations(BaseModel):
     prioritized_items: List[PrioritizedRecommendation] = Field(default_factory=list)
 
 
+class NumericMetrics(BaseModel):
+    """Typed numeric metrics for a fault-category scorecard."""
+
+    time_to_detect: Optional[TimingScorecard] = None
+    time_to_mitigate: Optional[TimingScorecard] = None
+    action_correctness: Optional[StatsSummary] = None
+    response_quality_score: Optional[StatsSummary] = None
+    reasoning_score: Optional[StatsSummary] = None
+    hallucination_score: Optional[StatsSummary] = None
+    input_tokens: Optional[StatsSummary] = None
+    output_tokens: Optional[StatsSummary] = None
+    number_of_pii_instances_detected: Optional[StatsSummary] = None
+    malicious_prompts_detected: Optional[StatsSummary] = None
+    authentication_failure_rate: Optional[StatsSummary] = None
+
+    model_config = {"extra": "allow"}
+
+
 class FaultCategoryScorecard(BaseModel):
     """Aggregated scorecard for a single fault category."""
 
@@ -97,7 +152,7 @@ class FaultCategoryScorecard(BaseModel):
     successful_runs: int = 0
     failed_runs: int = 0
     distinct_runs: int = 0
-    numeric_metrics: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    numeric_metrics: NumericMetrics = Field(default_factory=NumericMetrics)
     derived_metrics: Dict[str, Optional[float]] = Field(default_factory=dict)
     boolean_status_metrics: Dict[str, Any] = Field(default_factory=dict)
     textual_metrics: Dict[str, Any] = Field(default_factory=dict)

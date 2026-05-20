@@ -110,68 +110,71 @@ def _build_judge_models():
 def _build_ttd_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_detect")
     has_h01 = bool(h01)
-    headers = ["Category", "Runs", "IQM", "Median", "P95", "BCa CI Lower", "BCa CI Upper"] \
-        if has_h01 else ["Category", "Runs", "Mean", "Median", "Std Dev", "P95", "Min", "Max"]
+    headers = ["Category", "Sub-Fault", "Runs", "Detection Rate", "SLA Compliance", "Weighted Score", "Confidence"] \
+        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Weighted Score", "BCa CI Lower", "BCa CI Upper"]
     rows = []
     for cat in categories:
         ttd = cat.get("numeric", {}).get("time_to_detect", {})
-        if has_h01:
-            cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
-            rec = h01.get(cat_key) or {}
-            rows.append([
-                cat.get("label", "N/A"),
-                cat.get("distinct_runs", cat.get("total_runs", 0)),
-                _fmt_time(rec.get("iqm") if rec else ttd.get("mean")),
-                _fmt_time(ttd.get("median")),
-                _fmt_time(ttd.get("p95")),
-                _fmt_time(rec.get("ci_lower")),
-                _fmt_time(rec.get("ci_upper")),
-            ])
+        subfaults = ttd.get("subfault", {})
+        cat_grain = ttd.get("category", {})
+        label = cat.get("label", "N/A")
+        if subfaults:
+            for sf_name, sf in subfaults.items():
+                if has_h01:
+                    cat_key = cat.get("fault_category") or label.lower() + "_fault"
+                    rec = h01.get(cat_key) or {}
+                    rows.append([
+                        label, sf_name, sf.get("n_attempted", 0),
+                        _fmt_rate(sf.get("sla_compliance")),
+                        _fmt_score(sf.get("weighted_score")),
+                        _fmt_time(rec.get("ci_lower")),
+                        _fmt_time(rec.get("ci_upper")),
+                    ])
+                else:
+                    rows.append([
+                        label, sf_name, sf.get("n_attempted", 0),
+                        _fmt_rate(sf.get("detection_rate")),
+                        _fmt_rate(sf.get("sla_compliance")),
+                        _fmt_score(sf.get("weighted_score")),
+                        sf.get("confidence", "N/A"),
+                    ])
         else:
-            rows.append([
-                cat.get("label", "N/A"),
-                cat.get("distinct_runs", cat.get("total_runs", 0)),
-                _fmt_time(ttd.get("mean")),
-                _fmt_time(ttd.get("median")),
-                _fmt_time(ttd.get("std_dev")),
-                _fmt_time(ttd.get("p95")),
-                _fmt_time(ttd.get("min")),
-                _fmt_time(ttd.get("max")),
-            ])
+            rows.append([label, "N/A", 0, "N/A", "N/A", "N/A", "N/A"])
     return {"headers": headers, "rows": rows}
 
 
 def _build_ttm_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_mitigate")
     has_h01 = bool(h01)
-    headers = ["Category", "Runs", "IQM", "Median", "P95", "BCa CI Lower", "BCa CI Upper"] \
-        if has_h01 else ["Category", "Runs", "Mean", "Median", "Std Dev", "P95", "Min", "Max"]
+    headers = ["Category", "Sub-Fault", "Runs", "Detection Rate", "SLA Compliance", "Weighted Score", "Confidence"] \
+        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Weighted Score", "BCa CI Lower", "BCa CI Upper"]
     rows = []
     for cat in categories:
         ttm = cat.get("numeric", {}).get("time_to_mitigate", {})
-        if has_h01:
-            cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
-            rec = h01.get(cat_key) or {}
-            rows.append([
-                cat.get("label", "N/A"),
-                cat.get("distinct_runs", cat.get("total_runs", 0)),
-                _fmt_time(rec.get("iqm") if rec else ttm.get("mean")),
-                _fmt_time(ttm.get("median")),
-                _fmt_time(ttm.get("p95")),
-                _fmt_time(rec.get("ci_lower")),
-                _fmt_time(rec.get("ci_upper")),
-            ])
+        subfaults = ttm.get("subfault", {})
+        label = cat.get("label", "N/A")
+        if subfaults:
+            for sf_name, sf in subfaults.items():
+                if has_h01:
+                    cat_key = cat.get("fault_category") or label.lower() + "_fault"
+                    rec = h01.get(cat_key) or {}
+                    rows.append([
+                        label, sf_name, sf.get("n_attempted", 0),
+                        _fmt_rate(sf.get("sla_compliance")),
+                        _fmt_score(sf.get("weighted_score")),
+                        _fmt_time(rec.get("ci_lower")),
+                        _fmt_time(rec.get("ci_upper")),
+                    ])
+                else:
+                    rows.append([
+                        label, sf_name, sf.get("n_attempted", 0),
+                        _fmt_rate(sf.get("detection_rate")),
+                        _fmt_rate(sf.get("sla_compliance")),
+                        _fmt_score(sf.get("weighted_score")),
+                        sf.get("confidence", "N/A"),
+                    ])
         else:
-            rows.append([
-                cat.get("label", "N/A"),
-                cat.get("distinct_runs", cat.get("total_runs", 0)),
-                _fmt_time(ttm.get("mean")),
-                _fmt_time(ttm.get("median")),
-                _fmt_time(ttm.get("std_dev")),
-                _fmt_time(ttm.get("p95")),
-                _fmt_time(ttm.get("min")),
-                _fmt_time(ttm.get("max")),
-            ])
+            rows.append([label, "N/A", 0, "N/A", "N/A", "N/A", "N/A"])
     return {"headers": headers, "rows": rows}
 
 
@@ -502,6 +505,8 @@ def _build_limitations(categories):
     rows = []
     for i, item in enumerate(items, 1):
         rows.append([i, item["limitation"], item["category"], item["severity"], item["frequency"]])
+    if not rows:
+        rows.append([1, "No limitations identified (qualitative analysis not performed)", "N/A", "N/A", "N/A"])
     return {"headers": headers, "rows": rows}
 
 
@@ -524,6 +529,8 @@ def _build_recommendations(categories):
     rows = []
     for i, item in enumerate(items, 1):
         rows.append([i, item["priority"], item["recommendation"], item["category"]])
+    if not rows:
+        rows.append([1, "N/A", "No recommendations generated (qualitative analysis not performed)", "N/A"])
     return {"headers": headers, "rows": rows}
 
 

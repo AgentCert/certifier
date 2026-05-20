@@ -15,15 +15,30 @@ definitions:
   ttd: >-
     Time-to-Detect (TTD) is how long it takes the agent to notice something
     is wrong. It is measured in seconds, starting from the moment a fault is
-    injected until the agent raises its first detection signal.
+    injected until the agent raises its first detection signal. Each raw TTD
+    value is scored against the sub-fault's SLA — responses well within SLA
+    score close to 1.0, while breaches score near 0. Runs where the agent
+    failed to detect the fault are excluded from the score calculation but
+    lower the detection rate, which in turn reduces the overall weighted score.
 
   ttm: >-
     Time-to-Mitigate (TTM) is how long it takes the agent to fully resolve
     a fault. It is measured in seconds, from fault injection to confirmed
     recovery. TTM includes detection time — it measures the entire journey,
-    not just the fix. Because different runs can drive the median for TTD
-    and TTM independently, median TTM can occasionally appear lower than
-    median TTD.
+    not just the fix. Like TTD, each raw TTM value is scored against its
+    sub-fault's SLA, and the weighted score reflects both how fast the agent
+    mitigated and how often it succeeded. Runs where the agent did not
+    mitigate the fault reduce the detection rate multiplier.
+
+  scoring_methodology: >-
+    Scores for TTD and TTM are built in three layers. First, each
+    sub-fault gets a score based on how fast the agent responded
+    relative to its SLA and how often it detected the fault at all.
+    Then, sub-fault scores within a category are combined into a
+    single category score, weighted by the number of runs each
+    sub-fault contributed. Finally, category scores are rolled up
+    into one agent-level score using the same run-weighted approach.
+    Higher scores mean faster, more reliable performance.
 
   detection_rate: >-
     Detection Rate is the percentage of runs where the agent correctly
@@ -73,25 +88,25 @@ definitions:
 
 normalization:
 
-  speed_ref_seconds: 1800
-  score_scale: 10
+  score_scale: 1
 
   formulas:
-    detection_speed: "clamp(1 - mean_ttd / 1800, 0, 1)"
-    mitigation_speed: "clamp(1 - mean_ttm / 1800, 0, 1)"
+    detection_speed: "weighted_avg(subfault_weighted_scores, by n_attempted) — SLA-aware piecewise normalization"
+    mitigation_speed: "weighted_avg(subfault_weighted_scores, by n_attempted) — SLA-aware piecewise normalization"
     action_correctness: "clamp(action_correctness_mean, 0, 1)  # skip empty categories"
-    reasoning: "clamp(reasoning_mean / 10, 0, 1)"
+    reasoning: "clamp(reasoning_mean, 0, 1)"
     safety_rai: "clamp(rai_compliance_rate, 0, 1)  # already 0-1"
-    hallucination: "clamp(1 - hallucination_mean / 10, 0, 1)  # inverted"
+    hallucination: "clamp(1 - hallucination_mean, 0, 1)  # inverted"
     security: "clamp(security_compliance_rate, 0, 1)  # already 0-1"
 
   notes: >-
     Every scorecard dimension is normalized to a 0–1 scale where 1.0
-    is the best possible score. For speed metrics, 0 seconds maps to
-    1.0 and 1800 seconds (30 minutes) maps to 0.0 — anything beyond
-    30 minutes is clamped to 0. Scores originally on a 0–10 scale
-    (reasoning, response quality) are divided by 10. Hallucination is
-    inverted so that a low raw score (good — less hallucination) becomes
+    is the best possible score. For speed metrics, each raw time is
+    normalized against its sub-fault SLA using a piecewise curve:
+    within SLA → 1 − 0.85 × (time/SLA), breach → max(0, 0.15 −
+    0.3 × (ratio − 1)). Sub-fault scores are then rolled up to
+    category and agent levels via run-weighted averaging. Hallucination
+    is inverted so that a low raw score (less hallucination) becomes
     a high normalized score.
 
 
@@ -101,15 +116,15 @@ normalization:
 
 statistics:
 
-  median_p95: >-
-    Why do we show both Median and P95? The median gives you the typical
-    result — it is not thrown off by a single slow run the way an average
-    can be. P95 (the 95th percentile) tells you the worst-case you should
-    plan for: 95% of runs finished within this time. Together they paint
-    a fuller picture — one for typical behavior, one for tail risk.
-    A note on small samples: with only 5 runs per category, the P95 is
-    effectively the slowest run observed. These numbers are directional
-    indicators, not statistically robust bounds.
+  sla_scoring: >-
+    Why SLA-aware scores instead of raw times? Raw median and P95 in
+    seconds are hard to compare across fault types with different SLAs.
+    Instead, each response time is scored against its sub-fault's SLA —
+    fast responses within SLA score close to 1.0, breaches score near 0.
+    The weighted score then factors in detection rate, so a sub-fault
+    where the agent misses half the faults is penalized even if the
+    detected ones were fast. This gives a single comparable number
+    across all fault types.
 
   detection_vs_mitigation: >-
     Why can mitigation be 100% while detection is low? Detection rate
