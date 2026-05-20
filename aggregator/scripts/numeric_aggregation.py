@@ -272,11 +272,11 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             quant = doc.get("quantitative", {})
             qual = doc.get("qualitative", {})
 
-            fault_detected = quant.get("fault_detected")
+            agent_fault_detection_time = quant.get("agent_fault_detection_time")
             detected_fault_type = quant.get("detected_fault_type")
             injected_fault_name = quant.get("injected_fault_name")
 
-            is_detected = bool(fault_detected and fault_detected != "Unknown")
+            is_detected = agent_fault_detection_time is not None
             run_detect.append(is_detected)
             run_fn.append(not is_detected)
 

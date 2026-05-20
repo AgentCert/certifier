@@ -27,7 +27,7 @@ user_prompt_template: |
   - SYMBOL to use:
     - ✓ (checkmark) for POSITIVE/STRENGTH findings (good performance, high confidence, best practice)
     - ⚠ (warning triangle) for CONCERN/CHALLENGE findings (gaps, variability, marginal performance, risks)
-  - Bold the headline using **text**
+  - Write the headline in plain text (no bold formatting)
   
   CONSTRAINTS:
   - Return exactly 2 findings
@@ -35,6 +35,13 @@ user_prompt_template: |
   - Use appropriate symbol (✓ or ⚠) for each finding based on tone
   - CRITICAL: First finding should use ✓ (strength), second should use ⚠ (concern)
   - Run-count framing (STRICT — violations will be rejected): NEVER write fractions like "31/31", "62/62", "0/31", "0/62", "X of 62", "X of 93"; NEVER write "fault evaluations", "samples", "trials", or "flagged runs out of N". Quote rates as PERCENTAGES (e.g., "100% RAI compliance") and Wilson CI bounds as percentages only. The successes/trials column in the table is for context — DO NOT echo it back in your finding text.
+  
+  OUTPUT FORMAT:
+  Return exactly 2 findings, each on its own line.
+  Line 1: ✓ Strength/Positive Finding: [Detail text]
+  Line 2: ⚠ Challenge/Concern Finding: [Detail text]
+  
+  Do NOT put both findings on the same line. Do NOT use bullet points or numbering. Just the 2 lines with symbols and text.
 
 fallback_template: |
   ✓ **Table Summary**: Review the metrics above for key patterns.

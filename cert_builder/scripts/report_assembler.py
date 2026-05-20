@@ -365,7 +365,7 @@ def _findings_from_text(text: str) -> dict | None:
     """Convert LLM-generated findings text into a findings block.
     
     Args:
-        text: Multi-line text with findings (each starting with ✓ or ⚠)
+        text: Multi-line text or space-separated findings with ✓ or ⚠ symbols
     
     Returns:
         Findings block dict or None if text is empty
@@ -373,26 +373,42 @@ def _findings_from_text(text: str) -> dict | None:
     if not text.strip():
         return None
     
-    # Parse lines and convert to findings format
+    # Parse by splitting on symbol patterns (✓ or ⚠), even if on same line
+    # This handles both "✓ ...newline ⚠ ..." and "✓ ... ⚠ ..." cases
     findings_list = []
-    for line in text.strip().split("\n"):
-        line = line.strip()
-        if not line:
+    
+    # Find all occurrences of ✓ or ⚠ followed by content
+    pattern = r'([✓⚠])\s*(.+?)(?=(?:✓|⚠)|$)'
+    matches = re.findall(pattern, text, re.DOTALL)
+    
+    for symbol, content in matches:
+        content = content.strip()
+        if not content:
             continue
-        
-        # Determine severity based on symbol, but keep symbol in text
-        severity = "note"
-        if line.startswith("✓"):
-            severity = "good"
-            # Remove symbol and whitespace, then add it back to preserve formatting
-            line_content = line[2:].strip()
-            line = f"✓ {line_content}"
-        elif line.startswith("⚠"):
-            severity = "concern"
-            line_content = line[2:].strip()
-            line = f"⚠ {line_content}"
-        
+            
+        severity = "good" if symbol == "✓" else "concern"
+        # Reconstruct the finding with symbol
+        line = f"{symbol} {content}"
         findings_list.append({"severity": severity, "text": line})
+    
+    # Fallback: if regex didn't work, split by newlines as before
+    if not findings_list:
+        for line in text.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            
+            severity = "note"
+            if line.startswith("✓"):
+                severity = "good"
+                line_content = line[2:].strip()
+                line = f"✓ {line_content}"
+            elif line.startswith("⚠"):
+                severity = "concern"
+                line_content = line[2:].strip()
+                line = f"⚠ {line_content}"
+            
+            findings_list.append({"severity": severity, "text": line})
     
     if not findings_list:
         return None
