@@ -940,7 +940,7 @@ class AggregationOrchestrator:
                         if not run_id or run_id in seen_run_ids:
                             continue  # Skip empty or duplicate run_ids
                         
-                        trace_tokens = doc.get("trace_tokens", {})
+                        trace_tokens = doc.get("trace_tokens") or doc.get("token_usage") or {}
                         input_tok = trace_tokens.get("input_tokens")
                         output_tok = trace_tokens.get("output_tokens")
                         

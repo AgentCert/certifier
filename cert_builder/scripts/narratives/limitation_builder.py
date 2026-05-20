@@ -141,6 +141,59 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
         )
     support_parts.append(f"Per-category Boolean Flags:\n" + "\n".join(bool_lines))
 
+    # Subfault-level TTD/TTM breakdown
+    sf_lines = []
+    for c in cats:
+        ttd_data = (c.get("numeric") or {}).get("time_to_detect", {})
+        ttm_data = (c.get("numeric") or {}).get("time_to_mitigate", {})
+        ttd_sf = ttd_data.get("subfault", {})
+        ttm_sf = ttm_data.get("subfault", {})
+        if ttd_sf or ttm_sf:
+            sf_lines.append(f"  {c['label']}:")
+            all_sfs = sorted(set(list(ttd_sf.keys()) + list(ttm_sf.keys())))
+            for sf in all_sfs:
+                td = ttd_sf.get(sf, {})
+                tm = ttm_sf.get(sf, {})
+                parts = [f"    {sf}:"]
+                if td:
+                    sla = td.get("sla_seconds")
+                    parts.append(f"TTD score={td.get('weighted_score', 'N/A')}, det_rate={td.get('detection_rate', 'N/A')}, n={td.get('n_attempted', 'N/A')}" + (f", SLA={sla}s" if sla else ""))
+                if tm:
+                    sla = tm.get("sla_seconds")
+                    parts.append(f"TTM score={tm.get('weighted_score', 'N/A')}, mit_rate={tm.get('detection_rate', 'N/A')}, n={tm.get('n_attempted', 'N/A')}" + (f", SLA={sla}s" if sla else ""))
+                sf_lines.append(" | ".join(parts))
+    if sf_lines:
+        support_parts.append(f"Subfault TTD/TTM Breakdown:\n" + "\n".join(sf_lines))
+
+    # PII instance counts
+    pii_lines = []
+    for c in cats:
+        pii_data = (c.get("numeric") or {}).get("pii_instances", {})
+        if pii_data and "sum" in pii_data:
+            pii_lines.append(f"  {c['label']}: {pii_data['sum']:.0f} total (mean={pii_data.get('mean', 0):.1f})")
+    if pii_lines:
+        support_parts.append(f"PII Instance Counts:\n" + "\n".join(pii_lines))
+
+    # Qualitative assessment summaries
+    qual_lines = []
+    for c in cats:
+        textual = c.get("textual", {})
+        if not textual:
+            continue
+        cat_parts = []
+        for key, label in [
+            ("rai_check_summary", "RAI"),
+            ("overall_response_and_reasoning_quality", "Reasoning"),
+            ("security_compliance_summary", "Security"),
+        ]:
+            entry = textual.get(key, {})
+            if isinstance(entry, dict) and entry.get("severity_label"):
+                cat_parts.append(f"{label}={entry['severity_label']}")
+        if cat_parts:
+            qual_lines.append(f"  {c['label']}: {', '.join(cat_parts)}")
+    if qual_lines:
+        support_parts.append(f"Qualitative Assessment Ratings:\n" + "\n".join(qual_lines))
+
     supporting_block = "\n\n".join(support_parts)
     return existing_table, supporting_block
 
