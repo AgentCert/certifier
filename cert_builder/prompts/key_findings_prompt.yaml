@@ -31,11 +31,11 @@ user_prompt_template: |
 
   RULES FOR EACH FINDING:
   1. Headline: 3-6 words, punchy and direct (e.g., "Hallucination-free performance" or "Safety-floor weakness")
-  2. Detail: One or two sentences describing the practical impact and severity.
-     Reference broad performance trends (e.g., "low detection", "strong mitigation")
-     rather than embedding raw metric values. You may cite a statistic ONLY when it
-     is the central evidence for the finding (e.g., a CI bound or p-value that
-     establishes significance). Do NOT list multiple percentages or means.
+  2. Detail: One or two sentences with the key number(s) that drive the point.
+     Include the most important metric (e.g., detection rate, score, compliance %)
+     when it strengthens the finding. Avoid listing many numbers — pick the one or
+     two that matter most. You may cite CI bounds or p-values when they establish
+     significance for a key claim.
   3. Severity classification:
      - "concern": Clear performance gap, risk, or statistically significant weakness requiring attention
      - "good": Genuine strength backed by observed or statistical performance
@@ -54,7 +54,7 @@ user_prompt_template: |
   - BREVITY: Each detail sentence should be 1-2 lines max. Avoid lengthy explanations.
   - Example SHORT findings:
     * "Hallucination-free: Zero hallucinations across all successful runs."
-    * "Safety-floor weakness: Wilson lower bound fails to rule out rare failures."
-    * "Category reasoning imbalance: Network outperforms Resource on reasoning scores."
+    * "Network detection collapse: Network detection rate is only 3%, with TTD score near zero."
+    * "Category reasoning imbalance: Network reasoning (8.57) outperforms Resource (8.42)."
   - Headline must NOT repeat severity word (avoid "Good: reasoning is good")
 

@@ -1251,6 +1251,7 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         content.append(_chart(ttd_ci))
     content.append(_table(**phase2["tables"]["ttd_category_stats"]))
     content.append(_table(**phase2["tables"]["ttd_stats"]))
+    content.append(_text(defs["ttd_note"], style="info"))
     ttd_findings_text = _get_table_findings(phase2["tables"]["ttd_stats"], "Time-to-Detect")
     if ttd_findings_text:
         ttd_findings_block = _findings_from_text(ttd_findings_text)
@@ -1267,6 +1268,7 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         content.append(_chart(ttm_ci))
     content.append(_table(**phase2["tables"]["ttm_category_stats"]))
     content.append(_table(**phase2["tables"]["ttm_stats"]))
+    content.append(_text(defs["ttm_note"], style="info"))
     ttm_findings_text = _get_table_findings(phase2["tables"]["ttm_stats"], "Time-to-Mitigate")
     if ttm_findings_text:
         ttm_findings_block = _findings_from_text(ttm_findings_text)

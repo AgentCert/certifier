@@ -113,7 +113,7 @@ def _build_ttd_bar(categories):
         "title": "Time-to-Detect (SLA-Aware Scores)",
         "categories": _labels(categories),
         "series": [
-            {"name": "Category Score", "values": [_safe_get(c, "numeric", "time_to_detect", "category", "category_score") for c in categories]},
+            {"name": "Overall Detection Score", "values": [_safe_get(c, "numeric", "time_to_detect", "category", "category_score") for c in categories]},
             {"name": "SLA Compliance", "values": [_safe_get(c, "numeric", "time_to_detect", "category", "sla_compliance") for c in categories]},
         ],
         "y_axis": "Score (0-1)",
@@ -126,7 +126,7 @@ def _build_ttm_bar(categories):
         "title": "Time-to-Mitigate (SLA-Aware Scores)",
         "categories": _labels(categories),
         "series": [
-            {"name": "Category Score", "values": [_safe_get(c, "numeric", "time_to_mitigate", "category", "category_score") for c in categories]},
+            {"name": "Overall Mitigation Score", "values": [_safe_get(c, "numeric", "time_to_mitigate", "category", "category_score") for c in categories]},
             {"name": "SLA Compliance", "values": [_safe_get(c, "numeric", "time_to_mitigate", "category", "sla_compliance") for c in categories]},
         ],
         "y_axis": "Score (0-1)",

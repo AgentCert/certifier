@@ -257,15 +257,19 @@ def _agg_subfault_grain(
         central = _subfault_central(detected_sorted, n_obs)
         det_rate = len(detected_sorted) / n_obs if n_obs else 0.0
         weighted = central * det_rate if central is not None else None
+        all_scores = sorted(
+            o["normalized_score"] if (o["status"] == "VALID" and o["normalized_score"] is not None) else 0.0
+            for o in g
+        )
         result[sub_fault] = {
             "n_attempted": n_runs,
             "detection_rate": round(det_rate, precision),
             "sla_compliance": round(n_compliant / n_obs, precision) if n_obs else 0.0,
             "weighted_score": round(weighted, precision) if weighted is not None else None,
             "confidence": _confidence_tier(n_obs),
-            "mean": round(statistics.mean(detected_sorted), precision) if detected_sorted else None,
-            "median": round(statistics.median(detected_sorted), precision) if detected_sorted else None,
-            "p95": round(_pct(detected_sorted, 95.0), precision) if detected_sorted else None,
+            "mean": round(statistics.mean(all_scores), precision) if all_scores else None,
+            "median": round(statistics.median(all_scores), precision) if all_scores else None,
+            "p95": round(_pct(all_scores, 95.0), precision) if all_scores else None,
         }
     return result
 
