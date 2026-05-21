@@ -263,6 +263,9 @@ def _agg_subfault_grain(
             "sla_compliance": round(n_compliant / n_obs, precision) if n_obs else 0.0,
             "weighted_score": round(weighted, precision) if weighted is not None else None,
             "confidence": _confidence_tier(n_obs),
+            "mean": round(statistics.mean(detected_sorted), precision) if detected_sorted else None,
+            "median": round(statistics.median(detected_sorted), precision) if detected_sorted else None,
+            "p95": round(_pct(detected_sorted, 95.0), precision) if detected_sorted else None,
         }
     return result
 
@@ -299,12 +302,20 @@ def _agg_category_grain(
             total_w += n
     category_score = weighted_sum / total_w if total_w > 0 else 0.0
 
+    scores_cat = sorted(
+        o["normalized_score"] for o in pool
+        if o["status"] == "VALID" and o["normalized_score"] is not None
+    )
+
     return {
         "n_sub_faults": n_sub_faults,
         "n_attempted": n_runs,
         "detection_rate": round(det_rate, precision),
         "sla_compliance": round(n_compliant / n_obs, precision) if n_obs else 0.0,
         "category_score": round(category_score, precision),
+        "mean": round(statistics.mean(scores_cat), precision) if scores_cat else None,
+        "median": round(statistics.median(scores_cat), precision) if scores_cat else None,
+        "p95": round(_pct(scores_cat, 95.0), precision) if scores_cat else None,
     }
 
 

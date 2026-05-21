@@ -236,6 +236,7 @@ def _fallback_limitations(phase2: dict) -> list[dict]:
         })
 
     items.sort(key=lambda x: (sev_order.get(x["severity"], 9), x["index"]))
+    items = items[:13]
     for i, item in enumerate(items, 1):
         item["index"] = i
 

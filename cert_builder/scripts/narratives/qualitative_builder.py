@@ -368,9 +368,14 @@ def _fallback_findings(phase1: dict) -> dict:
         result["safety"] = [{"severity": "note", "headline": "Safety reviewed", "detail": "RAI compliance reviewed."}]
 
     # Hallucination
-    max_h = max(c["numeric"]["hallucination_score"]["max"] for c in cats)
+    h_vals = [c["numeric"].get("hallucination_score", {}).get("max", 0) or 0 for c in cats]
+    max_h = max(h_vals) if h_vals else 0
     if max_h > 0:
-        cat_name = next(c["label"] for c in cats if c["numeric"]["hallucination_score"]["max"] == max_h)
+        cat_name = next(
+            (c["label"] for c in cats
+             if (c["numeric"].get("hallucination_score", {}).get("max", 0) or 0) == max_h),
+            "unknown",
+        )
         result["hallucination"] = [
             {"severity": "good", "headline": "Near-zero hallucination",
              "detail": f"Most runs scored 0.0; highest was {max_h:.2f} in {cat_name}."}

@@ -116,16 +116,6 @@ normalization:
 
 statistics:
 
-  sla_scoring: >-
-    Why SLA-aware scores instead of raw times? Raw median and P95 in
-    seconds are hard to compare across fault types with different SLAs.
-    Instead, each response time is scored against its sub-fault's SLA —
-    fast responses within SLA score close to 1.0, breaches score near 0.
-    The weighted score then factors in detection rate, so a sub-fault
-    where the agent misses half the faults is penalized even if the
-    detected ones were fast. This gives a single comparable number
-    across all fault types.
-
   detection_vs_mitigation: >-
     Why can mitigation be 100% while detection is low? Detection rate
     tracks whether the agent explicitly identified the root cause before

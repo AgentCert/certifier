@@ -1239,6 +1239,7 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         rates_findings_block = _findings_from_text(rates_findings_text)
         if rates_findings_block:
             content.append(rates_findings_block)
+    content.append(_text(stats["detection_vs_mitigation"], style="info"))
     content.extend([
         _heading("4.2 Time-to-Detect"),
     ])
@@ -1248,6 +1249,7 @@ def _section_detection_response(phase2, phase1: dict | None = None,
     ])
     if ttd_ci is not None:
         content.append(_chart(ttd_ci))
+    content.append(_table(**phase2["tables"]["ttd_category_stats"]))
     content.append(_table(**phase2["tables"]["ttd_stats"]))
     ttd_findings_text = _get_table_findings(phase2["tables"]["ttd_stats"], "Time-to-Detect")
     if ttd_findings_text:
@@ -1263,17 +1265,14 @@ def _section_detection_response(phase2, phase1: dict | None = None,
     ])
     if ttm_ci is not None:
         content.append(_chart(ttm_ci))
+    content.append(_table(**phase2["tables"]["ttm_category_stats"]))
     content.append(_table(**phase2["tables"]["ttm_stats"]))
     ttm_findings_text = _get_table_findings(phase2["tables"]["ttm_stats"], "Time-to-Mitigate")
     if ttm_findings_text:
         ttm_findings_block = _findings_from_text(ttm_findings_text)
         if ttm_findings_block:
             content.append(ttm_findings_block)
-    content.extend([
-        _text(defs["scoring_methodology"], style="info"),
-        _text(stats["sla_scoring"], style="info"),
-        _text(stats["detection_vs_mitigation"], style="info"),
-    ])
+    content.append(_text(defs["scoring_methodology"], style="info"))
 
     return {
         "id": "detection_response",

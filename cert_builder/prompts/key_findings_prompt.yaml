@@ -31,10 +31,11 @@ user_prompt_template: |
 
   RULES FOR EACH FINDING:
   1. Headline: 3-6 words, punchy and direct (e.g., "Hallucination-free performance" or "Safety-floor weakness")
-  2. Detail: One or two sentences with specific numbers, severity, and ONLY the statistical evidence that matters
-     - Include CI bounds if they reveal a risk (e.g., "CI includes 0%")
-     - Include p-values ONLY if they establish significance for a key claim
-     - Skip test names (Levene, chi-squared) unless essential to credibility
+  2. Detail: One or two sentences describing the practical impact and severity.
+     Reference broad performance trends (e.g., "low detection", "strong mitigation")
+     rather than embedding raw metric values. You may cite a statistic ONLY when it
+     is the central evidence for the finding (e.g., a CI bound or p-value that
+     establishes significance). Do NOT list multiple percentages or means.
   3. Severity classification:
      - "concern": Clear performance gap, risk, or statistically significant weakness requiring attention
      - "good": Genuine strength backed by observed or statistical performance
@@ -44,7 +45,7 @@ user_prompt_template: |
   CONSTRAINTS:
   - Return exactly 5-7 items
   - At least 1 concern, 1 good, 1 note
-  - Use ONLY numbers from the context — do not invent values
+  - Use ONLY data from the context — do not invent claims
   - The overall detection rate is {overall_detection_pct}% and the overall mitigation rate is {overall_mitigation_pct}%, both computed across {successful_runs} successful runs — quote them this way
   - Trace runs: {total_runs} attempted, {successful_runs} successful, {failed_runs} failed — this is the ONLY run accounting allowed in narratives
   - NEVER use the words "fault evaluations", "evaluations", "samples", or fractions like "X/93" or "X/62" — quote rates as percentages and qualify with "across {successful_runs} successful runs" instead
@@ -52,8 +53,8 @@ user_prompt_template: |
   - Do NOT use "false positive" or "false negative" terminology
   - BREVITY: Each detail sentence should be 1-2 lines max. Avoid lengthy explanations.
   - Example SHORT findings:
-    * "Hallucination-free: Zero hallucinations across all {successful_runs} successful runs."
-    * "Safety-floor weakness: Wilson lower bound of 0.0% fails to rule out rare failures."
-    * "Category reasoning imbalance: Network (8.57) outperforms Resource (8.42), p=0.015617."
+    * "Hallucination-free: Zero hallucinations across all successful runs."
+    * "Safety-floor weakness: Wilson lower bound fails to rule out rare failures."
+    * "Category reasoning imbalance: Network outperforms Resource on reasoning scores."
   - Headline must NOT repeat severity word (avoid "Good: reasoning is good")
 
