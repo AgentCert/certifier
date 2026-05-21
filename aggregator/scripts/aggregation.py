@@ -466,6 +466,7 @@ class ScorecardAssembler:
             "certification_run_id": certification_run_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "total_runs": total_input_runs,
+            "total_successful_runs": total_successful_runs,
             "total_failed_runs": total_failed_runs,
             "total_faults_tested": len(all_faults),
             "total_fault_categories": len(category_scorecards),
