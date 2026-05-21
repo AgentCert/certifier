@@ -176,7 +176,7 @@ class Meta(BaseModel):
     failed_runs: int = Field(..., ge=0)
     total_faults: int = Field(..., ge=0)
     total_categories: int = Field(..., ge=0)
-    runs_per_fault_configured: int = Field(..., ge=0)
+    runs_per_fault_configured: int = Field(default=0, ge=0)
     categories: list[CategoryMeta] = Field(..., min_length=1)
 
 
