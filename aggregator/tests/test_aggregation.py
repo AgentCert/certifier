@@ -326,6 +326,9 @@ class TestComputeNumericAggregates:
     def _make_docs(self, n=3):
         return [
             {
+                "run_id": f"run-{i}",
+                "fault_category": "resource_fault",
+                "fault_name": "pod-cpu-hog",
                 "quantitative": {
                     "time_to_detect": 10.0 + i,
                     "time_to_mitigate": 20.0 + i,
@@ -349,24 +352,34 @@ class TestComputeNumericAggregates:
         docs = self._make_docs()
         result = compute_numeric_aggregates(docs)
         assert "time_to_detect" in result
-        assert "unit" in result["time_to_detect"]
-        assert result["time_to_detect"]["unit"] == "seconds"
+        ttd = result["time_to_detect"]
+        assert "subfault" in ttd
+        assert "category" in ttd
+        assert "pod-cpu-hog" in ttd["subfault"]
+        assert "category_score" in ttd["category"]
         assert "action_correctness" in result
         assert "response_quality_score" in result
-        assert result["response_quality_score"].get("scale") == "0-10"
+        assert result["response_quality_score"].get("scale") == "0-1"
 
     def test_empty_docs(self):
         from aggregator.scripts.numeric_aggregation import compute_numeric_aggregates
 
         result = compute_numeric_aggregates([])
-        assert result == {}
+        # Timing scorecards are always present (empty subfault, zero scores)
+        assert "time_to_detect" in result
+        assert result["time_to_detect"]["subfault"] == {}
+        assert result["time_to_detect"]["category"]["category_score"] == 0.0
 
     def test_missing_fields(self):
         from aggregator.scripts.numeric_aggregation import compute_numeric_aggregates
 
         docs = [{"quantitative": {}, "qualitative": {}}]
         result = compute_numeric_aggregates(docs)
-        assert result == {}
+        # TTD/TTM present with all-NO_SLA observations (unknown fault, no SLA entry)
+        assert "time_to_detect" in result
+        assert result["time_to_detect"]["subfault"] == {}
+        # Other metrics without values are omitted
+        assert "action_correctness" not in result
 
 
 class TestComputeDerivedRates:
@@ -388,6 +401,7 @@ class TestComputeDerivedRates:
                     "fault_detected": "pod-kill",
                     "detected_fault_type": "pod-kill",
                     "injected_fault_name": "pod-kill",
+                    "agent_fault_detection_time": 10.0,
                     "agent_fault_mitigation_time": 15.0,
                 },
                 "qualitative": {
@@ -409,7 +423,7 @@ class TestComputeDerivedRates:
 
         docs = [
             {
-                "quantitative": {"fault_detected": "pod-kill"},
+                "quantitative": {"fault_detected": "pod-kill", "agent_fault_detection_time": 10.0},
                 "qualitative": {"rai_check_status": "Passed"},
             },
             {
@@ -687,12 +701,8 @@ class TestScorecardAssembler:
             agent_name="TestAgent",
             certification_run_id="run-001",
             total_input_runs=39,
-            total_successful_runs=30,
         )
         assert result["total_runs"] == 39
-        assert result["total_successful_runs"] == 30
-        assert result["total_failed_runs"] == 9
-        assert result["total_successful_runs"] <= result["total_runs"]
 
 
 # ---------------------------------------------------------------------------

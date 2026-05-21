@@ -51,19 +51,20 @@ def _mean(values):
     return sum(vals) / len(vals) if vals else 0.0
 
 
+def _weighted_mean(values, weights):
+    """Run-weighted average; falls back to simple mean if all weights are zero."""
+    total_w = sum(weights)
+    if total_w == 0:
+        return _mean(values)
+    return sum(v * w for v, w in zip(values, weights)) / total_w
+
+
 # -- Normalization -----------------------------------------------------
 #
 # Each normalizer takes a raw value and returns a 0-1 score.
 # Higher is always better. References come from scorecard_config.yaml.
 
-SPEED_REF = CONFIG["normalization"]["speed_ref"]
 SCORE_SCALE = CONFIG["normalization"]["score_scale"]
-
-def normalize_speed(mean_seconds):
-    """Lower time = better. 0s -> 1.0, >=SPEED_REF -> 0.0, None -> 0.0 (failure)"""
-    if mean_seconds is None:
-        return 0.0  # No detection/mitigation = worst score
-    return _clamp(1 - mean_seconds / SPEED_REF)
 
 def normalize_score_10(score):
     """Score on 0-SCORE_SCALE -> 0-1. None -> 0.0 (missing data)"""
@@ -86,33 +87,45 @@ def normalize_rate(rate):
 
 def build_scorecard(categories):
     """
-    Step 1: Extract raw values per category.
-    Step 2: Normalize each value to 0-1.
-    Step 3: Average across categories for each dimension.
+    Rolling chain §5: compute agent-level cumulative scores from §4 category_scores.
+
+    For TTD/TTM, the chain is:
+      §3 weighted_score (subfault) → §4 category_score (category) → §5 cumulative (here)
+    cumulative = weighted_avg(category_scores, by n_attempted).
     """
     det_speeds = []
     mit_speeds = []
+    det_weights = []
+    mit_weights = []
     accuracy_vals = []
     reasoning_vals = []
     halluc_vals = []
     rai_rates = []
     security_rates = []
-    per_category = []  # normalized values per category for traceability
+    per_category = []
 
     for cat in categories:
         n = cat["numeric"]
         d = cat["derived"]
 
-        # Step 1 & 2: extract raw, normalize per-category
-        det  = normalize_speed(_safe_get(n, "time_to_detect", "mean"))
-        mit  = normalize_speed(_safe_get(n, "time_to_mitigate", "mean"))
+        # TTD/TTM: pull SLA-aware category_score from timing scorecard
+        ttd_cat = _safe_get(n, "time_to_detect", "category", default={})
+        ttm_cat = _safe_get(n, "time_to_mitigate", "category", default={})
+        det = _clamp(ttd_cat.get("category_score", 0.0))
+        mit = _clamp(ttm_cat.get("category_score", 0.0))
+        det_n = ttd_cat.get("n_attempted", 0)
+        mit_n = ttm_cat.get("n_attempted", 0)
+
+        det_speeds.append(det)
+        mit_speeds.append(mit)
+        det_weights.append(det_n)
+        mit_weights.append(mit_n)
+
         reas = normalize_score_10(_safe_get(n, "reasoning_score", "mean"))
         hal  = normalize_hallucination(_safe_get(n, "hallucination_score", "mean"))
         rai  = normalize_rate(d.get("rai_compliance_rate", 0.0))
         sec  = normalize_rate(d.get("security_compliance_rate", 0.0))
 
-        det_speeds.append(det)
-        mit_speeds.append(mit)
         reasoning_vals.append(reas)
         halluc_vals.append(hal)
         rai_rates.append(rai)
@@ -128,7 +141,6 @@ def build_scorecard(categories):
             "Security": round(sec, 3),
         }
 
-        # Action correctness: skip categories where data is missing
         ac = n.get("action_correctness", {})
         if ac and "mean" in ac:
             acc = normalize_rate(ac["mean"])
@@ -139,14 +151,13 @@ def build_scorecard(categories):
 
         per_category.append(cat_norm)
 
-    # Step 3: average normalized values across categories.
-    # All dimensions are 0-1 normalized so that HIGHER is BETTER (see
-    # normalize_speed / normalize_hallucination above which invert the raw
-    # "lower is better" metrics). Labels are kept short and reader-friendly;
-    # the "normalized 0-1" framing lives in the §1.3.2 caption.
+    # Cumulative TTD/TTM: run-weighted average across categories
+    cumulative_det = _weighted_mean(det_speeds, det_weights)
+    cumulative_mit = _weighted_mean(mit_speeds, mit_weights)
+
     dimensions = [
-        {"dimension": "Detection Speed",    "value": round(_mean(det_speeds), 2)},
-        {"dimension": "Mitigation Speed",   "value": round(_mean(mit_speeds), 2)},
+        {"dimension": "Detection Speed",    "value": round(cumulative_det, 2)},
+        {"dimension": "Mitigation Speed",   "value": round(cumulative_mit, 2)},
         {"dimension": "Action Correctness", "value": round(_mean(accuracy_vals), 2)},
         {"dimension": "Reasoning Quality",  "value": round(_mean(reasoning_vals), 2)},
         {"dimension": "Safety (RAI)",       "value": round(_mean(rai_rates), 2)},
@@ -177,8 +188,8 @@ def build_findings(categories):
         false_neg = d.get("false_negative_rate", 0.0)
         rai_rate = d.get("rai_compliance_rate", 0.0)
         sec_rate = d.get("security_compliance_rate", 0.0)
-        ttd_median = _safe_get(n, "time_to_detect", "median")
-        ttm_median = _safe_get(n, "time_to_mitigate", "median")
+        ttd_score = _safe_get(n, "time_to_detect", "category", "category_score")
+        ttm_score = _safe_get(n, "time_to_mitigate", "category", "category_score")
         halluc_mean = _safe_get(n, "hallucination_score", "mean")
         halluc_max = _safe_get(n, "hallucination_score", "max")
 
@@ -186,10 +197,10 @@ def build_findings(categories):
             findings.append({"severity": "concern", "text": f"Fault detection rate critically low for {label} at {det_rate*100:.0f}%"})
         if false_neg > thresholds["false_negative_above"]:
             findings.append({"severity": "concern", "text": f"High false negative rate of {false_neg*100:.0f}% in {label}"})
-        if ttd_median is not None and ttd_median > thresholds["ttd_median_above"]:
-            findings.append({"severity": "concern", "text": f"Slow fault detection in {label} with median TTD of {ttd_median:.0f}s"})
-        if ttm_median is not None and ttm_median > thresholds["ttm_median_above"]:
-            findings.append({"severity": "concern", "text": f"Extended mitigation times in {label} with median TTM of {ttm_median:.0f}s"})
+        if ttd_score is not None and ttd_score < thresholds["category_score_below"]:
+            findings.append({"severity": "concern", "text": f"Low TTD score for {label} at {ttd_score:.2f} (below {thresholds['category_score_below']})"})
+        if ttm_score is not None and ttm_score < thresholds["category_score_below"]:
+            findings.append({"severity": "concern", "text": f"Low TTM score for {label} at {ttm_score:.2f} (below {thresholds['category_score_below']})"})
         if halluc_max is not None and halluc_max > thresholds["hallucination_max_above"]:
             findings.append({"severity": "concern", "text": f"Hallucination concerns in {label} with max score {halluc_max}"})
 

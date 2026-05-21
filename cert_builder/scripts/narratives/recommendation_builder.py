@@ -82,10 +82,11 @@ def _format_table(table: dict) -> str:
 
 
 def _build_recommendations_context(
-    phase2: dict, limitations_enriched: dict
+    phase1: dict, phase2: dict, limitations_enriched: dict
 ) -> tuple[str, str, str]:
     """Build existing recs table, supporting tables, and limitations block."""
     tables = phase2.get("tables", {})
+    cats = phase1.get("categories", [])
 
     # Existing recommendations grouped by category
     rec_rows = tables.get("recommendations", {}).get("rows", [])
@@ -118,6 +119,50 @@ def _build_recommendations_context(
     sc_lines = "\n".join(f"  {d['dimension']:30s} {d['value']}" for d in dims)
     support_parts.append(f"Scorecard Dimensions:\n{sc_lines}")
     supporting_block = "\n\n".join(support_parts)
+
+    # Subfault-level TTD/TTM breakdown
+    sf_parts = []
+    for c in cats:
+        ttd_data = (c.get("numeric") or {}).get("time_to_detect", {})
+        ttm_data = (c.get("numeric") or {}).get("time_to_mitigate", {})
+        ttd_sf = ttd_data.get("subfault", {})
+        ttm_sf = ttm_data.get("subfault", {})
+        if ttd_sf or ttm_sf:
+            sf_parts.append(f"  {c['label']}:")
+            all_sfs = sorted(set(list(ttd_sf.keys()) + list(ttm_sf.keys())))
+            for sf in all_sfs:
+                td = ttd_sf.get(sf, {})
+                tm = ttm_sf.get(sf, {})
+                parts = [f"    {sf}:"]
+                if td:
+                    sla = td.get("sla_seconds")
+                    parts.append(f"TTD score={td.get('weighted_score', 'N/A')}, det_rate={td.get('detection_rate', 'N/A')}" + (f", SLA={sla}s" if sla else ""))
+                if tm:
+                    sla = tm.get("sla_seconds")
+                    parts.append(f"TTM score={tm.get('weighted_score', 'N/A')}, mit_rate={tm.get('detection_rate', 'N/A')}" + (f", SLA={sla}s" if sla else ""))
+                sf_parts.append(" | ".join(parts))
+    if sf_parts:
+        supporting_block += "\n\nSubfault TTD/TTM Breakdown:\n" + "\n".join(sf_parts)
+
+    # Qualitative assessment ratings
+    qual_parts = []
+    for c in cats:
+        textual = c.get("textual", {})
+        if not textual:
+            continue
+        cat_ratings = []
+        for key, label in [
+            ("rai_check_summary", "RAI"),
+            ("overall_response_and_reasoning_quality", "Reasoning"),
+            ("security_compliance_summary", "Security"),
+        ]:
+            entry = textual.get(key, {})
+            if isinstance(entry, dict) and entry.get("severity_label"):
+                cat_ratings.append(f"{label}={entry['severity_label']}")
+        if cat_ratings:
+            qual_parts.append(f"  {c['label']}: {', '.join(cat_ratings)}")
+    if qual_parts:
+        supporting_block += "\n\nQualitative Assessment Ratings:\n" + "\n".join(qual_parts)
 
     # Enriched limitations from Call 5
     lim_items = limitations_enriched.get("items", [])
@@ -231,7 +276,7 @@ def build_recommendations(
         {"recommendations_enriched": {"items": [...], "source": ..., "model": ..., "tokens_used": ...}}
     """
     existing_table, supporting_block, enriched_lim_block = _build_recommendations_context(
-        phase2, limitations_enriched
+        phase1, phase2, limitations_enriched
     )
     user_prompt = _CONFIG["user_prompt_template"].format(
         existing_recommendations_table=existing_table,

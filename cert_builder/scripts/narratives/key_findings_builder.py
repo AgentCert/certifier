@@ -109,7 +109,85 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     ]:
         rows.append(_row(label, [f"{c['derived'][key]*100:.0f}%" for c in cats]))
 
+    # PII and token rows
+    for key, sub, label, fmt in [
+        ("pii_instances", "mean", "PII mean", lambda v: f"{v:.1f}"),
+        ("pii_instances", "sum", "PII total", lambda v: f"{v:.0f}"),
+        ("input_tokens", "mean", "Inp tok mean", lambda v: f"{v:.0f}"),
+        ("output_tokens", "mean", "Out tok mean", lambda v: f"{v:.0f}"),
+    ]:
+        rows.append(_row(label, [_safe(c, key, sub, fmt) for c in cats]))
+
     table = "\n".join([header] + rows)
+
+    # -- Subfault-level TTD/TTM breakdown --
+    sf_lines = []
+    for c in cats:
+        ttd_data = c.get("numeric", {}).get("time_to_detect", {})
+        ttm_data = c.get("numeric", {}).get("time_to_mitigate", {})
+        ttd_sf = ttd_data.get("subfault", {})
+        ttm_sf = ttm_data.get("subfault", {})
+        ttd_cat = ttd_data.get("category", {})
+        ttm_cat = ttm_data.get("category", {})
+
+        if ttd_sf or ttm_sf:
+            sf_lines.append(f"  {c['label']} ({len(c.get('faults_tested', []))} fault types):")
+            all_sfs = sorted(set(list(ttd_sf.keys()) + list(ttm_sf.keys())))
+            for sf in all_sfs:
+                td = ttd_sf.get(sf, {})
+                tm = ttm_sf.get(sf, {})
+                parts = [f"    {sf}:"]
+                if td:
+                    sla = td.get("sla_seconds")
+                    parts.append(
+                        f"TTD score={td.get('weighted_score', 'N/A')}, "
+                        f"det_rate={td.get('detection_rate', 'N/A')}, "
+                        f"n={td.get('n_attempted', 'N/A')}"
+                        + (f", SLA={sla}s" if sla else "")
+                    )
+                if tm:
+                    sla = tm.get("sla_seconds")
+                    parts.append(
+                        f"TTM score={tm.get('weighted_score', 'N/A')}, "
+                        f"mit_rate={tm.get('detection_rate', 'N/A')}, "
+                        f"n={tm.get('n_attempted', 'N/A')}"
+                        + (f", SLA={sla}s" if sla else "")
+                    )
+                sf_lines.append(" | ".join(parts))
+            if ttd_cat:
+                sf_lines.append(
+                    f"    Category TTD score={ttd_cat.get('category_score', 'N/A')}"
+                )
+            if ttm_cat:
+                sf_lines.append(
+                    f"    Category TTM score={ttm_cat.get('category_score', 'N/A')}"
+                )
+    subfault_block = "\n".join(sf_lines) if sf_lines else "(No subfault-level data)"
+
+    # -- Textual quality summaries --
+    qual_lines = []
+    for c in cats:
+        textual = c.get("textual", {})
+        if not textual:
+            continue
+        qual_lines.append(f"  {c['label']}:")
+        for key, label in [
+            ("rai_check_summary", "RAI"),
+            ("overall_response_and_reasoning_quality", "Reasoning Quality"),
+            ("security_compliance_summary", "Security"),
+            ("agent_summary", "Agent Behavior"),
+        ]:
+            entry = textual.get(key, {})
+            if isinstance(entry, dict):
+                sev = entry.get("severity_label", "")
+                conf = entry.get("confidence", "")
+                summary = entry.get("consensus_summary", "")
+                if sev or summary:
+                    qual_lines.append(
+                        f"    {label}: [{sev}] (confidence: {conf}) "
+                        f"{summary[:200]}{'...' if len(summary) > 200 else ''}"
+                    )
+    quality_block = "\n".join(qual_lines) if qual_lines else "(No textual quality summaries)"
 
     # ------------------------------------------------------------------
     # Top-level run accounting (distinct trace folders). This is the ONLY
@@ -169,6 +247,8 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         f"SCORECARD (7 dimensions):\n{sc_lines}\n\n"
         f"RAW FINDINGS ({len(findings)} items from Phase 2):\n{rf_lines}\n\n"
         f"PER-CATEGORY METRICS:\n{table}\n\n"
+        f"SUBFAULT-LEVEL TTD/TTM BREAKDOWN:\n{subfault_block}\n\n"
+        f"QUALITATIVE ASSESSMENTS:\n{quality_block}\n\n"
         f"PER-FAULT-CATEGORY BREAKDOWN:\n{breakdown}\n\n"
         f"Trace runs (folders):    {actual_total_runs} attempted, "
         f"{actual_successful_runs} successful, {actual_failed_runs} failed\n"
