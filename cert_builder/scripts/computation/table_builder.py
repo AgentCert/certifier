@@ -154,8 +154,8 @@ def _build_ttm_category_stats(categories):
 def _build_ttd_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_detect")
     has_h01 = bool(h01)
-    headers = ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Detection Score", "Confidence", "Mean", "Median", "P95"] \
-        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Detection Score", "BCa CI Lower", "BCa CI Upper", "Mean", "Median", "P95"]
+    headers = ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Detection Score", "Mean (s)", "Median (s)", "P95 (s)"] \
+        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Detection Score", "BCa CI Lower", "BCa CI Upper", "Mean (s)", "Median (s)", "P95 (s)"]
     rows = []
     for cat in categories:
         ttd = cat.get("numeric", {}).get("time_to_detect", {})
@@ -172,19 +172,18 @@ def _build_ttd_stats(categories, sh=None):
                         _fmt_score(sf.get("weighted_score")),
                         _fmt_time(rec.get("ci_lower")),
                         _fmt_time(rec.get("ci_upper")),
-                        _fmt_score(sf.get("mean")),
-                        _fmt_score(sf.get("median")),
-                        _fmt_score(sf.get("p95")),
+                        _fmt_time(sf.get("mean_s")),
+                        _fmt_time(sf.get("median_s")),
+                        _fmt_time(sf.get("p95_s")),
                     ])
                 else:
                     rows.append([
                         label, sf_name, sf.get("n_attempted", 0),
                         _fmt_rate(sf.get("sla_compliance")),
                         _fmt_score(sf.get("weighted_score")),
-                        sf.get("confidence", "N/A"),
-                        _fmt_score(sf.get("mean")),
-                        _fmt_score(sf.get("median")),
-                        _fmt_score(sf.get("p95")),
+                        _fmt_time(sf.get("mean_s")),
+                        _fmt_time(sf.get("median_s")),
+                        _fmt_time(sf.get("p95_s")),
                     ])
         else:
             rows.append([label, "N/A", 0] + ["N/A"] * (len(headers) - 3))
@@ -194,8 +193,8 @@ def _build_ttd_stats(categories, sh=None):
 def _build_ttm_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_mitigate")
     has_h01 = bool(h01)
-    headers = ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Mitigation Score", "Confidence", "Mean", "Median", "P95"] \
-        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Mitigation Score", "BCa CI Lower", "BCa CI Upper", "Mean", "Median", "P95"]
+    headers = ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Mitigation Score", "Mean (s)", "Median (s)", "P95 (s)"] \
+        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Mitigation Score", "BCa CI Lower", "BCa CI Upper", "Mean (s)", "Median (s)", "P95 (s)"]
     rows = []
     for cat in categories:
         ttm = cat.get("numeric", {}).get("time_to_mitigate", {})
@@ -212,19 +211,18 @@ def _build_ttm_stats(categories, sh=None):
                         _fmt_score(sf.get("weighted_score")),
                         _fmt_time(rec.get("ci_lower")),
                         _fmt_time(rec.get("ci_upper")),
-                        _fmt_score(sf.get("mean")),
-                        _fmt_score(sf.get("median")),
-                        _fmt_score(sf.get("p95")),
+                        _fmt_time(sf.get("mean_s")),
+                        _fmt_time(sf.get("median_s")),
+                        _fmt_time(sf.get("p95_s")),
                     ])
                 else:
                     rows.append([
                         label, sf_name, sf.get("n_attempted", 0),
                         _fmt_rate(sf.get("sla_compliance")),
                         _fmt_score(sf.get("weighted_score")),
-                        sf.get("confidence", "N/A"),
-                        _fmt_score(sf.get("mean")),
-                        _fmt_score(sf.get("median")),
-                        _fmt_score(sf.get("p95")),
+                        _fmt_time(sf.get("mean_s")),
+                        _fmt_time(sf.get("median_s")),
+                        _fmt_time(sf.get("p95_s")),
                     ])
         else:
             rows.append([label, "N/A", 0] + ["N/A"] * (len(headers) - 3))
