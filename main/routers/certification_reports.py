@@ -38,12 +38,19 @@ async def _gridfs_stream(gridfs_bucket, agent_id: str, experiment_id: str, fmt: 
         break
     if grid_out is None:
         return None
+    if not hasattr(grid_out, "read"):
+        grid_out = gridfs_bucket.open_download_stream(grid_out.get("_id") if isinstance(grid_out, dict) else grid_out._id)
     content_type = "application/pdf" if fmt == "pdf" else "text/html"
-    data = await grid_out.read()
+    data = grid_out.read()
+    if hasattr(data, "__await__"):
+        data = await data
+    filename = getattr(grid_out, "filename", None)
+    if filename is None and isinstance(grid_out, dict):
+        filename = grid_out.get("filename")
     return StreamingResponse(
         io.BytesIO(data),
         media_type=content_type,
-        headers={"Content-Disposition": f'attachment; filename="{grid_out.filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename or "report"}"'},
     )
 
 
