@@ -209,6 +209,9 @@ def _is_continuous_metric(metric_key: str) -> bool:
 
 
 def _round_int(x: float) -> int:
+    import math
+    if math.isinf(x):
+        return x  # Return infinity as-is
     return int(round(x))
 
 

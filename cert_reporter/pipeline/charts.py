@@ -741,7 +741,6 @@ def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
                 "encoding": point_encoding,
             },
         ],
-        "resolve": {"scale": {"color": "independent"}},
     }
     return spec
 

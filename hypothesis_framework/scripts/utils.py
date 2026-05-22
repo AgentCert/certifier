@@ -127,14 +127,13 @@ def build_subfault_data(
     all_runs: Dict[str, List[dict]],
     metric_field: str,
     filter_field: Optional[str] = None,
-    filter_value: Optional[str] = "Yes",
     section: str = "quantitative",
 ) -> Dict[str, Dict[str, List[float]]]:
     """Build nested data for continuous metrics (eligible runs only).
 
     Groups runs by *category → sub-fault*, extracting ``metric_field`` from
     the specified section block (quantitative or qualitative).
-    Optionally filters by ``filter_field == filter_value``.
+    If filter_field is provided, only includes runs where that field is not None.
 
     * Excludes runs with null / missing metric values.
     * Preserves filename sort order for H09 temporal compatibility.
@@ -142,8 +141,7 @@ def build_subfault_data(
     Args:
         all_runs: Pre-loaded runs grouped by category.
         metric_field: Field name to extract (e.g. "time_to_detect" or "reasoning_quality_score").
-        filter_field: Optional eligibility gate field name.
-        filter_value: Expected value for the gate.
+        filter_field: Optional eligibility gate field name (presence-based filtering).
         section: Section to extract from ("quantitative" or "qualitative").
 
     Returns:
@@ -156,7 +154,8 @@ def build_subfault_data(
         for run in runs:
             data_section = run.get(section, {})
 
-            if filter_field and data_section.get(filter_field) != filter_value:
+            # Filter: only include if filter_field is present (not None)
+            if filter_field and data_section.get(filter_field) is None:
                 continue
 
             val = data_section.get(metric_field)
@@ -180,7 +179,6 @@ def build_subfault_data_all(
     all_runs: Dict[str, List[dict]],
     metric_field: str,
     filter_field: Optional[str] = None,
-    filter_value: Optional[str] = "Yes",
 ) -> Dict[str, Dict[str, List[float]]]:
     """Build data including **all** runs for breach-rate analysis (H07).
 
@@ -201,7 +199,8 @@ def build_subfault_data_all(
             q = run.get("quantitative", {})
             fname = run.get("fault_name", "unknown")
 
-            if filter_field and q.get(filter_field) != filter_value:
+            # Filter: only include if filter_field is present (not None)
+            if filter_field and q.get(filter_field) is None:
                 subfaults.setdefault(fname, []).append(float("inf"))
                 continue
 
@@ -224,9 +223,12 @@ def build_subfault_data_all(
 def build_subfault_counts(
     all_runs: Dict[str, List[dict]],
     success_field: str,
-    success_value: str = "Yes",
 ) -> Dict[str, Dict[str, Tuple[int, int]]]:
     """Build success / trial counts for rate metrics (H02, H04).
+
+    Args:
+        all_runs: Pre-loaded runs grouped by category.
+        success_field: Field name to check for success (success = field is not None).
 
     Returns:
         ``{category: {sub_fault: (successes, trials)}}``
@@ -238,7 +240,10 @@ def build_subfault_counts(
         for run in runs:
             q = run.get("quantitative", {})
             fname = run.get("fault_name", "unknown")
-            is_success = q.get(success_field) == success_value
+            
+            # Success = field is not None
+            is_success = q.get(success_field) is not None
+            
             s, t = subfaults.get(fname, (0, 0))
             subfaults[fname] = (s + (1 if is_success else 0), t + 1)
 
