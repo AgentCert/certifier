@@ -725,6 +725,20 @@ def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
         point_encoding["color"] = color
         point_encoding["xOffset"] = {"field": "group", "type": "nominal"}
 
+    # Prepare bound tick marks data (small dashes at CI bounds)
+    bound_marks = []
+    for row in rows:
+        bound_marks.append({
+            **row,
+            "mark_type": "tick",
+            "tick_pos": row["ci_low"],
+        })
+        bound_marks.append({
+            **row,
+            "mark_type": "tick",
+            "tick_pos": row["ci_high"],
+        })
+
     spec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "width": 480,
@@ -735,6 +749,15 @@ def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
             {
                 "mark": {"type": "rule", "strokeWidth": 2, "color": "#4c5aa0"},
                 "encoding": rule_encoding,
+            },
+            {
+                "data": {"values": bound_marks},
+                "mark": {"type": "tick", "thickness": 2, "size": 10, "color": "#4c5aa0"},
+                "encoding": {
+                    "x": {"field": "label", "type": "nominal"},
+                    "y": {"field": "tick_pos", "type": "quantitative"},
+                    **({"color": {"field": "group", "type": "nominal", "scale": {"scheme": "tableau10"}, "title": "Group"}, "xOffset": {"field": "group", "type": "nominal"}} if has_groups else {}),
+                },
             },
             {
                 "mark": {"type": "point", "filled": True, "size": 80, "color": "#1a2744"},

@@ -1739,6 +1739,95 @@ def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
     }
 
 
+def _section_appendix_a4(overlay: HypothesisOverlay | None = None):
+    """Appendix A4: Statistical Concepts Glossary for Hypothesis Testing."""
+    # Glossary entries based on statistical methods used in H01-H09
+    glossary_entries = [
+        {
+            "term": "Confidence Interval (CI)",
+            "definition": "A range where we're 95% sure the true answer lies.",
+        },
+        {
+            "term": "p-value",
+            "definition": "Probability that the observed difference is just random luck — below 5% = real.",
+        },
+        {
+            "term": "Effect Size (A₁₂ — Vargha-Delaney)",
+            "definition": "How big a difference actually is (scale 0.5–1.0) — even if 'significant,' it might be tiny.",
+        },
+        {
+            "term": "IQM (Interquartile Mean)",
+            "definition": "25% trimmed mean — average of middle 50%, robust to outliers.",
+        },
+        {
+            "term": "Bootstrap BCa (Bias-Corrected and Accelerated Bootstrap)",
+            "definition": "Measuring uncertainty by reshuffling data 10,000 times. BCa corrects for bias and skewness.",
+        },
+        {
+            "term": "Wilson CI (Wilson Score Interval)",
+            "definition": "Confidence interval for success rates that works correctly with small samples or extreme values.",
+        },
+        {
+            "term": "Kruskal-Wallis / Mann–Whitney U",
+            "definition": "Rank-based group comparisons — no bell-curve assumption needed.",
+        },
+        {
+            "term": "Fisher's Exact Test",
+            "definition": "Exact probability test for success rates — works with small cell counts.",
+        },
+        {
+            "term": "Levene's Test + CV (Coefficient of Variation)",
+            "definition": "Levene's tests variance equality; CV = std/mean shows reliability. CV < 0.15 = stable, ≥ 0.30 = unstable.",
+        },
+        {
+            "term": "Wilcoxon Signed-Rank Test",
+            "definition": "Non-parametric paired test — does agent consistently meet SLA threshold?",
+        },
+        {
+            "term": "Exact Binomial Test",
+            "definition": "Exact probability test for breach rate — is breach rate provably below target?",
+        },
+        {
+            "term": "CVaR (Conditional Value at Risk)",
+            "definition": "Average of worst 5% of outcomes — measures tail severity. CVaR/IQM ratio flags tail risk.",
+        },
+        {
+            "term": "CUSUM + EWMA (Cumulative Sum Control Chart + Exponentially Weighted Moving Average)",
+            "definition": "Control charts detecting cumulative drift from target. EWMA emphasizes recent observations.",
+        },
+        {
+            "term": "Holm-Bonferroni Correction",
+            "definition": "Correction for multiple comparisons — prevents false positives from chance.",
+        },
+    ]
+    
+    # Build table from glossary entries
+    headers = ["Concept", "One-Sentence Explanation"]
+    rows = [[entry["term"], entry["definition"]] for entry in glossary_entries]
+    
+    table_block = {
+        "type": "table",
+        "headers": headers,
+        "rows": rows,
+    }
+    
+    return {
+        "id": "appendix_a4",
+        "number": 0,
+        "part": None,
+        "title": "Statistical Concepts Glossary",
+        "intro": "",
+        "content": [
+            _heading("A4. Statistical Concepts Glossary"),
+            _text(
+                "Quick reference for statistical terms used throughout the hypothesis testing framework (H1–H9). "
+                "Each concept is essential for interpreting confidence intervals, effect sizes, and p-values in the report."
+            ),
+            table_block,
+        ],
+    }
+
+
 def _section_hypothesis_latency_compliance(overlay: HypothesisOverlay):
     """Optional Phase E section: H3..H5 (latency + compliance hypotheses)."""
     blocks: list[dict] = []
@@ -2000,6 +2089,11 @@ class ReportAssembler:
         appendix_a3 = _section_appendix_a3(overlay)
         if appendix_a3 is not None:
             sections.append(appendix_a3)
+
+        # Appendix A4 — Statistical Concepts Glossary
+        appendix_a4 = _section_appendix_a4(overlay)
+        if appendix_a4 is not None:
+            sections.append(appendix_a4)
 
         # Renumber sections sequentially to keep them monotonic after the
         # optional Phase E injection. Banner sections (Part I / Part II) are
