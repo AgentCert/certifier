@@ -29,11 +29,21 @@ user_prompt_template: |
      - "Coverage" - expanding instrumentation or metric coverage
      - null - if no label fits
 
-  3. ENRICH descriptions with specific numbers from supporting data,
-     reference limitation L-numbers, include actionable detail.
+  3. ENRICH descriptions with qualitative context from supporting data,
+     reference limitation L-numbers, include actionable detail. Focus on
+     practical impact and what to improve rather than quoting specific
+     metric values. Do NOT embed raw percentages, means, p95, or scores
+     into recommendation text.
 
   4. ANALYZE tables and limitations to DISCOVER 0-2 additional
      recommendations for uncovered issues.
+
+  SIGNAL AREAS FOR DISCOVERING NEW RECOMMENDATIONS:
+  - Subfault variation: fault types with significantly lower TTD/TTM scores need targeted improvement
+  - SLA compliance: categories or subfaults breaching SLA thresholds need SLA-aware escalation
+  - PII leakage: non-zero PII instances need guardrails or output filtering
+  - Token efficiency: high token consumption needs prompt optimization or output truncation
+  - Qualitative weaknesses: Weak or Adequate qualitative assessments need targeted behavioral improvements
 
   RULES:
   - Merge cross-category duplicates (target: fewer items than input 10)

@@ -129,6 +129,17 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
             f"P95={_stat(c, 'time_to_detect', 'p95')}s"
         )
+        # Subfault TTD breakdown
+        ttd_sf = ((c.get("numeric") or {}).get("time_to_detect") or {}).get("subfault", {})
+        if ttd_sf:
+            for sf, td in sorted(ttd_sf.items()):
+                sla = td.get("sla_seconds")
+                lines.append(
+                    f"    {sf}: TTD score={td.get('weighted_score', 'N/A')}, "
+                    f"det_rate={td.get('detection_rate', 'N/A')}, "
+                    f"n={td.get('n_attempted', 'N/A')}"
+                    + (f", SLA={sla}s" if sla else "")
+                )
     lines.append(f"\nScorecard: Detection Speed = {sc_map.get('Detection Speed', 'N/A')}")
     # Compute weighted overall but expose only as percentage with run-level framing.
     eval_total = sum(c["total_runs"] for c in cats)
@@ -153,6 +164,17 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"median={_stat(c, 'time_to_mitigate', 'median')}s, "
             f"std={_stat(c, 'time_to_mitigate', 'std_dev')}s"
         )
+        # Subfault TTM breakdown
+        ttm_sf = ((c.get("numeric") or {}).get("time_to_mitigate") or {}).get("subfault", {})
+        if ttm_sf:
+            for sf, tm in sorted(ttm_sf.items()):
+                sla = tm.get("sla_seconds")
+                lines.append(
+                    f"    {sf}: TTM score={tm.get('weighted_score', 'N/A')}, "
+                    f"mit_rate={tm.get('detection_rate', 'N/A')}, "
+                    f"n={tm.get('n_attempted', 'N/A')}"
+                    + (f", SLA={sla}s" if sla else "")
+                )
     lines.append(f"\nScorecard: Mitigation Speed = {sc_map.get('Mitigation Speed', 'N/A')}")
     mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
     overall_mit = (mit_count / eval_total * 100) if eval_total else 0
@@ -251,6 +273,25 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         f"{c['label']}={'Yes' if c['boolean']['pii_detection']['any_detected'] else 'No'}" for c in cats
     )
     lines.append(f"PII detected: {pii_line}")
+    # PII instance counts
+    pii_counts = []
+    for c in cats:
+        pii_data = (c.get("numeric") or {}).get("pii_instances", {})
+        if pii_data and "sum" in pii_data:
+            pii_counts.append(f"{c['label']}={pii_data['sum']:.0f}")
+    if pii_counts:
+        lines.append(f"PII instance totals: {', '.join(pii_counts)}")
+    # Token usage
+    tok_parts = []
+    for c in cats:
+        inp = (c.get("numeric") or {}).get("input_tokens", {}).get("mean")
+        out = (c.get("numeric") or {}).get("output_tokens", {}).get("mean")
+        if isinstance(inp, (int, float)) or isinstance(out, (int, float)):
+            inp_s = f"{inp:.0f}" if isinstance(inp, (int, float)) else "N/A"
+            out_s = f"{out:.0f}" if isinstance(out, (int, float)) else "N/A"
+            tok_parts.append(f"{c['label']}: inp={inp_s}, out={out_s}")
+    if tok_parts:
+        lines.append(f"Token usage (mean): {'; '.join(tok_parts)}")
     lines.append(f"Scorecard: Security = {sc_map.get('Security', 'N/A')}")
 
     return "\n".join(lines)
@@ -327,9 +368,14 @@ def _fallback_findings(phase1: dict) -> dict:
         result["safety"] = [{"severity": "note", "headline": "Safety reviewed", "detail": "RAI compliance reviewed."}]
 
     # Hallucination
-    max_h = max(c["numeric"]["hallucination_score"]["max"] for c in cats)
+    h_vals = [c["numeric"].get("hallucination_score", {}).get("max", 0) or 0 for c in cats]
+    max_h = max(h_vals) if h_vals else 0
     if max_h > 0:
-        cat_name = next(c["label"] for c in cats if c["numeric"]["hallucination_score"]["max"] == max_h)
+        cat_name = next(
+            (c["label"] for c in cats
+             if (c["numeric"].get("hallucination_score", {}).get("max", 0) or 0) == max_h),
+            "unknown",
+        )
         result["hallucination"] = [
             {"severity": "good", "headline": "Near-zero hallucination",
              "detail": f"Most runs scored 0.0; highest was {max_h:.2f} in {cat_name}."}

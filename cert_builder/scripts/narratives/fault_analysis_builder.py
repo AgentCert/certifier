@@ -106,6 +106,45 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
         f"  PII detected:         {'Yes' if pii else 'No'}",
     ]
 
+    # PII instance counts
+    pii_data = n.get("pii_instances", {})
+    if pii_data and "sum" in pii_data:
+        lines.append(f"  PII instances:        {pii_data.get('sum', 0):.0f} total (mean={pii_data.get('mean', 0):.1f})")
+
+    # Token usage
+    inp_tok = (n.get("input_tokens") or {}).get("mean")
+    out_tok = (n.get("output_tokens") or {}).get("mean")
+    if isinstance(inp_tok, (int, float)) or isinstance(out_tok, (int, float)):
+        lines.append(f"  Input tokens mean:    {inp_tok:.0f}" if isinstance(inp_tok, (int, float)) else "  Input tokens mean:    N/A")
+        lines.append(f"  Output tokens mean:   {out_tok:.0f}" if isinstance(out_tok, (int, float)) else "  Output tokens mean:   N/A")
+
+    # Subfault-level TTD/TTM breakdown
+    ttd_data = n.get("time_to_detect", {})
+    ttm_data = n.get("time_to_mitigate", {})
+    ttd_sf = ttd_data.get("subfault", {})
+    ttm_sf = ttm_data.get("subfault", {})
+    if ttd_sf or ttm_sf:
+        lines.append("")
+        lines.append("SUBFAULT TTD/TTM BREAKDOWN:")
+        all_sfs = sorted(set(list(ttd_sf.keys()) + list(ttm_sf.keys())))
+        for sf in all_sfs:
+            td = ttd_sf.get(sf, {})
+            tm = ttm_sf.get(sf, {})
+            parts = [f"  {sf}:"]
+            if td:
+                sla = td.get("sla_seconds")
+                parts.append(f"TTD score={td.get('weighted_score', 'N/A')}, det_rate={td.get('detection_rate', 'N/A')}, n={td.get('n_attempted', 'N/A')}" + (f", SLA={sla}s" if sla else ""))
+            if tm:
+                sla = tm.get("sla_seconds")
+                parts.append(f"TTM score={tm.get('weighted_score', 'N/A')}, mit_rate={tm.get('detection_rate', 'N/A')}, n={tm.get('n_attempted', 'N/A')}" + (f", SLA={sla}s" if sla else ""))
+            lines.append(" | ".join(parts))
+        ttd_cat = ttd_data.get("category", {})
+        ttm_cat = ttm_data.get("category", {})
+        if ttd_cat:
+            lines.append(f"  Category TTD score={ttd_cat.get('category_score', 'N/A')}")
+        if ttm_cat:
+            lines.append(f"  Category TTM score={ttm_cat.get('category_score', 'N/A')}")
+
     # LLM Council assessments
     lines.append("")
     lines.append("LLM COUNCIL ASSESSMENTS:")
