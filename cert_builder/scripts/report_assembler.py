@@ -66,6 +66,37 @@ def _chart(chart_data: dict) -> dict:
     return {**chart_data, "type": "chart"}
 
 
+# -- Column-description map for dynamic "How to read" notes ------------------
+
+_COLUMN_DESCRIPTIONS = {
+    "Category": "fault category grouping",
+    "Sub-Fault": "specific fault type injected",
+    "Sub-Faults": "number of distinct sub-fault types in the category",
+    "Runs": "total evaluation runs attempted",
+    "SLA (s)": "the configured SLA threshold in seconds for this sub-fault",
+    "SLA Met (Detected)": "percentage of detected/mitigated runs that finished within the SLA threshold",
+    "Detection Rate": "percentage of runs where the agent detected the fault",
+    "Mitigation Rate": "percentage of runs where the fault was successfully mitigated",
+    "Mean (s)": "average time in seconds across successful runs",
+    "Median (s)": "middle value of response times — more robust to outliers than mean",
+    "P95 (s)": "95th percentile time — indicates worst-case performance excluding extreme outliers",
+    "95% CI Lower": "lower bound of the 95% BCa bootstrap confidence interval",
+    "95% CI Upper": "upper bound of the 95% BCa bootstrap confidence interval",
+}
+
+
+def _build_table_note(headers):
+    """Generate a dynamic 'How to read this table' note from column headers."""
+    parts = []
+    for h in headers:
+        desc = _COLUMN_DESCRIPTIONS.get(h)
+        if desc:
+            parts.append(f"**{h}** — {desc}")
+    if not parts:
+        return None
+    return "**How to read this table:** " + ". ".join(parts) + "."
+
+
 def _run_async(coro):
     """Run an async coroutine, handling both nested and top-level event loops."""
     try:
@@ -1254,7 +1285,9 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         content.append(_chart(ttd_ci))
     content.append(_table(**phase2["tables"]["ttd_category_stats"]))
     content.append(_table(**phase2["tables"]["ttd_stats"]))
-    content.append(_text(defs["ttd_note"], style="info"))
+    ttd_note = _build_table_note(phase2["tables"]["ttd_stats"].get("headers", []))
+    if ttd_note:
+        content.append(_text(ttd_note, style="info"))
     ttd_findings_text = _get_table_findings(phase2["tables"]["ttd_stats"], "Time-to-Detect")
     if ttd_findings_text:
         ttd_findings_block = _findings_from_text(ttd_findings_text)
@@ -1273,7 +1306,9 @@ def _section_detection_response(phase2, phase1: dict | None = None,
         content.append(_chart(ttm_ci))
     content.append(_table(**phase2["tables"]["ttm_category_stats"]))
     content.append(_table(**phase2["tables"]["ttm_stats"]))
-    content.append(_text(defs["ttm_note"], style="info"))
+    ttm_note = _build_table_note(phase2["tables"]["ttm_stats"].get("headers", []))
+    if ttm_note:
+        content.append(_text(ttm_note, style="info"))
     ttm_findings_text = _get_table_findings(phase2["tables"]["ttm_stats"], "Time-to-Mitigate")
     if ttm_findings_text:
         ttm_findings_block = _findings_from_text(ttm_findings_text)
