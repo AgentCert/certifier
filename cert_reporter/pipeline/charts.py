@@ -768,6 +768,67 @@ def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def _build_line(block: dict[str, Any]) -> dict[str, Any]:
+    """Line chart from categories + series."""
+    categories = block.get("categories", [])
+    series_list = block.get("series", [])
+    y_axis = block.get("y_axis", "Value")
+    x_axis = block.get("x_axis", "")
+
+    if not categories or not series_list:
+        return _build_placeholder(block)
+
+    flat_rows = []
+    for s in series_list:
+        if isinstance(s, dict):
+            name = s.get("name", "?")
+            values = s.get("values", [])
+        elif hasattr(s, "name"):
+            name = s.name
+            values = getattr(s, "values", [])
+        else:
+            continue
+        for cat, val in zip(categories, values):
+            try:
+                val = float(val)
+            except (TypeError, ValueError):
+                val = 0.0
+            flat_rows.append({"category": str(cat), "series": name, "value": val})
+
+    if not flat_rows:
+        return _build_placeholder(block)
+
+    spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "width": 500,
+        "height": 320,
+        "background": "transparent",
+        "data": {"values": flat_rows},
+        "mark": {"type": "line", "point": True, "strokeWidth": 2.5},
+        "encoding": {
+            "x": {
+                "field": "category", "type": "nominal",
+                "axis": {"title": x_axis or None},
+                "sort": None,
+            },
+            "y": {
+                "field": "value", "type": "quantitative",
+                "axis": {"title": y_axis},
+            },
+            "color": {
+                "field": "series", "type": "nominal",
+                "scale": {"scheme": "tableau10"}, "title": "Series",
+            },
+            "tooltip": [
+                {"field": "category", "type": "nominal"},
+                {"field": "series", "type": "nominal"},
+                {"field": "value", "type": "quantitative", "format": ",.0f"},
+            ],
+        },
+    }
+    return spec
+
+
 def _build_placeholder(block: dict[str, Any]) -> dict[str, Any]:
     """Minimal placeholder spec for charts with no valid data."""
     return {
@@ -794,6 +855,7 @@ _BUILDERS: dict[str, Any] = {
     "stacked_bar": _build_stacked_bar,
     "heatmap": _build_heatmap,
     "ci_bar": _build_ci_bar,
+    "line": _build_line,
 }
 
 

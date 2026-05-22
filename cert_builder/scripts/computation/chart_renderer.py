@@ -258,6 +258,63 @@ def _render_stacked_bar(chart, path=None):
     return fig
 
 
+# -- Line chart ---------------------------------------------------------------
+
+def _render_line(chart, path=None):
+    cat_labels = chart["categories"]
+    series_list = chart["series"]
+
+    fig = go.Figure()
+    for i, s in enumerate(series_list):
+        color = BAR_COLORS[i % len(BAR_COLORS)]
+        vals = s["values"]
+        text_vals = []
+        for v in vals:
+            if v is None or v == 0:
+                text_vals.append("")
+            elif v >= 10:
+                text_vals.append(f"{v:.0f}")
+            else:
+                text_vals.append(f"{v:.2f}")
+
+        fig.add_trace(go.Scatter(
+            name=s["name"],
+            x=cat_labels,
+            y=vals,
+            mode="lines+markers+text",
+            line=dict(color=color, width=2.5),
+            marker=dict(size=7, color=color, line=dict(color="white", width=1.5)),
+            text=text_vals,
+            textposition="top center",
+            textfont=dict(size=10, color=color, family=FONT_FAMILY),
+        ))
+
+    fig.update_layout(
+        **_BASE_LAYOUT,
+        title=dict(text=chart["title"], font=dict(size=16, color=TITLE_COLOR, family=FONT_FAMILY)),
+        xaxis=dict(
+            title=dict(text=chart.get("x_axis", ""), font=dict(size=12, color=AXIS_COLOR)),
+            tickfont=dict(size=12, color=LABEL_COLOR, family=FONT_FAMILY),
+            gridcolor=GRID_COLOR, showgrid=False,
+            linecolor=GRID_COLOR,
+        ),
+        yaxis=dict(
+            title=dict(text=chart.get("y_axis", ""), font=dict(size=12, color=AXIS_COLOR)),
+            tickfont=dict(size=10, color=AXIS_COLOR, family=FONT_FAMILY),
+            gridcolor=GRID_COLOR, gridwidth=0.8,
+            linecolor=GRID_COLOR, zeroline=False,
+        ),
+        legend=dict(
+            font=dict(size=11, color=LABEL_COLOR, family=FONT_FAMILY),
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor=GRID_COLOR, borderwidth=1,
+        ),
+    )
+    if path:
+        _save(fig, path)
+    return fig
+
+
 # -- Heatmap ------------------------------------------------------------------
 
 def _render_heatmap(chart, path=None):
@@ -345,6 +402,7 @@ RENDERERS = {
     "radar": _render_radar,
     "grouped_bar": _render_grouped_bar,
     "stacked_bar": _render_stacked_bar,
+    "line": _render_line,
     "heatmap": _render_heatmap,
 }
 

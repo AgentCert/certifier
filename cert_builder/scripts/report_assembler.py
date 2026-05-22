@@ -1386,30 +1386,48 @@ def _section_resource(phase2):
     """Section 7: Resource Utilization."""
     defs = phase2["hardcoded"]["definitions"]
     intros = phase2["hardcoded"]["section_intros"]
-    
-    # Extract mean tokens from chart data
+
     chart_data = phase2["charts"]["token_stacked"]
-    mean_tokens = chart_data.get("mean_tokens", {})
-    mean_input = mean_tokens.get("mean_input_tokens")
-    mean_output = mean_tokens.get("mean_output_tokens")
-    
-    # Build content with chart and mean tokens in single card
+    mt = chart_data.get("mean_tokens", {})
+
     content = [
         _text(intros.get("token_usage", ""), style="info"),
         _chart(phase2["charts"]["token_stacked"]),
     ]
-    
-    # Add mean tokens as single card with both lines
-    mean_tokens_lines = []
-    if mean_input is not None:
-        formatted_input = f"{mean_input:,.0f}" if isinstance(mean_input, (int, float)) else "N/A"
-        mean_tokens_lines.append(f"**Mean Input Tokens per Run:** {formatted_input}")
-    if mean_output is not None:
-        formatted_output = f"{mean_output:,.0f}" if isinstance(mean_output, (int, float)) else "N/A"
-        mean_tokens_lines.append(f"**Mean Output Tokens per Run:** {formatted_output}")
-    
-    if mean_tokens_lines:
-        content.append(_text("\n".join(mean_tokens_lines), style="info"))
+
+    stats_keys = ["mean", "median", "total", "min", "max"]
+    has_stats = any(
+        mt.get(f"{k}_input_tokens") is not None or mt.get(f"{k}_output_tokens") is not None
+        for k in stats_keys
+    )
+    if has_stats:
+        def _fmt(v):
+            if v is None:
+                return "N/A"
+            return f"{v:,.0f}" if isinstance(v, (int, float)) else "N/A"
+
+        content.append(_table(
+            headers=["Metric", "Total", "Mean", "Median", "Min", "Max"],
+            rows=[
+                [
+                    "Input Tokens",
+                    _fmt(mt.get("total_input_tokens")),
+                    _fmt(mt.get("mean_input_tokens")),
+                    _fmt(mt.get("median_input_tokens")),
+                    _fmt(mt.get("min_input_tokens")),
+                    _fmt(mt.get("max_input_tokens")),
+                ],
+                [
+                    "Output Tokens",
+                    _fmt(mt.get("total_output_tokens")),
+                    _fmt(mt.get("mean_output_tokens")),
+                    _fmt(mt.get("median_output_tokens")),
+                    _fmt(mt.get("min_output_tokens")),
+                    _fmt(mt.get("max_output_tokens")),
+                ],
+            ],
+            title="Token Usage Statistical Summary",
+        ))
 
     return {
         "id": "resource_utilization",
