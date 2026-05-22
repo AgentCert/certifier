@@ -31,7 +31,7 @@ class SubFaultTimingScore(BaseModel):
 
     n_attempted: int = 0
     detection_rate: float = 0.0
-    sla_compliance: float = 0.0
+    sla_compliance: Optional[float] = None
     weighted_score: Optional[float] = None
     confidence: str = "INSUFFICIENT"
 
@@ -42,7 +42,7 @@ class CategoryTimingScore(BaseModel):
     n_sub_faults: int = 0
     n_attempted: int = 0
     detection_rate: float = 0.0
-    sla_compliance: float = 0.0
+    sla_compliance: Optional[float] = None
     category_score: float = 0.0
 
 
@@ -51,7 +51,7 @@ class CumulativeTimingScore(BaseModel):
 
     cumulative_score: float = 0.0
     detection_rate: float = 0.0
-    sla_compliance: float = 0.0
+    sla_compliance: Optional[float] = None
     n_attempted: int = 0
     quality_flags: List[str] = Field(default_factory=lambda: ["none"])
 

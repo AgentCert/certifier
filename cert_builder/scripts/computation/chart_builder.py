@@ -110,41 +110,42 @@ def _build_scorecard_radar(scorecard_dimensions):
 def _build_ttd_bar(categories):
     return {
         "chart_type": "grouped_bar",
-        "title": "Time-to-Detect (SLA-Aware Scores)",
+        "title": "Fault Detection Performance",
         "categories": _labels(categories),
         "series": [
-            {"name": "Overall Detection Score", "values": [_safe_get(c, "numeric", "time_to_detect", "category", "category_score") for c in categories]},
-            {"name": "SLA Compliance", "values": [_safe_get(c, "numeric", "time_to_detect", "category", "sla_compliance") for c in categories]},
+            {"name": "Detection Rate", "values": [round(_safe_get(c, "numeric", "time_to_detect", "category", "detection_rate") * 100, 1) for c in categories]},
+            {"name": "SLA Met (Detected)", "values": [round(_safe_get(c, "numeric", "time_to_detect", "category", "sla_compliance") * 100, 1) for c in categories]},
         ],
-        "y_axis": "Score (0-1)",
+        "y_axis": "Percentage (%)",
     }
 
 
 def _build_ttm_bar(categories):
     return {
         "chart_type": "grouped_bar",
-        "title": "Time-to-Mitigate (SLA-Aware Scores)",
+        "title": "Fault Mitigation Performance",
         "categories": _labels(categories),
         "series": [
-            {"name": "Overall Mitigation Score", "values": [_safe_get(c, "numeric", "time_to_mitigate", "category", "category_score") for c in categories]},
-            {"name": "SLA Compliance", "values": [_safe_get(c, "numeric", "time_to_mitigate", "category", "sla_compliance") for c in categories]},
+            {"name": "Mitigation Rate", "values": [round(_safe_get(c, "numeric", "time_to_mitigate", "category", "detection_rate") * 100, 1) for c in categories]},
+            {"name": "SLA Met (Detected)", "values": [round(_safe_get(c, "numeric", "time_to_mitigate", "category", "sla_compliance") * 100, 1) for c in categories]},
         ],
-        "y_axis": "Score (0-1)",
+        "y_axis": "Percentage (%)",
     }
 
 
 def _build_rates_bar(categories):
     ref = CONFIG["reference_lines"]["rates_minimum"]
+    ref_pct = {"value": ref["value"] * 100, "label": ref["label"]}
     return {
         "chart_type": "grouped_bar",
         "title": "Detection & Mitigation Rates",
         "categories": _labels(categories),
         "series": [
-            {"name": "Detection Rate",  "values": [_safe_get(c, "derived", "fault_detection_success_rate") for c in categories]},
-            {"name": "Mitigation Rate", "values": [_safe_get(c, "derived", "fault_mitigation_success_rate") for c in categories]},
+            {"name": "Detection Rate",  "values": [round(_safe_get(c, "derived", "fault_detection_success_rate") * 100, 1) for c in categories]},
+            {"name": "Mitigation Rate", "values": [round(_safe_get(c, "derived", "fault_mitigation_success_rate") * 100, 1) for c in categories]},
         ],
-        "y_axis": "Rate (0-1)",
-        "reference_lines": [ref],
+        "y_axis": "Percentage (%)",
+        "reference_lines": [ref_pct],
     }
 
 

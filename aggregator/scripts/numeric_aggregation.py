@@ -214,9 +214,9 @@ def _build_timing_obs(
         if sla is None:
             status, norm, compliant = "NO_SLA", None, None
         elif raw_value is None:
-            status, norm, compliant = "MISSING", 0.0, False
+            status, norm, compliant = "MISSING", 0.0, None
         elif raw_value <= 0:
-            status, norm, compliant = "INVALID_ZERO", 0.0, False
+            status, norm, compliant = "INVALID_ZERO", 0.0, None
         else:
             status = "VALID"
             norm = round(_normalize_score(raw_value, sla), precision)
@@ -253,7 +253,8 @@ def _agg_subfault_grain(
             for o in g
             if o["status"] == "VALID" and o["normalized_score"] is not None
         )
-        n_compliant = sum(1 for o in g if o["sla_compliant"])
+        n_valid = len(detected_sorted)
+        n_compliant = sum(1 for o in g if o["sla_compliant"] is True)
         central = _subfault_central(detected_sorted, n_obs)
         det_rate = len(detected_sorted) / n_obs if n_obs else 0.0
         weighted = central * det_rate if central is not None else None
@@ -264,7 +265,7 @@ def _agg_subfault_grain(
         result[sub_fault] = {
             "n_attempted": n_runs,
             "detection_rate": round(det_rate, precision),
-            "sla_compliance": round(n_compliant / n_obs, precision) if n_obs else 0.0,
+            "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
             "weighted_score": round(weighted, precision) if weighted is not None else None,
             "mean_s": round(statistics.mean(raw_detected), 2) if raw_detected else None,
             "median_s": round(statistics.median(raw_detected), 2) if raw_detected else None,
@@ -292,7 +293,8 @@ def _agg_category_grain(
         o for o in pool
         if o["status"] == "VALID" and o["normalized_score"] is not None
     ]
-    n_compliant = sum(1 for o in pool if o["sla_compliant"])
+    n_valid = len(detected)
+    n_compliant = sum(1 for o in pool if o["sla_compliant"] is True)
     det_rate = len(detected) / n_obs if n_obs else 0.0
 
     total_w = 0.0
@@ -314,7 +316,7 @@ def _agg_category_grain(
         "n_sub_faults": n_sub_faults,
         "n_attempted": n_runs,
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_obs, precision) if n_obs else 0.0,
+        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
         "category_score": round(category_score, precision),
         "mean": round(statistics.mean(scores_cat), precision) if scores_cat else None,
         "median": round(statistics.median(scores_cat), precision) if scores_cat else None,
@@ -337,7 +339,7 @@ def _agg_cumulative_grain(
         if o["status"] == "VALID" and o["normalized_score"] is not None
     )
     n_valid = len(detected_sorted)
-    n_compliant = sum(1 for o in pool if o["sla_compliant"])
+    n_compliant = sum(1 for o in pool if o["sla_compliant"] is True)
 
     if n_valid:
         d_median = float(statistics.median(detected_sorted))
@@ -358,7 +360,7 @@ def _agg_cumulative_grain(
     return {
         "cumulative_score": round(headline, precision),
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_obs, precision) if n_obs else 0.0,
+        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
         "n_attempted": n_runs,
         "quality_flags": flags,
     }
