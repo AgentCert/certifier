@@ -15,6 +15,18 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
+# ── Category Label Mapping ────────────────────────────────────────────
+
+def _category_label(name: str) -> str:
+    """Convert category code name to display name."""
+    mapping = {
+        "application_fault": "Application",
+        "network_fault": "Network",
+        "resource_fault": "Resource",
+    }
+    return mapping.get(name, name.replace("_", " ").title())
+
+
 # ── Data Loading ──────────────────────────────────────────────────────
 
 
@@ -127,14 +139,13 @@ def build_subfault_data(
     all_runs: Dict[str, List[dict]],
     metric_field: str,
     filter_field: Optional[str] = None,
-    filter_value: Optional[str] = "Yes",
     section: str = "quantitative",
 ) -> Dict[str, Dict[str, List[float]]]:
     """Build nested data for continuous metrics (eligible runs only).
 
     Groups runs by *category → sub-fault*, extracting ``metric_field`` from
     the specified section block (quantitative or qualitative).
-    Optionally filters by ``filter_field == filter_value``.
+    If filter_field is provided, only includes runs where that field is not None.
 
     * Excludes runs with null / missing metric values.
     * Preserves filename sort order for H09 temporal compatibility.
@@ -142,8 +153,7 @@ def build_subfault_data(
     Args:
         all_runs: Pre-loaded runs grouped by category.
         metric_field: Field name to extract (e.g. "time_to_detect" or "reasoning_quality_score").
-        filter_field: Optional eligibility gate field name.
-        filter_value: Expected value for the gate.
+        filter_field: Optional eligibility gate field name (presence-based filtering).
         section: Section to extract from ("quantitative" or "qualitative").
 
     Returns:
@@ -156,7 +166,8 @@ def build_subfault_data(
         for run in runs:
             data_section = run.get(section, {})
 
-            if filter_field and data_section.get(filter_field) != filter_value:
+            # Filter: only include if filter_field is present (not None)
+            if filter_field and data_section.get(filter_field) is None:
                 continue
 
             val = data_section.get(metric_field)
@@ -180,7 +191,6 @@ def build_subfault_data_all(
     all_runs: Dict[str, List[dict]],
     metric_field: str,
     filter_field: Optional[str] = None,
-    filter_value: Optional[str] = "Yes",
 ) -> Dict[str, Dict[str, List[float]]]:
     """Build data including **all** runs for breach-rate analysis (H07).
 
@@ -201,7 +211,8 @@ def build_subfault_data_all(
             q = run.get("quantitative", {})
             fname = run.get("fault_name", "unknown")
 
-            if filter_field and q.get(filter_field) != filter_value:
+            # Filter: only include if filter_field is present (not None)
+            if filter_field and q.get(filter_field) is None:
                 subfaults.setdefault(fname, []).append(float("inf"))
                 continue
 
@@ -224,9 +235,12 @@ def build_subfault_data_all(
 def build_subfault_counts(
     all_runs: Dict[str, List[dict]],
     success_field: str,
-    success_value: str = "Yes",
 ) -> Dict[str, Dict[str, Tuple[int, int]]]:
     """Build success / trial counts for rate metrics (H02, H04).
+
+    Args:
+        all_runs: Pre-loaded runs grouped by category.
+        success_field: Field name to check for success (success = field is not None).
 
     Returns:
         ``{category: {sub_fault: (successes, trials)}}``
@@ -238,7 +252,10 @@ def build_subfault_counts(
         for run in runs:
             q = run.get("quantitative", {})
             fname = run.get("fault_name", "unknown")
-            is_success = q.get(success_field) == success_value
+            
+            # Success = field is not None
+            is_success = q.get(success_field) is not None
+            
             s, t = subfaults.get(fname, (0, 0))
             subfaults[fname] = (s + (1 if is_success else 0), t + 1)
 
@@ -293,6 +310,94 @@ def build_subfault_counts_from_status(
             result[cat] = subfaults
 
     return result
+
+
+# ── Category Filtering by Sample Size ─────────────────────────────────
+
+
+def filter_categories_by_min_sample_size(
+    data_per_category: Dict[str, Dict[str, List[float]]],
+    min_n: int = 5,
+) -> Tuple[Dict[str, Dict[str, List[float]]], List[str]]:
+    """Filter categories by minimum total sample size (after excluding None, NaN, 0).
+
+    For continuous metrics, counts valid data points per category
+    (non-None, non-NaN, non-zero values) and only includes categories
+    with n >= min_n.
+
+    Args:
+        data_per_category: {category: {sub_fault: [values]}}.
+        min_n: Minimum required sample size per category (default 5).
+
+    Returns:
+        Tuple of:
+          - Filtered data: {category: {sub_fault: [values]}} (only categories with n >= min_n)
+          - Excluded categories: List of category names excluded due to insufficient data
+    """
+    import numpy as np
+
+    filtered: Dict[str, Dict[str, List[float]]] = {}
+    excluded: List[str] = []
+
+    for cat, subfaults in data_per_category.items():
+        # Count valid values per category
+        all_values = []
+        for fname, values in subfaults.items():
+            for val in values:
+                try:
+                    fval = float(val)
+                    # Exclude None, NaN, and 0
+                    if not np.isnan(fval) and fval != 0:
+                        all_values.append(fval)
+                except (ValueError, TypeError):
+                    pass
+
+        if len(all_values) >= min_n:
+            filtered[cat] = subfaults
+        else:
+            cat_display = _category_label(cat)
+            excluded.append(f"{cat_display} (n={len(all_values)}, need {min_n})")
+
+    return filtered, excluded
+
+
+def filter_categories_by_min_sample_size_counts(
+    counts_per_category: Dict[str, Dict[str, Tuple[int, int]]],
+    min_n: int = 5,
+) -> Tuple[Dict[str, Dict[str, Tuple[int, int]]], List[str]]:
+    """Filter categories by minimum successful trial count (data quality).
+
+    For rate metrics, sums total successes per category and only includes
+    categories with n >= min_n successful events. This ensures statistical
+    power for rate estimation tests (H02, H04).
+
+    Args:
+        counts_per_category: {category: {sub_fault: (successes, trials)}}.
+        min_n: Minimum required success count per category (default 5).
+
+    Returns:
+        Tuple of:
+          - Filtered data: {category: {sub_fault: (successes, trials)}} (only categories with n >= min_n successes)
+          - Excluded categories: List of category names excluded due to insufficient success data
+    """
+    filtered: Dict[str, Dict[str, Tuple[int, int]]] = {}
+    excluded: List[str] = []
+
+    for cat, subfaults in counts_per_category.items():
+        # Count total SUCCESSES per category (not trials)
+        # This ensures we only run rate tests on categories with meaningful data
+        total_successes = sum(successes for successes, _ in subfaults.values())
+        total_trials = sum(trials for _, trials in subfaults.values())
+
+        if total_successes >= min_n:
+            filtered[cat] = subfaults
+        else:
+            cat_display = _category_label(cat)
+            excluded.append(
+                f"{cat_display} (successes={total_successes}/{total_trials}, need {min_n})"
+            )
+
+    return filtered, excluded
 
 
 # ── SLA Threshold Loading ─────────────────────────────────────────────

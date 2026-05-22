@@ -318,6 +318,7 @@ class H03Result(HypothesisResult):
     hypothesis_name: str = "Cross-Category Performance Comparison"
     null_hypothesis: str = "Performance is the same across all fault categories."
     alt_hypothesis: str = "At least one fault category has significantly different performance."
+    categories_tested: int = 0
     per_category: List[CategoryComparisonDetail] = Field(default_factory=list)
     normality_results: Dict[str, bool] = Field(default_factory=dict)
     test_used: str = "kruskal_wallis"
@@ -335,6 +336,7 @@ class H04Result(HypothesisResult):
     hypothesis_name: str = "Cross-Category Success Rate Uniformity"
     null_hypothesis: str = "Success rates are the same across all fault categories."
     alt_hypothesis: str = "At least one category has a significantly different success rate."
+    categories_tested: int = 0
     test_used: str = ""
     statistic: Optional[float] = None
     p_value: float = 1.0
@@ -380,6 +382,7 @@ class H05Result(HypothesisResult):
     hypothesis_name: str = "Consistency & Predictability"
     null_hypothesis: str = "Variance is equal across all fault categories."
     alt_hypothesis: str = "At least one category has significantly higher variance."
+    categories_tested: int = 0
     levene_statistic: float = 0.0
     levene_p: float = 1.0
     variances_equal: bool = True

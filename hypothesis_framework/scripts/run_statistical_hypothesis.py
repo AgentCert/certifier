@@ -57,29 +57,19 @@ logger = logging.getLogger(__name__)
 CONTINUOUS_METRICS: Dict[str, Dict[str, Any]] = {
     "time_to_detect": {
         "field": "time_to_detect",
-        "filter_field": "fault_detected",
-        "filter_value": "Yes",
+        "filter_field": "agent_fault_detection_time",
         "sla_key": "time_to_detect",
         "breach_inf": True,
     },
     "time_to_mitigate": {
         "field": "time_to_mitigate",
-        "filter_field": "fault_mitigated",
-        "filter_value": "Yes",
+        "filter_field": "agent_fault_mitigation_time",
         "sla_key": "time_to_mitigate",
         "breach_inf": True,
-    },
-    "tool_calls": {
-        "field": "trajectory_steps",
-        "filter_field": None,
-        "filter_value": None,
-        "sla_key": "max_tool_calls",
-        "breach_inf": False,
     },
     "reasoning_quality_score": {
         "field": "reasoning_quality_score",
         "filter_field": None,
-        "filter_value": None,
         "sla_key": None,
         "breach_inf": False,
         "section": "qualitative",
@@ -87,7 +77,6 @@ CONTINUOUS_METRICS: Dict[str, Dict[str, Any]] = {
     "hallucination_score": {
         "field": "hallucination_score",
         "filter_field": None,
-        "filter_value": None,
         "sla_key": None,
         "breach_inf": False,
         "section": "qualitative",
@@ -96,12 +85,10 @@ CONTINUOUS_METRICS: Dict[str, Dict[str, Any]] = {
 
 RATE_METRICS: Dict[str, Dict[str, Any]] = {
     "fault_detection_success_rate": {
-        "success_field": "fault_detected",
-        "success_value": "Yes",
+        "success_field": "agent_fault_detection_time",
     },
     "fault_mitigation_success_rate": {
-        "success_field": "fault_mitigated",
-        "success_value": "Yes",
+        "success_field": "agent_fault_mitigation_time",
     },
     "rai_compliance_rate": {
         "success_field": "rai_check_status",
@@ -113,6 +100,33 @@ RATE_METRICS: Dict[str, Dict[str, Any]] = {
         "success_value": "Compliant",
         "section": "qualitative",
     },
+}
+
+# ── Hypothesis test metric mapping ────────────────────────────────────
+#
+# Defines which metrics run for each hypothesis test.
+# Metrics not listed for a test are skipped for that test.
+
+HYPOTHESIS_METRIC_MAP: Dict[str, list] = {
+    "h01": [
+        "time_to_detect",
+        "time_to_mitigate",
+        "reasoning_quality_score",
+        "hallucination_score",
+    ],
+    "h02": [
+        "fault_detection_success_rate",
+        "fault_mitigation_success_rate",
+        "rai_compliance_rate",
+        "security_compliance_rate",
+    ],
+    "h03": ["time_to_detect", "time_to_mitigate"],
+    "h04": ["fault_detection_success_rate", "fault_mitigation_success_rate"],
+    "h05": ["time_to_detect", "time_to_mitigate"],
+    "h06": ["time_to_detect", "time_to_mitigate"],
+    "h07": ["time_to_detect", "time_to_mitigate"],
+    "h08": ["time_to_detect", "time_to_mitigate"],
+    "h09": ["time_to_detect", "time_to_mitigate"],
 }
 
 
@@ -311,7 +325,6 @@ def run_all_hypothesis_tests_from_runs(
             all_runs,
             cfg["field"],
             cfg["filter_field"],
-            cfg.get("filter_value", "Yes"),
             section=section,
         )
 
@@ -321,7 +334,6 @@ def run_all_hypothesis_tests_from_runs(
                 all_runs,
                 cfg["field"],
                 cfg["filter_field"],
-                cfg.get("filter_value", "Yes"),
             )
         else:
             # No censoring concept — reuse filtered data (all runs eligible)
@@ -345,36 +357,39 @@ def run_all_hypothesis_tests_from_runs(
             continue
 
         # — H01: Confidence Intervals ─────────────────────────────────
-        results["h01"][metric_key] = _safe_run(
-            tests["h01"],
-            f"H01/{metric_key}",
-            data_filtered,
-            metric_key,
-            alpha,
-            n_resamples,
-            random_state,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h01"]:
+            results["h01"][metric_key] = _safe_run(
+                tests["h01"],
+                f"H01/{metric_key}",
+                data_filtered,
+                metric_key,
+                alpha,
+                n_resamples,
+                random_state,
+            )
 
         # — H03: Cross-Category Comparison ────────────────────────────
-        results["h03"][metric_key] = _safe_run(
-            tests["h03"],
-            f"H03/{metric_key}",
-            data_filtered,
-            metric_key,
-            alpha,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h03"]:
+            results["h03"][metric_key] = _safe_run(
+                tests["h03"],
+                f"H03/{metric_key}",
+                data_filtered,
+                metric_key,
+                alpha,
+            )
 
         # — H05: Consistency & Predictability ─────────────────────────
-        results["h05"][metric_key] = _safe_run(
-            tests["h05"],
-            f"H05/{metric_key}",
-            data_filtered,
-            metric_key,
-            alpha,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h05"]:
+            results["h05"][metric_key] = _safe_run(
+                tests["h05"],
+                f"H05/{metric_key}",
+                data_filtered,
+                metric_key,
+                alpha,
+            )
 
         # — H06: SLA Threshold Compliance (requires SLA) ─────────────
-        if sla:
+        if metric_key in HYPOTHESIS_METRIC_MAP["h06"] and sla:
             results["h06"][metric_key] = _safe_run(
                 tests["h06"],
                 f"H06/{metric_key}",
@@ -385,14 +400,14 @@ def run_all_hypothesis_tests_from_runs(
                 n_resamples,
                 random_state,
             )
-        else:
+        elif metric_key in HYPOTHESIS_METRIC_MAP["h06"]:
             results["h06"][metric_key] = {
                 "status": "skipped",
                 "reason": "no_sla_thresholds_available",
             }
 
         # — H07: SLA Breach Rate (requires SLA, uses all runs) ────────
-        if sla:
+        if metric_key in HYPOTHESIS_METRIC_MAP["h07"] and sla:
             results["h07"][metric_key] = _safe_run(
                 tests["h07"],
                 f"H07/{metric_key}",
@@ -402,29 +417,31 @@ def run_all_hypothesis_tests_from_runs(
                 metric_key,
                 alpha,
             )
-        else:
+        elif metric_key in HYPOTHESIS_METRIC_MAP["h07"]:
             results["h07"][metric_key] = {
                 "status": "skipped",
                 "reason": "no_sla_thresholds_available",
             }
 
         # — H08: Tail Risk Analysis (SLA optional) ────────────────────
-        results["h08"][metric_key] = _safe_run(
-            tests["h08"],
-            f"H08/{metric_key}",
-            data_filtered,
-            metric_key,
-            0.95,
-            sla if sla else None,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h08"]:
+            results["h08"][metric_key] = _safe_run(
+                tests["h08"],
+                f"H08/{metric_key}",
+                data_filtered,
+                metric_key,
+                0.95,
+                sla if sla else None,
+            )
 
         # — H09: Temporal Stability ───────────────────────────────────
-        results["h09"][metric_key] = _safe_run(
-            tests["h09"],
-            f"H09/{metric_key}",
-            data_filtered,
-            metric_key,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h09"]:
+            results["h09"][metric_key] = _safe_run(
+                tests["h09"],
+                f"H09/{metric_key}",
+                data_filtered,
+                metric_key,
+            )
 
     # ── 7. Rate-metric hypothesis tests ───────────────────────────────
     for metric_key, cfg in RATE_METRICS.items():
@@ -445,11 +462,10 @@ def run_all_hypothesis_tests_from_runs(
                 section="qualitative",
             )
         else:
-            # Boolean field metrics (fault_detected, fault_mitigated)
+            # Timestamp field metrics (presence-based)
             counts = build_subfault_counts(
                 all_runs,
                 cfg["success_field"],
-                cfg.get("success_value", "Yes"),
             )
 
         if not counts:
@@ -461,22 +477,24 @@ def run_all_hypothesis_tests_from_runs(
             continue
 
         # — H02: Success Rate Estimation ──────────────────────────────
-        results["h02"][metric_key] = _safe_run(
-            tests["h02"],
-            f"H02/{metric_key}",
-            counts,
-            metric_key,
-            alpha,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h02"]:
+            results["h02"][metric_key] = _safe_run(
+                tests["h02"],
+                f"H02/{metric_key}",
+                counts,
+                metric_key,
+                alpha,
+            )
 
         # — H04: Success Rate Uniformity ──────────────────────────────
-        results["h04"][metric_key] = _safe_run(
-            tests["h04"],
-            f"H04/{metric_key}",
-            counts,
-            metric_key,
-            alpha,
-        )
+        if metric_key in HYPOTHESIS_METRIC_MAP["h04"]:
+            results["h04"][metric_key] = _safe_run(
+                tests["h04"],
+                f"H04/{metric_key}",
+                counts,
+                metric_key,
+                alpha,
+            )
 
     # ── 8. Assemble final output ──────────────────────────────────────
     detected_runs = sum(

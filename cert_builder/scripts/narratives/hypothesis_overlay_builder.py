@@ -209,6 +209,9 @@ def _is_continuous_metric(metric_key: str) -> bool:
 
 
 def _round_int(x: float) -> int:
+    import math
+    if math.isinf(x):
+        return x  # Return infinity as-is
     return int(round(x))
 
 
@@ -254,6 +257,15 @@ def _h01_strip(metric_key: str, h01_metric: dict) -> dict | None:
             "tone": tone,
         })
 
+    # Add warnings as facts (notes about excluded categories)
+    warnings = h01_metric.get("warnings") or []
+    for warning in warnings:
+        facts.append({
+            "label": "Warning",
+            "text": warning,
+            "tone": "flag",
+        })
+
     if not facts:
         return None
 
@@ -265,7 +277,7 @@ def _h01_strip(metric_key: str, h01_metric: dict) -> dict | None:
         "hypothesis_id": "H1",
         "metric_label": metric_label,
         "facts": facts,
-        "method": _HYP_META["H1"]["method"],
+        "method": None,
         "summary": f"H1 {metric_label} — verdict: {verdict}.",
     }
 
@@ -287,14 +299,23 @@ def _h02_strip(metric_key: str, h02_metric: dict) -> dict | None:
         if rate is None or wlow is None or trials is None:
             continue
         floors.append(wlow)
-        # Tone heuristic: a >= 90% certified floor is "good", < 70% is "flag",
-        # otherwise "warn".
-        if wlow >= 0.90:
-            tone = "good"
-        elif wlow < 0.70:
-            tone = "flag"
+        # Tone heuristic: metric-specific thresholds
+        if "compliance" in metric_key:
+            # RAI, Security compliance
+            if wlow >= 0.85:
+                tone = "good"
+            elif wlow >= 0.70:
+                tone = "flag"
+            else:
+                tone = "warn"
         else:
-            tone = "warn"
+            # Detection, other metrics
+            if wlow >= 0.70:
+                tone = "good"
+            elif wlow >= 0.50:
+                tone = "flag"
+            else:
+                tone = "warn"
         facts.append({
             "label": _category_label(cat["category"]),
             "text": (
@@ -304,16 +325,36 @@ def _h02_strip(metric_key: str, h02_metric: dict) -> dict | None:
             "tone": tone,
         })
 
+    # Add warnings as facts (notes about excluded categories)
+    warnings = h02_metric.get("warnings") or []
+    for warning in warnings:
+        facts.append({
+            "label": "Warning",
+            "text": warning,
+            "tone": "flag",
+        })
+
     if not facts:
         return None
 
     worst = min(floors) if floors else 0.0
-    if worst >= 0.90:
-        verdict = "pass"
-    elif worst < 0.70:
-        verdict = "flag"
+    # Overall verdict: metric-specific thresholds
+    if "compliance" in metric_key:
+        # RAI, Security compliance
+        if worst >= 0.85:
+            verdict = "pass"
+        elif worst >= 0.70:
+            verdict = "flag"
+        else:
+            verdict = "inconclusive"
     else:
-        verdict = "flag" if worst < 0.80 else "pass"
+        # Detection, other metrics
+        if worst >= 0.70:
+            verdict = "pass"
+        elif worst >= 0.50:
+            verdict = "flag"
+        else:
+            verdict = "inconclusive"
 
     metric_label = _metric_label(metric_key)
     return {
@@ -322,7 +363,7 @@ def _h02_strip(metric_key: str, h02_metric: dict) -> dict | None:
         "hypothesis_id": "H2",
         "metric_label": metric_label,
         "facts": facts,
-        "method": _HYP_META["H2"]["method"],
+        "method": None,
         "summary": f"H2 {metric_label} — verdict: {verdict}.",
     }
 
@@ -333,17 +374,70 @@ def _generic_strip(
     metric_block: dict,
 ) -> dict | None:
     """Minimal strip used for H3..H9: verdict + assessment summary fact."""
-    if not isinstance(metric_block, dict) or metric_block.get("status") == "skipped":
+    if not isinstance(metric_block, dict):
         return None
+    
+    # Handle skipped metrics (e.g., no valid data or no SLA)
+    if metric_block.get("status") == "skipped":
+        reason = metric_block.get("reason", "skipped")
+        reason_text = {
+            "no_valid_data": "insufficient data points (no runs with valid metric values)",
+            "no_sla_thresholds_available": "no SLA thresholds available",
+        }.get(reason, reason)
+        metric_label = _metric_label(metric_key)
+        return {
+            "type": "hypothesis_strip",
+            "verdict": "inconclusive",
+            "hypothesis_id": hypothesis_id,
+            "metric_label": metric_label,
+            "facts": [{
+                "label": "Status",
+                "text": f"Test skipped due to {reason_text}.",
+                "tone": "flag",
+            }],
+            "method": None,
+            "summary": f"{hypothesis_id} {metric_label} — skipped.",
+        }
+    
+    # Check if test could not proceed (insufficient categories/samples)
+    if metric_block.get("categories_tested") == 0:
+        # Still show a strip with warnings, but no verdict/result
+        warnings = metric_block.get("warnings") or []
+        if not warnings:
+            # No warnings to show either, skip entirely
+            return None
+        metric_label = _metric_label(metric_key)
+        facts = []
+        for warning in warnings:
+            facts.append({
+                "label": "Warning",
+                "text": warning,
+                "tone": "flag",
+            })
+        return {
+            "type": "hypothesis_strip",
+            "verdict": "inconclusive",
+            "hypothesis_id": hypothesis_id,
+            "metric_label": metric_label,
+            "facts": facts,
+            "method": None,
+            "summary": f"{hypothesis_id} {metric_label} — insufficient data for test.",
+        }
+    
     verdict_text = (
         metric_block.get("overall_assessment")
         or metric_block.get("verdict")
         or metric_block.get("status")
-        or "result available"
     )
+    if not verdict_text:
+        return None
     if str(verdict_text).lower() in {"insufficient_groups", "insufficient_data", "no_data"}:
         verdict = "inconclusive"
-    elif "significant" in str(verdict_text).lower() or "flag" in str(verdict_text).lower():
+    elif "flag" in str(verdict_text).lower():
+        verdict = "flag"
+    elif "no_significant" in str(verdict_text).lower():
+        verdict = "pass"
+    elif "significant" in str(verdict_text).lower():
         verdict = "flag"
     else:
         verdict = "pass"
@@ -354,13 +448,23 @@ def _generic_strip(
         "text": str(verdict_text),
         "tone": {"pass": "good", "flag": "flag", "inconclusive": "warn"}[verdict],
     }]
+    
+    # Add warnings as facts (notes about excluded categories or insufficient data)
+    warnings = metric_block.get("warnings") or []
+    for warning in warnings:
+        facts.append({
+            "label": "Warning",
+            "text": warning,
+            "tone": "flag",
+        })
+    
     return {
         "type": "hypothesis_strip",
         "verdict": verdict,
         "hypothesis_id": hypothesis_id,
         "metric_label": metric_label,
         "facts": facts,
-        "method": _HYP_META.get(hypothesis_id, {}).get("method"),
+        "method": None,
         "summary": f"{hypothesis_id} {metric_label} — verdict: {verdict}.",
     }
 
@@ -417,6 +521,9 @@ def _h03_table(metric_key: str, h03: dict) -> dict | None:
     """H3: omnibus row + pairwise rows. One table per metric."""
     if not h03 or h03.get("status") == "skipped":
         return None
+    # Skip if test could not proceed (insufficient categories)
+    if h03.get("categories_tested") == 0:
+        return None
     metric_label = _metric_label(metric_key)
     test = h03.get("test_used", "kruskal_wallis").replace("_", " ").title()
     rows: list[list[Any]] = []
@@ -445,6 +552,9 @@ def _h03_table(metric_key: str, h03: dict) -> dict | None:
 def _h04_table(metric_key: str, h04: dict) -> dict | None:
     """H4: per-category contingency rates + Chi-Square omnibus row."""
     if not h04 or h04.get("status") == "skipped":
+        return None
+    # Skip if test could not proceed (insufficient categories)
+    if h04.get("categories_tested") == 0:
         return None
     metric_label = _metric_label(metric_key)
     rows: list[list[Any]] = []
@@ -666,6 +776,9 @@ def _h03_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     for metric_key, h03 in metric_results:
         if not isinstance(h03, dict) or h03.get("status") == "skipped":
             continue
+        # Skip if test could not proceed (insufficient categories)
+        if h03.get("categories_tested") == 0:
+            continue
         m_label = _metric_label(metric_key)
         n_groups = len(h03.get("per_category") or []) or 3
         df = max(n_groups - 1, 1)
@@ -723,6 +836,9 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     for metric_key, h04 in metric_results:
         if not isinstance(h04, dict) or h04.get("status") == "skipped":
             continue
+        # Skip if test could not proceed (insufficient categories)
+        if h04.get("categories_tested") == 0:
+            continue
         m_label = _metric_label(metric_key)
         per_cat = h04.get("per_category") or []
         n_groups = len(per_cat) or 3
@@ -775,6 +891,9 @@ def _h05_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     rows: list[list[Any]] = []
     for metric_key, h05 in metric_results:
         if not isinstance(h05, dict) or h05.get("status") == "skipped":
+            continue
+        # Skip if test could not proceed (insufficient categories)
+        if h05.get("categories_tested") == 0:
             continue
         m_label = _metric_label(metric_key)
         per_cat = h05.get("per_category") or []
@@ -854,14 +973,13 @@ def _combined_section9_strip(
         (s.get("verdict", "pass") for _, s in valid),
         key=lambda v: rank.get(v, 0),
     )
-    method = valid[0][1].get("method") or _HYP_META.get(hyp_id, {}).get("method")
     return {
         "type": "hypothesis_strip",
         "verdict": verdict,
         "hypothesis_id": hyp_id,
         "metric_label": combined_label,
         "facts": facts,
-        "method": method,
+        "method": None,
         "summary": f"{hyp_id} {combined_label} — verdict: {verdict}.",
     }
 

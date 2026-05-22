@@ -230,12 +230,14 @@ def _build_ttm_stats(categories, sh=None):
 
 
 def _build_detection_rates(categories, sh=None):
-    h02 = _h02_per_cat_lookup(sh, "fault_detection_success_rate")
-    has_h02 = bool(h02)
+    h02_detection = _h02_per_cat_lookup(sh, "fault_detection_success_rate")
+    h02_mitigation = _h02_per_cat_lookup(sh, "fault_mitigation_success_rate")
+    has_h02 = bool(h02_detection) or bool(h02_mitigation)
+    
     if has_h02:
         headers = [
-            "Category", "Detection Rate", "Wilson Lower", "Wilson Upper",
-            "Certified Floor", "False Negative", "False Positive", "Mitigation Rate",
+            "Category", "Detection Rate", "Detection 95% Wilson CI", "False Negative", "False Positive",
+            "Mitigation Rate", "Mitigation 95% Wilson CI",
         ]
     else:
         headers = [
@@ -246,16 +248,20 @@ def _build_detection_rates(categories, sh=None):
         d = cat.get("derived", {})
         if has_h02:
             cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
-            rec = h02.get(cat_key) or {}
+            rec_detection = h02_detection.get(cat_key) or {}
+            rec_mitigation = h02_mitigation.get(cat_key) or {}
+            # Format detection CI
+            det_ci = f"[{rec_detection.get('wilson_lower', 0):.1%}, {rec_detection.get('wilson_upper', 0):.1%}]" if rec_detection.get('wilson_lower') is not None else "N/A"
+            # Format mitigation CI
+            mit_ci = f"[{rec_mitigation.get('wilson_lower', 0):.1%}, {rec_mitigation.get('wilson_upper', 0):.1%}]" if rec_mitigation.get('wilson_lower') is not None else "N/A"
             rows.append([
                 cat.get("label", "N/A"),
                 _fmt_rate(d.get("fault_detection_success_rate")),
-                _fmt_rate(rec.get("wilson_lower")),
-                _fmt_rate(rec.get("wilson_upper")),
-                _fmt_rate(rec.get("certified_floor")),
+                det_ci,
                 _fmt_rate(d.get("false_negative_rate")),
                 _fmt_rate(d.get("false_positive_rate")),
                 _fmt_rate(d.get("fault_mitigation_success_rate")),
+                mit_ci,
             ])
         else:
             rows.append([

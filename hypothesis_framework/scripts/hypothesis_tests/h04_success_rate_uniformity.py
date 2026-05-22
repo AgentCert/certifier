@@ -21,6 +21,7 @@ from hypothesis_framework.schema.hypothesis_results import (
 )
 from hypothesis_framework.scripts.statistical_tests.chi_square_fisher import chi_square_fisher_test
 from hypothesis_framework.scripts.statistical_tests.wilson_ci import wilson_ci
+from hypothesis_framework.scripts.utils import filter_categories_by_min_sample_size_counts
 
 
 def run_uniformity_test(
@@ -33,6 +34,9 @@ def run_uniformity_test(
     Builds a contingency table [success, failure] per category (pooled from
     sub-faults) and runs Chi-square or Fisher's exact test.
 
+    Categories with insufficient sample size (n < 5 trials after filtering)
+    are excluded from the analysis.
+
     Args:
         counts_per_category: {category: {sub_fault: (successes, trials)}}.
         metric_name: Name of the rate metric.
@@ -42,11 +46,40 @@ def run_uniformity_test(
         H04Result with test used, p-value, sub-fault breakdown, and weakest category.
     """
     warnings: List[str] = []
+    
+    # Filter categories by minimum sample size (n >= 5)
+    filtered_data, excluded_cats = filter_categories_by_min_sample_size_counts(
+        counts_per_category, min_n=5
+    )
+    if excluded_cats:
+        for cat_info in excluded_cats:
+            warnings.append(f"Category excluded: {cat_info}")
+    
+    # Check: need at least 2 categories for cross-category rate comparison
+    if len(filtered_data) < 2:
+        warnings.append(
+            f"Insufficient categories after filtering (n={len(filtered_data)}). "
+            f"Need >= 2 for cross-category comparison. Test cannot proceed."
+        )
+        return H04Result(
+            metric_name=metric_name,
+            alpha=alpha,
+            categories_tested=0,
+            test_used="Chi-square",
+            statistic=None,
+            p_value=1.0,
+            significant=False,
+            per_category=[],
+            per_category_rates={},
+            overall_assessment="insufficient_groups",
+            warnings=warnings,
+        )
+    
     cat_details: List[CategoryRateComparisonDetail] = []
     table: List[List[int]] = []
     rates: Dict[str, float] = {}
 
-    for cat, subfaults in counts_per_category.items():
+    for cat, subfaults in filtered_data.items():
         sub_results: List[SubFaultRateResult] = []
         total_s, total_n = 0, 0
 
@@ -106,6 +139,7 @@ def run_uniformity_test(
     return H04Result(
         metric_name=metric_name,
         alpha=alpha,
+        categories_tested=len(filtered_data),
         test_used=r.test_used,
         statistic=r.statistic,
         p_value=p_val,
