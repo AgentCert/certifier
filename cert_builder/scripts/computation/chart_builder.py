@@ -17,7 +17,7 @@ Charts produced:
   6. reasoning_bar     -- Grouped bar: reasoning + response quality (0-1)
   7. hallucination_bar -- Grouped bar: hallucination mean + max (0-10)
   8. compliance_bar    -- Grouped bar: RAI + security compliance rates
-  9. token_stacked     -- Stacked bar: input + output token sums
+  9. token_stacked     -- Line chart: input + output token usage per run
 
 Input:  phase1_parsed_context.json + scorecard dimensions from Phase 2A
 Output: {"charts": {"scorecard_radar": {...}, "ttd_bar": {...}, ...}}
@@ -232,48 +232,51 @@ def _build_compliance_bar(categories):
 
 
 def _build_token_stacked(categories, run_level_tokens=None):
-    """Build run-wise token chart showing input and output tokens per run.
-    
+    """Build run-wise token line chart showing input and output tokens per run.
+
     Args:
         categories: list of category dicts (for compatibility, not used in run-wise chart)
         run_level_tokens: dict with "input_tokens" and "output_tokens" lists from Phase 2
     """
     if not run_level_tokens:
         run_level_tokens = {"input_tokens": [], "output_tokens": []}
-    
+
     input_tokens = run_level_tokens.get("input_tokens", [])
     output_tokens = run_level_tokens.get("output_tokens", [])
     run_ids = run_level_tokens.get("run_ids", [])
-    
-    # If no token data available, return a placeholder chart with empty series
-    # (This can happen when Phase 1 metrics don't include token tracking)
+
     if not input_tokens and not output_tokens:
         return {
-            "chart_type": "grouped_bar",
+            "chart_type": "line",
             "title": "Token Usage per Run",
-            "categories": ["Input Tokens", "Output Tokens"],
+            "categories": ["No data"],
             "series": [
-                {"name": "No data", "values": [0, 0]}
+                {"name": "Input Tokens", "values": [0]},
+                {"name": "Output Tokens", "values": [0]},
             ],
             "y_axis": "Tokens",
+            "x_axis": "Run",
         }
-    
-    # Generate run labels if run_ids not available
-    if not run_ids or len(run_ids) == 0:
-        run_count = max(len(input_tokens), len(output_tokens))
-        run_labels = [f"Run {i+1}" for i in range(run_count)]
-    else:
+
+    run_count = max(len(input_tokens), len(output_tokens))
+    if run_ids and len(run_ids) >= run_count:
         run_labels = [f"Run {i+1}" for i in range(len(run_ids))]
-    
+    else:
+        run_labels = [f"Run {i+1}" for i in range(run_count)]
+
+    input_padded = list(input_tokens) + [0] * (run_count - len(input_tokens))
+    output_padded = list(output_tokens) + [0] * (run_count - len(output_tokens))
+
     return {
-        "chart_type": "grouped_bar",
+        "chart_type": "line",
         "title": "Token Usage per Run",
-        "categories": ["Input Tokens", "Output Tokens"],
+        "categories": run_labels,
         "series": [
-            {"name": run_label, "values": [input_val, output_val]}
-            for run_label, input_val, output_val in zip(run_labels, input_tokens, output_tokens)
+            {"name": "Input Tokens", "values": input_padded},
+            {"name": "Output Tokens", "values": output_padded},
         ],
         "y_axis": "Tokens",
+        "x_axis": "Run",
     }
 
 
@@ -284,26 +287,49 @@ DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "temp" / "c
 
 
 def _compute_mean_tokens(run_level_tokens):
-    """Compute mean input and output tokens across all runs.
-    
+    """Compute summary statistics for input/output tokens across all runs.
+
     Args:
         run_level_tokens: dict with "input_tokens" and "output_tokens" lists
-        
+
     Returns:
-        dict with "mean_input_tokens" and "mean_output_tokens" keys (floats or None)
+        dict with mean, median, total, min, max for both token types
     """
+    import statistics
+
+    empty = {
+        "mean_input_tokens": None, "mean_output_tokens": None,
+        "median_input_tokens": None, "median_output_tokens": None,
+        "total_input_tokens": None, "total_output_tokens": None,
+        "min_input_tokens": None, "min_output_tokens": None,
+        "max_input_tokens": None, "max_output_tokens": None,
+    }
     if not run_level_tokens:
-        return {"mean_input_tokens": None, "mean_output_tokens": None}
-    
+        return empty
+
     input_tokens = run_level_tokens.get("input_tokens", [])
     output_tokens = run_level_tokens.get("output_tokens", [])
-    
-    mean_input = sum(input_tokens) / len(input_tokens) if input_tokens else None
-    mean_output = sum(output_tokens) / len(output_tokens) if output_tokens else None
-    
+
+    def _stats(vals):
+        if not vals:
+            return None, None, None, None, None
+        return (
+            sum(vals) / len(vals),
+            statistics.median(vals),
+            sum(vals),
+            min(vals),
+            max(vals),
+        )
+
+    mi, mdi, ti, mni, mxi = _stats(input_tokens)
+    mo, mdo, to, mno, mxo = _stats(output_tokens)
+
     return {
-        "mean_input_tokens": mean_input,
-        "mean_output_tokens": mean_output,
+        "mean_input_tokens": mi, "mean_output_tokens": mo,
+        "median_input_tokens": mdi, "median_output_tokens": mdo,
+        "total_input_tokens": ti, "total_output_tokens": to,
+        "min_input_tokens": mni, "min_output_tokens": mno,
+        "max_input_tokens": mxi, "max_output_tokens": mxo,
     }
 
 
