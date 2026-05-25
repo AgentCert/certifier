@@ -323,6 +323,7 @@ class H03Result(HypothesisResult):
     normality_results: Dict[str, bool] = Field(default_factory=dict)
     test_used: str = "kruskal_wallis"
     omnibus_statistic: float = 0.0
+    omnibus_epsilon_squared: float = 0.0
     omnibus_p: float = 1.0
     omnibus_significant: bool = False
     pairwise: List[PairwiseComparison] = Field(default_factory=list)

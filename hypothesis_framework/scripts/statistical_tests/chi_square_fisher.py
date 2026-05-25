@@ -103,6 +103,22 @@ def chi_square_fisher_test(
         stat_val = round(float(chi2), 4)
 
     significant = p_val < alpha
+    
+    # Calculate Cramér's V effect size (valid for both chi-square and Fisher's exact)
+    n = table.sum()
+    min_dim = min(table.shape[0] - 1, table.shape[1] - 1)
+    cramers_v = 0.0
+    if stat_val is not None and n > 0 and min_dim > 0:
+        cramers_v = round(float(np.sqrt(stat_val / (n * min_dim))), 3)
+    elif use_fisher and n > 0 and min_dim > 0:
+        # For Fisher's exact, compute chi2 just for effect size
+        chi2_for_effect, _, _, _ = stats.chi2_contingency(table)
+        cramers_v = round(float(np.sqrt(chi2_for_effect / (n * min_dim))), 3)
+    
+    # Store chi-square value but also track Cramér's V
+    if stat_val is None and use_fisher:
+        # For Fisher's exact, display Cramér's V as the effect size proxy
+        stat_val = cramers_v
 
     return ContingencyTestResult(
         alpha=alpha,

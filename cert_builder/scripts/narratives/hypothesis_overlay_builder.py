@@ -782,12 +782,14 @@ def _h03_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         m_label = _metric_label(metric_key)
         n_groups = len(h03.get("per_category") or []) or 3
         df = max(n_groups - 1, 1)
+        epsilon_sq = h03.get('omnibus_epsilon_squared', 0.0)
+        epsilon_disp = f"ε² = {_fmt_num(epsilon_sq, 3)}" if epsilon_sq is not None else "—"
         rows.append([
             m_label,
             f"Kruskal-Wallis ({n_groups} groups, df={df})",
             f"H = {_fmt_num(h03.get('omnibus_statistic'), 2)}",
             _fmt_p(h03.get("omnibus_p")),
-            "—",
+            epsilon_disp,
             "Significant" if h03.get("omnibus_significant") else "Not significant",
         ])
         for pw in h03.get("pairwise") or []:
@@ -830,7 +832,7 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     """H4 combined table covering detection + mitigation rates.
 
     Mirrors the framework HTML format: one row per metric showing the
-    contingency table inline plus the χ² omnibus statistic and p-value.
+    contingency table inline plus the χ² omnibus statistic, p-value, and Cramér's V.
     """
     rows: list[list[Any]] = []
     for metric_key, h04 in metric_results:
@@ -852,14 +854,24 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
             )
         else:
             contingency_str = "—"
+        
+        test_used = h04.get("test_used", "chi_square")
         chi_stat = h04.get("statistic")
-        chi_disp = (
-            f"\u03c7\u00b2 = {_fmt_num(chi_stat, 2)} (df = {df})"
-            if chi_stat is not None else "—"
-        )
+        
+        # Display appropriate statistic based on test used
+        if chi_stat is not None:
+            if test_used == "fisher_exact":
+                # For Fisher, we display Cramér's V effect size
+                chi_disp = f"V = {_fmt_num(chi_stat, 3)} (effect size)"
+            else:
+                # For chi-square, display the actual statistic
+                chi_disp = f"\u03c7\u00b2 = {_fmt_num(chi_stat, 2)} (df = {df})"
+        else:
+            chi_disp = "—"
+        
         rows.append([
             m_label,
-            f"Chi-Square ({n_groups}\u00d73)",
+            f"Chi-Square ({n_groups}×2)" if test_used == "chi_square" else f"Fisher Exact ({n_groups}×2)",
             contingency_str,
             chi_disp,
             _fmt_p(h04.get("p_value")),
@@ -869,7 +881,7 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     return _table_block(
         headers=[
             "Metric", "Test", "Contingency Table",
-            "\u03c7\u00b2 statistic", "p-value",
+            "Statistic / Effect Size", "p-value",
         ],
         rows=rows,
         title=(
