@@ -149,6 +149,12 @@ class BarSeries(BaseModel):
     values: list[float] = Field(..., min_length=1)
 
 
+class LineSeries(BaseModel):
+    """Named data series for line charts."""
+    name: str = Field(..., min_length=1)
+    values: list[float] = Field(..., min_length=1)
+
+
 class CIBarPoint(BaseModel):
     """One bar in a CI bar chart with optional 95% confidence interval whiskers.
 
@@ -279,6 +285,16 @@ class CIBarChartData(BaseModel):
     reference_lines: list[ReferenceLine] = Field(default_factory=list)
 
 
+class LineChartData(BaseModel):
+    """Line chart data with multiple series over shared x-axis categories."""
+    chart_type: Literal["line"] = "line"
+    title: str = Field(..., min_length=1)
+    categories: list[str] = Field(..., min_length=1)
+    series: list[LineSeries] = Field(..., min_length=1)
+    y_axis: str = Field(..., min_length=1)
+    x_axis: str | None = None
+
+
 # ── Content Blocks (report-level: add type discriminators) ──────────
 
 class HeadingBlock(BaseModel):
@@ -338,6 +354,11 @@ class HeatmapChartBlock(HeatmapChartData):
 
 class CIBarChartBlock(CIBarChartData):
     """CI bar chart content block (used for hypothesis findings)."""
+    type: Literal["chart"] = "chart"
+
+
+class LineChartBlock(LineChartData):
+    """Line chart content block."""
     type: Literal["chart"] = "chart"
 
 
@@ -511,6 +532,7 @@ ContentBlock = Annotated[
         Annotated[StackedBarChartBlock, Tag("chart.stacked_bar")],
         Annotated[HeatmapChartBlock, Tag("chart.heatmap")],
         Annotated[CIBarChartBlock, Tag("chart.ci_bar")],
+        Annotated[LineChartBlock, Tag("chart.line")],
         Annotated[NoticeBlock, Tag("notice")],
         Annotated[HypothesisStripBlock, Tag("hypothesis_strip")],
         Annotated[ScopeStatsBlock, Tag("scope_stats")],

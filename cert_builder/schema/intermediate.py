@@ -22,6 +22,7 @@ from .certification_schema import (
     FindingItem,
     GroupedBarChartData,
     HeatmapChartData,
+    LineChartData,
     RadarChartData,
     ScorecardDimension,
     StackedBarChartData,
@@ -61,7 +62,7 @@ class HeatmapChart(HeatmapChartData):
     display_values: list[list[Any]] | None = None
 
 
-ChartModel = RadarChartData | GroupedBarChartData | StackedBarChartData | HeatmapChart
+ChartModel = RadarChartData | GroupedBarChartData | StackedBarChartData | HeatmapChart | LineChartData
 
 
 class ChartsResult(BaseModel):
