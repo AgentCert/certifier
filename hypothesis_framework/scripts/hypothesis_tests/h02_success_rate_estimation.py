@@ -33,7 +33,7 @@ def run_success_rate_test(
     averages sub-fault rates for the category estimate. The certified floor
     is the Wilson lower bound of the category-level rate.
 
-    Categories with insufficient sample size (n < 5 trials after filtering)
+    Categories with insufficient sample size (n < 1 trial after filtering)
     are excluded from the analysis.
 
     Args:
@@ -46,9 +46,9 @@ def run_success_rate_test(
     """
     warnings: List[str] = []
     
-    # Filter categories by minimum sample size (n >= 5)
+    # Filter categories by minimum sample size (n >= 1)
     filtered_data, excluded_cats = filter_categories_by_min_sample_size_counts(
-        counts_per_category, min_n=5
+        counts_per_category, min_n=1
     )
     if excluded_cats:
         for cat_info in excluded_cats:

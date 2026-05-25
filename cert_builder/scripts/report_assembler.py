@@ -1862,7 +1862,7 @@ def _section_appendix_a4(overlay: HypothesisOverlay | None = None):
     ]
     
     # Build table from glossary entries
-    headers = ["Concept", "One-Sentence Explanation"]
+    headers = ["Concept", "Interpretation"]
     rows = [[entry["term"], entry["definition"]] for entry in glossary_entries]
     
     table_block = {
