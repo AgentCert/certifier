@@ -1446,9 +1446,15 @@ def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | No
         # Patch radar chart dimensions in-place for fairness axis
         rai_radar = phase2.get("charts", {}).get("rai_radar", {})
         for dim in rai_radar.get("dimensions", []):
-            if "Fairness" in dim.get("dimension", ""):
-                icon = "✓" if llm_score_pct >= 75 else ("△" if llm_score_pct >= 50 else "✗")
-                dim["dimension"] = f"Fairness  {llm_score_pct}% {icon}"
+            if dim.get("dimension") == "Fairness":
+                if llm_score_pct >= 75:
+                    sub, col = f"{llm_score_pct}% ✓ Pass", "#27ae60"
+                elif llm_score_pct >= 50:
+                    sub, col = f"{llm_score_pct}% △ Review", "#e67e22"
+                else:
+                    sub, col = f"{llm_score_pct}% ✗ Fail", "#e74c3c"
+                dim["sublabel"] = sub
+                dim["sublabel_color"] = col
                 dim["value"] = llm_score_01
                 break
 

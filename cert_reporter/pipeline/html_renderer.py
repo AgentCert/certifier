@@ -71,6 +71,8 @@ def _get_jinja_env():
     env.filters["tag_class"] = _tag_class
     env.filters["replace_underscore"] = lambda s: str(s).replace("_", " ").title()
     env.filters["md"] = _md
+    env.filters["md_inline"] = _md_inline
+    env.filters["strip_md"] = _strip_md
     # Globals used by the section dispatcher
     env.globals["_resolve_block_type"] = _resolve_block_type
     env.globals["_block_has_template"] = _block_has_template
@@ -175,6 +177,25 @@ def _md(text: str) -> str:
     # Single newline → <br>
     s = s.replace("\n", "<br>")
     return Markup(f"<p>{s}</p>")
+
+
+def _md_inline(text: str) -> str:
+    """Convert **bold**, *italic*, `code` to HTML — no <p> wrapper."""
+    import re
+    from markupsafe import Markup, escape
+    if not text:
+        return Markup("")
+    s = str(escape(text))
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    return Markup(s)
+
+
+def _strip_md(text: str) -> str:
+    """Strip **bold** / *italic* markers (for CSS class lookups)."""
+    import re
+    return re.sub(r"\*+", "", str(text)).strip()
 
 
 def _severity_class(severity: str) -> str:

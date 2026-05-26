@@ -108,6 +108,21 @@ def _build_scorecard_radar(scorecard_dimensions):
     }
 
 
+def _rai_sublabel(key: str, score_pct: float, gates: dict) -> tuple:
+    """Return (sublabel_text, color_hex) for a RAI principle."""
+    if key == "privacy_security":
+        if not gates.get("privacy_security_passed", True):
+            return f"{score_pct}% ✗ Fail", "#e74c3c"
+        if score_pct >= 90:
+            return f"{score_pct}% ✓ Pass", "#27ae60"
+        return f"{score_pct}% △ Review", "#e67e22"
+    if score_pct >= 75:
+        return f"{score_pct}% ✓ Pass", "#27ae60"
+    if score_pct >= 50:
+        return f"{score_pct}% △ Review", "#e67e22"
+    return f"{score_pct}% ✗ Fail", "#e74c3c"
+
+
 def _build_rai_radar(responsible_ai: dict) -> dict:
     """Radar chart for the 4 RAI principles from the responsible_ai block."""
     principles = (responsible_ai or {}).get("principles", {})
@@ -115,32 +130,23 @@ def _build_rai_radar(responsible_ai: dict) -> dict:
 
     order = ["privacy_security", "transparency", "fairness"]
 
-    def _status_icon(key: str, score_pct: float) -> str:
-        if key == "privacy_security":
-            return "✓" if gates.get("privacy_security_passed", True) else "✗"
-        if key == "reliability_safety":
-            return "✓" if gates.get("reliability_safety_passed", True) else "✗"
-        if score_pct >= 75:
-            return "✓"
-        if score_pct >= 50:
-            return "△"
-        return "✗"
-
     dimensions = []
     for key in order:
         p = principles.get(key, {})
         base_label = p.get("label", key.replace("_", " ").title())
         score = round(p.get("score", 0.0), 4)
         score_pct = p.get("score_pct", round(score * 100, 1))
-        icon = _status_icon(key, score_pct)
+        sublabel_text, sublabel_color = _rai_sublabel(key, score_pct, gates)
         dimensions.append({
-            "dimension": f"{base_label}  {score_pct}% {icon}",
+            "dimension": base_label,         # just the principle name
+            "sublabel": sublabel_text,
+            "sublabel_color": sublabel_color,
             "value": score,
         })
 
     return {
         "chart_type": "radar",
-        "title": "RAI Principles Snapshot (↑ all axes: higher is better)",
+        "title": "RAI Dimensions — Score vs. 75% Target",
         "dimensions": dimensions,
         "reference_polygons": [
             {

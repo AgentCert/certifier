@@ -123,7 +123,14 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
             val = float(getattr(d, "value", 0))
         else:
             continue
-        rows.append({"key": label, "value": max(0.0, min(1.0, val))})
+        sublabel = str(d.get("sublabel", "")) if isinstance(d, dict) else ""
+        sublabel_color = str(d.get("sublabel_color", "#666666")) if isinstance(d, dict) else "#666666"
+        rows.append({
+            "key": label,
+            "value": max(0.0, min(1.0, val)),
+            "sublabel": sublabel,
+            "sublabel_color": sublabel_color,
+        })
 
     if not rows:
         return _build_placeholder(block)
@@ -215,6 +222,7 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 "source": "table",
                 "transform": [{"type": "aggregate", "groupby": ["key"]}],
             },
+            {"name": "sublabels", "source": "table", "transform": [{"type": "aggregate", "groupby": ["key", "sublabel", "sublabel_color"]}]},
             {"name": "grid", "values": grid_rows},
             {"name": "ticks", "values": tick_rows},
             {"name": "legend", "values": legend_rows},
@@ -359,6 +367,31 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                     ],
                     "fill": {"value": "#333"},
                     "fontSize": {"value": 11},
+                },
+            },
+        },
+        {
+            "type": "text",
+            "from": {"data": "sublabels"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "cx + (radius + 22) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + (radius + 22) * sin(scale('angular', datum.key))"},
+                    "dy": [
+                        {"test": "sin(scale('angular', datum.key)) < -0.15", "value": 2},
+                        {"test": "sin(scale('angular', datum.key)) > 0.15", "value": 13},
+                        {"value": 7},
+                    ],
+                    "text": {"field": "sublabel"},
+                    "align": [
+                        {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
+                        {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
+                        {"value": "right"},
+                    ],
+                    "baseline": {"value": "top"},
+                    "fill": {"field": "sublabel_color"},
+                    "fontSize": {"value": 10},
+                    "fontWeight": {"value": "bold"},
                 },
             },
         },
