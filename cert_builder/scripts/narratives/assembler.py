@@ -22,6 +22,7 @@ from cert_builder.scripts.narratives.qualitative_builder import build_qualitativ
 from cert_builder.scripts.narratives.fault_analysis_builder import build_fault_analysis
 from cert_builder.scripts.narratives.limitation_builder import build_limitations
 from cert_builder.scripts.narratives.recommendation_builder import build_recommendations
+from cert_builder.scripts.narratives.fairness_builder import build_fairness_score
 
 
 async def _safe_call(phase_id: str, fn, *args) -> tuple[str, dict | None, dict | None]:
@@ -61,13 +62,14 @@ class NarrativeAssembler:
         errors = []
         phase_3_tokens = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
-        # Concurrent: Calls 1-5
+        # Concurrent: Calls 1-6
         outcomes = await asyncio.gather(
             _safe_call("scope_narrative", build_scope_narrative, phase1),
             _safe_call("key_findings", build_key_findings, phase1, phase2),
             _safe_call("qualitative", build_qualitative_findings, phase1, phase2),
             _safe_call("fault_analysis", build_fault_analysis, phase1, phase2),
             _safe_call("limitations", build_limitations, phase1, phase2),
+            _safe_call("fairness_score", build_fairness_score, phase1, phase2),
         )
 
         for phase_id, output, error in outcomes:

@@ -1394,7 +1394,63 @@ def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | No
 
     meta = (phase1 or {}).get("meta", {})
     successful_runs = meta.get("successful_runs", 0)
-    responsible_ai = meta.get("responsible_ai") or {}
+
+    # Deep-copy responsible_ai so we can patch it with the LLM fairness score
+    import copy
+    responsible_ai = copy.deepcopy(meta.get("responsible_ai") or {})
+
+    # ── Apply LLM fairness score override (Phase 3) ───────────────────────────
+    fairness_data = (phase3 or {}).get("fairness_score", {})
+    if fairness_data and fairness_data.get("source") in ("llm", "fallback"):
+        llm_score_01 = round(float(fairness_data.get("fairness_score", 0.5)), 4)
+        llm_score_pct = round(llm_score_01 * 100, 1)
+
+        # Patch principles dict
+        fa_principle = responsible_ai.setdefault("principles", {}).setdefault("fairness", {})
+        fa_principle["score"] = llm_score_01
+        fa_principle["score_pct"] = llm_score_pct
+        fa_principle["label"] = "Fairness"
+        fa_principle["llm_label"] = fairness_data.get("fairness_label", "")
+        fa_principle["llm_confidence"] = fairness_data.get("confidence", "Low")
+
+        # Recompute overall weighted score (PS=50%, TR=25%, FA=25%)
+        ps_score = responsible_ai.get("principles", {}).get("privacy_security", {}).get("score", 0.0)
+        tr_score = responsible_ai.get("principles", {}).get("transparency", {}).get("score", 0.0)
+        ps_passed = responsible_ai.get("gates", {}).get("privacy_security_passed", True)
+        raw = 0.50 * ps_score + 0.25 * tr_score + 0.25 * llm_score_01
+        new_score = 0.0 if not ps_passed else round(raw * 100, 1)
+        responsible_ai["score"] = new_score
+        responsible_ai["score_if_gate_clears"] = round(raw * 100, 1)
+
+        # Replace fairness evidence entry with LLM reasoning
+        evidence = responsible_ai.get("evidence", [])
+        reasoning_text = fairness_data.get("reasoning", "")
+        weakest = fairness_data.get("weakest_category")
+        severity = (
+            "Good" if llm_score_01 >= 0.7
+            else "Warning" if llm_score_01 >= 0.5
+            else "Concern"
+        )
+        finding_text = reasoning_text
+        if weakest:
+            finding_text = finding_text.rstrip(". ") + f" The weakest area was {weakest} faults."
+        new_finding = {
+            "principle": "Fairness",
+            "severity": severity,
+            "finding": finding_text,
+        }
+        responsible_ai["evidence"] = [
+            e for e in evidence if e.get("principle") != "Fairness"
+        ] + [new_finding]
+
+        # Patch radar chart dimensions in-place for fairness axis
+        rai_radar = phase2.get("charts", {}).get("rai_radar", {})
+        for dim in rai_radar.get("dimensions", []):
+            if "Fairness" in dim.get("dimension", ""):
+                icon = "✓" if llm_score_pct >= 75 else ("△" if llm_score_pct >= 50 else "✗")
+                dim["dimension"] = f"Fairness  {llm_score_pct}% {icon}"
+                dim["value"] = llm_score_01
+                break
 
     # ── §6.1 Why Responsible AI Matters (RAI-focused, no agent scope boilerplate) ─
     why_rai_text = (
