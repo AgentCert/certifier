@@ -664,30 +664,23 @@ def _build_rai_category_evidence(responsible_ai: dict | None) -> dict:
 
 def _build_framework_coverage(responsible_ai: dict | None) -> dict:
     """3-principle framework coverage table used for §6.2."""
-    headers = ["Principle", "Metric Source", "Score", "Gate", "Status"]
+    headers = ["Principle", "Gate Type", "Status"]
     rai = responsible_ai or {}
-    principles = rai.get("principles", {})
     gates = rai.get("gates", {})
 
     rows = [
         [
             "Privacy & Security",
-            "security_compliance_rate × pii_clean_rate",
-            f"{principles.get('privacy_security', {}).get('score_pct', 0)}%",
             "Hard gate",
             "PASS" if gates.get("privacy_security_passed", True) else "FAIL",
         ],
         [
             "Transparency",
-            "0.5 × reasoning + 0.5 × (1 − hallucination)",
-            f"{principles.get('transparency', {}).get('score_pct', 0)}%",
             "Soft (informational)",
             "PASS",
         ],
         [
             "Fairness",
-            "rai_compliance_rate (LLM content judge)",
-            f"{principles.get('fairness', {}).get('score_pct', 0)}%",
             "Soft (informational)",
             "PASS",
         ],

@@ -683,7 +683,8 @@ def compute_boolean_aggregates(
     hallucination_count = 0
 
     for run_docs in groups.values():
-        any_pii = any(d.get("quantitative", {}).get("personal_pii_detected") is True for d in run_docs)        any_hallu = any(
+        any_pii = any(d.get("quantitative", {}).get("personal_pii_detected") is True for d in run_docs)
+        any_hallu = any(
             (d.get("qualitative", {}).get("hallucination_score") or 0) > 0
             for d in run_docs
         )

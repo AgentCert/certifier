@@ -450,7 +450,15 @@ class LLMCouncil:
         - agent_summary
         """
         total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-        results: Dict[str, Any] = {}
+        _default_with_label = {"consensus_summary": "Not evaluated.", "severity_label": None, "confidence": "High", "inter_judge_agreement": 1.0}
+        _default_summary = {"consensus_summary": "Not evaluated.", "confidence": "High", "inter_judge_agreement": 1.0}
+        results: Dict[str, Any] = {
+            "rai_check_summary": {**_default_with_label},
+            "overall_response_and_reasoning_quality": {**_default_with_label},
+            "security_compliance_summary": {**_default_with_label},
+            "agent_summary": {**_default_summary},
+            "sensitive_data_exposure_notes": {**_default_summary},
+        }
 
         metric_mappings = [
             ("rai_check_summary", "qualitative", "rai_check_notes",
