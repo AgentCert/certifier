@@ -38,6 +38,7 @@ from aggregator.scripts.numeric_aggregation import (
     compute_derived_rates,
     compute_numeric_aggregates,
 )
+from aggregator.scripts.rai_scoring import compute_responsible_ai
 
 # ---------------------------------------------------------------------------
 # Module-level config
@@ -541,9 +542,9 @@ def _validate_metrics_across_categories(
         "input_tokens",
         "output_tokens",
         "tool_calls",
-        "pii_detection",
-        "number_of_pii_instances_detected",
-        "malicious_prompts_detected",
+        "personal_pii_detected",
+        "sensitive_data_exposure_count",
+        "adversarial_input_count",
         "tool_selection_accuracy",
     ]
     critical_fields_qualitative = [
@@ -894,6 +895,19 @@ class AggregationOrchestrator:
 
             # ── Attach metrics validation flag ──
             final_scorecard["metrics_validation_failed"] = metrics_validation_failed
+
+            # ── Compute and attach RAI block ──
+            try:
+                final_scorecard["responsible_ai"] = compute_responsible_ai(
+                    category_scorecards, all_docs_for_tokens
+                )
+                logger.info(
+                    f"RAI scoring complete: decision={final_scorecard['responsible_ai']['rai_decision']}, "
+                    f"score={final_scorecard['responsible_ai']['score']}"
+                )
+            except Exception as exc:
+                logger.warning(f"RAI scoring failed, attaching empty block: {exc}", exc_info=True)
+                final_scorecard["responsible_ai"] = None
 
             # ── Collect Phase 0-1 tokens and build final pipeline_tokens ──
             try:

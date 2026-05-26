@@ -136,7 +136,7 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
     for c in cats:
         b = c["boolean"]
         bool_lines.append(
-            f"  {c['label']}: PII={'Yes' if b['pii_detection']['any_detected'] else 'No'}, "
+            f"  {c['label']}: PII={'Yes' if (b.get('pii_detection') or b.get('personal_pii') or {}).get('any_detected') else 'No'}, "
             f"Hallucination={'Yes' if b['hallucination_detection']['any_detected'] else 'No'}"
         )
     support_parts.append(f"Per-category Boolean Flags:\n" + "\n".join(bool_lines))
@@ -165,14 +165,19 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
     if sf_lines:
         support_parts.append(f"Subfault TTD/TTM Breakdown:\n" + "\n".join(sf_lines))
 
-    # PII instance counts
+    # Sensitive exposure counts with per-category reasoning
     pii_lines = []
     for c in cats:
-        pii_data = (c.get("numeric") or {}).get("pii_instances", {})
-        if pii_data and "sum" in pii_data:
-            pii_lines.append(f"  {c['label']}: {pii_data['sum']:.0f} total (mean={pii_data.get('mean', 0):.1f})")
+        pii_data = (c.get("numeric") or {}).get("sensitive_exposure", {})
+        notes_val = (c.get("textual") or {}).get("sensitive_data_exposure_notes", "")
+        exposure_notes = notes_val.get("consensus_summary", "") if isinstance(notes_val, dict) else (notes_val or "")
+        count_str = f"{pii_data['sum']:.0f}" if pii_data and "sum" in pii_data else "N/A"
+        line = f"  {c['label']}: {count_str} sensitive exposures"
+        if exposure_notes:
+            line += f" — {exposure_notes[:180]}"
+        pii_lines.append(line)
     if pii_lines:
-        support_parts.append(f"PII Instance Counts:\n" + "\n".join(pii_lines))
+        support_parts.append(f"Sensitive Data Exposure (per category):\n" + "\n".join(pii_lines))
 
     # Qualitative assessment summaries
     qual_lines = []

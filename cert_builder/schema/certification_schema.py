@@ -457,7 +457,6 @@ class CategoryPanelBlock(BaseModel):
     detection_rate_pct: float | None = None
     mitigation_rate_pct: float | None = None
     reasoning_score: float | None = None
-    response_quality_score: float | None = None
     dimensions: list[CategoryPanelDimension] = Field(..., min_length=1)
 
 

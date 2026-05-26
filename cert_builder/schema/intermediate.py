@@ -47,7 +47,7 @@ class ScorecardResult(BaseModel):
 # ── Tables (Phase 2B) ───────────────────────────────────────────────
 
 class TablesResult(BaseModel):
-    """Phase 2B output: all 13 tables."""
+    """Phase 2B output: all 18 tables."""
     tables: dict[str, TableData]
 
 
@@ -66,7 +66,7 @@ ChartModel = RadarChartData | GroupedBarChartData | StackedBarChartData | Heatma
 
 
 class ChartsResult(BaseModel):
-    """Phase 2C output: all 9 charts."""
+    """Phase 2C output: all 10 charts."""
     charts: dict[str, ChartModel]
     mean_tokens: dict[str, Any] = {}  # {"mean_input_tokens": float, "mean_output_tokens": float}
 

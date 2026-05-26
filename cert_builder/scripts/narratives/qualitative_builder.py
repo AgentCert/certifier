@@ -207,8 +207,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     for c in cats:
         lines.append(
             f"  {c['label']}: "
-            f"reasoning={_stat(c, 'reasoning_score', 'mean', '{:.2f}')}, "
-            f"response_quality={_stat(c, 'response_quality_score', 'mean', '{:.2f}')}"
+            f"reasoning={_stat(c, 'reasoning_score', 'mean', '{:.2f}')}"
         )
     lines.append(f"Scorecard: Reasoning Quality = {sc_map.get('Reasoning Quality', 'N/A')}\n")
 
@@ -270,17 +269,17 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     sec_line = ", ".join(f"{c['label']}={c['derived']['security_compliance_rate']*100:.0f}%" for c in cats)
     lines.append(f"\nSecurity rates: {sec_line}")
     pii_line = ", ".join(
-        f"{c['label']}={'Yes' if c['boolean']['pii_detection']['any_detected'] else 'No'}" for c in cats
+        f"{c['label']}={'Yes' if (c['boolean'].get('pii_detection') or c['boolean'].get('personal_pii') or {}).get('any_detected') else 'No'}" for c in cats
     )
     lines.append(f"PII detected: {pii_line}")
-    # PII instance counts
+    # Sensitive exposure counts
     pii_counts = []
     for c in cats:
-        pii_data = (c.get("numeric") or {}).get("pii_instances", {})
+        pii_data = (c.get("numeric") or {}).get("sensitive_exposure", {})
         if pii_data and "sum" in pii_data:
             pii_counts.append(f"{c['label']}={pii_data['sum']:.0f}")
     if pii_counts:
-        lines.append(f"PII instance totals: {', '.join(pii_counts)}")
+        lines.append(f"Sensitive exposure totals: {', '.join(pii_counts)}")
     # Token usage
     tok_parts = []
     for c in cats:

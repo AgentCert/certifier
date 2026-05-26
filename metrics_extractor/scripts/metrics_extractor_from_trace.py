@@ -27,8 +27,7 @@ from metrics_extractor.scripts.span_aggregator import (
     QualitativeAggregator,
     QuantitativeAggregator,
 )
-from metrics_extractor.scripts.hallucination_validator import judge_trace
-from metrics_extractor.scripts.reasoning_judge import judge_reasoning
+from metrics_extractor.scripts.combined_judge import judge_combined
 from metrics_extractor.schema.data_models import (
     ExtractionResult,
     TokenUsage,
@@ -774,50 +773,44 @@ Extract any qualitative observations you can make from this batch."""
                 f"Qualitative code aggregation failed: {e}"
             ) from e
 
-        # Step 1b: override hallucination signal with per-step claim-grounding judge.
-        # The bulk LLM count (rules 4(a)-(d)) is replaced with a deterministic,
-        # evidence-anchored validator. Output shape (count + total + score) is unchanged
-        # so the rest of the pipeline (Phase 2 aggregator, Phase 3 cert builder) is unaffected.
+        # Step 1b: combined per-step hallucination + reasoning judge.
+        # A single LLM call per trace step produces both claim-grounding classifications
+        # AND four-dimension reasoning quality scores, halving LLM calls vs two separate judges.
         if spans:
             try:
                 self._init_llm_client()
                 trace_dict = {"events": spans}
-                h_count, r_count, h_notes = await judge_trace(
-                    self.llm_client, trace_dict, model="gpt-4o"
-                )
-                if r_count > 0:
-                    code_aggregated["hallucination_count"] = h_count
-                    code_aggregated["total_response_count"] = r_count
-                    code_aggregated["hallucination_score"] = round(h_count / r_count, 2)
-                    if h_notes:
-                        code_aggregated["hallucination_notes"] = h_notes
-                    logger.info(
-                        f"Hallucination validator: {h_count}/{r_count} claims ungrounded "
-                        f"(score={code_aggregated['hallucination_score']})"
-                    )
-                else:
-                    logger.info("Hallucination validator: no reasoning steps found, retaining bulk count")
-            except Exception as e:
-                logger.warning(f"Hallucination validator failed, falling back to bulk count: {e}")
+                cj = await judge_combined(self.llm_client, trace_dict, model="gpt-4o")
 
-        # Step 1c: override reasoning_quality_score with per-step multi-dimensional judge.
-        # Replaces the old LLM-averaged batch score with a structured, evidence-anchored
-        # four-dimension assessment (coherence, depth, tool relevance, clarity).
-        if spans:
-            try:
-                self._init_llm_client()
-                trace_dict = {"events": spans}
-                rj = await judge_reasoning(self.llm_client, trace_dict, model="gpt-4o")
-                if rj.mean_composite > 0:
-                    code_aggregated["reasoning_quality_score"] = rj.mean_composite
-                    code_aggregated["reasoning_logical_coherence"] = rj.mean_logical_coherence
-                    code_aggregated["reasoning_diagnostic_depth"] = rj.mean_diagnostic_depth
-                    code_aggregated["reasoning_tool_usage_relevance"] = rj.mean_tool_usage_relevance
-                    code_aggregated["reasoning_explanation_clarity"] = rj.mean_explanation_clarity
-                    if rj.overall_notes:
-                        code_aggregated["reasoning_quality_notes"] = rj.overall_notes
+                # Hallucination signals
+                if cj.total_response_count > 0:
+                    code_aggregated["hallucination_count"] = cj.hallucination_count
+                    code_aggregated["total_response_count"] = cj.total_response_count
+                    code_aggregated["hallucination_score"] = round(
+                        cj.hallucination_count / cj.total_response_count, 3
+                    )
+                    if cj.hallucination_notes:
+                        code_aggregated["hallucination_notes"] = cj.hallucination_notes
+                    if cj.breakdown:
+                        code_aggregated["hallucination_ungrounded_external_count"] = cj.breakdown.get("ungrounded_external", 0)
+                        code_aggregated["hallucination_fabricated_tool_count"] = cj.breakdown.get("fabricated_tool_calls", 0)
+                        code_aggregated["hallucination_trajectory_deviation_count"] = cj.breakdown.get("trajectory_deviations", 0)
+                        code_aggregated["hallucination_non_operational_count"] = cj.breakdown.get("non_operational", 0)
+                else:
+                    logger.info("Combined judge: no reasoning steps found, retaining bulk hallucination count")
+
+                # Reasoning quality signals
+                if cj.mean_composite > 0:
+                    code_aggregated["reasoning_quality_score"] = cj.mean_composite
+                    code_aggregated["reasoning_logical_coherence"] = cj.mean_logical_coherence
+                    code_aggregated["reasoning_diagnostic_depth"] = cj.mean_diagnostic_depth
+                    code_aggregated["reasoning_tool_usage_relevance"] = cj.mean_tool_usage_relevance
+                    code_aggregated["reasoning_explanation_clarity"] = cj.mean_explanation_clarity
+                    if cj.overall_reasoning_notes:
+                        code_aggregated["reasoning_quality_notes"] = cj.overall_reasoning_notes
+
             except Exception as e:
-                logger.warning(f"Reasoning judge failed, LLM batch score will be used: {e}")
+                logger.warning(f"Combined judge failed, falling back to bulk counts: {e}")
 
         # Step 2: Use LLM only for text/narrative synthesis
         user_message = f"""Synthesize text and narrative fields from these observations from {len(partial_observations)} batches.

@@ -461,6 +461,8 @@ class LLMCouncil:
              ["consensus_summary", "severity_label", "confidence", "inter_judge_agreement"]),
             ("agent_summary", "qualitative", "agent_summary",
              ["consensus_summary", "confidence", "inter_judge_agreement"]),
+            ("sensitive_data_exposure_notes", "qualitative", "sensitive_data_exposure_notes",
+             ["consensus_summary", "confidence", "inter_judge_agreement"]),
         ]
 
         for output_key, section, field_name, output_fields in metric_mappings:

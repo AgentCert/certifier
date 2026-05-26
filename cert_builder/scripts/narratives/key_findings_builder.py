@@ -111,8 +111,8 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
 
     # PII and token rows
     for key, sub, label, fmt in [
-        ("pii_instances", "mean", "PII mean", lambda v: f"{v:.1f}"),
-        ("pii_instances", "sum", "PII total", lambda v: f"{v:.0f}"),
+        ("sensitive_exposure", "mean", "Sensitive exposure mean", lambda v: f"{v:.1f}"),
+        ("sensitive_exposure", "sum", "Sensitive exposure total", lambda v: f"{v:.0f}"),
         ("input_tokens", "mean", "Inp tok mean", lambda v: f"{v:.0f}"),
         ("output_tokens", "mean", "Out tok mean", lambda v: f"{v:.0f}"),
     ]:
