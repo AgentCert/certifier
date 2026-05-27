@@ -34,6 +34,7 @@ from hypothesis_framework.scripts.utils import (
     build_subfault_counts_from_status,
     build_subfault_data,
     build_subfault_data_all,
+    build_subfault_timestamps,
     load_runs,
     load_sla_thresholds,
     validate_min_total_runs,
@@ -59,13 +60,13 @@ CONTINUOUS_METRICS: Dict[str, Dict[str, Any]] = {
         "field": "time_to_detect",
         "filter_field": "agent_fault_detection_time",
         "sla_key": "time_to_detect",
-        "breach_inf": True,
+        "breach_inf": False,
     },
     "time_to_mitigate": {
         "field": "time_to_mitigate",
         "filter_field": "agent_fault_mitigation_time",
         "sla_key": "time_to_mitigate",
-        "breach_inf": True,
+        "breach_inf": False,
     },
     "reasoning_quality_score": {
         "field": "reasoning_quality_score",
@@ -436,11 +437,18 @@ def run_all_hypothesis_tests_from_runs(
 
         # — H09: Temporal Stability ───────────────────────────────────
         if metric_key in HYPOTHESIS_METRIC_MAP["h09"]:
+            # Build timestamps aligned with metric values for chronological sorting
+            timestamps_per_cat = build_subfault_timestamps(
+                all_runs,
+                cfg["field"],
+                cfg["filter_field"],
+            )
             results["h09"][metric_key] = _safe_run(
                 tests["h09"],
                 f"H09/{metric_key}",
                 data_filtered,
                 metric_key,
+                timestamps_per_category=timestamps_per_cat,
             )
 
     # ── 7. Rate-metric hypothesis tests ───────────────────────────────

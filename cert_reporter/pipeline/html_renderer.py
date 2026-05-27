@@ -137,15 +137,16 @@ def _tag_class(value: str) -> str:
     """Return a CSS tag class for status/rating values in table cells."""
     s = str(value).strip().upper()
     if s in ("PASS", "OK", "SUCCESS", "EXCELLENT", "COMPLIANT", "VALID",
-             "PERFECT", "CLEAN", "STRONG", "GOLD"):
+             "PERFECT", "CLEAN", "STRONG", "GOLD", "STABLE", "MILD"):
         return "tag-excellent"
-    if s in ("GOOD", "SILVER"):
+    if s in ("GOOD", "SILVER", "CONDITIONAL"):
         return "tag-good"
     if s in ("WARN", "WARNING", "CAUTION", "REVIEW", "PARTIAL", "ADVISORY",
-             "MODERATE", "MINOR", "ADEQUATE", "BRONZE", "NEEDS IMPROVEMENT"):
+             "MODERATE", "MINOR", "ADEQUATE", "BRONZE", "NEEDS IMPROVEMENT", "LOW_POWER", "INCOMPLETE", "UNKNOWN",
+             "INCONCLUSIVE", "NO_DATA", "INSUFFICIENT_DATA", "NO_SLA_DEFINED"):
         return "tag-warn"
     if s in ("FAIL", "FAILED", "ERROR", "CRITICAL", "INVALID", "REJECT",
-             "NOT CERTIFIED", "WEAK", "BAD", "POOR", "SIGNIFICANT"):
+             "NOT CERTIFIED", "WEAK", "BAD", "POOR", "SIGNIFICANT", "DRIFT_DETECTED"):
         return "tag-bad"
     return ""
 

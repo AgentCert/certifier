@@ -4,13 +4,22 @@ H-06: SLA Threshold Compliance.
 Per-sub-fault SLA compliance testing with category-level rollup.
 
 Each sub-fault is tested against its own SLA threshold from the ground truth.
-Primary: Wilcoxon signed-rank per sub-fault.
+Primary: Wilcoxon signed-rank (alternative="greater") per sub-fault.
 Supplementary: Bootstrap CI vs SLA, TOST equivalence, Kaplan-Meier (if censored).
 
+Hypotheses:
+  - H₀: The agent's true median performance IS within the SLA (median ≤ SLA).
+  - Hₐ: The agent's true median performance does NOT meet the SLA (median > SLA).
+
+Wilcoxon interpretation (alternative="greater"):
+  - p ≥ α: fail to reject H₀ → median likely ≤ SLA (meets SLA) → meets_threshold = True
+  - p < α: reject H₀ → median likely > SLA (doesn't meet) → meets_threshold = False
+
 Sub-fault verdicts:
-  - PASS: Wilcoxon p < alpha AND CI upper ≤ SLA
-  - CONDITIONAL: CI contains SLA threshold
-  - FAIL: CI lower > SLA or Wilcoxon not significant and median > SLA
+  - PASS: Strong consensus (Wilcoxon p ≥ α AND CI upper ≤ SLA AND (TOST equiv OR median ≤ SLA))
+  - FAIL: Strong evidence against (median > SLA AND (Wilcoxon p < α OR CI lower > SLA))
+  - CONDITIONAL: Partial evidence (Wilcoxon p ≥ α OR (CI upper ≤ SLA AND median ≤ SLA))
+  - INSUFFICIENT_DATA: n < 6 samples — test unreliable
   - NO_SLA_DEFINED: No SLA threshold provided for this sub-fault
   - NO_DATA: No data available for this sub-fault
 
@@ -18,7 +27,7 @@ Category verdicts (rollup):
   - PASS: All assessed sub-faults PASS
   - FAIL: Any sub-fault FAIL
   - INCOMPLETE: Any sub-fault NO_SLA_DEFINED and none FAIL
-  - CONDITIONAL: Mix of PASS / CONDITIONAL
+  - CONDITIONAL: Mix of PASS / CONDITIONAL / INSUFFICIENT_DATA
 """
 
 from __future__ import annotations
@@ -45,6 +54,7 @@ def run_sla_compliance_test(
     alpha: float = 0.05,
     n_resamples: int = 10000,
     random_state: Optional[int] = None,
+    min_sample_size: int = 6,
 ) -> H06Result:
     """Run H-06: SLA Threshold Compliance.
 
@@ -55,6 +65,9 @@ def run_sla_compliance_test(
         alpha: Significance level.
         n_resamples: Bootstrap resamples.
         random_state: Seed for reproducibility.
+        min_sample_size: Minimum sample size required for reliable testing (default 6,
+                        Wilcoxon bottleneck). Faults with n < min_sample_size are
+                        marked INSUFFICIENT_DATA.
 
     Returns:
         H06Result with per-sub-fault verdicts rolled up to categories.
@@ -92,6 +105,21 @@ def run_sla_compliance_test(
                 ))
                 continue
 
+            # Gate-keeper: minimum sample size check
+            if n < min_sample_size:
+                warnings.append(
+                    f"{cat}/{fname}: n={n} < {min_sample_size}; insufficient data for reliable testing. "
+                    f"All statistical tests (Wilcoxon, Bootstrap, TOST) require n ≥ {min_sample_size}."
+                )
+                sub_results.append(SubFaultSLAResult(
+                    fault_name=fname,
+                    n=n,
+                    sla_threshold=sla,
+                    median=round(float(np.median(arr)), 2),
+                    verdict="INSUFFICIENT_DATA",
+                ))
+                continue
+
             median_val = float(np.median(arr))
 
             # Primary: Wilcoxon signed-rank
@@ -107,12 +135,20 @@ def run_sla_compliance_test(
             # Supplementary: TOST equivalence
             tost_r = tost_test(values, low=0, high=sla, alpha=alpha)
 
-            # Verdict logic
-            ci_upper = boot.ci_upper
-            if wil.meets_threshold and ci_upper <= sla:
-                verdict = "PASS"
-            elif median_val > sla and not wil.meets_threshold:
-                verdict = "FAIL"
+            # Verdict logic: consensus-based approach
+            # Collect all evidence first
+            wilcoxon_pass = wil.meets_threshold
+            ci_pass = boot.ci_upper <= sla
+            tost_pass = tost_r.equivalent
+            median_below = median_val <= sla
+
+            # Now decide consensus
+            if wilcoxon_pass and ci_pass and (tost_pass or median_below):
+                verdict = "PASS"  # Strong consensus
+            elif median_val > sla and (not wilcoxon_pass or boot.ci_lower > sla):
+                verdict = "FAIL"  # Strong evidence against
+            elif wilcoxon_pass or (ci_pass and median_below):
+                verdict = "CONDITIONAL"  # Partial evidence
             else:
                 verdict = "CONDITIONAL"
 
@@ -121,7 +157,9 @@ def run_sla_compliance_test(
                 n=n,
                 sla_threshold=sla,
                 median=round(median_val, 2),
+                wilcoxon_w_statistic=wil.statistic,
                 wilcoxon_p=wil.p_value,
+                ci_lower=boot.ci_lower,
                 ci_upper=boot.ci_upper,
                 tost_equivalent=tost_r.equivalent,
                 tost_p=tost_r.p_value,
