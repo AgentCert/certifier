@@ -232,6 +232,62 @@ def build_subfault_data_all(
     return result
 
 
+def build_subfault_timestamps(
+    all_runs: Dict[str, List[dict]],
+    metric_field: str,
+    filter_field: Optional[str] = None,
+) -> Dict[str, Dict[str, List[str]]]:
+    """Build nested timestamps for temporal stability analysis (H09).
+
+    Groups runs by *category → sub-fault*, extracting ``fault_injection_time`` 
+    from the quantitative section. Ensures timestamps align with metric values
+    for chronological sorting in drift detection.
+
+    If filter_field is provided, only includes runs where that field is not None
+    (same eligibility logic as build_subfault_data).
+
+    * Excludes runs with null / missing timestamps.
+    * Preserves run order for pairing with metric values.
+    * Used for sorting metric values by injection time in H-09.
+
+    Args:
+        all_runs: Pre-loaded runs grouped by category.
+        metric_field: Field name to determine eligibility (e.g. "time_to_detect").
+        filter_field: Optional eligibility gate field name (presence-based filtering).
+
+    Returns:
+        ``{category: {sub_fault: [timestamps_as_iso_strings]}}``
+    """
+    result: Dict[str, Dict[str, List[str]]] = {}
+
+    for cat, runs in all_runs.items():
+        subfaults: Dict[str, List[str]] = {}
+        for run in runs:
+            q = run.get("quantitative", {})
+
+            # Filter: only include if filter_field is present (not None)
+            if filter_field and q.get(filter_field) is None:
+                continue
+
+            # Skip if metric value is missing (eligibility gate)
+            val = q.get(metric_field)
+            if val is None:
+                continue
+
+            # Extract timestamp
+            ts = q.get("fault_injection_time")
+            if ts is None or not isinstance(ts, str):
+                continue
+
+            fname = run.get("fault_name", "unknown")
+            subfaults.setdefault(fname, []).append(ts)
+
+        if subfaults:
+            result[cat] = subfaults
+
+    return result
+
+
 def build_subfault_counts(
     all_runs: Dict[str, List[dict]],
     success_field: str,
@@ -407,10 +463,13 @@ def load_sla_thresholds(
     gt_dir: Path,
     sla_key: str,
 ) -> Dict[str, float]:
-    """Load SLA thresholds from ground truth YAML files.
+    """Load SLA thresholds from ground truth YAML or JSON files.
 
-    Reads ``{gt_dir}/{fault_name}/ground_truth.yaml`` and extracts
-    ``ground_truth.sla.{sla_key}.threshold``.
+    Supports two directory structures:
+    1. YAML: {gt_dir}/{fault_name}/ground_truth.yaml
+    2. JSON (flat): {gt_dir}/{experiment_id}_{fault_name}_ground_truth.json
+
+    Extracts ``ground_truth.sla.{sla_key}.threshold`` from both formats.
 
     Returns:
         ``{fault_name: threshold_value}``
@@ -418,8 +477,8 @@ def load_sla_thresholds(
     try:
         import yaml
     except ImportError:
-        logger.warning("PyYAML not installed; cannot load SLA thresholds")
-        return {}
+        logger.warning("PyYAML not installed; YAML format not supported")
+        yaml = None
 
     gt_dir = Path(gt_dir)
     thresholds: Dict[str, float] = {}
@@ -430,21 +489,50 @@ def load_sla_thresholds(
         return thresholds
 
     try:
-        for fault_dir in sorted(gt_dir.iterdir()):
-            if not fault_dir.is_dir():
-                continue
-            gt_file = fault_dir / "ground_truth.yaml"
-            if not gt_file.exists():
+        # ── Try YAML structure: {gt_dir}/{fault_name}/ground_truth.yaml ──
+        if yaml:
+            for fault_dir in sorted(gt_dir.iterdir()):
+                if not fault_dir.is_dir():
+                    continue
+                gt_file = fault_dir / "ground_truth.yaml"
+                if not gt_file.exists():
+                    continue
+                try:
+                    data = yaml.safe_load(gt_file.read_text(encoding="utf-8"))
+                    sla = data.get("ground_truth", {}).get("sla", {})
+                    entry = sla.get(sla_key, {})
+                    threshold = entry.get("threshold") if isinstance(entry, dict) else None
+                    if threshold is not None:
+                        thresholds[fault_dir.name] = float(threshold)
+                except Exception as exc:
+                    logger.warning("Failed to parse SLA from %s: %s", gt_file, exc)
+
+        # ── Try JSON structure: {gt_dir}/*_ground_truth.json ──
+        for gt_file in sorted(gt_dir.glob("*_ground_truth.json")):
+            if not gt_file.is_file():
                 continue
             try:
-                data = yaml.safe_load(gt_file.read_text(encoding="utf-8"))
-                sla = data.get("ground_truth", {}).get("sla", {})
-                entry = sla.get(sla_key, {})
-                threshold = entry.get("threshold") if isinstance(entry, dict) else None
-                if threshold is not None:
-                    thresholds[fault_dir.name] = float(threshold)
+                data = json.loads(gt_file.read_text(encoding="utf-8"))
+                # Extract fault_name from filename: {experiment_id}_{fault_name}_ground_truth.json
+                filename = gt_file.stem  # removes .json
+                parts = filename.split("_ground_truth")
+                if len(parts) > 0:
+                    prefix = parts[0]  # {experiment_id}_{fault_name}
+                    # Split by underscore, last part before "ground_truth" is fault_name
+                    # But experiment_id could have underscores, so use the file's fault_name field
+                    fault_name = data.get("fault_name") or data.get("fault_id")
+                    if not fault_name:
+                        logger.warning(f"No fault_name/fault_id in {gt_file.name}")
+                        continue
+                    
+                    sla = data.get("ground_truth", {}).get("sla", {})
+                    entry = sla.get(sla_key, {})
+                    threshold = entry.get("threshold") if isinstance(entry, dict) else None
+                    if threshold is not None:
+                        thresholds[fault_name] = float(threshold)
             except Exception as exc:
                 logger.warning("Failed to parse SLA from %s: %s", gt_file, exc)
+
     except Exception as exc:
         logger.warning(f"Error iterating ground truth directory {gt_dir}: {exc}")
 
