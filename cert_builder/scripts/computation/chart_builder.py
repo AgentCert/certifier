@@ -322,10 +322,10 @@ def _build_compliance_bar(categories):
         "title": "RAI Dimension Scores (↑ all dimensions: higher is better)",
         "categories": _labels(categories),
         "series": [
-            {"name": "Overall RAI",          "values": rai_scores},
             {"name": "Privacy & Security",   "values": privacy_scores},
             {"name": "Transparency",         "values": transparency_scores},
             {"name": "Fairness",             "values": fairness_scores},
+            {"name": "Overall RAI",          "values": rai_scores},
         ],
         "y_axis": "Score (0-1) — Transparency inverts hallucination so higher always = better",
     }

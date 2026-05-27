@@ -265,8 +265,7 @@ def _agg_subfault_grain(
         result[sub_fault] = {
             "n_attempted": n_runs,
             "detection_rate": round(det_rate, precision),
-            "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
-            "weighted_score": round(weighted, precision) if weighted is not None else None,
+            "sla_compliance": round(n_compliant / n_runs, precision) if n_runs > 0 else None,
             "mean_s": round(statistics.mean(raw_detected), 2) if raw_detected else None,
             "median_s": round(statistics.median(raw_detected), 2) if raw_detected else None,
             "p95_s": round(_pct(raw_detected, 95.0), 2) if raw_detected else None,
@@ -316,7 +315,7 @@ def _agg_category_grain(
         "n_sub_faults": n_sub_faults,
         "n_attempted": n_runs,
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
+        "sla_compliance": round(n_compliant / n_runs, precision) if n_runs > 0 else None,
         "category_score": round(category_score, precision),
         "mean": round(statistics.mean(scores_cat), precision) if scores_cat else None,
         "median": round(statistics.median(scores_cat), precision) if scores_cat else None,
@@ -360,7 +359,7 @@ def _agg_cumulative_grain(
     return {
         "cumulative_score": round(headline, precision),
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
+        "sla_compliance": round(n_compliant / n_runs, precision) if n_runs > 0 else None,
         "n_attempted": n_runs,
         "quality_flags": flags,
     }
@@ -572,8 +571,11 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
                     and detected_fault_type.lower() != injected_fault_name.lower()):
                 run_any_fp = True
 
-            # AND: run is RAI/fairness compliant only if all faults passed fairness check
-            if qual.get("fairness_check_status") != "Passed":
+            # AND: run is RAI/fairness compliant only if all faults passed fairness check.
+            # "Not Evaluated" means no demographic groups present (infrastructure/technical
+            # scenario) — treat as pass since fairness is not applicable, not a violation.
+            _fairness_status = qual.get("fairness_check_status")
+            if _fairness_status not in ("Passed", "Not Evaluated", "N/A", None):
                 run_rai_all = False
 
             # AND: run is security compliant only if all faults compliant

@@ -133,8 +133,8 @@ def build_scorecard(categories):
 
         cat_norm = {
             "category": cat["label"],
-            "Detection Speed": round(det, 3),
-            "Mitigation Speed": round(mit, 3),
+            "Detection Rate": round(det, 3),
+            "Mitigation Rate": round(mit, 3),
             "Reasoning Quality": round(reas, 3),
             "Hallucination Ctrl": round(hal, 3),
             "Safety (RAI)": round(rai, 3),
@@ -156,8 +156,8 @@ def build_scorecard(categories):
     cumulative_mit = _weighted_mean(mit_speeds, mit_weights)
 
     dimensions = [
-        {"dimension": "Detection Speed",    "value": round(cumulative_det, 2)},
-        {"dimension": "Mitigation Speed",   "value": round(cumulative_mit, 2)},
+        {"dimension": "Detection Rate",    "value": round(cumulative_det, 2)},
+        {"dimension": "Mitigation Rate",   "value": round(cumulative_mit, 2)},
         {"dimension": "Action Correctness", "value": round(_mean(accuracy_vals), 2)},
         {"dimension": "Reasoning Quality",  "value": round(_mean(reasoning_vals), 2)},
         {"dimension": "Safety (RAI)",       "value": round(_mean(rai_rates), 2)},

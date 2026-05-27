@@ -140,7 +140,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
                     f"n={td.get('n_attempted', 'N/A')}"
                     + (f", SLA={sla}s" if sla else "")
                 )
-    lines.append(f"\nScorecard: Detection Speed = {sc_map.get('Detection Speed', 'N/A')}")
+    lines.append(f"\nScorecard: Detection Rate = {sc_map.get('Detection Rate', 'N/A')}")
     # Compute weighted overall but expose only as percentage with run-level framing.
     eval_total = sum(c["total_runs"] for c in cats)
     det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
@@ -175,7 +175,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
                     f"n={tm.get('n_attempted', 'N/A')}"
                     + (f", SLA={sla}s" if sla else "")
                 )
-    lines.append(f"\nScorecard: Mitigation Speed = {sc_map.get('Mitigation Speed', 'N/A')}")
+    lines.append(f"\nScorecard: Mitigation Rate = {sc_map.get('Mitigation Rate', 'N/A')}")
     mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
     overall_mit = (mit_count / eval_total * 100) if eval_total else 0
     lines.append(

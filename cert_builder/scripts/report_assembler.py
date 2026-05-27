@@ -790,7 +790,7 @@ def _section_experiment_findings_scorecard_content(phase2, phase3, phase1, overl
         _chart(phase2["charts"]["scorecard_radar"]),
         _text(
             "**Note:** All seven dimensions are normalized to a 0–1 scale where **higher is always better** — "
-            "speed dimensions (Detection Speed, Mitigation Speed) invert raw TTD/TTM so faster = higher; "
+            "rate dimensions (Detection Rate, Mitigation Rate) invert raw TTD/TTM so faster = higher; "
             "**Hallucination Ctrl** inverts the raw hallucination score so fewer hallucinations = higher. "
             "**Benchmark Comparison:** The purple filled radar shows this agent's actual performance. "
             "The green dashed line shows the **Performance Threshold** (1.0 for Safety (RAI) and Security, 0.75 for the other dimensions). "

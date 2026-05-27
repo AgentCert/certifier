@@ -124,11 +124,11 @@ def _build_ttd_category_stats(categories, sh=None):
     has_h01 = bool(h01)
     if has_h01:
         headers = ["Category", "Sub-Faults", "Runs",
-                   "SLA Met (Detected)", "Detection Rate",
+                   "SLA Compliance", "Detection Rate",
                    "95% CI Lower", "95% CI Upper"]
     else:
         headers = ["Category", "Sub-Faults", "Runs",
-                   "SLA Met (Detected)", "Detection Rate"]
+                   "SLA Compliance", "Detection Rate"]
     rows = []
     for cat in categories:
         ttd = cat.get("numeric", {}).get("time_to_detect", {})
@@ -159,11 +159,11 @@ def _build_ttm_category_stats(categories, sh=None):
     has_h01 = bool(h01)
     if has_h01:
         headers = ["Category", "Sub-Faults", "Runs",
-                   "SLA Met (Detected)", "Mitigation Rate",
+                   "SLA Compliance", "Mitigation Rate",
                    "95% CI Lower", "95% CI Upper"]
     else:
         headers = ["Category", "Sub-Faults", "Runs",
-                   "SLA Met (Detected)", "Mitigation Rate"]
+                   "SLA Compliance", "Mitigation Rate"]
     rows = []
     for cat in categories:
         ttm = cat.get("numeric", {}).get("time_to_mitigate", {})
@@ -192,7 +192,7 @@ def _build_ttd_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_detect")
     sla_map = SLA_THRESHOLDS.get("time_to_detect", {})
     headers = ["Category", "Sub-Fault", "Runs",
-               "SLA (s)", "SLA Met (Detected)", "Detection Rate",
+               "SLA (s)", "SLA Compliance", "Detection Rate",
                "Mean (s)", "Median (s)", "P95 (s)"]
     rows = []
     for cat in categories:
@@ -220,7 +220,7 @@ def _build_ttm_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_mitigate")
     sla_map = SLA_THRESHOLDS.get("time_to_mitigate", {})
     headers = ["Category", "Sub-Fault", "Runs",
-               "SLA (s)", "SLA Met (Detected)", "Mitigation Rate",
+               "SLA (s)", "SLA Compliance", "Mitigation Rate",
                "Mean (s)", "Median (s)", "P95 (s)"]
     rows = []
     for cat in categories:
@@ -474,14 +474,8 @@ def _build_rai_compliance(categories, sh=None):
 def _build_security_compliance(categories, sh=None):
     h02 = _h02_per_cat_lookup(sh, "security_compliance_rate")
     has_h02 = bool(h02)
-    headers = ["Category", "Rate (K/N)", "95% Wilson CI", "Certified Floor", "Sensitive Exposures", "Adversarial Inputs", "Exposure Notes"] \
-        if has_h02 else ["Category", "Status", "Rate", "Sensitive Exposures", "Adversarial Inputs", "Assessment", "Exposure Notes"]
-
-    def _extract_notes(val):
-        """Extract note text from either a plain string or a council result dict."""
-        if isinstance(val, dict):
-            return val.get("consensus_summary", "")
-        return val or ""
+    headers = ["Category", "Rate (K/N)", "95% Wilson CI", "Certified Floor", "Sensitive Exposures", "Adversarial Inputs"] \
+        if has_h02 else ["Category", "Status", "Rate", "Sensitive Exposures", "Adversarial Inputs", "Assessment"]
 
     rows = []
     for cat in categories:
@@ -492,33 +486,20 @@ def _build_security_compliance(categories, sh=None):
         mal = cat.get("numeric", {}).get("adversarial_inputs", {})
         pii_val = int(pii["sum"]) if pii and "sum" in pii else "N/A"
         mal_val = int(mal["sum"]) if mal and "sum" in mal else "N/A"
-        textual = cat.get("textual", {})
-        exposure_notes = _extract_notes(textual.get("sensitive_data_exposure_notes")) \
-            or _extract_notes(textual.get("security_compliance_notes"))
-        if exposure_notes and len(exposure_notes) > 200:
-            exposure_notes = exposure_notes[:197] + "..."
-        
+
         if has_h02:
             cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
             rec = h02.get(cat_key) or {}
-            rate_rec = rec.get("rate")
             wilson_lower = rec.get("wilson_lower")
             wilson_upper = rec.get("wilson_upper")
-            
-            # Format Rate (K/N) using successful runs for exact integer counts
+
             total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
             passed = int(round((rate or 0) * total_runs)) if rate is not None else 0
             rate_str = f"{passed}/{total_runs}" if total_runs > 0 else "N/A"
-            
-            # Format Wilson CI
-            if wilson_lower is not None and wilson_upper is not None:
-                ci_str = f"[{wilson_lower:.1%}, {wilson_upper:.1%}]"
-            else:
-                ci_str = "N/A"
-            
-            # Certified Floor is the lower bound
+
+            ci_str = f"[{wilson_lower:.1%}, {wilson_upper:.1%}]" if wilson_lower is not None and wilson_upper is not None else "N/A"
             floor_str = f"{wilson_lower:.1%}" if wilson_lower is not None else "N/A"
-            
+
             rows.append([
                 cat.get("label", "N/A"),
                 rate_str,
@@ -526,10 +507,10 @@ def _build_security_compliance(categories, sh=None):
                 floor_str,
                 pii_val,
                 mal_val,
-                exposure_notes or "—",
             ])
         else:
-            status = "Pass" if rate is not None and rate >= 1.0 else "Fail"
+            has_adversarial = isinstance(mal_val, int) and mal_val > 0
+            status = "Fail" if (rate is None or rate < 1.0 or has_adversarial) else "Pass"
             severity = sec.get("severity_label", "N/A")
             confidence = sec.get("confidence", "N/A")
             assessment = f"{severity} / {confidence}" if severity != "N/A" and confidence != "N/A" else "N/A"
@@ -540,7 +521,6 @@ def _build_security_compliance(categories, sh=None):
                 pii_val,
                 mal_val,
                 assessment,
-                exposure_notes or "—",
             ])
     return {"headers": headers, "rows": rows}
 
