@@ -491,8 +491,9 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
     if not categories or not series_list:
         return _build_placeholder(block)
 
-    # Flatten to long-form for Vega-Lite
+    # Flatten to long-form for Vega-Lite, preserving series insertion order
     flat_rows = []
+    series_order = []
     for s in series_list:
         if isinstance(s, dict):
             name = s.get("name", "?")
@@ -502,6 +503,7 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
             values = getattr(s, "values", [])
         else:
             continue
+        series_order.append(name)
         for cat, val in zip(categories, values):
             try:
                 val = float(val)
@@ -519,9 +521,9 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
                 "x": {"field": "category", "type": "nominal", "axis": {"title": None}},
                 "y": {"field": "value", "type": "quantitative",
                       "axis": {"title": y_axis}},
-                "xOffset": {"field": "series", "type": "nominal"},
+                "xOffset": {"field": "series", "type": "nominal", "sort": series_order},
                 "color": {"field": "series", "type": "nominal",
-                          "scale": {"scheme": "tableau10"}, "title": "Series"},
+                          "scale": {"scheme": "tableau10", "domain": series_order}, "title": "Series"},
                 "tooltip": [
                     {"field": "category", "type": "nominal"},
                     {"field": "series", "type": "nominal"},

@@ -1388,6 +1388,41 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
     }
 
 
+def _apply_rai_to_scorecard(phase1: dict, phase2: dict, phase3: dict | None) -> None:
+    """Patch scorecard Safety (RAI) dimension from responsible_ai + Phase 3 fairness.
+
+    Must run before any section is built so the executive summary scorecard_radar
+    already shows the gate-enforced RAI score, not the stale rai_compliance_rate.
+    """
+    import copy as _copy
+    responsible_ai = _copy.deepcopy((phase1.get("meta") or {}).get("responsible_ai") or {})
+    if not responsible_ai:
+        return
+
+    ps_score = responsible_ai.get("principles", {}).get("privacy_security", {}).get("score", 0.0)
+    tr_score = responsible_ai.get("principles", {}).get("transparency", {}).get("score", 0.0)
+    ps_passed = responsible_ai.get("gates", {}).get("privacy_security_passed", True)
+
+    fairness_data = (phase3 or {}).get("fairness_score", {})
+    if fairness_data and fairness_data.get("source") in ("llm", "fallback"):
+        fa_score = round(float(fairness_data.get("fairness_score", 0.5)), 4)
+    else:
+        fa_score = responsible_ai.get("principles", {}).get("fairness", {}).get("score", 0.5)
+
+    raw = 0.50 * ps_score + 0.25 * tr_score + 0.25 * fa_score
+    rai_score_01 = 0.0 if not ps_passed else round(raw, 4)
+
+    for dim in phase2.get("charts", {}).get("scorecard_radar", {}).get("dimensions", []):
+        if dim.get("dimension") == "Safety (RAI)":
+            dim["value"] = rai_score_01
+            break
+
+    for dim in phase2.get("scorecard", {}).get("dimensions", []):
+        if dim.get("dimension") == "Safety (RAI)":
+            dim["value"] = round(rai_score_01, 2)
+            break
+
+
 def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | None = None):
     """Section 6: Safety & Compliance — §6.1–§6.5 (§6.3 merged into §6.2)."""
     intros = phase2["hardcoded"]["section_intros"]
@@ -1542,7 +1577,6 @@ def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | No
     else:
         gate_card_items = [
             {"label": "Current RAI Score", "value": f"{rai_score}/100"},
-            {"label": "Gate decision", "value": "All gates cleared — score is live"},
         ]
 
     # ── §6.4 Key Findings ─────────────────────────────────────────────────────
@@ -1555,7 +1589,7 @@ def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | No
         for e in evidence
     ]
 
-    # ── §6.5 Security Analysis ────────────────────────────────────────────────
+    # ── §6.5 Security and Privacy Analysis ───────────────────────────────────
     security_table = phase2["tables"]["security_compliance"]
 
     content = [
@@ -1591,7 +1625,7 @@ def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | No
         _findings(finding_items),
 
         # §6.4
-        _heading("6.4 Security Analysis"),
+        _heading("6.4 Security and Privacy Analysis"),
         _table(**security_table),
         *((sec_findings_block,) if (sec_findings_block := _findings_from_text(
             _get_table_findings(security_table, "Security Compliance"))) else ()),
@@ -2284,6 +2318,10 @@ class ReportAssembler:
         phase1 = json.loads(self.phase1_path.read_text(encoding="utf-8"))
         phase2 = json.loads(self.phase2_path.read_text(encoding="utf-8"))
         phase3 = json.loads(self.phase3_path.read_text(encoding="utf-8"))
+
+        # Patch scorecard Safety (RAI) from responsible_ai + Phase 3 fairness before
+        # any section reads phase2["charts"]["scorecard_radar"] dimensions.
+        _apply_rai_to_scorecard(phase1, phase2, phase3)
 
         overlay = self._build_overlay(phase1)
 

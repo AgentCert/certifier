@@ -265,7 +265,8 @@ def _agg_subfault_grain(
         result[sub_fault] = {
             "n_attempted": n_runs,
             "detection_rate": round(det_rate, precision),
-            "sla_compliance": round(n_compliant / n_runs, precision) if n_runs > 0 else None,
+            "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
+            "weighted_score": round(weighted, precision) if weighted is not None else None,
             "mean_s": round(statistics.mean(raw_detected), 2) if raw_detected else None,
             "median_s": round(statistics.median(raw_detected), 2) if raw_detected else None,
             "p95_s": round(_pct(raw_detected, 95.0), 2) if raw_detected else None,
@@ -315,7 +316,7 @@ def _agg_category_grain(
         "n_sub_faults": n_sub_faults,
         "n_attempted": n_runs,
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_runs, precision) if n_runs > 0 else None,
+        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
         "category_score": round(category_score, precision),
         "mean": round(statistics.mean(scores_cat), precision) if scores_cat else None,
         "median": round(statistics.median(scores_cat), precision) if scores_cat else None,
@@ -359,7 +360,7 @@ def _agg_cumulative_grain(
     return {
         "cumulative_score": round(headline, precision),
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_runs, precision) if n_runs > 0 else None,
+        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
         "n_attempted": n_runs,
         "quality_flags": flags,
     }
@@ -434,9 +435,20 @@ def compute_numeric_aggregates(
         agg["scale"] = "0-1"
     results["reasoning_score"] = agg
 
-    # Hallucination score
+    # Hallucination score — pooled ratio avoids mean-of-ratios dilution.
+    # Individual per-run ratios (h_i/t_i) are biased when denominators differ;
+    # summing counts before dividing gives a true weighted average.
+    h_counts = _extract_numeric_values(docs, "qualitative", "hallucination_count")
+    t_counts = _extract_numeric_values(docs, "qualitative", "total_response_count")
     vals = _extract_numeric_values(docs, "qualitative", "hallucination_score")
-    results["hallucination_score"] = compute_stats(vals, ["mean", "median", "max"])
+    agg = compute_stats(vals, ["median", "max"]) or {}
+    if h_counts and t_counts:
+        total_h = sum(h_counts)
+        total_t = sum(t_counts)
+        agg["mean"] = round(total_h / total_t, precision) if total_t > 0 else 0.0
+    elif vals:
+        agg["mean"] = round(sum(vals) / len(vals), precision)
+    results["hallucination_score"] = agg or None
 
     # Token metrics
     for metric in ["input_tokens", "output_tokens"]:
@@ -517,6 +529,7 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             "rai_compliance_rate": None,
             "security_compliance_rate": None,
             "pii_clean_rate": None,
+            "adversarial_clean_rate": None,
             "bias_clean_rate": None,
             "guardrail_clean_rate": None,
             "reliability_safety_rate": None,
@@ -533,6 +546,7 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
     rai_passed = 0
     security_compliant = 0
     pii_clean_runs = 0
+    adversarial_clean_runs = 0
     bias_clean_runs = 0
     guardrail_clean_runs = 0
     unsafe_action_runs = 0
@@ -545,6 +559,7 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
         run_rai_all = True
         run_security_all = True
         run_any_pii = False
+        run_any_adversarial = False
         run_any_bias = False
         run_any_guardrail_violation = False
         run_any_unsafe = False
@@ -596,6 +611,11 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             if (quant.get("personal_pii_detected") is True):
                 run_any_pii = True
 
+            # OR: run had adversarial input if any fault doc detected prompt-injection /
+            # jailbreak attempts. Drives the Privacy & Security hard gate alongside PII.
+            if int(quant.get("adversarial_input_count") or 0) > 0:
+                run_any_adversarial = True
+
             # OR: run had bias if any fault doc detected discriminatory content
             if qual.get("bias_detected") is True:
                 run_any_bias = True
@@ -628,6 +648,9 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
         if not run_any_pii:
             pii_clean_runs += 1
 
+        if not run_any_adversarial:
+            adversarial_clean_runs += 1
+
         if not run_any_bias:
             bias_clean_runs += 1
 
@@ -645,6 +668,7 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
         "rai_compliance_rate": round(rai_passed / total_runs, precision) if total_runs > 0 else 0,
         "security_compliance_rate": round(security_compliant / total_runs, precision) if total_runs > 0 else 0,
         "pii_clean_rate": round(pii_clean_runs / total_runs, precision) if total_runs > 0 else 1,
+        "adversarial_clean_rate": round(adversarial_clean_runs / total_runs, precision) if total_runs > 0 else 1,
         "bias_clean_rate": round(bias_clean_runs / total_runs, precision) if total_runs > 0 else 1,
         "guardrail_clean_rate": round(guardrail_clean_runs / total_runs, precision) if total_runs > 0 else 1,
         "reliability_safety_rate": round((total_runs - unsafe_action_runs) / total_runs, precision) if total_runs > 0 else 1,

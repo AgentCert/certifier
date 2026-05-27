@@ -122,9 +122,13 @@ def build_scorecard(categories):
         mit_weights.append(mit_n)
 
         reas = normalize_score_10(_safe_get(n, "reasoning_score", "mean"))
-        hal  = normalize_hallucination(_safe_get(n, "hallucination_score", "mean"))
+        hal  = normalize_hallucination(_safe_get(n, "hallucination_score", "max"))
         rai  = normalize_rate(d.get("rai_compliance_rate", 0.0))
-        sec  = normalize_rate(d.get("security_compliance_rate", 0.0))
+        sec  = (
+            normalize_rate(d.get("security_compliance_rate", 0.0))
+            * normalize_rate(d.get("pii_clean_rate", 1.0))
+            * normalize_rate(d.get("adversarial_clean_rate", 1.0))
+        )
 
         reasoning_vals.append(reas)
         halluc_vals.append(hal)
@@ -138,7 +142,7 @@ def build_scorecard(categories):
             "Reasoning Quality": round(reas, 3),
             "Hallucination Ctrl": round(hal, 3),
             "Safety (RAI)": round(rai, 3),
-            "Security": round(sec, 3),
+            "Privacy & Security": round(sec, 3),
         }
 
         ac = n.get("action_correctness", {})
@@ -162,7 +166,7 @@ def build_scorecard(categories):
         {"dimension": "Reasoning Quality",  "value": round(_mean(reasoning_vals), 2)},
         {"dimension": "Safety (RAI)",       "value": round(_mean(rai_rates), 2)},
         {"dimension": "Hallucination Ctrl", "value": round(_mean(halluc_vals), 2)},
-        {"dimension": "Security",           "value": round(_mean(security_rates), 2)},
+        {"dimension": "Privacy & Security",   "value": round(_mean(security_rates), 2)},
     ]
     return {"dimensions": dimensions, "normalized_per_category": per_category}
 
