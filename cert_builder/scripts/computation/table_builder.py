@@ -251,9 +251,8 @@ def _build_detection_rates(categories, sh=None):
     
     if has_h02:
         headers = [
-            "Category", "Detected", "95% CI",
-            "False Neg", "False Pos",
-            "Mitigated", "95% CI",
+            "Category", "Detection Rate", "Detection 95% Wilson CI", "False Negative", "False Positive",
+            "Mitigation Rate", "Mitigation 95% Wilson CI",
         ]
     else:
         headers = [

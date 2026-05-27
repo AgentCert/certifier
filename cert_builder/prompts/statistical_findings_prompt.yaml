@@ -2,9 +2,12 @@ system_prompt: >
   You write §3.3 "Statistical Findings" for an AI-agent certification
   report. You synthesize 4–5 senior-analyst findings from the
   9-hypothesis framework (H1..H9), PLUS 2 statistical limitations
-  and 1 statistical recommendation. Never recompute or contradict
-  numbers you are given. Findings must read like an inference summary,
-  not a stats dump.
+  and 1 statistical recommendation. VOICE: Use objective, third-person
+  language. For FINDINGS: explain test results clearly. For LIMITATIONS
+  and RECOMMENDATIONS: use simple, lay-person language focused on
+  practical impact — no hypothesis names, no statistical jargon.
+  NEVER use first-person ("I", "my"). Never recompute or contradict
+  numbers you are given.
 
 user_prompt_template: |
   AGENT: {agent_name} | SUCCESSFUL RUNS: {total_runs} | CATEGORIES: {category_list}
@@ -49,41 +52,41 @@ user_prompt_template: |
    }}
 
   === LIMITATIONS (exactly 2 items) ===
-  Extract 2 statistical limitations from H1..H9 results (NOT from H1/H2).
-  Focus on cross-category or tail-risk concerns from H3, H5, H6, H7, H8, H9.
+  Extract 2 real-world limitations from the evaluation data in plain, non-technical language.
+  Focus on practical gaps: what does the agent struggle with, and what can't we confidently say?
+  NEVER mention hypothesis names (H3, H5, etc.) or statistical method names (Kruskal-Wallis, Levene, etc.).
+  Use simple language: "different types of issues", "rare/unusual situations", "experiment results", "evaluation data", etc.
+  Write in third-person voice (e.g., "The agent", "Performance", "The experiment").
   Each limitation has:
    - severity: "High" or "Medium"
    - scope: "Cross-cutting", "Application", "Network", or "Resource"
-   - body: Plain prose explaining the limitation with hypothesis ID references (e.g., "H-03 shows...")
+   - body: Plain prose explaining the practical limitation in everyday language
    - tags: ["Statistical Inference"] (hardcoded)
    
-  EXAMPLES:
+  EXAMPLES (SIMPLE, LAY-PERSON LANGUAGE):
    {{
-     "severity": "High",
+     "severity": "Medium",
      "scope": "Cross-cutting",
-     "body": "Category latency profiles differ significantly (H3 Kruskal-Wallis p < 0.001, H5 Levene p < 0.001). Aggregating to a single mean will misrepresent at least one category.",
-     "tags": ["Statistical Inference"]
-   }}
-   {{
-     "severity": "High",
-     "scope": "Network",
-     "body": "Network tail-risk is significant (H8 CVaR₉₅ shows detection delay can exceed 400s in rare cases). Worst-case latency is substantially higher than median.",
+     "body": "When comparing performance across different types of issues — such as resource issues versus network issues — the experiment results are mixed. This makes it difficult to confidently prove which types the agent handles faster or slower, limiting our understanding of where real performance differences lie.",
      "tags": ["Statistical Inference"]
    }}
 
   === RECOMMENDATION (exactly 1 item) ===
-  ONE actionable next step from the hypothesis framework.
+  ONE actionable, practical next step to address the limitations discovered.
+  Use simple, non-technical language focused on real-world improvement.
+  NEVER mention hypothesis names or statistical method names.
+  Write in third-person voice (e.g., "The system should...", "Consider...", "Improving...").
   Has:
    - severity: "Critical", "High", "Medium", or "Low"
    - scope: "Cross-cutting" (unless category-specific)
-   - body: Plain prose with hypothesis ID references
+   - body: Plain prose explaining what to do next in everyday language
    - tags: ["Statistical Inference"] (hardcoded)
    
-  EXAMPLE:
+  EXAMPLE (SIMPLE, LAY-PERSON LANGUAGE):
    {{
      "severity": "Critical",
      "scope": "Cross-cutting",
-     "body": "Adopt per-category SLAs based on H3/H5 disparity findings. Categories show distinct latency profiles that cannot be safely consolidated into a single threshold.",
+     "body": "The system should be enhanced to handle rare and unusual fault scenarios more robustly. Focus engineering effort on improving edge-case detection for unusual but important real-world incidents that don't appear frequently in normal testing.",
      "tags": ["Statistical Inference"]
    }}
 

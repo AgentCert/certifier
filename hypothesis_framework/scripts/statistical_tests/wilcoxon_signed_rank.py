@@ -29,8 +29,8 @@ def wilcoxon_signed_rank(
 ) -> WilcoxonSignedRankResult:
     """One-sample Wilcoxon signed-rank test against an SLA threshold.
 
-    Tests H₀: median(data) ≥ threshold vs Hₐ: median(data) < threshold.
-    Rejects when observations are systematically below the threshold.
+    Tests H₀: median(data) < threshold (meets SLA) vs Hₐ: median(data) ≥ threshold (doesn't meet SLA).
+    Fails to reject H₀ when observations are systematically below the threshold.
 
     Args:
         data: Observed metric values (e.g., time-to-detect).
@@ -71,8 +71,8 @@ def wilcoxon_signed_rank(
             interpretation="All observations at threshold; cannot determine compliance.",
         )
 
-    w_stat, p_val = stats.wilcoxon(non_zero, alternative="less")
-    meets = p_val < alpha
+    w_stat, p_val = stats.wilcoxon(non_zero, alternative="greater")
+    meets = p_val >= alpha
     median_val = float(np.median(arr))
 
     return WilcoxonSignedRankResult(
@@ -85,7 +85,7 @@ def wilcoxon_signed_rank(
         meets_threshold=meets,
         interpretation=(
             f"W={w_stat:.1f}, p={p_val:.4f}, median={median_val:.1f} vs threshold={threshold}. "
-            f"→ {'PASS (below SLA)' if meets else 'FAIL or INCONCLUSIVE'}"
+            f"→ {'PASS (meets SLA)' if meets else 'FAIL (exceeds SLA)'}"
         ),
         warnings=warnings,
     )

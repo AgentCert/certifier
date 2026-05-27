@@ -1173,10 +1173,14 @@ def _combine_h02_rate_strips(det_strips: list[dict],
             return []
         out = []
         for f in strip.get("facts") or []:
+            # Normalize tone: convert 'warning' to 'warn' for schema compliance
+            tone = f.get("tone", "good")
+            if isinstance(tone, str) and tone.lower() == "warning":
+                tone = "warn"
             out.append({
                 "label": f"{kind} — {f.get('label', '')}",
                 "text": f.get("text", ""),
-                "tone": f.get("tone", "good"),
+                "tone": tone if tone in {"good", "flag", "warn"} else "good",
             })
         return out
 
@@ -1984,8 +1988,47 @@ def _section_appendix_a3(overlay: HypothesisOverlay | None = None):
 
 
 def _section_appendix_a4(overlay: HypothesisOverlay | None = None):
-    """Appendix A4: Statistical Concepts Glossary for Hypothesis Testing."""
-    # Glossary entries based on statistical methods used in H01-H09
+    """Appendix A4: Statistical Inference — SLA-Aware Hypothesis Analysis (H6 – H9)."""
+    if overlay is None:
+        return None
+    
+    blocks: list[dict] = []
+    
+    # Add H6 section blocks
+    blocks.extend(overlay.h06_section_blocks)
+    # Add H7 section blocks
+    blocks.extend(overlay.h07_section_blocks)
+    # Add H8 section blocks
+    blocks.extend(overlay.h08_section_blocks)
+    # Add H9 section blocks
+    blocks.extend(overlay.h09_section_blocks)
+    
+    if not blocks:
+        return None
+    
+    intro_text = (
+        "This section activates the SLA-Aware branch of the framework. "
+        "H6 proves threshold compliance with statistical confidence using Wilcoxon signed-rank tests and Bootstrap BCa confidence intervals; "
+        "H7 estimates the SLA breach rate against the 5% budget; "
+        "H8 quantifies tail severity using CVaR analysis; "
+        "H9 checks for temporal drift across the ordered run sequence using CUSUM and EWMA."
+    )
+    
+    return {
+        "id": "appendix_a4",
+        "number": 0,
+        "part": None,
+        "title": "Statistical Inference: SLA-Aware Hypothesis Analysis (H6 – H9)",
+        "intro": intro_text,
+        "content": blocks,
+    }
+
+
+def _section_appendix_a5(overlay: HypothesisOverlay | None = None):
+    """Appendix A5: Statistical Concepts Glossary for Hypothesis Testing."""
+    if overlay is None or overlay.suppressed:
+        return None
+    
     glossary_entries = [
         {
             "term": "Confidence Interval (CI)",
@@ -2045,8 +2088,7 @@ def _section_appendix_a4(overlay: HypothesisOverlay | None = None):
         },
     ]
     
-    # Build table from glossary entries
-    headers = ["Concept", "One-Sentence Explanation"]
+    headers = ["Concept", "Interpretation"]
     rows = [[entry["term"], entry["definition"]] for entry in glossary_entries]
     
     table_block = {
@@ -2056,13 +2098,13 @@ def _section_appendix_a4(overlay: HypothesisOverlay | None = None):
     }
     
     return {
-        "id": "appendix_a4",
+        "id": "appendix_a5",
         "number": 0,
         "part": None,
         "title": "Statistical Concepts Glossary",
         "intro": "",
         "content": [
-            _heading("A4. Statistical Concepts Glossary"),
+            _heading("A5. Statistical Concepts Glossary"),
             _text(
                 "Quick reference for statistical terms used throughout the hypothesis testing framework (H1–H9). "
                 "Each concept is essential for interpreting confidence intervals, effect sizes, and p-values in the report."
@@ -2334,10 +2376,15 @@ class ReportAssembler:
         if appendix_a3 is not None:
             sections.append(appendix_a3)
 
-        # Appendix A4 — Statistical Concepts Glossary
+        # Appendix A4 — Statistical Inference: SLA-Aware Hypothesis Analysis (H6, H7, H8, H9)
         appendix_a4 = _section_appendix_a4(overlay)
         if appendix_a4 is not None:
             sections.append(appendix_a4)
+
+        # Appendix A5 — Statistical Concepts Glossary
+        appendix_a5 = _section_appendix_a5(overlay)
+        if appendix_a5 is not None:
+            sections.append(appendix_a5)
 
         # Renumber sections sequentially to keep them monotonic after the
         # optional Phase E injection. Banner sections (Part I / Part II) are

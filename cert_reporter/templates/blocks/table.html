@@ -25,10 +25,15 @@
           {% for h in headers %}
           {% set val = row[h] if h in row else '' %}
           {% set vstr = val | string %}
+          {% set is_last_cell = loop.last %}
           <td{% if val is number %} class="num"{% endif %}>
             {%- if val is number -%}{{ val | fmt_num }}{%- else -%}
-              {% set tag_cls = vstr | tag_class %}
-              {% if tag_cls %}<span class="tag {{ tag_cls }}">{{ vstr }}</span>{% else %}{{ vstr }}{% endif %}
+              {% if is_last_cell %}
+                {% set tag_cls = vstr | tag_class %}
+                {% if tag_cls %}<span class="tag {{ tag_cls }}">{{ vstr }}</span>{% else %}{{ vstr }}{% endif %}
+              {% else %}
+                {{ vstr }}
+              {% endif %}
             {%- endif -%}
           </td>
           {% endfor %}
@@ -41,10 +46,15 @@
         {# list row #}
         {% for cell in row %}
         {% set vstr = cell | string %}
+        {% set is_last_cell = loop.last %}
         <td{% if cell is number %} class="num"{% endif %}>
           {%- if cell is number -%}{{ cell | fmt_num }}{%- else -%}
-            {% set tag_cls = vstr | tag_class %}
-            {% if tag_cls %}<span class="tag {{ tag_cls }}">{{ vstr }}</span>{% else %}{{ vstr }}{% endif %}
+            {% if is_last_cell %}
+              {% set tag_cls = vstr | tag_class %}
+              {% if tag_cls %}<span class="tag {{ tag_cls }}">{{ vstr }}</span>{% else %}{{ vstr }}{% endif %}
+            {% else %}
+              {{ vstr }}
+            {% endif %}
           {%- endif -%}
         </td>
         {% endfor %}

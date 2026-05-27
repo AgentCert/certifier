@@ -209,6 +209,15 @@ def run_cross_category_test(
     omnibus_stat = omnibus.statistic if omnibus.statistic is not None else 0.0
     omnibus_p = omnibus.p_value if omnibus.p_value is not None else 1.0
     omnibus_sig = omnibus_p < alpha
+    
+    # Calculate Epsilon-squared effect size for Kruskal-Wallis
+    # ε² = (H - k + 1) / (n - k) where H is statistic, k is groups, n is total N
+    n_total = sum(len(g) for g in groups)
+    k_groups = len(groups)
+    omnibus_epsilon_sq = 0.0
+    if k_groups > 1 and n_total > k_groups:
+        omnibus_epsilon_sq = (omnibus_stat - k_groups + 1) / (n_total - k_groups)
+        omnibus_epsilon_sq = max(0.0, min(1.0, omnibus_epsilon_sq))  # Bound to [0, 1]
 
     # Step 4: Pairwise post-hoc (if omnibus significant)
     pairwise: List[PairwiseComparison] = []
@@ -259,6 +268,7 @@ def run_cross_category_test(
         normality_results=normality,
         test_used="kruskal_wallis",
         omnibus_statistic=round(omnibus_stat, 4),
+        omnibus_epsilon_squared=round(omnibus_epsilon_sq, 3),
         omnibus_p=round(omnibus_p, 6),
         omnibus_significant=omnibus_sig,
         pairwise=pairwise,

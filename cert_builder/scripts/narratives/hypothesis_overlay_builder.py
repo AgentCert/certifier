@@ -431,13 +431,19 @@ def _generic_strip(
     )
     if not verdict_text:
         return None
-    if str(verdict_text).lower() in {"insufficient_groups", "insufficient_data", "no_data"}:
+    
+    v_lower = str(verdict_text).lower()
+    
+    if any(kw in v_lower for kw in {"insufficient_groups", "insufficient_data", "no_data", "conditional"}):
         verdict = "inconclusive"
-    elif "flag" in str(verdict_text).lower():
+    # H06-H09 metric verdict keywords that indicate flag/warning status
+    elif any(kw in v_lower for kw in {"non_compliant", "non-compliant", "exceeds", "fail", "wide_ci"}):
         verdict = "flag"
-    elif "no_significant" in str(verdict_text).lower():
+    elif "flag" in v_lower:
+        verdict = "flag"
+    elif "no_significant" in v_lower:
         verdict = "pass"
-    elif "significant" in str(verdict_text).lower():
+    elif "significant" in v_lower:
         verdict = "flag"
     else:
         verdict = "pass"
@@ -452,6 +458,13 @@ def _generic_strip(
     # Add warnings as facts (notes about excluded categories or insufficient data)
     warnings = metric_block.get("warnings") or []
     for warning in warnings:
+        # H9-specific filtering: exclude chronological and limited power warnings
+        if hypothesis_id == "H9":
+            if "values sorted chronologically by fault_injection_time" in warning:
+                continue
+            if "CUSUM/EWMA have limited power" in warning:
+                continue
+        
         facts.append({
             "label": "Warning",
             "text": warning,
@@ -609,7 +622,10 @@ def _h05_table(metric_key: str, h05: dict) -> dict | None:
 
 
 def _h06_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H6 combined table covering TTD + TTM SLA compliance."""
+    """H6 combined table covering TTD + TTM SLA compliance.
+    
+    One row per category with arrays of faults and corresponding metrics.
+    """
     rows: list[list[Any]] = []
     for metric_key, h06 in metric_results:
         if not isinstance(h06, dict) or h06.get("status") == "skipped":
@@ -617,70 +633,107 @@ def _h06_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         m_label = _metric_label(metric_key)
         for cat in h06.get("per_category") or []:
             cat_label = _category_label(cat.get("category", ""))
+            cat_verdict = (cat.get("verdict") or "").upper() or "—"  # Last column: keep uppercase
+            
+            # Extract sub-fault data into arrays
+            sub_faults = cat.get("sub_faults") or []
+            fault_names = [sf.get("fault_name") or "—" for sf in sub_faults]
+            sla_thresholds = [
+                f"≤ {_fmt_num(sf.get('sla_threshold'), 1)} s" if sf.get('sla_threshold') else "—"
+                for sf in sub_faults
+            ]
+            wilcoxon_stats = [_fmt_num(sf.get("wilcoxon_w_statistic"), 4) or "—" for sf in sub_faults]
+            p_values = [_fmt_p(sf.get("wilcoxon_p")) or "—" for sf in sub_faults]
+            ci_ranges = []
+            for sf in sub_faults:
+                lo, hi = sf.get('ci_lower'), sf.get('ci_upper')
+                if lo is not None and hi is not None:
+                    try:
+                        if float(lo) != float(lo) or float(hi) != float(hi):  # NaN check
+                            ci_ranges.append("—")
+                        else:
+                            ci_ranges.append(f"[{_fmt_num(lo, 1)}, {_fmt_num(hi, 1)}]")
+                    except (ValueError, TypeError):
+                        ci_ranges.append("—")
+                else:
+                    ci_ranges.append("—")
+            tost_equiv = [
+                "Pass" if sf.get("tost_equivalent") is True else "Fail" if sf.get("tost_equivalent") is False else "—"  # Title case for non-last column
+                for sf in sub_faults
+            ]
+            
             rows.append([
                 cat_label,
                 m_label,
-                f"≤ {_fmt_num(h06.get('sla_threshold'), 1)} s" if h06.get('sla_threshold') else "—",
-                _fmt_num(cat.get("wilcoxon_w"), 1),
-                _fmt_p(cat.get("wilcoxon_p")),
-                f"[{_fmt_num(cat.get('ci_lower'), 1)}, {_fmt_num(cat.get('ci_upper'), 1)}]" if cat.get('ci_lower') is not None else "—",
-                "within SLA" if cat.get("tost_equivalent") else "inconclusive" if cat.get("inconclusive") else "rejected",
+                ", ".join(fault_names),
+                ", ".join(sla_thresholds),
+                ", ".join(wilcoxon_stats),
+                ", ".join(p_values),
+                ", ".join(ci_ranges),
+                ", ".join(tost_equiv),
+                cat_verdict,  # Last column: uppercase
             ])
+    
     if not rows:
         return None
     return _table_block(
         headers=[
-            "Fault Category", "Metric", "SLA Threshold",
-            "Wilcoxon W", "P-value", "BCA 95% CI vs SLA", "TOST Equivalence",
+            "Fault Category", "Metric", "Faults",
+            "SLA Thresholds", "Wilcoxon W", "P-values", "BCa 95% CI", "TOST Equivalence", "Category Verdict",
         ],
         rows=rows,
-        title=(
-            "H6 — SLA Threshold Compliance (Wilcoxon signed-rank one-sample "
-            "+ Bootstrap BCa CI + TOST equivalence)"
-        ),
+        title="H6 — SLA Threshold Compliance",
     )
 
 
 def _h07_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H7 combined table covering TTD + TTM breach rates."""
+    """H7 combined table covering TTD + TTM breach rates.
+    
+    Category-level data only from aggregated breach metrics.
+    """
     rows: list[list[Any]] = []
     for metric_key, h07 in metric_results:
         if not isinstance(h07, dict) or h07.get("status") == "skipped":
             continue
         m_label = _metric_label(metric_key)
-        target = h07.get("target_rate", 0.05)
         for cat in h07.get("per_category") or []:
             cat_label = _category_label(cat.get("category", ""))
-            obs_rate = cat.get("observed_rate")
-            breaches = cat.get("breaches", 0)
-            trials = cat.get("trials", 0)
-            budget_used = f"{(obs_rate / target * 100.0):.0f}%" if (obs_rate is not None and target) else "—"
+            cat_verdict = (cat.get("verdict") or "").upper() or "—"  # Last column: keep uppercase
+            
+            # Extract category-level aggregated metrics
+            breaches = cat.get("category_breaches", 0)
+            trials = cat.get("category_trials", 0)
+            obs_rate = cat.get("category_observed_rate")
+            ci_lower = cat.get("category_ci_lower")
+            ci_upper = cat.get("category_ci_upper")
+            binomial_p = cat.get("category_binomial_p")
+            
             rows.append([
                 cat_label,
                 m_label,
                 f"{breaches} / {trials}",
-                _fmt_pct(obs_rate),
-                f"[{_fmt_pct(cat.get('ci_lower'))}, {_fmt_pct(cat.get('ci_upper'))}]",
-                _fmt_p(cat.get("binomial_p")),
-                budget_used,
+                _fmt_pct(obs_rate) or "—",
+                f"[{_fmt_pct(ci_lower)}, {_fmt_pct(ci_upper)}]" if ci_lower is not None and ci_upper is not None else "—",
+                _fmt_p(binomial_p) or "—",
+                cat_verdict,
             ])
     if not rows:
         return None
     return _table_block(
         headers=[
             "Fault Category", "Metric", "Breaches / N", "Breach Rate",
-            "95% Wilson CI", "Exact Binomial P (H₀: rate ≤ 5%)", "Error Budget Used",
+            "95% Wilson CI", "Exact Binomial P (H₀: rate ≤ 5%)", "Category Verdict",
         ],
         rows=rows,
-        title=(
-            "H7 — SLA Breach Rate (Exact Binomial (Clopper-Pearson) on "
-            "observed breaches vs allowed budget of 5%)"
-        ),
+        title="H7 — SLA Breach Rate",
     )
 
 
 def _h08_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H8 combined table covering TTD + TTM tail-risk (CVaR)."""
+    """H8 combined table covering TTD + TTM tail-risk (CVaR).
+    
+    Sub-fault level data with arrays of P95, CVaR/IQM ratios, and risk levels per fault.
+    """
     rows: list[list[Any]] = []
     for metric_key, h08 in metric_results:
         if not isinstance(h08, dict) or h08.get("status") == "skipped":
@@ -688,31 +741,58 @@ def _h08_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         m_label = _metric_label(metric_key)
         for cat in h08.get("per_category") or []:
             cat_label = _category_label(cat.get("category", ""))
+            
+            # Extract sub-fault arrays
+            sub_faults = cat.get("sub_faults") or []
+            fault_names = [sf.get("fault_name", "—") for sf in sub_faults]
+            p95_values = [
+                _fmt_num(sf.get("p95"), 1) if sf.get("risk_level", "").upper() != "INSUFFICIENT_DATA" else "—"
+                for sf in sub_faults
+            ]
+            ratios = [
+                _fmt_num(sf.get("cvar_iqm_ratio"), 2) if sf.get("risk_level", "").upper() != "INSUFFICIENT_DATA" else "—"
+                for sf in sub_faults
+            ]
+            risk_levels = [
+                (sf.get("risk_level") or "").title() or "—" for sf in sub_faults  # Title case for non-last column
+            ]
+            
+            # Overall category risk - from worst sub-fault
+            worst_sub_fault_name = cat.get("worst_sub_fault", "")
+            overall_risk = "—"
+            if worst_sub_fault_name and sub_faults:
+                for sf in sub_faults:
+                    if sf.get("fault_name") == worst_sub_fault_name:
+                        overall_risk = (sf.get("risk_level") or "").upper() or "—"  # Last column: keep uppercase
+                        break
+            
             rows.append([
                 cat_label,
                 m_label,
-                _fmt_num(cat.get("iqm"), 1),
-                _fmt_num(cat.get("p95"), 1),
-                _fmt_num(cat.get("cvar"), 1),
-                _fmt_num(cat.get("cvar_iqm_ratio"), 2),
-                (cat.get("risk_level") or "").title(),
+                ", ".join(fault_names),
+                ", ".join(p95_values),
+                ", ".join(ratios),
+                ", ".join(risk_levels),
+                overall_risk,
             ])
     if not rows:
         return None
     return _table_block(
         headers=[
-            "Fault Category", "Metric", "IQM", "P95", "CVaR₉₅",
-            "CVaR/IQM Ratio", "Risk Level",
+            "Fault Category", "Metric", "Faults", "P95 Values",
+            "CVaR/IQM Ratios", "Risk Levels (per Fault)", "Overall Category Risk",
         ],
         rows=rows,
-        title=(
-            "H8 — Tail-Risk Analysis (CVaR₉₅ + CVaR/IQM ratio)"
-        ),
+        title="H8 — Tail-Risk Analysis",
     )
 
 
 def _h09_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
-    """H9 combined table covering TTD + TTM temporal stability."""
+    """H9 combined table covering TTD + TTM temporal stability.
+    
+    Sub-fault level data with arrays of CUSUM/EWMA alarms and drift verdicts per fault.
+    Category-level drift verdict shown at end.
+    """
     rows: list[list[Any]] = []
     for metric_key, h09 in metric_results:
         if not isinstance(h09, dict) or h09.get("status") == "skipped":
@@ -720,29 +800,41 @@ def _h09_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         m_label = _metric_label(metric_key)
         for cat in h09.get("per_category") or []:
             cat_label = _category_label(cat.get("category", ""))
-            cusum_alarm = cat.get("cusum_alarm")
-            ewma_trend = cat.get("ewma_trend", "flat").title()
-            ewma_alarm = cat.get("ewma_alarm")
+            
+            # Extract sub-fault arrays
+            sub_faults = cat.get("sub_faults") or []
+            fault_names = [sf.get("fault_name", "—") for sf in sub_faults]
+            cusum_alarms = [
+                "Yes" if sf.get("cusum_alarm") else "No" for sf in sub_faults
+            ]
+            ewma_alarms = [
+                "Yes" if sf.get("ewma_alarm") else "No" for sf in sub_faults
+            ]
+            drift_verdicts = [
+                (sf.get("drift_verdict") or "").title() or "—" for sf in sub_faults  # Title case for non-last column
+            ]
+            
+            # Category-level drift verdict
+            cat_drift_verdict = (cat.get("drift_verdict") or "").upper() or "—"  # Last column: keep uppercase
+            
             rows.append([
                 cat_label,
                 m_label,
-                "Yes" if cusum_alarm else "No (max [S] ≤ 1.2)",
-                ewma_trend,
-                "Yes" if ewma_alarm else "No",
-                cat.get("verdict", "STABLE"),
+                ", ".join(fault_names),
+                ", ".join(cusum_alarms),
+                ", ".join(ewma_alarms),
+                ", ".join(drift_verdicts),
+                cat_drift_verdict,
             ])
     if not rows:
         return None
     return _table_block(
         headers=[
-            "Fault Category", "Metric", "CUSUM Alarm",
-            "EWMA Trend (Δ = 0.2)", "EWMA Alarm", "Verdict",
+            "Fault Category", "Metric", "Faults", "CUSUM Alarm",
+            "EWMA Alarm", "Drift Verdict", "Category Drift Verdict",
         ],
         rows=rows,
-        title=(
-            "H9 — Temporal Stability (CUSUM (threshold h ≈ 0.2) "
-            "+ EWMA smoothing Δ = 0.2)"
-        ),
+        title="H9 — Temporal Stability",
     )
 
 
@@ -782,12 +874,14 @@ def _h03_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
         m_label = _metric_label(metric_key)
         n_groups = len(h03.get("per_category") or []) or 3
         df = max(n_groups - 1, 1)
+        epsilon_sq = h03.get('omnibus_epsilon_squared', 0.0)
+        epsilon_disp = f"ε² = {_fmt_num(epsilon_sq, 3)}" if epsilon_sq is not None else "—"
         rows.append([
             m_label,
             f"Kruskal-Wallis ({n_groups} groups, df={df})",
             f"H = {_fmt_num(h03.get('omnibus_statistic'), 2)}",
             _fmt_p(h03.get("omnibus_p")),
-            "—",
+            epsilon_disp,
             "Significant" if h03.get("omnibus_significant") else "Not significant",
         ])
         for pw in h03.get("pairwise") or []:
@@ -830,7 +924,7 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     """H4 combined table covering detection + mitigation rates.
 
     Mirrors the framework HTML format: one row per metric showing the
-    contingency table inline plus the χ² omnibus statistic and p-value.
+    contingency table inline plus the χ² omnibus statistic, p-value, and Cramér's V.
     """
     rows: list[list[Any]] = []
     for metric_key, h04 in metric_results:
@@ -852,14 +946,24 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
             )
         else:
             contingency_str = "—"
+        
+        test_used = h04.get("test_used", "chi_square")
         chi_stat = h04.get("statistic")
-        chi_disp = (
-            f"\u03c7\u00b2 = {_fmt_num(chi_stat, 2)} (df = {df})"
-            if chi_stat is not None else "—"
-        )
+        
+        # Display appropriate statistic based on test used
+        if chi_stat is not None:
+            if test_used == "fisher_exact":
+                # For Fisher, we display Cramér's V effect size
+                chi_disp = f"V = {_fmt_num(chi_stat, 3)} (effect size)"
+            else:
+                # For chi-square, display the actual statistic
+                chi_disp = f"\u03c7\u00b2 = {_fmt_num(chi_stat, 2)} (df = {df})"
+        else:
+            chi_disp = "—"
+        
         rows.append([
             m_label,
-            f"Chi-Square ({n_groups}\u00d73)",
+            f"Chi-Square ({n_groups}×2)" if test_used == "chi_square" else f"Fisher Exact ({n_groups}×2)",
             contingency_str,
             chi_disp,
             _fmt_p(h04.get("p_value")),
@@ -869,7 +973,7 @@ def _h04_combined_table(metric_results: list[tuple[str, dict]]) -> dict | None:
     return _table_block(
         headers=[
             "Metric", "Test", "Contingency Table",
-            "\u03c7\u00b2 statistic", "p-value",
+            "Statistic / Effect Size", "p-value",
         ],
         rows=rows,
         title=(
