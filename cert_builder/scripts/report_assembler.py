@@ -459,74 +459,6 @@ def _findings_from_text(text: str) -> dict | None:
 
 # ── Section builders ────────────────────────────────────────────────
 
-
-# B4-B6 follow-up: a single source of truth for "is this LLM-generated bullet
-# making a claim about RAI/safety that the deterministic scoring contradicts?".
-# Used by both §1.3.3 Key Findings and §4.2 Safety to keep narrative wording
-# aligned with the headline RAI score and per-category PS scores.
-_RAI_MISLEADING_PATTERNS = (
-    "100% rai",
-    "full rai compliance",
-    "strong rai",
-    "complete rai",
-    "perfect rai",
-    "rai compliance is 100",
-    "robust safety and rai",
-    "perfect safety",
-)
-
-
-def _rai_health_context(phase1: dict) -> tuple[float | None, float | None]:
-    """Return (ps_mean, overall_rai_01) where each value is 0–1 or None."""
-    cats = (phase1 or {}).get("categories", []) or []
-    ps_vals = [privacy_security_for_category(c.get("derived")) for c in cats]
-    ps_mean = (sum(ps_vals) / len(ps_vals)) if ps_vals else None
-
-    rai_meta = ((phase1 or {}).get("meta") or {}).get("responsible_ai") or {}
-    raw = rai_meta.get("score")
-    try:
-        overall_01 = float(raw) / 100.0 if raw is not None else None
-    except (TypeError, ValueError):
-        overall_01 = None
-    return ps_mean, overall_01
-
-
-def _is_misleading_rai_bullet(text: str, ps_mean: float | None,
-                              overall_rai_01: float | None) -> bool:
-    """True iff the bullet asserts perfect/100% RAI when scoring shows otherwise.
-
-    Both PS_mean and overall RAI must be ≥0.95 for "perfect RAI" claims to be
-    permitted; otherwise the bullet should be rewritten to match the score.
-    """
-    ps_ok = ps_mean is None or ps_mean >= 0.95
-    rai_ok = overall_rai_01 is None or overall_rai_01 >= 0.95
-    if ps_ok and rai_ok:
-        return False
-    lowered = (text or "").lower()
-    return any(p in lowered for p in _RAI_MISLEADING_PATTERNS)
-
-
-def _rewrite_misleading_rai_bullet(original: dict, ps_mean: float | None,
-                                   overall_rai_01: float | None,
-                                   weakest_label: str | None = None,
-                                   weakest_pct: float | None = None) -> dict:
-    """Return a corrected version of an LLM bullet that misstates RAI health."""
-    ps_pct = f"{ps_mean * 100:.0f}%" if ps_mean is not None else "n/a"
-    rai_pct = f"{overall_rai_01 * 100:.0f}" if overall_rai_01 is not None else "n/a"
-    weak_str = ""
-    if weakest_label and weakest_pct is not None:
-        weak_str = f" Weakest category: {weakest_label} at {weakest_pct:.0f}%."
-    return {
-        "severity": "concern",
-        "text": (
-            f"Safety & RAI gap: per-category Privacy & Security averages {ps_pct} "
-            f"and the overall RAI score (post-Fairness assessment) is {rai_pct}/100. "
-            f"The original LLM bullet is suppressed because it contradicted the "
-            f"deterministic score.{weak_str}"
-        ),
-    }
-
-
 def _section_executive_summary(phase1, phase2, phase3, overlay: HypothesisOverlay | None = None):
     """Section 1: Executive Summary (§1.1 Identity + §1.2 Experiment Scope)."""
     scope_text = phase3["scope_narrative"]["text"]
@@ -877,27 +809,10 @@ def _section_experiment_findings_scorecard_content(phase2, phase3, phase1, overl
     ]
 
     # §1.3.3 Key Findings (synthesized with statistical findings already integrated in the LLM call)
-    # B4-B6 follow-up: rewrite any LLM finding that asserts "perfect/100% RAI"
-    # while the deterministic PS_mean or overall RAI is materially below 95%.
-    _ps_mean_exec, _overall_rai_exec = _rai_health_context(phase1)
-    _cats_for_weakest = phase1.get("categories", []) or []
-    _ps_per_cat_exec = [privacy_security_for_category(c.get("derived")) for c in _cats_for_weakest]
-    _weakest_label = None
-    _weakest_pct = None
-    if _ps_per_cat_exec:
-        _wi = min(range(len(_ps_per_cat_exec)), key=lambda i: _ps_per_cat_exec[i])
-        _weakest_label = _cats_for_weakest[_wi].get("label")
-        _weakest_pct = _ps_per_cat_exec[_wi] * 100
-
-    key_findings = []
-    for f in phase3["key_findings"]["items"]:
-        bullet = {"severity": f["severity"], "text": f"{f['headline']}: {f['detail']}"}
-        if _is_misleading_rai_bullet(bullet["text"], _ps_mean_exec, _overall_rai_exec):
-            bullet = _rewrite_misleading_rai_bullet(
-                bullet, _ps_mean_exec, _overall_rai_exec,
-                weakest_label=_weakest_label, weakest_pct=_weakest_pct,
-            )
-        key_findings.append(bullet)
+    key_findings = [
+        {"severity": f["severity"], "text": f"{f['headline']}: {f['detail']}"}
+        for f in phase3["key_findings"]["items"]
+    ]
     
     content.append(_heading("1.3.3 Key Findings"))
     content.append(_findings(key_findings))
@@ -1193,13 +1108,14 @@ def _section_qualitative_findings(phase1, phase2, phase3):
     _ps_per_cat = [privacy_security_for_category(c.get("derived")) for c in _cats_for_guard]
     _ps_mean = (sum(_ps_per_cat) / len(_ps_per_cat)) if _ps_per_cat else None
 
-    # B4-B6 follow-up: also rewrite bullets when the overall (post-Phase-3
-    # Fairness) RAI score is materially below 95%, so the safety section
-    # stays aligned with the headline RAI scorecard.
-    _, _overall_rai_01 = _rai_health_context(phase1)
-
     def _safety_bullet_is_misleading(text: str) -> bool:
-        return _is_misleading_rai_bullet(text, _ps_mean, _overall_rai_01)
+        # If the LLM claims "100% RAI compliance" / "Full RAI compliance" / etc.
+        # but the real PS_RAI mean is <95%, the bullet is misleading.
+        if _ps_mean is None or _ps_mean >= 0.95:
+            return False
+        lowered = (text or "").lower()
+        bad_patterns = ("100% rai", "full rai compliance", "strong rai", "complete rai", "perfect rai")
+        return any(p in lowered for p in bad_patterns)
 
     group2: list[dict] = []
     safety_items = qf.get("safety", [])[:1]
