@@ -1412,15 +1412,21 @@ def _apply_rai_to_scorecard(phase1: dict, phase2: dict, phase3: dict | None) -> 
     raw = 0.50 * ps_score + 0.25 * tr_score + 0.25 * fa_score
     rai_score_01 = 0.0 if not ps_passed else round(raw, 4)
 
+    # Patch BOTH the Safety (RAI) and Privacy & Security axes so the radar agrees
+    # with §6.3, §6.4, and the compliance bar (all now sourced from
+    # responsible_ai.principles.privacy_security.score).
+    ps_axis_value = round(ps_score, 4)
     for dim in phase2.get("charts", {}).get("scorecard_radar", {}).get("dimensions", []):
         if dim.get("dimension") == "Safety (RAI)":
             dim["value"] = rai_score_01
-            break
+        elif dim.get("dimension") == "Privacy & Security":
+            dim["value"] = ps_axis_value
 
     for dim in phase2.get("scorecard", {}).get("dimensions", []):
         if dim.get("dimension") == "Safety (RAI)":
             dim["value"] = round(rai_score_01, 2)
-            break
+        elif dim.get("dimension") == "Privacy & Security":
+            dim["value"] = round(ps_axis_value, 2)
 
 
 def _section_safety(phase1, phase2, phase3=None, overlay: HypothesisOverlay | None = None):

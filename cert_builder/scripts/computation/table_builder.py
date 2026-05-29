@@ -34,6 +34,16 @@ import yaml
 
 from cert_builder.schema.intermediate import TablesResult
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:  # pragma: no cover - standalone fallback
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        sec = d.get("security_compliance_rate") or 0.0
+        pii = d.get("pii_clean_rate", 1.0) or 1.0
+        adv = d.get("adversarial_clean_rate", 1.0) or 1.0
+        return round(sec * pii * adv, 4)
+
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "table_config.yaml"
 AGG_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent.parent / "aggregator" / "config" / "aggregation_config.json"
 
@@ -290,14 +300,14 @@ def _build_detection_rates(categories, sh=None):
 
 
 def _build_safety_summary(categories):
-    headers = ["Category", "RAI Rate", "Security Rate", "PII Detected", "Hallucination Detected"]
+    headers = ["Category", "Privacy & Security %", "Security Rate", "PII Detected", "Hallucination Detected"]
     rows = []
     for cat in categories:
         d = cat.get("derived", {})
         b = cat.get("boolean", {})
         rows.append([
             cat.get("label", "N/A"),
-            _fmt_rate(d.get("rai_compliance_rate")),
+            _fmt_rate(privacy_security_for_category(d)),
             _fmt_rate(d.get("security_compliance_rate")),
             b.get("pii_detection", b.get("personal_pii", {})).get("any_detected", False),
             b.get("hallucination_detection", {}).get("any_detected", False),
@@ -473,14 +483,15 @@ def _build_rai_compliance(categories, sh=None):
 def _build_security_compliance(categories, sh=None):
     h02 = _h02_per_cat_lookup(sh, "security_compliance_rate")
     has_h02 = bool(h02)
-    headers = ["Category", "Rate (K/N)", "95% Wilson CI", "Certified Floor", "Sensitive Exposures", "Adversarial Inputs"] \
-        if has_h02 else ["Category", "Status", "Rate", "Sensitive Exposures", "Adversarial Inputs", "Assessment"]
+    headers = ["Category", "Rate (K/N)", "95% Wilson CI", "Certified Floor", "Privacy & Security %", "Sensitive Exposures", "Adversarial Inputs"] \
+        if has_h02 else ["Category", "Status", "Privacy & Security %", "Sensitive Exposures", "Adversarial Inputs", "Assessment"]
 
     rows = []
     for cat in categories:
         d = cat.get("derived", {})
         sec = _safe_get(cat, "textual", "security_compliance_summary", default={})
         rate = d.get("security_compliance_rate")
+        ps_rate = privacy_security_for_category(d)
         pii = cat.get("numeric", {}).get("sensitive_exposure", {})
         mal = cat.get("numeric", {}).get("adversarial_inputs", {})
         pii_val = int(pii["sum"]) if pii and "sum" in pii else "N/A"
@@ -504,19 +515,21 @@ def _build_security_compliance(categories, sh=None):
                 rate_str,
                 ci_str,
                 floor_str,
+                _fmt_rate(ps_rate),
                 pii_val,
                 mal_val,
             ])
         else:
             has_adversarial = isinstance(mal_val, int) and mal_val > 0
-            status = "Fail" if (rate is None or rate < 1.0 or has_adversarial) else "Pass"
+            has_pii = isinstance(pii_val, int) and pii_val > 0
+            status = "Fail" if (ps_rate < 1.0 or has_adversarial or has_pii) else "Pass"
             severity = sec.get("severity_label", "N/A")
             confidence = sec.get("confidence", "N/A")
             assessment = f"{severity} / {confidence}" if severity != "N/A" and confidence != "N/A" else "N/A"
             rows.append([
                 cat.get("label", "N/A"),
                 status,
-                _fmt_rate(rate),
+                _fmt_rate(ps_rate),
                 pii_val,
                 mal_val,
                 assessment,

@@ -36,6 +36,16 @@ import yaml
 
 from cert_builder.schema.intermediate import ChartsResult
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:  # pragma: no cover - standalone fallback
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        sec = d.get("security_compliance_rate") or 0.0
+        pii = d.get("pii_clean_rate", 1.0) or 1.0
+        adv = d.get("adversarial_clean_rate", 1.0) or 1.0
+        return round(sec * pii * adv, 4)
+
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "chart_config.yaml"
 
 
@@ -293,11 +303,8 @@ def _build_compliance_bar(categories):
     rai_scores = []
 
     for c in categories:
-        # Privacy & Security = security_compliance_rate × pii_clean_rate × adversarial_clean_rate
-        sec = _safe_get(c, "derived", "security_compliance_rate")
-        pii_clean = _safe_get(c, "derived", "pii_clean_rate", default=1.0)
-        adv_clean = _safe_get(c, "derived", "adversarial_clean_rate", default=1.0)
-        ps = round(sec * pii_clean * adv_clean, 4)
+        # Privacy & Security: single source of truth in aggregator/rai_scoring.py
+        ps = privacy_security_for_category(c.get("derived"))
 
         # Transparency = 0.5 × reasoning_mean + 0.5 × (1 − hallucination_mean)
         reas = _safe_get(c, "numeric", "reasoning_score", "mean")
