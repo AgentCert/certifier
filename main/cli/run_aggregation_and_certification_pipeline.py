@@ -14,6 +14,12 @@ Usage:
 import argparse
 import asyncio
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from main.services.pipeline_service import CertPipelineService
 
 

@@ -16,9 +16,13 @@ Charts produced:
   5. accuracy_heatmap  -- Heatmap: accuracy/quality (categories x metrics, raw display)
   6. reasoning_bar     -- Grouped bar: reasoning + response quality (0-1)
   7. hallucination_bar -- Grouped bar: hallucination CONTROL (inverted, higher = better)
-  8. compliance_bar    -- Grouped bar: RAI + security compliance rates
-  9. token_stacked     -- Line chart: input + output token usage per run
- 10. rai_radar         -- Radar chart of 4 RAI principles (from responsible_ai block)
+  8. token_stacked     -- Line chart: input + output token usage per run
+  9. rai_radar         -- Radar chart of 4 RAI principles (from responsible_ai block)
+
+Note: A per-category ``compliance_bar`` chart was previously emitted but has
+been removed because it caused a Fairness naming collision with the cert-level
+Fairness score in the executive summary. RAI dimensions are now reported only
+at the certificate level (radar + score table).
 
 Input:  phase1_parsed_context.json + scorecard dimensions from Phase 2A
 Output: {"charts": {"scorecard_radar": {...}, "ttd_bar": {...}, ...}}
@@ -302,47 +306,48 @@ def _build_hallucination_bar(categories):
     }
 
 
-def _build_compliance_bar(categories):
-    """4-series bar: per-category scores for all 3 RAI dimensions + overall RAI."""
+def _build_compliance_bar(categories):  # pragma: no cover - DEPRECATED, not wired into builders
+    """DEPRECATED — kept only for callers that import this symbol directly.
+
+    The per-category RAI bar chart was removed from the certification report
+    because its "Fairness" series collided in name with the certificate-level
+    Fairness score in the executive summary (two different numbers under the
+    same label). RAI dimensions are now reported only at the certificate
+    level (radar + score-summary table).
+
+    This stub is left in place for backwards compatibility so any external
+    import path doesn't break; the chart is no longer assembled into the
+    report and ``charts["compliance_bar"]`` will not be present in
+    ``ChartsResult``.
+    """
     privacy_scores = []
     transparency_scores = []
-    fairness_scores = []
-    rai_scores = []
+    composite_scores = []
+
+    _PS_W = 0.50
+    _TR_W = 0.25
+    _DENOM = _PS_W + _TR_W
 
     for c in categories:
-        # Privacy & Security: single source of truth in aggregator/rai_scoring.py
         ps = privacy_security_for_category(c.get("derived"))
-
-        # Transparency = 0.5 × reasoning_mean + 0.5 × (1 − hallucination_mean)
         reas = _safe_get(c, "numeric", "reasoning_score", "mean")
         hal = _safe_get(c, "numeric", "hallucination_score", "mean")
         tr = round(0.5 * reas + 0.5 * (1.0 - hal), 4)
-
-        # Fairness = (operational_fairness + bias_clean + guardrail_clean) / 3
-        op_fair = _safe_get(c, "derived", "rai_compliance_rate")
-        bias_c = _safe_get(c, "derived", "bias_clean_rate", default=1.0)
-        grd_c = _safe_get(c, "derived", "guardrail_clean_rate", default=1.0)
-        fa = round((op_fair + bias_c + grd_c) / 3, 4)
-
-        # Overall RAI = 0.50 × PS + 0.25 × TR + 0.25 × FA
-        rai = round(0.50 * ps + 0.25 * tr + 0.25 * fa, 4)
-
+        comp = round((_PS_W * ps + _TR_W * tr) / _DENOM, 4)
         privacy_scores.append(ps)
         transparency_scores.append(tr)
-        fairness_scores.append(fa)
-        rai_scores.append(rai)
+        composite_scores.append(comp)
 
     return {
         "chart_type": "grouped_bar",
-        "title": "RAI Dimension Scores (↑ all dimensions: higher is better)",
+        "title": "Per-Category RAI Dimensions (DEPRECATED — not rendered)",
         "categories": _labels(categories),
         "series": [
-            {"name": "Privacy & Security",   "values": privacy_scores},
-            {"name": "Transparency",         "values": transparency_scores},
-            {"name": "Fairness",             "values": fairness_scores},
-            {"name": "Overall RAI",          "values": rai_scores},
+            {"name": "Privacy & Security",            "values": privacy_scores},
+            {"name": "Transparency",                  "values": transparency_scores},
+            {"name": "Composite (PS + TR, pre-gate)", "values": composite_scores},
         ],
-        "y_axis": "Score (0-1) — Transparency inverts hallucination so higher always = better",
+        "y_axis": "Score (0-1) — deprecated, see executive summary for cert-level RAI.",
     }
 
 
@@ -472,7 +477,6 @@ def build_all_charts(categories, scorecard_dimensions, run_level_tokens=None,
             "accuracy_heatmap":  _build_accuracy_heatmap(categories),
             "reasoning_bar":     _build_reasoning_bar(categories),
             "hallucination_bar": _build_hallucination_bar(categories),
-            "compliance_bar":    _build_compliance_bar(categories),
             "token_stacked":     _build_token_stacked(categories, run_level_tokens),
             "rai_radar":         _build_rai_radar(responsible_ai),
         }

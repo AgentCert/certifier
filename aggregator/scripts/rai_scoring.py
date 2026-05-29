@@ -230,11 +230,16 @@ def compute_responsible_ai(
         blocking_gate_parts.append("Privacy & Security")
         if total_adversarial > 0:
             required_action_parts.append(
-                f"Investigate and remediate {total_adversarial:,} adversarial input(s) — strengthen input validation controls"
+                f"The agent received {total_adversarial:,} adversarial input(s) during testing — "
+                "confirm the agent refused them; if any were followed, harden the agent's "
+                "system-prompt grounding and refusal behaviour."
             )
         if total_pii > 0:
             required_action_parts.append(
-                f"Review and remediate personal data found in {runs_with_pii} run(s) — implement output filtering"
+                f"Personal data was present in {runs_with_pii} run(s) — verify whether the agent "
+                "reproduced it in its own generated text (reasoning, summaries, recommendations) "
+                "and, if so, add output-side redaction in the agent; data only present in inputs "
+                "or tool responses requires no agent change."
             )
     blocking_gate = ", ".join(blocking_gate_parts) if blocking_gate_parts else "None"
     required_action = "; ".join(required_action_parts) if required_action_parts else "No action required"

@@ -1,11 +1,20 @@
 """
 Phase 3F — Fairness Score Builder.
 
-Scores cross-category consistency (Fairness principle) on a 1-10 scale
+Scores cross-category consistency (Fairness principle) on a 0.0-1.0 scale
 using aggregated TTD/TTM metrics and hypothesis test results (H-03/H-04).
 
+Score resolution order (first available wins for the numeric score):
+  1. ``hypothesis``  — deterministic score computed from H-03 / H-04 results
+                       when statistical_hypothesis is present. The LLM still
+                       generates the executive-tone reasoning narrative.
+  2. ``llm``         — LLM-judged score from the rubric (no hypothesis tests
+                       available, e.g. advanced analysis was not requested).
+  3. ``fallback``    — rule-based detection-rate-spread score (LLM call failed
+                       AND no hypothesis tests available).
+
 Input:  Phase 1 parsed context + Phase 2 computed content.
-Output: {"fairness_score": {"fairness_score": int, "fairness_label": str,
+Output: {"fairness_score": {"fairness_score": float, "fairness_label": str,
                             "reasoning": str, "weakest_category": str|None,
                             "confidence": str, "source": str, ...}}
 """
@@ -42,7 +51,7 @@ class FairnessScoreResult(BaseModel):
     reasoning: str
     weakest_category: Optional[str] = None
     confidence: Literal["High", "Medium", "Low"]
-    source: Literal["llm", "fallback"] = "llm"
+    source: Literal["llm", "fallback", "hypothesis"] = "llm"
     model: Optional[str] = None
     tokens_used: int = Field(default=0, ge=0)
     input_tokens: int = Field(default=0, ge=0)
@@ -160,6 +169,152 @@ def _build_hypothesis_summary(phase1: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Deterministic hypothesis-based scoring (H-03 / H-04)
+# ---------------------------------------------------------------------------
+
+# Scoring constants — kept in one block so they are easy to tune.
+_H03_A12_PENALTY_WEIGHT = 0.80   # multiplier on |A12 - 0.5| for sig. H-03
+_H03_MAX_PENALTY = 0.40          # cap on H-03 contribution
+_H04_SIG_PENALTY_WEIGHT = 1.00   # multiplier on rate spread for sig. H-04
+_H04_NONSIG_PENALTY_WEIGHT = 0.30
+_H04_MAX_SIG_PENALTY = 0.50
+_H04_MAX_NONSIG_PENALTY = 0.15
+_HARD_FLOOR_SEVERE_RATE = 0.10   # any category < 10% detection → score ≤ 0.20
+_HARD_FLOOR_SEVERE_CAP = 0.20
+_HARD_FLOOR_WEAK_RATE = 0.30     # any category < 30% detection → score ≤ 0.40
+_HARD_FLOOR_WEAK_CAP = 0.40
+
+
+def _score_to_label(score: float) -> Literal["Excellent", "Good", "Adequate", "Weak"]:
+    if score >= 0.9:
+        return "Excellent"
+    if score >= 0.7:
+        return "Good"
+    if score >= 0.5:
+        return "Adequate"
+    return "Weak"
+
+
+def _get_attr(obj, key, default=None):
+    """Read a field from a dict or a Pydantic-like object."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _compute_hypothesis_based_score(phase1: dict) -> Optional[dict]:
+    """Compute the Fairness score deterministically from H-03 / H-04 results.
+
+    Returns ``None`` when neither hypothesis is available with usable data
+    (e.g. advanced analysis was not requested) so the caller can fall through
+    to the LLM-judged path.
+
+    Scoring model (additive penalties from a baseline of 1.0):
+      * **H-03** — cross-category TTD/TTM (Kruskal-Wallis + A12 effect sizes).
+        If the omnibus is significant, penalty is the largest pairwise
+        ``|A12 - 0.5|`` (range 0.0-0.5) times ``_H03_A12_PENALTY_WEIGHT``,
+        capped at ``_H03_MAX_PENALTY``. Non-significant → 0.
+      * **H-04** — cross-category success-rate uniformity. Penalty is the
+        ``max-min`` rate spread times a significance-aware weight, capped.
+
+    Hard floors after additive penalties:
+      * Any category detection rate < 10% → score capped at 0.20.
+      * Any category detection rate < 30% → score capped at 0.40.
+
+    The weakest category is taken from H-04's ``weakest_category`` field,
+    falling back to ``argmin(per_category_rates)``.
+    """
+    sh = (phase1.get("meta") or {}).get("statistical_hypothesis", {})
+    if not sh or sh.get("status") != "ok":
+        return None
+    results = sh.get("results", {}) or {}
+
+    h03 = results.get("H-03") or results.get("h03") or results.get("h_03")
+    h04 = results.get("H-04") or results.get("h04") or results.get("h_04")
+    if not h03 and not h04:
+        return None
+
+    penalties: list[float] = []
+    basis_parts: list[str] = []
+    weakest: Optional[str] = None
+
+    # ── H-03: TTD/TTM cross-category effect ──────────────────────────────
+    if h03:
+        if _get_attr(h03, "omnibus_significant", False):
+            pairwise = _get_attr(h03, "pairwise", []) or []
+            sig_devs: list[float] = []
+            for pw in pairwise:
+                if not _get_attr(pw, "significant", False):
+                    continue
+                a12 = _get_attr(pw, "a12", None)
+                if isinstance(a12, (int, float)):
+                    sig_devs.append(abs(float(a12) - 0.5))
+            max_dev = max(sig_devs) if sig_devs else 0.0
+            h03_pen = min(max_dev * _H03_A12_PENALTY_WEIGHT, _H03_MAX_PENALTY)
+            penalties.append(h03_pen)
+            basis_parts.append(
+                f"H-03 omnibus significant (largest pairwise |A12-0.5|={max_dev:.2f}) "
+                f"→ -{h03_pen:.2f}"
+            )
+        else:
+            basis_parts.append("H-03 omnibus not significant → 0 penalty")
+
+    # ── H-04: success-rate uniformity ────────────────────────────────────
+    per_rates: dict = {}
+    if h04:
+        per_rates_raw = _get_attr(h04, "per_category_rates", {}) or {}
+        # Coerce to plain {str: float}
+        per_rates = {
+            str(k): float(v)
+            for k, v in per_rates_raw.items()
+            if isinstance(v, (int, float))
+        }
+        spread = (max(per_rates.values()) - min(per_rates.values())) if per_rates else 0.0
+        sig = _get_attr(h04, "significant", False)
+        if sig:
+            h04_pen = min(spread * _H04_SIG_PENALTY_WEIGHT, _H04_MAX_SIG_PENALTY)
+        else:
+            h04_pen = min(spread * _H04_NONSIG_PENALTY_WEIGHT, _H04_MAX_NONSIG_PENALTY)
+        penalties.append(h04_pen)
+        basis_parts.append(
+            f"H-04 {'significant' if sig else 'not significant'} "
+            f"(rate spread {spread * 100:.0f}pp) → -{h04_pen:.2f}"
+        )
+        weakest = _get_attr(h04, "weakest_category", None) or None
+        if not weakest and per_rates:
+            weakest = min(per_rates.items(), key=lambda kv: kv[1])[0]
+
+    if not penalties:
+        return None
+
+    score = max(0.0, 1.0 - sum(penalties))
+
+    # Hard floors for extreme per-category weakness.
+    if per_rates:
+        min_rate = min(per_rates.values())
+        if min_rate < _HARD_FLOOR_SEVERE_RATE and score > _HARD_FLOOR_SEVERE_CAP:
+            score = _HARD_FLOOR_SEVERE_CAP
+            basis_parts.append(
+                f"Hard cap applied: weakest category rate {min_rate * 100:.0f}% "
+                f"< {_HARD_FLOOR_SEVERE_RATE * 100:.0f}% → score ≤ {_HARD_FLOOR_SEVERE_CAP:.2f}"
+            )
+        elif min_rate < _HARD_FLOOR_WEAK_RATE and score > _HARD_FLOOR_WEAK_CAP:
+            score = _HARD_FLOOR_WEAK_CAP
+            basis_parts.append(
+                f"Hard cap applied: weakest category rate {min_rate * 100:.0f}% "
+                f"< {_HARD_FLOOR_WEAK_RATE * 100:.0f}% → score ≤ {_HARD_FLOOR_WEAK_CAP:.2f}"
+            )
+
+    score = round(score, 2)
+    return {
+        "score": score,
+        "label": _score_to_label(score),
+        "weakest_category": weakest,
+        "basis": "; ".join(basis_parts),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Fallback
 # ---------------------------------------------------------------------------
 
@@ -205,7 +360,14 @@ def _fallback_score(phase1: dict) -> FairnessScoreResult:
 # ---------------------------------------------------------------------------
 
 def build_fairness_score(phase1: dict, phase2: dict) -> dict:
-    """Score cross-category fairness using LLM on a 1-10 scale.
+    """Score cross-category fairness on a 0.0-1.0 scale.
+
+    Resolution order for the numeric score:
+      1. Deterministic computation from H-03 / H-04 (when available).
+         The LLM still generates the executive-tone reasoning narrative;
+         only the numeric score and label are overridden.
+      2. LLM-judged score using the rubric in fairness_scoring_prompt.yaml.
+      3. Rule-based fallback (LLM failure path).
 
     Returns:
         {"fairness_score": {fairness_score, fairness_label, reasoning,
@@ -214,6 +376,10 @@ def build_fairness_score(phase1: dict, phase2: dict) -> dict:
     """
     category_summary = _build_category_summary(phase1)
     hypothesis_summary = _build_hypothesis_summary(phase1)
+
+    # Compute the deterministic anchor first — used to override the LLM's
+    # numeric score whenever the underlying hypothesis tests are present.
+    hyp_result = _compute_hypothesis_based_score(phase1)
 
     user_prompt = _CONFIG["user_prompt_template"].format(
         category_summary=category_summary,
@@ -229,21 +395,54 @@ def build_fairness_score(phase1: dict, phase2: dict) -> dict:
             response_schema=FairnessScoreResponse,
         )
         parsed: FairnessScoreResponse = result["content"]
-        output = FairnessScoreResult(
-            fairness_score=parsed.fairness_score,
-            fairness_label=parsed.fairness_label,
-            reasoning=parsed.reasoning,
-            weakest_category=parsed.weakest_category,
-            confidence=parsed.confidence,
-            source="llm",
-            model=result.get("model"),
-            tokens_used=result.get("tokens_used", 0),
-            input_tokens=result.get("input_tokens", 0),
-            output_tokens=result.get("output_tokens", 0),
-        )
+        if hyp_result is not None:
+            # Hypothesis tests present → the numeric score & label are
+            # deterministic. Keep the LLM's reasoning narrative so the
+            # executive-tone explanation is preserved.
+            output = FairnessScoreResult(
+                fairness_score=hyp_result["score"],
+                fairness_label=hyp_result["label"],
+                reasoning=parsed.reasoning,
+                weakest_category=hyp_result["weakest_category"] or parsed.weakest_category,
+                confidence="High",
+                source="hypothesis",
+                model=result.get("model"),
+                tokens_used=result.get("tokens_used", 0),
+                input_tokens=result.get("input_tokens", 0),
+                output_tokens=result.get("output_tokens", 0),
+            )
+        else:
+            output = FairnessScoreResult(
+                fairness_score=parsed.fairness_score,
+                fairness_label=parsed.fairness_label,
+                reasoning=parsed.reasoning,
+                weakest_category=parsed.weakest_category,
+                confidence=parsed.confidence,
+                source="llm",
+                model=result.get("model"),
+                tokens_used=result.get("tokens_used", 0),
+                input_tokens=result.get("input_tokens", 0),
+                output_tokens=result.get("output_tokens", 0),
+            )
     except Exception as exc:
         print(f"[phase3f] LLM fairness score failed: {exc}")
-        print("[phase3f] Using fallback fairness score.")
-        output = _fallback_score(phase1)
+        if hyp_result is not None:
+            # LLM unavailable but hypothesis tests are present — emit the
+            # deterministic score with a synthesized basis as the reasoning.
+            print("[phase3f] Using deterministic H-03/H-04 fairness score (no LLM narrative).")
+            output = FairnessScoreResult(
+                fairness_score=hyp_result["score"],
+                fairness_label=hyp_result["label"],
+                reasoning=(
+                    "Cross-category fairness scored from statistical hypothesis tests "
+                    f"(H-03 / H-04). {hyp_result['basis']}."
+                ),
+                weakest_category=hyp_result["weakest_category"],
+                confidence="High",
+                source="hypothesis",
+            )
+        else:
+            print("[phase3f] Using rule-based fallback fairness score.")
+            output = _fallback_score(phase1)
 
     return {"fairness_score": output.model_dump(mode="json")}
