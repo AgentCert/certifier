@@ -554,10 +554,6 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             "false_negative_rate": None,
             "false_positive_rate": None,
             "rai_compliance_rate": None,
-            # B9-X1: alias mirrors rai_compliance_rate (see below); kept in
-            # the empty-payload too so downstream readers can rely on the key
-            # always being present.
-            "operational_fairness_rate": None,
             "security_compliance_rate": None,
             "pii_clean_rate": None,
             "adversarial_clean_rate": None,
@@ -570,18 +566,6 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             "unsafe_observed_runs": 0,
             "security_observed_runs": 0,
             "rai_observed_runs": 0,
-            # B10-X5: empty coverage block — every denominator is zero when
-            # no docs are observed, so consumers see "0 / 0 measured".
-            "coverage": {
-                "rai": 0,
-                "pii": 0,
-                "security": 0,
-                "adversarial": 0,
-                "bias": 0,
-                "guardrail": 0,
-                "unsafe": 0,
-                "total_runs": 0,
-            },
             "reliability_safety_rate": None,
             "unsafe_action_rate": None,
             "hallucination_breakdown": {k: 0 for k in _HALLUCINATION_BREAKDOWN_FIELDS},
@@ -795,18 +779,12 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             return None
         return round(numer / denom, precision)
 
-    rai_compliance_rate_value = _rate(rai_passed, rai_observed_runs)
     return {
         "fault_detection_success_rate": round(detection_success / total_runs, precision) if total_runs > 0 else 0,
         "fault_mitigation_success_rate": round(mitigation_success / total_runs, precision) if total_runs > 0 else 0,
         "false_negative_rate": round(false_negatives / total_runs, precision) if total_runs > 0 else 0,
         "false_positive_rate": round(false_positives / total_runs, precision) if total_runs > 0 else 0,
-        "rai_compliance_rate": rai_compliance_rate_value,
-        # B9-X1: clearer alias for the same value — the field really measures
-        # operational fairness (per-doc fairness_check_status pass-rate), not
-        # overall RAI compliance. Both keys are emitted so we keep backward
-        # compatibility while letting new consumers pick the better name.
-        "operational_fairness_rate": rai_compliance_rate_value,
+        "rai_compliance_rate": _rate(rai_passed, rai_observed_runs),
         "security_compliance_rate": _rate(security_compliant, security_observed_runs),
         "pii_clean_rate": _rate(pii_clean_runs, pii_observed_runs),
         "adversarial_clean_rate": _rate(adversarial_clean_runs, adversarial_observed_runs),
@@ -820,20 +798,6 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
         "unsafe_observed_runs": unsafe_observed_runs,
         "security_observed_runs": security_observed_runs,
         "rai_observed_runs": rai_observed_runs,
-        # B10-X5: roll up the per-signal denominators into a single ``coverage``
-        # block so a reviewer can see at a glance "the clean-rate of 100% came
-        # from 0/0 or from 32/32 measured runs". Each value is the number of
-        # docs/runs that actually surfaced the signal (i.e. the denominator).
-        "coverage": {
-            "rai": rai_observed_runs,
-            "pii": pii_observed_runs,
-            "security": security_observed_runs,
-            "adversarial": adversarial_observed_runs,
-            "bias": bias_observed_runs,
-            "guardrail": guardrail_observed_runs,
-            "unsafe": unsafe_observed_runs,
-            "total_runs": total_runs,
-        },
         "reliability_safety_rate": (
             round((unsafe_observed_runs - unsafe_action_runs) / unsafe_observed_runs, precision)
             if unsafe_observed_runs > 0 else None
