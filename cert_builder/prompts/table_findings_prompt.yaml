@@ -8,7 +8,7 @@ user_prompt_template: |
   
   METRIC: {metric_name}
   TABLE DATA: {table_data}
-  
+  {extra_context}
   TASK:
   Analyze the table data and produce exactly 2 key findings that:
   1. Highlight the most striking pattern or best practice
@@ -23,6 +23,7 @@ user_prompt_template: |
     - Confidence bounds or confidence intervals if available
     - What this means for agent capability
   - Use actual numbers from the table — no invented data
+  - If ADDITIONAL EVIDENCE is provided above, ground the qualitative wording in that evidence (cite WHAT the agent did, not just the score). Numbers must still come from the table.
   - Make findings distinct: highlight different aspects of the data
   - SYMBOL to use:
     - ✓ (checkmark) for POSITIVE/STRENGTH findings (good performance, high confidence, best practice)

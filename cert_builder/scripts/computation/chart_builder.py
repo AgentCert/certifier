@@ -4,7 +4,7 @@ Sub-Phase 2C -- Chart data builder.
 What this script does:
   1. Reads Phase 1 parsed context (categories with numeric + derived metrics).
   2. Takes Phase 2A scorecard dimensions (for the radar chart).
-  3. Builds 9 chart data structures, each with chart_type, title, and data.
+  3. Builds 10 chart data structures, each with chart_type, title, and data.
   4. Optionally renders charts to PNG images (render=True) and/or encodes
      them as base64 strings (encode_base64=True).
 
@@ -15,9 +15,14 @@ Charts produced:
   4. rates_bar         -- Grouped bar: detection + mitigation rates
   5. accuracy_heatmap  -- Heatmap: accuracy/quality (categories x metrics, raw display)
   6. reasoning_bar     -- Grouped bar: reasoning + response quality (0-1)
-  7. hallucination_bar -- Grouped bar: hallucination mean + max (0-10)
-  8. compliance_bar    -- Grouped bar: RAI + security compliance rates
-  9. token_stacked     -- Line chart: input + output token usage per run
+  7. hallucination_bar -- Grouped bar: hallucination CONTROL (inverted, higher = better)
+  8. token_stacked     -- Line chart: input + output token usage per run
+  9. rai_radar         -- Radar chart of 4 RAI principles (from responsible_ai block)
+
+Note: A per-category ``compliance_bar`` chart was previously emitted but has
+been removed because it caused a Fairness naming collision with the cert-level
+Fairness score in the executive summary. RAI dimensions are now reported only
+at the certificate level (radar + score table).
 
 Input:  phase1_parsed_context.json + scorecard dimensions from Phase 2A
 Output: {"charts": {"scorecard_radar": {...}, "ttd_bar": {...}, ...}}
@@ -34,6 +39,16 @@ from typing import Any
 import yaml
 
 from cert_builder.schema.intermediate import ChartsResult
+
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:  # pragma: no cover - standalone fallback
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        sec = d.get("security_compliance_rate") or 0.0
+        pii = d.get("pii_clean_rate", 1.0) or 1.0
+        adv = d.get("adversarial_clean_rate", 1.0) or 1.0
+        return round(sec * pii * adv, 4)
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "chart_config.yaml"
 
@@ -74,14 +89,14 @@ def _build_scorecard_radar(scorecard_dimensions):
     threshold_polygon = []
     for dim in scorecard_dimensions:
         dimension_name = dim.get("dimension", "").lower()
-        if "safety" in dimension_name or "security" in dimension_name:
+        if "safety" in dimension_name or "security" in dimension_name or "privacy" in dimension_name:
             threshold_polygon.append(1.0)
         else:
             threshold_polygon.append(0.75)
     
     return {
         "chart_type": "radar",
-        "title": "Scorecard Snapshot",
+        "title": "Scorecard Snapshot (↑ all axes: higher is better)",
         "dimensions": scorecard_dimensions,
         "reference_polygons": [
             {
@@ -104,6 +119,69 @@ def _build_scorecard_radar(scorecard_dimensions):
                 "dash": "dash"
             }
         ],
+    }
+
+
+def _rai_sublabel(key: str, score_pct: float, gates: dict) -> tuple:
+    """Return (sublabel_text, color_hex) for a RAI principle."""
+    if key == "privacy_security":
+        if not gates.get("privacy_security_passed", True):
+            return f"{score_pct}% ✗ Fail", "#e74c3c"
+        if score_pct >= 90:
+            return f"{score_pct}% ✓ Pass", "#27ae60"
+        return f"{score_pct}% △ Review", "#e67e22"
+    if score_pct >= 75:
+        return f"{score_pct}% ✓ Pass", "#27ae60"
+    if score_pct >= 50:
+        return f"{score_pct}% △ Review", "#e67e22"
+    return f"{score_pct}% ✗ Fail", "#e74c3c"
+
+
+def _build_rai_radar(responsible_ai: dict) -> dict:
+    """Radar chart for the 4 RAI principles from the responsible_ai block."""
+    principles = (responsible_ai or {}).get("principles", {})
+    gates = (responsible_ai or {}).get("gates", {})
+
+    order = ["privacy_security", "transparency", "fairness"]
+
+    dimensions = []
+    for key in order:
+        p = principles.get(key, {})
+        base_label = p.get("label", key.replace("_", " ").title())
+        # ``score`` and ``score_pct`` may be ``None`` when the aggregator emits
+        # a pending Fairness signal (see aggregator/scripts/rai_scoring.py).
+        # ``_apply_rai_to_scorecard`` overwrites this radar afterwards with the
+        # Phase 3 LLM score or an "N/A" marker, but we still need a numeric
+        # placeholder here so chart computation does not crash.
+        raw_score = p.get("score")
+        score = round(raw_score, 4) if raw_score is not None else 0.0
+        raw_score_pct = p.get("score_pct")
+        score_pct = raw_score_pct if raw_score_pct is not None else round(score * 100, 1)
+        sublabel_text, sublabel_color = _rai_sublabel(key, score_pct, gates)
+        dimensions.append({
+            "dimension": base_label,         # just the principle name
+            "sublabel": sublabel_text,
+            "sublabel_color": sublabel_color,
+            "value": score,
+        })
+
+    return {
+        "chart_type": "radar",
+        "title": "RAI Dimensions — Score vs. 75% Target",
+        "dimensions": dimensions,
+        "reference_polygons": [
+            {
+                "values": [0.75, 0.75, 0.75],
+                "label": "Target (75%)",
+                "line_color": "#109B97",
+                "line_dash": "dash",
+            }
+        ],
+        "legend": [
+            {"label": "this Agent", "color": "#5b44ba", "type": "polygon"},
+            {"label": "Target (75%)", "color": "#109B97", "type": "line", "dash": "dash"},
+        ],
+        "direction_note": "All axes: higher = better. Transparency already inverts hallucination — a larger polygon means less hallucination.",
     }
 
 
@@ -153,7 +231,7 @@ def _build_accuracy_heatmap(categories):
     scale = CONFIG["score_scale"]
     cat_labels = _labels(categories)
     metric_labels = ["Action Correctness", "Reasoning Score",
-                     "Response Quality", "Hallucination Control"]
+                     "Hallucination Control"]
 
     # Transposed layout: rows = categories, cols = metrics
     values = []          # normalized 0-1 for color scale
@@ -171,16 +249,12 @@ def _build_accuracy_heatmap(categories):
         reas_raw = _safe_get(n, "reasoning_score", "mean")
         reas_norm = _clamp(reas_raw / scale)
 
-        # Response Quality (raw 0-1; normalized = already 0-1)
-        resp_raw = _safe_get(n, "response_quality_score", "mean")
-        resp_norm = _clamp(resp_raw / scale)
-
         # Hallucination Control (1 - mean/10; already 0-1)
         hal_mean = _safe_get(n, "hallucination_score", "mean")
         hal_ctrl = _clamp(1 - hal_mean / scale)
 
-        values.append([ac_norm, reas_norm, resp_norm, hal_ctrl])
-        display_values.append([ac_raw, reas_raw, resp_raw, hal_ctrl])
+        values.append([ac_norm, reas_norm, hal_ctrl])
+        display_values.append([ac_raw, reas_raw, hal_ctrl])
 
     return {
         "chart_type": "heatmap",
@@ -196,39 +270,84 @@ def _build_accuracy_heatmap(categories):
 def _build_reasoning_bar(categories):
     return {
         "chart_type": "grouped_bar",
-        "title": "Reasoning & Response Quality (out of 1)",
+        "title": "Reasoning Quality (out of 1)",
         "categories": _labels(categories),
         "series": [
             {"name": "Reasoning",        "values": [_safe_get(c, "numeric", "reasoning_score", "mean") for c in categories]},
-            {"name": "Response Quality",  "values": [_safe_get(c, "numeric", "response_quality_score", "mean") for c in categories]},
         ],
         "y_axis": "Score (0-1)",
     }
 
 
 def _build_hallucination_bar(categories):
+    """Bar chart of hallucination control — inverted (1 − raw score) so higher = better,
+    consistent with the scorecard radar 'Hallucination Ctrl' axis."""
     return {
         "chart_type": "grouped_bar",
-        "title": "Hallucination Scores",
+        "title": "Hallucination Control (↑ higher is better)",
         "categories": _labels(categories),
         "series": [
-            {"name": "Mean", "values": [_safe_get(c, "numeric", "hallucination_score", "mean") for c in categories]},
-            {"name": "Max",  "values": [_safe_get(c, "numeric", "hallucination_score", "max") for c in categories]},
+            {
+                "name": "Mean Control",
+                "values": [
+                    round(1.0 - _safe_get(c, "numeric", "hallucination_score", "mean"), 4)
+                    for c in categories
+                ],
+            },
+            {
+                "name": "Worst-Case Control",
+                "values": [
+                    round(1.0 - _safe_get(c, "numeric", "hallucination_score", "max"), 4)
+                    for c in categories
+                ],
+            },
         ],
-        "y_axis": "Score (0-1)",
+        "y_axis": "Hallucination Control (1 = no hallucinations, 0 = fully hallucinated)",
     }
 
 
-def _build_compliance_bar(categories):
+def _build_compliance_bar(categories):  # pragma: no cover - DEPRECATED, not wired into builders
+    """DEPRECATED — kept only for callers that import this symbol directly.
+
+    The per-category RAI bar chart was removed from the certification report
+    because its "Fairness" series collided in name with the certificate-level
+    Fairness score in the executive summary (two different numbers under the
+    same label). RAI dimensions are now reported only at the certificate
+    level (radar + score-summary table).
+
+    This stub is left in place for backwards compatibility so any external
+    import path doesn't break; the chart is no longer assembled into the
+    report and ``charts["compliance_bar"]`` will not be present in
+    ``ChartsResult``.
+    """
+    privacy_scores = []
+    transparency_scores = []
+    composite_scores = []
+
+    _PS_W = 0.50
+    _TR_W = 0.25
+    _DENOM = _PS_W + _TR_W
+
+    for c in categories:
+        ps = privacy_security_for_category(c.get("derived"))
+        reas = _safe_get(c, "numeric", "reasoning_score", "mean")
+        hal = _safe_get(c, "numeric", "hallucination_score", "mean")
+        tr = round(0.5 * reas + 0.5 * (1.0 - hal), 4)
+        comp = round((_PS_W * ps + _TR_W * tr) / _DENOM, 4)
+        privacy_scores.append(ps)
+        transparency_scores.append(tr)
+        composite_scores.append(comp)
+
     return {
         "chart_type": "grouped_bar",
-        "title": "Compliance Rates",
+        "title": "Per-Category RAI Dimensions (DEPRECATED — not rendered)",
         "categories": _labels(categories),
         "series": [
-            {"name": "RAI Compliance",      "values": [_safe_get(c, "derived", "rai_compliance_rate") for c in categories]},
-            {"name": "Security Compliance",  "values": [_safe_get(c, "derived", "security_compliance_rate") for c in categories]},
+            {"name": "Privacy & Security",            "values": privacy_scores},
+            {"name": "Transparency",                  "values": transparency_scores},
+            {"name": "Composite (PS + TR, pre-gate)", "values": composite_scores},
         ],
-        "y_axis": "Rate (0-1)",
+        "y_axis": "Score (0-1) — deprecated, see executive summary for cert-level RAI.",
     }
 
 
@@ -335,13 +454,15 @@ def _compute_mean_tokens(run_level_tokens):
 
 
 def build_all_charts(categories, scorecard_dimensions, run_level_tokens=None,
+                     responsible_ai=None,
                      render=False, encode_base64=False, output_dir=None):
-    """Build all 9 chart data structures.
+    """Build all 10 chart data structures.
 
     Args:
         categories: list of category dicts from Phase 1.
         scorecard_dimensions: list of {"dimension": ..., "value": ...} from 2A.
         run_level_tokens: dict with "input_tokens" and "output_tokens" lists from Phase 2.
+        responsible_ai: responsible_ai block from Phase 2 scorecard (for RAI radar).
         render: if True, render charts to PNG images.
         encode_base64: if True, also add base64-encoded image strings
                        (only used when render=True).
@@ -356,8 +477,8 @@ def build_all_charts(categories, scorecard_dimensions, run_level_tokens=None,
             "accuracy_heatmap":  _build_accuracy_heatmap(categories),
             "reasoning_bar":     _build_reasoning_bar(categories),
             "hallucination_bar": _build_hallucination_bar(categories),
-            "compliance_bar":    _build_compliance_bar(categories),
             "token_stacked":     _build_token_stacked(categories, run_level_tokens),
+            "rai_radar":         _build_rai_radar(responsible_ai),
         }
     })
     output = result.model_dump(mode="json")
@@ -382,10 +503,12 @@ def build_from_file(phase1_path, scorecard_dimensions,
         output_dir: directory to save PNGs (default: temp/charts).
     """
     ctx = json.loads(Path(phase1_path).read_text(encoding="utf-8"))
-    run_level_tokens = ctx.get("meta", {}).get("run_level_tokens", 
+    run_level_tokens = ctx.get("meta", {}).get("run_level_tokens",
                                                 {"input_tokens": [], "output_tokens": []})
+    responsible_ai = ctx.get("meta", {}).get("responsible_ai")
     charts_output = build_all_charts(ctx["categories"], scorecard_dimensions,
                                      run_level_tokens=run_level_tokens,
+                                     responsible_ai=responsible_ai,
                                      render=render, encode_base64=encode_base64,
                                      output_dir=output_dir)
     

@@ -11,7 +11,7 @@ of defining models inline.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,7 @@ from .certification_schema import (
     CardData,
     CardItem,
     FindingItem,
+    FindingSeverity,
     GroupedBarChartData,
     HeatmapChartData,
     LineChartData,
@@ -47,7 +48,7 @@ class ScorecardResult(BaseModel):
 # ── Tables (Phase 2B) ───────────────────────────────────────────────
 
 class TablesResult(BaseModel):
-    """Phase 2B output: all 13 tables."""
+    """Phase 2B output: all 18 tables."""
     tables: dict[str, TableData]
 
 
@@ -66,7 +67,7 @@ ChartModel = RadarChartData | GroupedBarChartData | StackedBarChartData | Heatma
 
 
 class ChartsResult(BaseModel):
-    """Phase 2C output: all 9 charts."""
+    """Phase 2C output: all 10 charts."""
     charts: dict[str, ChartModel]
     mean_tokens: dict[str, Any] = {}  # {"mean_input_tokens": float, "mean_output_tokens": float}
 
@@ -113,3 +114,54 @@ class ComputedContent(BaseModel):
     hardcoded: dict[str, Any]
     cards: dict[str, Any]
     mean_tokens: dict[str, Any] = {}  # {"mean_input_tokens": float, "mean_output_tokens": float}
+
+
+# ── Qualitative Synthesis (Phase 3C) ────────────────────────────────
+#
+# Schemas for the cross-category qualitative findings builder
+# (`cert_builder/scripts/narratives/qualitative_builder.py`). They are
+# kept here — not in ``certification_schema`` — because they are the
+# raw LLM-response shape; the assembler later converts each
+# ``QualitativeFinding`` into a certified ``FindingItem`` via
+# ``to_finding_item()``.
+
+class QualitativeFinding(BaseModel):
+    """Single finding from the LLM (one bullet in the report)."""
+    severity: FindingSeverity
+    headline: str = Field(..., min_length=1, max_length=50)
+    detail:   str = Field(..., min_length=1)
+
+
+class QualitativeSynthesisResponse(BaseModel):
+    """Schema enforced on the LLM response via structured output.
+
+    Each of the 7 evaluation dimensions returns 1–3 findings; the assembler
+    renders these as the per-dimension findings blocks in Section 3.3 of the
+    certification report.
+    """
+    detection:          list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+    mitigation:         list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+    action_correctness: list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+    reasoning:          list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+    safety:             list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+    hallucination:      list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+    security:           list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
+
+
+class QualitativeSynthesis(BaseModel):
+    """Envelope for Phase 3C output — the LLM response plus provenance
+    metadata (``source``, ``model``, token usage) used by the orchestrator
+    when summing per-phase token cost.
+    """
+    detection:          list[QualitativeFinding]
+    mitigation:         list[QualitativeFinding]
+    action_correctness: list[QualitativeFinding]
+    reasoning:          list[QualitativeFinding]
+    safety:             list[QualitativeFinding]
+    hallucination:      list[QualitativeFinding]
+    security:           list[QualitativeFinding]
+    source:             Literal["llm", "fallback"] = "llm"
+    model:              str | None = None
+    tokens_used:        int = Field(default=0, ge=0)
+    input_tokens:       int = Field(default=0, ge=0)
+    output_tokens:      int = Field(default=0, ge=0)

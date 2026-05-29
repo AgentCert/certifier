@@ -448,9 +448,20 @@ class LLMCouncil:
         - overall_response_and_reasoning_quality
         - security_compliance_summary
         - agent_summary
+        - sensitive_data_exposure_notes
+        - hallucination_notes  (consensus of per-run hallucination_summary text)
         """
         total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-        results: Dict[str, Any] = {}
+        _default_with_label = {"consensus_summary": "Not evaluated.", "severity_label": None, "confidence": "High", "inter_judge_agreement": 1.0}
+        _default_summary = {"consensus_summary": "Not evaluated.", "confidence": "High", "inter_judge_agreement": 1.0}
+        results: Dict[str, Any] = {
+            "rai_check_summary": {**_default_with_label},
+            "overall_response_and_reasoning_quality": {**_default_with_label},
+            "security_compliance_summary": {**_default_with_label},
+            "agent_summary": {**_default_summary},
+            "sensitive_data_exposure_notes": {**_default_summary},
+            "hallucination_notes": {**_default_with_label},
+        }
 
         metric_mappings = [
             ("rai_check_summary", "qualitative", "rai_check_notes",
@@ -461,6 +472,13 @@ class LLMCouncil:
              ["consensus_summary", "severity_label", "confidence", "inter_judge_agreement"]),
             ("agent_summary", "qualitative", "agent_summary",
              ["consensus_summary", "confidence", "inter_judge_agreement"]),
+            ("sensitive_data_exposure_notes", "qualitative", "sensitive_data_exposure_notes",
+             ["consensus_summary", "confidence", "inter_judge_agreement"]),
+            # Hallucination notes: per-run summaries of WHAT the agent fabricated/
+            # ungrounded. Aggregated so downstream cert narratives can cite concrete
+            # evidence instead of only quoting hallucination_score numbers.
+            ("hallucination_notes", "qualitative", "hallucination_notes",
+             ["consensus_summary", "severity_label", "confidence", "inter_judge_agreement"]),
         ]
 
         for output_key, section, field_name, output_fields in metric_mappings:

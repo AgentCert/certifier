@@ -358,8 +358,6 @@ class TestComputeNumericAggregates:
         assert "pod-cpu-hog" in ttd["subfault"]
         assert "category_score" in ttd["category"]
         assert "action_correctness" in result
-        assert "response_quality_score" in result
-        assert result["response_quality_score"].get("scale") == "0-1"
 
     def test_empty_docs(self):
         from aggregator.scripts.numeric_aggregation import compute_numeric_aggregates

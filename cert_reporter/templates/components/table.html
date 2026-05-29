@@ -28,9 +28,10 @@
             {% set val = row[header] if header in row else row.get(header | lower | replace(' ','_'), '') %}
             {% set vstr = val | string %}
             {% set is_num = val is number %}
-            <td class="{{ vstr | upper | status_class }}">
+            {% set vraw = vstr | strip_md %}
+            <td class="{{ vraw | upper | status_class }}">
               {%- if is_num -%}{{ val | fmt_num }}{%- else -%}
-              <span class="{{ vstr | upper | status_class }}">{{ vstr }}</span>
+              <span class="{{ vraw | upper | tag_class }}">{{ vstr | md_inline }}</span>
               {%- endif -%}
             </td>
             {% endfor %}
@@ -43,7 +44,13 @@
       {% elif row is iterable and row is not string %}
         <tr>
           {% for cell in row %}
-          <td>{{ cell | fmt_num if cell is number else cell }}</td>
+          {% set cstr = cell | string %}
+          {% set craw = cstr | strip_md %}
+          <td class="{{ craw | upper | status_class }}">
+            {%- if cell is number -%}{{ cell | fmt_num }}{%- else -%}
+            <span class="{{ craw | upper | tag_class }}">{{ cstr | md_inline }}</span>
+            {%- endif -%}
+          </td>
           {% endfor %}
         </tr>
       {% endif %}

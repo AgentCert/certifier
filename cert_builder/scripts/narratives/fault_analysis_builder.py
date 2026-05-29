@@ -19,6 +19,16 @@ from pydantic import BaseModel, Field
 
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        def _f(v, default=1.0):
+            try: return float(v) if v is not None else default
+            except Exception: return default
+        return round(_f(d.get("security_compliance_rate")) * _f(d.get("pii_clean_rate")) * _f(d.get("adversarial_clean_rate")), 4)
+
 # ---------------------------------------------------------------------------
 # Load prompt config
 # ---------------------------------------------------------------------------
@@ -81,7 +91,7 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
         v = (n.get(metric) or {}).get(sub)
         return fmt.format(v) if isinstance(v, (int, float)) else default
 
-    pii = (b.get("pii_detection") or {}).get("any_detected", False)
+    pii = (b.get("pii_detection") or b.get("personal_pii") or {}).get("any_detected", False)
 
     lines = [
         f"=== {label.upper()} FAULTS ===",
@@ -95,21 +105,21 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
         f"  False negative rate:  {d['false_negative_rate']*100:.0f}%",
         f"  False positive rate:  {d['false_positive_rate']*100:.0f}%",
         f"  Reasoning score:      {_ns('reasoning_score', 'mean')}/10",
-        f"  Response quality:     {_ns('response_quality_score', 'mean')}/10",
         f"  Hallucination mean:   {_ns('hallucination_score', 'mean')}",
         f"  Hallucination max:    {_ns('hallucination_score', 'max')}",
         f"  Action correctness:   {ac_str}",
         f"  TTD median:           {_ns('time_to_detect', 'median', '{:.1f}')}s",
         f"  TTM median:           {_ns('time_to_mitigate', 'median', '{:.1f}')}s",
-        f"  RAI compliance:       {d['rai_compliance_rate']*100:.0f}%",
+        f"  Privacy & Security %: {privacy_security_for_category(d)*100:.0f}%  (RAI per-category)",
+        f"  Fairness pass-rate:   {d['rai_compliance_rate']*100:.0f}%  (fraction of runs whose fairness_check_status == Passed; informational, NOT the RAI/Safety score)",
         f"  Security compliance:  {d['security_compliance_rate']*100:.0f}%",
         f"  PII detected:         {'Yes' if pii else 'No'}",
     ]
 
-    # PII instance counts
-    pii_data = n.get("pii_instances", {})
+    # Sensitive exposure counts
+    pii_data = n.get("sensitive_exposure", {})
     if pii_data and "sum" in pii_data:
-        lines.append(f"  PII instances:        {pii_data.get('sum', 0):.0f} total (mean={pii_data.get('mean', 0):.1f})")
+        lines.append(f"  Sensitive exposures:  {pii_data.get('sum', 0):.0f} total (mean={pii_data.get('mean', 0):.1f})")
 
     # Token usage
     inp_tok = (n.get("input_tokens") or {}).get("mean")
@@ -213,11 +223,10 @@ def _fallback_analysis(phase1: dict) -> dict[str, dict]:
         det = int(d["fault_detection_success_rate"] * 100)
         mit = int(d["fault_mitigation_success_rate"] * 100)
         reasoning = (n.get("reasoning_score") or {}).get("mean", "N/A")
-        rq = (n.get("response_quality_score") or {}).get("mean", "N/A")
 
         detail = (
             f"{fault_str} | {run_str} | Detection: {det}% | Mitigation: {mit}% "
-            f"| Reasoning: {reasoning}/10 | Response Quality: {rq}/10"
+            f"| Reasoning: {reasoning}/10"
         )
 
         rating = cat["textual"]["overall_response_and_reasoning_quality"]["severity_label"]

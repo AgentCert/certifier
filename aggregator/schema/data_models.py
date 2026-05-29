@@ -73,7 +73,7 @@ class DetectionStatus(BaseModel):
 class BooleanAggregates(BaseModel):
     """Aggregated boolean/status metrics."""
 
-    pii_detection: DetectionStatus = Field(default_factory=DetectionStatus)
+    personal_pii: DetectionStatus = Field(default_factory=DetectionStatus)
     hallucination_detection: DetectionStatus = Field(default_factory=DetectionStatus)
 
 
@@ -131,13 +131,12 @@ class NumericMetrics(BaseModel):
     time_to_detect: Optional[TimingScorecard] = None
     time_to_mitigate: Optional[TimingScorecard] = None
     action_correctness: Optional[StatsSummary] = None
-    response_quality_score: Optional[StatsSummary] = None
     reasoning_score: Optional[StatsSummary] = None
     hallucination_score: Optional[StatsSummary] = None
     input_tokens: Optional[StatsSummary] = None
     output_tokens: Optional[StatsSummary] = None
-    number_of_pii_instances_detected: Optional[StatsSummary] = None
-    malicious_prompts_detected: Optional[StatsSummary] = None
+    sensitive_data_exposure_count: Optional[StatsSummary] = None
+    adversarial_input_count: Optional[StatsSummary] = None
     authentication_failure_rate: Optional[StatsSummary] = None
 
     model_config = {"extra": "allow"}

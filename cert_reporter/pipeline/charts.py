@@ -123,7 +123,14 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
             val = float(getattr(d, "value", 0))
         else:
             continue
-        rows.append({"key": label, "value": max(0.0, min(1.0, val))})
+        sublabel = str(d.get("sublabel", "")) if isinstance(d, dict) else ""
+        sublabel_color = str(d.get("sublabel_color", "#666666")) if isinstance(d, dict) else "#666666"
+        rows.append({
+            "key": label,
+            "value": max(0.0, min(1.0, val)),
+            "sublabel": sublabel,
+            "sublabel_color": sublabel_color,
+        })
 
     if not rows:
         return _build_placeholder(block)
@@ -215,6 +222,7 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 "source": "table",
                 "transform": [{"type": "aggregate", "groupby": ["key"]}],
             },
+            {"name": "sublabels", "source": "table", "transform": [{"type": "aggregate", "groupby": ["key", "sublabel", "sublabel_color"]}]},
             {"name": "grid", "values": grid_rows},
             {"name": "ticks", "values": tick_rows},
             {"name": "legend", "values": legend_rows},
@@ -362,6 +370,31 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 },
             },
         },
+        {
+            "type": "text",
+            "from": {"data": "sublabels"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "cx + (radius + 22) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + (radius + 22) * sin(scale('angular', datum.key))"},
+                    "dy": [
+                        {"test": "sin(scale('angular', datum.key)) < -0.15", "value": 2},
+                        {"test": "sin(scale('angular', datum.key)) > 0.15", "value": 13},
+                        {"value": 7},
+                    ],
+                    "text": {"field": "sublabel"},
+                    "align": [
+                        {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
+                        {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
+                        {"value": "right"},
+                    ],
+                    "baseline": {"value": "top"},
+                    "fill": {"field": "sublabel_color"},
+                    "fontSize": {"value": 10},
+                    "fontWeight": {"value": "bold"},
+                },
+            },
+        },
         # Radial tick labels (0.2, 0.4, …).
         {
             "type": "text",
@@ -458,8 +491,9 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
     if not categories or not series_list:
         return _build_placeholder(block)
 
-    # Flatten to long-form for Vega-Lite
+    # Flatten to long-form for Vega-Lite, preserving series insertion order
     flat_rows = []
+    series_order = []
     for s in series_list:
         if isinstance(s, dict):
             name = s.get("name", "?")
@@ -469,6 +503,7 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
             values = getattr(s, "values", [])
         else:
             continue
+        series_order.append(name)
         for cat, val in zip(categories, values):
             try:
                 val = float(val)
@@ -486,9 +521,9 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
                 "x": {"field": "category", "type": "nominal", "axis": {"title": None}},
                 "y": {"field": "value", "type": "quantitative",
                       "axis": {"title": y_axis}},
-                "xOffset": {"field": "series", "type": "nominal"},
+                "xOffset": {"field": "series", "type": "nominal", "sort": series_order},
                 "color": {"field": "series", "type": "nominal",
-                          "scale": {"scheme": "tableau10"}, "title": "Series"},
+                          "scale": {"scheme": "tableau10", "domain": series_order}, "title": "Series"},
                 "tooltip": [
                     {"field": "category", "type": "nominal"},
                     {"field": "series", "type": "nominal"},

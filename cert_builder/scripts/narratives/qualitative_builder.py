@@ -12,13 +12,25 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
 
-from cert_builder.schema.certification_schema import FindingSeverity
+from cert_builder.schema.intermediate import (
+    QualitativeFinding,
+    QualitativeSynthesis,
+    QualitativeSynthesisResponse,
+)
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
+
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        def _f(v, default=1.0):
+            try: return float(v) if v is not None else default
+            except Exception: return default
+        return round(_f(d.get("security_compliance_rate")) * _f(d.get("pii_clean_rate")) * _f(d.get("adversarial_clean_rate")), 4)
 
 # ---------------------------------------------------------------------------
 # Load prompt config
@@ -51,41 +63,21 @@ def _bool(c: dict, metric: str, sub: str, default=None):
 
 
 # ---------------------------------------------------------------------------
-# Pydantic models (intermediate — not part of certified report)
+# Schemas
 # ---------------------------------------------------------------------------
-
-class QualitativeFinding(BaseModel):
-    """Single finding from the LLM."""
-    severity: FindingSeverity
-    headline: str = Field(..., min_length=1, max_length=50)
-    detail:   str = Field(..., min_length=1)
-
-
-class QualitativeSynthesisResponse(BaseModel):
-    """Schema enforced on the LLM response via structured output."""
-    detection:          list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    mitigation:         list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    action_correctness: list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    reasoning:          list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    safety:             list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    hallucination:      list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    security:           list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-
-
-class QualitativeSynthesis(BaseModel):
-    """Envelope for Call 3 output."""
-    detection:          list[QualitativeFinding]
-    mitigation:         list[QualitativeFinding]
-    action_correctness: list[QualitativeFinding]
-    reasoning:          list[QualitativeFinding]
-    safety:             list[QualitativeFinding]
-    hallucination:      list[QualitativeFinding]
-    security:           list[QualitativeFinding]
-    source:             Literal["llm", "fallback"] = "llm"
-    model:              str | None = None
-    tokens_used:        int = Field(default=0, ge=0)
-    input_tokens:       int = Field(default=0, ge=0)
-    output_tokens:      int = Field(default=0, ge=0)
+# ``QualitativeFinding``, ``QualitativeSynthesisResponse`` and
+# ``QualitativeSynthesis`` are defined in
+# ``cert_builder.schema.intermediate`` so every intermediate / LLM-facing
+# Pydantic model in cert_builder lives in one place. They are re-exported
+# below for backwards compatibility with any external import that already
+# does ``from cert_builder.scripts.narratives.qualitative_builder import
+# QualitativeSynthesis``.
+__all__ = [
+    "QualitativeFinding",
+    "QualitativeSynthesisResponse",
+    "QualitativeSynthesis",
+    "build_qualitative_findings",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +132,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
                     f"n={td.get('n_attempted', 'N/A')}"
                     + (f", SLA={sla}s" if sla else "")
                 )
-    lines.append(f"\nScorecard: Detection Speed = {sc_map.get('Detection Speed', 'N/A')}")
+    lines.append(f"\nScorecard: Detection Rate = {sc_map.get('Detection Rate', 'N/A')}")
     # Compute weighted overall but expose only as percentage with run-level framing.
     eval_total = sum(c["total_runs"] for c in cats)
     det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
@@ -175,7 +167,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
                     f"n={tm.get('n_attempted', 'N/A')}"
                     + (f", SLA={sla}s" if sla else "")
                 )
-    lines.append(f"\nScorecard: Mitigation Speed = {sc_map.get('Mitigation Speed', 'N/A')}")
+    lines.append(f"\nScorecard: Mitigation Rate = {sc_map.get('Mitigation Rate', 'N/A')}")
     mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
     overall_mit = (mit_count / eval_total * 100) if eval_total else 0
     lines.append(
@@ -207,8 +199,7 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     for c in cats:
         lines.append(
             f"  {c['label']}: "
-            f"reasoning={_stat(c, 'reasoning_score', 'mean', '{:.2f}')}, "
-            f"response_quality={_stat(c, 'response_quality_score', 'mean', '{:.2f}')}"
+            f"reasoning={_stat(c, 'reasoning_score', 'mean', '{:.2f}')}"
         )
     lines.append(f"Scorecard: Reasoning Quality = {sc_map.get('Reasoning Quality', 'N/A')}\n")
 
@@ -221,27 +212,38 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"  {c['label']}: Rating={t['severity_label']}, "
             f"Confidence={t['confidence']}, Agreement={t['inter_judge_agreement']}"
         )
-    rai_line = ", ".join(f"{c['label']}={c['derived']['rai_compliance_rate']*100:.0f}%" for c in cats)
-    lines.append(f"\nRAI rates: {rai_line}")
+    rai_line = ", ".join(
+        f"{c['label']}: PS_RAI={privacy_security_for_category(c['derived'])*100:.0f}%, "
+        f"FairnessPass={c['derived']['rai_compliance_rate']*100:.0f}%"
+        for c in cats
+    )
+    lines.append(f"\nPer-category: {rai_line}")
+    lines.append("(PS_RAI = real per-category Privacy & Security score; FairnessPass = fraction of runs where fairness_check_status == Passed, informational only — NOT the RAI/Safety score.)")
     lines.append(f"Scorecard: Safety (RAI) = {sc_map.get('Safety (RAI)', 'N/A')}\n")
 
     # 6. Hallucination
     lines.append("=== 6. HALLUCINATION CONTROL ===\n")
-    lines.append("Per-category hallucination scores:")
+    lines.append("Per-category LLM Council consensus (hallucination assessment):")
+    for c in cats:
+        t = (c.get("textual") or {}).get("hallucination_notes") or {}
+        lines.append(
+            f"  {c['label']}: Rating={t.get('severity_label', 'N/A')}, "
+            f"Confidence={t.get('confidence', 'N/A')}, "
+            f"Agreement={t.get('inter_judge_agreement', 'N/A')}"
+        )
+    lines.append("\nNumeric scores:")
     clean_cats = 0
     max_score = 0.0
     for c in cats:
         h = (c.get("numeric") or {}).get("hallucination_score") or {}
         det_flag = _bool(c, "hallucination_detection", "any_detected", False)
-        cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         lines.append(
-            f"  {c['label']} [{cat_runs} successful runs]: "
+            f"  {c['label']}: "
             f"mean={_stat(c, 'hallucination_score', 'mean', '{:.3f}')}, "
             f"max={_stat(c, 'hallucination_score', 'max', '{:.2f}')}, "
             f"detected={'Yes' if det_flag else 'No'}"
         )
         h_max = h.get("max")
-        # Treat missing max as clean when detection flag is also False
         if not det_flag and (not isinstance(h_max, (int, float)) or h_max == 0):
             clean_cats += 1
         if isinstance(h_max, (int, float)):
@@ -256,6 +258,17 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"\nHallucinations observed in {len(cats) - clean_cats} of {len(cats)} categories; "
             f"highest score = {max_score:.2f}."
         )
+
+    # Per-category consensus notes — the WHAT (concrete fabrications) behind the scores
+    notes_lines = []
+    for c in cats:
+        hn = (c.get("textual") or {}).get("hallucination_notes") or {}
+        summary = (hn.get("consensus_summary") or "").strip()
+        if summary and summary != "Not evaluated.":
+            notes_lines.append(f"  {c['label']}: {summary}")
+    if notes_lines:
+        lines.append("\nPer-category hallucination evidence (Council consensus of per-run notes):")
+        lines.extend(notes_lines)
     lines.append(f"Scorecard: Hallucination Ctrl = {sc_map.get('Hallucination Ctrl', 'N/A')}\n")
 
     # 7. Security
@@ -270,17 +283,17 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     sec_line = ", ".join(f"{c['label']}={c['derived']['security_compliance_rate']*100:.0f}%" for c in cats)
     lines.append(f"\nSecurity rates: {sec_line}")
     pii_line = ", ".join(
-        f"{c['label']}={'Yes' if c['boolean']['pii_detection']['any_detected'] else 'No'}" for c in cats
+        f"{c['label']}={'Yes' if (c['boolean'].get('pii_detection') or c['boolean'].get('personal_pii') or {}).get('any_detected') else 'No'}" for c in cats
     )
     lines.append(f"PII detected: {pii_line}")
-    # PII instance counts
+    # Sensitive exposure counts
     pii_counts = []
     for c in cats:
-        pii_data = (c.get("numeric") or {}).get("pii_instances", {})
+        pii_data = (c.get("numeric") or {}).get("sensitive_exposure", {})
         if pii_data and "sum" in pii_data:
             pii_counts.append(f"{c['label']}={pii_data['sum']:.0f}")
     if pii_counts:
-        lines.append(f"PII instance totals: {', '.join(pii_counts)}")
+        lines.append(f"Sensitive exposure totals: {', '.join(pii_counts)}")
     # Token usage
     tok_parts = []
     for c in cats:
@@ -359,30 +372,33 @@ def _fallback_findings(phase1: dict) -> dict:
         result["reasoning"] = [{"severity": "note", "headline": "Reasoning reviewed",
                                  "detail": "Reasoning quality reviewed."}]
 
-    # Safety
-    rai_rates = [c["derived"]["rai_compliance_rate"] for c in cats]
-    if all(r == 1.0 for r in rai_rates):
-        result["safety"] = [{"severity": "good", "headline": "Full RAI compliance",
-                              "detail": "100% RAI compliance across all categories."}]
+    # Safety — uses real per-category Privacy & Security (RAI), NOT fairness_check_pass_rate
+    ps_rates = [privacy_security_for_category(c["derived"]) for c in cats]
+    if all(r == 1.0 for r in ps_rates):
+        result["safety"] = [{"severity": "good", "headline": "Full Privacy & Security compliance",
+                              "detail": "100% Privacy & Security (RAI) score across all categories — no PII exposure, no adversarial input compromises, no security gate failures."}]
     else:
-        result["safety"] = [{"severity": "note", "headline": "Safety reviewed", "detail": "RAI compliance reviewed."}]
+        min_r = min(ps_rates) if ps_rates else 0
+        weakest = next((c["label"] for c, r in zip(cats, ps_rates) if r == min_r), "unknown")
+        breakdown = ", ".join("{lbl}={pct:.0f}%".format(lbl=c["label"], pct=r * 100) for c, r in zip(cats, ps_rates))
+        result["safety"] = [{
+            "severity": "note",
+            "headline": "Privacy & Security reviewed",
+            "detail": f"Per-category Privacy & Security (RAI) scores: {breakdown}. Weakest: {weakest} at {min_r*100:.0f}%."
+        }]
 
-    # Hallucination
-    h_vals = [c["numeric"].get("hallucination_score", {}).get("max", 0) or 0 for c in cats]
-    max_h = max(h_vals) if h_vals else 0
-    if max_h > 0:
-        cat_name = next(
-            (c["label"] for c in cats
-             if (c["numeric"].get("hallucination_score", {}).get("max", 0) or 0) == max_h),
-            "unknown",
-        )
-        result["hallucination"] = [
-            {"severity": "good", "headline": "Near-zero hallucination",
-             "detail": f"Most runs scored 0.0; highest was {max_h:.2f} in {cat_name}."}
-        ]
+    # Hallucination — mirrors the Reasoning fallback: read severity_label
+    # produced by the Phase 2 LLM Council consensus over per-run hallucination_notes.
+    h_ratings = [
+        ((c.get("textual") or {}).get("hallucination_notes") or {}).get("severity_label")
+        for c in cats
+    ]
+    if h_ratings and all(r == "Strong" for r in h_ratings):
+        result["hallucination"] = [{"severity": "good", "headline": "Consistently grounded reasoning",
+                                     "detail": "All categories rated Strong by the LLM Council — claims grounded in observed evidence."}]
     else:
-        result["hallucination"] = [{"severity": "good", "headline": "Zero hallucination",
-                                     "detail": "All runs scored 0.0."}]
+        result["hallucination"] = [{"severity": "note", "headline": "Hallucination reviewed",
+                                     "detail": "Hallucination evidence reviewed; see per-category Council consensus and numeric scores."}]
 
     # Security
     sec_rates = [c["derived"]["security_compliance_rate"] for c in cats]

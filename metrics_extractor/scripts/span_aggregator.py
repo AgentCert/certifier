@@ -301,10 +301,10 @@ class QuantitativeAggregator:
 
             # Summable numeric fields from LLM batch output
             # NOTE: input_tokens, output_tokens, and tool_calls are overridden below
-            # by code-extracted values — kept here only so PII/malicious counts sum up.
+            # by code-extracted values — kept here only so sensitive exposure counts sum up.
             sum_fields = [
-                "number_of_pii_instances_detected",
-                "malicious_prompts_detected",
+                "sensitive_data_exposure_count",
+                "adversarial_input_count",
             ]
             for fname in sum_fields:
                 total = 0
@@ -357,21 +357,20 @@ class QuantitativeAggregator:
 
             aggregated["trajectory_steps"] = total_spans
 
-            # pii_detection: True wins over None; None wins over False (uncertain > clean)
-            # Also OR-in the deterministic pre-scan result so known patterns are never missed.
+            # personal_pii_detected: True wins over None; None wins over False (uncertain > clean)
             prescan = getattr(self, "_prescan_result", None)
-            llm_pii_values = [batch.get("pii_detection") for batch in partial_metrics]
+            llm_pii_values = [batch.get("personal_pii_detected") for batch in partial_metrics]
             if True in llm_pii_values or (prescan and prescan.get("pii_detected")):
-                aggregated["pii_detection"] = True
+                aggregated["personal_pii_detected"] = True
             elif None in llm_pii_values:
-                aggregated["pii_detection"] = None  # uncertain — at least one batch inconclusive
+                aggregated["personal_pii_detected"] = None  # uncertain
             else:
-                aggregated["pii_detection"] = False
+                aggregated["personal_pii_detected"] = False
 
-            # Prescan count is a ground-floor minimum for number_of_pii_instances_detected
+            # Prescan count is a ground-floor minimum for sensitive_data_exposure_count
             if prescan and prescan.get("pii_instance_count", 0) > 0:
-                existing = aggregated.get("number_of_pii_instances_detected") or 0
-                aggregated["number_of_pii_instances_detected"] = max(
+                existing = aggregated.get("sensitive_data_exposure_count") or 0
+                aggregated["sensitive_data_exposure_count"] = max(
                     existing, prescan["pii_instance_count"]
                 )
 
@@ -498,6 +497,26 @@ class QualitativeAggregator:
                 aggregated["hallucination_score"] = round(
                     total_hallucination_count / total_response_count, 2
                 )
+
+            # Sum per-type hallucination breakdown fields across batches
+            for breakdown_field in [
+                "hallucination_ungrounded_external_count",
+                "hallucination_fabricated_tool_count",
+                "hallucination_trajectory_deviation_count",
+                "hallucination_non_operational_count",
+            ]:
+                total = 0
+                found = False
+                for batch in partial_observations:
+                    val = batch.get(breakdown_field)
+                    if val is not None:
+                        try:
+                            total += int(val)
+                            found = True
+                        except (ValueError, TypeError):
+                            pass
+                if found:
+                    aggregated[breakdown_field] = total
 
             return aggregated
         except MetricsExtractorError:
