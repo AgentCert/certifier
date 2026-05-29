@@ -968,34 +968,19 @@ def _section_scorecard(phase2, phase3, phase1, overlay: HypothesisOverlay | None
 
 
 def _section_appendix(overlay: HypothesisOverlay | None = None):
-    """Appendix A1: Statistical Hypothesis Framework (H1 – H9).
-    
-    Always displayed as explanatory material about the framework,
-    even when statistical testing is not run.
-    """
+    """Appendix A1: Statistical Hypothesis Framework (H1 – H9)."""
+    if overlay is None or overlay.suppressed:
+        return None
+
     content = [
         _heading("A1. Statistical Hypothesis Framework"),
-    ]
-    
-    # Show notice if statistical testing was not run
-    if overlay is None or overlay.suppressed:
-        content.append(
-            _text(
-                "<strong>Note:</strong> Statistical hypothesis testing was not performed for this certification. "
-                "The framework below describes the optional statistical analysis capabilities available "
-                "when sufficient ground truth data and multiple runs are provided.",
-                style="info"
-            )
-        )
-    
-    content.extend([
         _text(
-            "Beyond descriptive statistics, this certification can apply a formal "
+            "Beyond descriptive statistics, this certification applies a formal "
             "<strong>9-hypothesis inference framework</strong> grounded in 20 peer-reviewed papers (NeurIPS, ICLR, AAAI, ACL, "
             "ICSE, CCS, JRSS-B, JASA, Biometrika, Mathematical Finance). Each hypothesis replaces single-number "
             "summaries with probabilistic inference — confidence intervals, effect sizes, and worst-case guarantees — "
             "enabling defensible <strong>pass / conditional / fail</strong> decisions. Hypotheses <strong>H1 to H5</strong> are "
-            "always active when testing runs; <strong>H6 & H7</strong> activate only when SLA thresholds are provided; "
+            "always active; <strong>H6 & H7</strong> activate only when SLA thresholds are provided; "
             "<strong>H8 & H9</strong> provide informational tail-risk and temporal-stability analysis in both modes."
         ),
         _taxonomy_table(
@@ -1006,7 +991,7 @@ def _section_appendix(overlay: HypothesisOverlay | None = None):
                 "* H8 and H9 provide informational analysis even without SLAs."
             ),
         ),
-    ])
+    ]
 
     return {
         "id": "appendix",
@@ -2496,22 +2481,21 @@ class ReportAssembler:
         # Pipeline Token Metrics — after recommendations, before appendices
         sections.append(_build_pipeline_tokens_section(phase1))
 
-        # Part IV banner — always shown before appendix
-        sections.append({
-            "id": "part_iv_banner",
-            "number": 0,
-            "part": "Appendix & Statistical Analysis",
-            "title": "Part IV \u2014 Appendix & Statistical Analysis",
-            "intro": "",
-            "content": [_part_banner("Part IV", "Appendix & Statistical Analysis")],
-        })
-        
-        # Appendix A1 — Framework Overview (always shown)
+        # Appendix — only when statistical hypothesis testing is active
         appendix = _section_appendix(overlay)
-        sections.append(appendix)
+        if appendix is not None:
+            # Part IV banner — before appendix sections
+            sections.append({
+                "id": "part_iv_banner",
+                "number": 0,
+                "part": "Appendix & Statistical Analysis",
+                "title": "Part IV \u2014 Appendix & Statistical Analysis",
+                "intro": "",
+                "content": [_part_banner("Part IV", "Appendix & Statistical Analysis")],
+            })
+            sections.append(appendix)
 
         # Appendix A2 — Statistical Evidence (H1 – H2 strips from sections 5, 6, 7)
-        # Only shown when statistical testing was actually run
         appendix_a2 = _section_appendix_a2(overlay)
         if appendix_a2 is not None:
             sections.append(appendix_a2)
