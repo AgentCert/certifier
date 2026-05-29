@@ -342,12 +342,16 @@ def _scrub_kn_text(text: str) -> str:
     return text
 
 
-def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
+def _generate_table_findings(table_dict: dict, metric_name: str, extra_context: str = "") -> str:
     """Generate 2 key findings from a table using LLM.
     
     Args:
         table_dict: Dict with 'headers' and 'rows' keys (from phase2 tables)
         metric_name: Human-readable metric name (e.g., "Time-to-Detect")
+        extra_context: Optional extra evidence (e.g. aggregated qualitative notes)
+            appended to the prompt so the LLM can ground findings in concrete
+            behaviour rather than only quoting numeric cells. Empty by default
+            to preserve existing call sites unchanged.
     
     Returns:
         Formatted findings text with 2 bullet points or empty string on failure
@@ -373,11 +377,17 @@ def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
         system_prompt = prompt_yaml.get("system_prompt", "")
         user_template = prompt_yaml.get("user_prompt_template", "")
         
-        # Substitute template variables
-        user_prompt = user_template.format(
-            metric_name=metric_name,
-            table_data=table_text
-        )
+        # Substitute template variables. Older templates without {extra_context}
+        # still work because we only pass the substitution when the placeholder
+        # is present.
+        fmt_kwargs = {"metric_name": metric_name, "table_data": table_text}
+        if "{extra_context}" in user_template:
+            fmt_kwargs["extra_context"] = (
+                f"\nADDITIONAL EVIDENCE (qualitative context — use to ground findings, not to invent numbers):\n{extra_context.strip()}\n"
+                if extra_context and extra_context.strip()
+                else ""
+            )
+        user_prompt = user_template.format(**fmt_kwargs)
         
         # Call LLM (synchronous)
         client = get_client()
@@ -397,9 +407,14 @@ def _generate_table_findings(table_dict: dict, metric_name: str) -> str:
         return ""
 
 
-def _get_table_findings(table_dict: dict, metric_name: str) -> str:
-    """Generate table findings (now synchronous, no wrapper needed)."""
-    return _generate_table_findings(table_dict, metric_name)
+def _get_table_findings(table_dict: dict, metric_name: str, extra_context: str = "") -> str:
+    """Generate table findings (now synchronous, no wrapper needed).
+
+    ``extra_context`` is passed through to :func:`_generate_table_findings` so
+    section assemblers (e.g. 5.2 Hallucination) can ground findings in Phase 2
+    Council narratives in addition to the raw table.
+    """
+    return _generate_table_findings(table_dict, metric_name, extra_context=extra_context)
 
 
 def _findings_from_text(text: str) -> dict | None:
@@ -1402,6 +1417,20 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
         y_label="Score (0-1)",
     )
 
+    # Build per-category Council hallucination evidence (Phase 2 LLM Council
+    # consensus over per-run hallucination_notes). Passed as extra context to
+    # the Section 5.2 table-findings LLM so it can cite WHAT the agent
+    # fabricated, not just the score numbers from the table. Falls back to ""
+    # when the Council block is missing (older scorecards, fallback path).
+    halluc_evidence_parts: list[str] = []
+    for c in cats:
+        hn = ((c.get("textual") or {}).get("hallucination_notes") or {})
+        summary = (hn.get("consensus_summary") or "").strip()
+        if summary and summary != "Not evaluated.":
+            rating = hn.get("severity_label") or "—"
+            halluc_evidence_parts.append(f"- {c.get('label', '?')} [Council rating: {rating}]: {summary}")
+    halluc_evidence = "\n".join(halluc_evidence_parts)
+
     return {
         "id": "reasoning_quality",
         "number": 5,
@@ -1429,7 +1458,7 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
             _chart(phase2["charts"]["hallucination_bar"]),
             *([_chart(halluc_ci)] if halluc_ci is not None else []),
             _table(**phase2["tables"]["hallucination"]),
-            *((halluc_findings_block,) if (halluc_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["hallucination"], "Hallucination Assessment"))) else ()),
+            *((halluc_findings_block,) if (halluc_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["hallucination"], "Hallucination Assessment", extra_context=halluc_evidence))) else ()),
         ],
     }
 

@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
 
-from cert_builder.schema.certification_schema import FindingSeverity
+from cert_builder.schema.intermediate import (
+    QualitativeFinding,
+    QualitativeSynthesis,
+    QualitativeSynthesisResponse,
+)
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
 
 try:
@@ -61,41 +63,21 @@ def _bool(c: dict, metric: str, sub: str, default=None):
 
 
 # ---------------------------------------------------------------------------
-# Pydantic models (intermediate — not part of certified report)
+# Schemas
 # ---------------------------------------------------------------------------
-
-class QualitativeFinding(BaseModel):
-    """Single finding from the LLM."""
-    severity: FindingSeverity
-    headline: str = Field(..., min_length=1, max_length=50)
-    detail:   str = Field(..., min_length=1)
-
-
-class QualitativeSynthesisResponse(BaseModel):
-    """Schema enforced on the LLM response via structured output."""
-    detection:          list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    mitigation:         list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    action_correctness: list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    reasoning:          list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    safety:             list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    hallucination:      list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-    security:           list[QualitativeFinding] = Field(..., min_length=1, max_length=3)
-
-
-class QualitativeSynthesis(BaseModel):
-    """Envelope for Call 3 output."""
-    detection:          list[QualitativeFinding]
-    mitigation:         list[QualitativeFinding]
-    action_correctness: list[QualitativeFinding]
-    reasoning:          list[QualitativeFinding]
-    safety:             list[QualitativeFinding]
-    hallucination:      list[QualitativeFinding]
-    security:           list[QualitativeFinding]
-    source:             Literal["llm", "fallback"] = "llm"
-    model:              str | None = None
-    tokens_used:        int = Field(default=0, ge=0)
-    input_tokens:       int = Field(default=0, ge=0)
-    output_tokens:      int = Field(default=0, ge=0)
+# ``QualitativeFinding``, ``QualitativeSynthesisResponse`` and
+# ``QualitativeSynthesis`` are defined in
+# ``cert_builder.schema.intermediate`` so every intermediate / LLM-facing
+# Pydantic model in cert_builder lives in one place. They are re-exported
+# below for backwards compatibility with any external import that already
+# does ``from cert_builder.scripts.narratives.qualitative_builder import
+# QualitativeSynthesis``.
+__all__ = [
+    "QualitativeFinding",
+    "QualitativeSynthesisResponse",
+    "QualitativeSynthesis",
+    "build_qualitative_findings",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -241,21 +223,27 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
 
     # 6. Hallucination
     lines.append("=== 6. HALLUCINATION CONTROL ===\n")
-    lines.append("Per-category hallucination scores:")
+    lines.append("Per-category LLM Council consensus (hallucination assessment):")
+    for c in cats:
+        t = (c.get("textual") or {}).get("hallucination_notes") or {}
+        lines.append(
+            f"  {c['label']}: Rating={t.get('severity_label', 'N/A')}, "
+            f"Confidence={t.get('confidence', 'N/A')}, "
+            f"Agreement={t.get('inter_judge_agreement', 'N/A')}"
+        )
+    lines.append("\nNumeric scores:")
     clean_cats = 0
     max_score = 0.0
     for c in cats:
         h = (c.get("numeric") or {}).get("hallucination_score") or {}
         det_flag = _bool(c, "hallucination_detection", "any_detected", False)
-        cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         lines.append(
-            f"  {c['label']} [{cat_runs} successful runs]: "
+            f"  {c['label']}: "
             f"mean={_stat(c, 'hallucination_score', 'mean', '{:.3f}')}, "
             f"max={_stat(c, 'hallucination_score', 'max', '{:.2f}')}, "
             f"detected={'Yes' if det_flag else 'No'}"
         )
         h_max = h.get("max")
-        # Treat missing max as clean when detection flag is also False
         if not det_flag and (not isinstance(h_max, (int, float)) or h_max == 0):
             clean_cats += 1
         if isinstance(h_max, (int, float)):
@@ -270,6 +258,17 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
             f"\nHallucinations observed in {len(cats) - clean_cats} of {len(cats)} categories; "
             f"highest score = {max_score:.2f}."
         )
+
+    # Per-category consensus notes — the WHAT (concrete fabrications) behind the scores
+    notes_lines = []
+    for c in cats:
+        hn = (c.get("textual") or {}).get("hallucination_notes") or {}
+        summary = (hn.get("consensus_summary") or "").strip()
+        if summary and summary != "Not evaluated.":
+            notes_lines.append(f"  {c['label']}: {summary}")
+    if notes_lines:
+        lines.append("\nPer-category hallucination evidence (Council consensus of per-run notes):")
+        lines.extend(notes_lines)
     lines.append(f"Scorecard: Hallucination Ctrl = {sc_map.get('Hallucination Ctrl', 'N/A')}\n")
 
     # 7. Security
@@ -388,22 +387,18 @@ def _fallback_findings(phase1: dict) -> dict:
             "detail": f"Per-category Privacy & Security (RAI) scores: {breakdown}. Weakest: {weakest} at {min_r*100:.0f}%."
         }]
 
-    # Hallucination
-    h_vals = [c["numeric"].get("hallucination_score", {}).get("max", 0) or 0 for c in cats]
-    max_h = max(h_vals) if h_vals else 0
-    if max_h > 0:
-        cat_name = next(
-            (c["label"] for c in cats
-             if (c["numeric"].get("hallucination_score", {}).get("max", 0) or 0) == max_h),
-            "unknown",
-        )
-        result["hallucination"] = [
-            {"severity": "good", "headline": "Near-zero hallucination",
-             "detail": f"Most runs scored 0.0; highest was {max_h:.2f} in {cat_name}."}
-        ]
+    # Hallucination — mirrors the Reasoning fallback: read severity_label
+    # produced by the Phase 2 LLM Council consensus over per-run hallucination_notes.
+    h_ratings = [
+        ((c.get("textual") or {}).get("hallucination_notes") or {}).get("severity_label")
+        for c in cats
+    ]
+    if h_ratings and all(r == "Strong" for r in h_ratings):
+        result["hallucination"] = [{"severity": "good", "headline": "Consistently grounded reasoning",
+                                     "detail": "All categories rated Strong by the LLM Council — claims grounded in observed evidence."}]
     else:
-        result["hallucination"] = [{"severity": "good", "headline": "Zero hallucination",
-                                     "detail": "All runs scored 0.0."}]
+        result["hallucination"] = [{"severity": "note", "headline": "Hallucination reviewed",
+                                     "detail": "Hallucination evidence reviewed; see per-category Council consensus and numeric scores."}]
 
     # Security
     sec_rates = [c["derived"]["security_compliance_rate"] for c in cats]
