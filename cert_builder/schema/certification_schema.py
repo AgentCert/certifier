@@ -42,7 +42,7 @@ Usage
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Dict, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
 
@@ -184,6 +184,12 @@ class Meta(BaseModel):
     total_categories: int = Field(..., ge=0)
     runs_per_fault_configured: int = Field(default=0, ge=0)
     categories: list[CategoryMeta] = Field(..., min_length=1)
+    # Canonical post-Phase-3 RAI block. Populated by `_build_meta` from the
+    # in-place patched `phase1["meta"]["responsible_ai"]` so JSON consumers
+    # see the same fairness score (LLM-sourced) and weighted RAI score that
+    # the HTML renders. ``None`` only when the aggregator emitted no RAI
+    # block at all (legacy pipelines).
+    responsible_ai: Optional[Dict[str, Any]] = Field(default=None)
 
 
 # ── Top-Level: Header ────────────────────────────────────────────────

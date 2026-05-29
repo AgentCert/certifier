@@ -144,8 +144,15 @@ def _build_rai_radar(responsible_ai: dict) -> dict:
     for key in order:
         p = principles.get(key, {})
         base_label = p.get("label", key.replace("_", " ").title())
-        score = round(p.get("score", 0.0), 4)
-        score_pct = p.get("score_pct", round(score * 100, 1))
+        # ``score`` and ``score_pct`` may be ``None`` when the aggregator emits
+        # a pending Fairness signal (see aggregator/scripts/rai_scoring.py).
+        # ``_apply_rai_to_scorecard`` overwrites this radar afterwards with the
+        # Phase 3 LLM score or an "N/A" marker, but we still need a numeric
+        # placeholder here so chart computation does not crash.
+        raw_score = p.get("score")
+        score = round(raw_score, 4) if raw_score is not None else 0.0
+        raw_score_pct = p.get("score_pct")
+        score_pct = raw_score_pct if raw_score_pct is not None else round(score * 100, 1)
         sublabel_text, sublabel_color = _rai_sublabel(key, score_pct, gates)
         dimensions.append({
             "dimension": base_label,         # just the principle name
