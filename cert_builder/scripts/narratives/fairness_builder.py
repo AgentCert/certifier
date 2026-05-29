@@ -177,14 +177,22 @@ def _fallback_score(phase1: dict) -> FairnessScoreResult:
     det_rates = [c.get("derived", {}).get("fault_detection_success_rate", 0) for c in cats]
     spread = max(det_rates) - min(det_rates) if det_rates else 0
 
-    if spread <= 0.05:
-        score, label = 0.9, "Excellent"
-    elif spread <= 0.15:
-        score, label = 0.7, "Good"
-    elif spread <= 0.30:
-        score, label = 0.5, "Adequate"
+    # B8-F4: continuous score in [0, 1] from the detection-rate spread. The
+    # previous 4-bucket fallback (0.3 / 0.5 / 0.7 / 0.9) produced step-changes
+    # of 0.2 between buckets, making the fallback score visibly discontinuous
+    # next to the LLM scale (which uses two-decimal precision). The new
+    # mapping is linear: spread == 0 ⇒ 1.0, spread ≥ 0.5 ⇒ 0.0, and rounds
+    # to two decimals so the value renders identically to LLM-sourced scores.
+    score = round(max(0.0, min(1.0, 1.0 - 2.0 * spread)), 2)
+
+    if score >= 0.85:
+        label = "Excellent"
+    elif score >= 0.70:
+        label = "Good"
+    elif score >= 0.50:
+        label = "Adequate"
     else:
-        score, label = 0.3, "Weak"
+        label = "Weak"
 
     weakest = min(cats, key=lambda c: c.get("derived", {}).get("fault_detection_success_rate", 0))
     return FairnessScoreResult(
@@ -192,7 +200,7 @@ def _fallback_score(phase1: dict) -> FairnessScoreResult:
         fairness_label=label,
         reasoning=(
             f"Cross-category detection rate spread is {spread*100:.0f} percentage points. "
-            f"Score assigned by rule-based fallback."
+            f"Continuous fallback maps spread→score linearly (spread 0→1.0, spread 0.5+→0.0)."
         ),
         weakest_category=weakest.get("label"),
         confidence="Low",
