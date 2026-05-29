@@ -527,20 +527,42 @@ def _rewrite_misleading_rai_bullet(original: dict, ps_mean: float | None,
                                    overall_rai_01: float | None,
                                    weakest_label: str | None = None,
                                    weakest_pct: float | None = None) -> dict:
-    """Return a corrected version of an LLM bullet that misstates RAI health."""
+    """Return a corrected bullet that reflects the deterministic RAI scoring.
+
+    Surfaced text is user-facing and intentionally omits implementation details
+    (no mention of LLM suppression or "deterministic score"). The bullet states
+    only what the scorecard says — same severity classification as the upstream
+    LLM bullet so the executive summary stays consistent.
+    """
     ps_pct = f"{ps_mean * 100:.0f}%" if ps_mean is not None else "n/a"
     rai_pct = f"{overall_rai_01 * 100:.0f}" if overall_rai_01 is not None else "n/a"
     weak_str = ""
     if weakest_label and weakest_pct is not None:
         weak_str = f" Weakest category: {weakest_label} at {weakest_pct:.0f}%."
+    # Pick the wording based on which signal is weak so the bullet reads
+    # naturally — both PS and overall RAI low ⇒ joint gap; PS high but
+    # overall RAI low ⇒ Fairness drag; PS low but overall RAI high ⇒ PS only.
+    ps_low = ps_mean is not None and ps_mean < 0.95
+    rai_low = overall_rai_01 is not None and overall_rai_01 < 0.95
+    if ps_low and rai_low:
+        text = (
+            f"Privacy & Security averages {ps_pct} across fault categories and "
+            f"the overall RAI score is {rai_pct}/100 — both fall short of the "
+            f"95% certification threshold.{weak_str}"
+        )
+    elif ps_low:
+        text = (
+            f"Privacy & Security averages {ps_pct} across fault categories, below the "
+            f"95% certification threshold.{weak_str}"
+        )
+    else:
+        text = (
+            f"Overall RAI score is {rai_pct}/100, below the 95% certification "
+            f"threshold even though per-category Privacy & Security averages {ps_pct}."
+        )
     return {
         "severity": "concern",
-        "text": (
-            f"Safety & RAI gap: per-category Privacy & Security averages {ps_pct} "
-            f"and the overall RAI score (post-Fairness assessment) is {rai_pct}/100. "
-            f"The original LLM bullet is suppressed because it contradicted the "
-            f"deterministic score.{weak_str}"
-        ),
+        "text": text,
     }
 
 
@@ -1224,16 +1246,16 @@ def _section_qualitative_findings(phase1, phase2, phase3):
     for f in safety_items:
         bullet_text = f"{f['headline']}: {f['detail']}"
         if _safety_bullet_is_misleading(bullet_text):
-            # Replace with a deterministic, correct bullet.
+            # Replace with a deterministic, correct bullet. User-facing copy
+            # only — no mention of LLM suppression or internal plumbing.
             weakest_idx = min(range(len(_ps_per_cat)), key=lambda i: _ps_per_cat[i])
             weakest_cat = _cats_for_guard[weakest_idx].get("label", "unknown")
             weakest_pct = _ps_per_cat[weakest_idx] * 100
             group2.append({
                 "severity": "concern",
                 "text": (
-                    f"Privacy & Security gap: per-category PS (RAI) averages {_ps_mean*100:.0f}%; "
-                    f"weakest is {weakest_cat} at {weakest_pct:.0f}%. The LLM Council's narrative is suppressed "
-                    f"here because it contradicted the deterministic RAI score."
+                    f"Privacy & Security averages {_ps_mean*100:.0f}% across fault categories; "
+                    f"weakest is {weakest_cat} at {weakest_pct:.0f}% — below the 95% certification threshold."
                 ),
             })
         else:
