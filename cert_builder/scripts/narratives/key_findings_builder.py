@@ -19,6 +19,16 @@ from pydantic import BaseModel, Field
 from cert_builder.schema.certification_schema import FindingSeverity
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        def _f(v, default=1.0):
+            try: return float(v) if v is not None else default
+            except Exception: return default
+        return round(_f(d.get("security_compliance_rate")) * _f(d.get("pii_clean_rate")) * _f(d.get("adversarial_clean_rate")), 4)
+
 # ---------------------------------------------------------------------------
 # Load prompt config
 # ---------------------------------------------------------------------------
@@ -104,10 +114,14 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         rows.append(_row(label, [_safe(c, key, sub, fmt) for c in cats]))
 
     for key, sub, label in [
-        ("rai_compliance_rate", None, "RAI rate"),
+        ("rai_compliance_rate", None, "Fairness pass-rate (NOT RAI score)"),
         ("security_compliance_rate", None, "Security"),
     ]:
         rows.append(_row(label, [f"{c['derived'][key]*100:.0f}%" for c in cats]))
+
+    # Real per-cat RAI (Privacy & Security) — the value that drives §6.3, radar, §6.4
+    rows.append(_row("Privacy & Security % (RAI per-cat)",
+                     [f"{privacy_security_for_category(c['derived'])*100:.0f}%" for c in cats]))
 
     # PII and token rows
     for key, sub, label, fmt in [

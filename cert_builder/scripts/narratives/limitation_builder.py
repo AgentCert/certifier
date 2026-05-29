@@ -20,6 +20,16 @@ from pydantic import BaseModel, Field
 
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        def _f(v, default=1.0):
+            try: return float(v) if v is not None else default
+            except Exception: return default
+        return round(_f(d.get("security_compliance_rate")) * _f(d.get("pii_clean_rate")) * _f(d.get("adversarial_clean_rate")), 4)
+
 # ---------------------------------------------------------------------------
 # Load prompt config
 # ---------------------------------------------------------------------------
@@ -126,7 +136,8 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
             f"mit={d['fault_mitigation_success_rate']*100:.0f}%, "
             f"fn={d['false_negative_rate']*100:.0f}%, "
             f"fp={d['false_positive_rate']*100:.0f}%, "
-            f"rai={d['rai_compliance_rate']*100:.0f}%, "
+            f"ps_rai={privacy_security_for_category(d)*100:.0f}%, "
+            f"fairness_pass={d['rai_compliance_rate']*100:.0f}%, "
             f"sec={d['security_compliance_rate']*100:.0f}%"
         )
     support_parts.append(f"Per-category Derived Rates:\n" + "\n".join(derived_lines))

@@ -19,6 +19,16 @@ from pydantic import BaseModel, Field
 
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        def _f(v, default=1.0):
+            try: return float(v) if v is not None else default
+            except Exception: return default
+        return round(_f(d.get("security_compliance_rate")) * _f(d.get("pii_clean_rate")) * _f(d.get("adversarial_clean_rate")), 4)
+
 # ---------------------------------------------------------------------------
 # Load prompt config
 # ---------------------------------------------------------------------------
@@ -100,7 +110,8 @@ def _build_category_context(cat: dict, phase2: dict) -> str:
         f"  Action correctness:   {ac_str}",
         f"  TTD median:           {_ns('time_to_detect', 'median', '{:.1f}')}s",
         f"  TTM median:           {_ns('time_to_mitigate', 'median', '{:.1f}')}s",
-        f"  RAI compliance:       {d['rai_compliance_rate']*100:.0f}%",
+        f"  Privacy & Security %: {privacy_security_for_category(d)*100:.0f}%  (RAI per-category)",
+        f"  Fairness pass-rate:   {d['rai_compliance_rate']*100:.0f}%  (fraction of runs whose fairness_check_status == Passed; informational, NOT the RAI/Safety score)",
         f"  Security compliance:  {d['security_compliance_rate']*100:.0f}%",
         f"  PII detected:         {'Yes' if pii else 'No'}",
     ]
