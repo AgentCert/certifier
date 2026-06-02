@@ -52,6 +52,7 @@ async def run_pipeline(
     cache_enabled: Optional[bool] = None,
     include_event_input: Optional[bool] = None,
     prompt_path: Optional[str] = None,
+    debug_metrics: bool = False,
 ) -> List[Dict[str, Any]]:
     """Run the full pipeline: fault bucketing then per-bucket metric extraction.
 
@@ -78,6 +79,8 @@ async def run_pipeline(
             ``None`` -> defer to ``classifier.include_event_input`` in config.
         prompt_path: Optional path to a prompt YAML to override
             ``classifier.prompt_path`` in config.
+        debug_metrics: If ``True``, creates JSON files documenting why each span
+            was or wasn't selected as a detection/mitigation event.
 
     Returns:
         List of per-fault result dicts, each containing the fault_id and
@@ -211,7 +214,11 @@ async def run_pipeline(
 
         # Run metric extraction — bucket metadata is read from the trace file
         try:
-            extractor = TraceMetricsExtractor(config=config)
+            extractor = TraceMetricsExtractor(
+                config=config,
+                output_dir=metrics_dir,
+                debug_metrics=debug_metrics,
+            )
         except MyCustomError as exc:
             logger.error(f"Extractor init failed for '{fault_id}': {exc}. Skipping.")
             continue
@@ -415,6 +422,12 @@ def main():
             "fault_bucketing_config.json (currently 'prompt/v1/prompt.yml')."
         ),
     )
+    parser.add_argument(
+        "--debug-metrics",
+        dest="debug_metrics",
+        action="store_true",
+        help="Enable debug metrics output - creates JSON files documenting span selection reasons.",
+    )
     args = parser.parse_args()
 
     try:
@@ -428,6 +441,7 @@ def main():
                 cache_enabled=args.cache_enabled,
                 include_event_input=args.include_event_input,
                 prompt_path=args.prompt_path,
+                debug_metrics=args.debug_metrics,
             )
         )
     except MyCustomError as exc:

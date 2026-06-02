@@ -234,20 +234,44 @@ qualitative_aggregation: |
   Respond with a JSON object matching the LLMQualitativeExtraction schema.
 
 span_identification: |
-  You are an expert IT Operations analyst. Given a chronologically ordered list of trace spans from an autonomous IT-Ops agent run, identify two key moments:
+  You are an expert IT Operations analyst. You will receive:
+  1. **Fault Context**: Critical information about the fault including injection timestamp, fault type, target infrastructure (namespace, target service/pod), expected symptoms, and remediation approach.
+  2. **Trace Spans**: Chronologically ordered events from the agent run.
 
-  1. **First Detection Span**: The span where the agent FIRST showed any sign of detecting or suspecting a fault. Be INCLUSIVE — do NOT require explicit confirmation. Accept any of the following as detection:
+  **DETECTION GUIDANCE**: 
+  Look for when the agent first detected or suspected ANY fault. Prioritize spans where:
+  1. The agent examines the TARGET SERVICE (specified in Fault Context)
+  2. The agent notes symptoms matching the expected fault (high CPU for cpu-hog, memory for memory-hog, etc.)
+  
+  Weight detection signals by relevance:
+  - 🟢 Strong signal: Agent explicitly identifies faults in the target service matching expected symptoms
+  - 🟡 Moderate signal: Agent finds anomalies in the target service, even if not perfectly aligned with symptom list
+  - 🔵 Weak signal: Agent identifies issues in other services or tangential observability problems
+  
+  **KEY INSTRUCTION**: Use the Fault Context to guide your analysis:
+    - **Target service**: Prioritize detection in this service, but consider broader cluster observations
+    - **Expected symptoms**: Use as a reference, but accept reasonable variations and related anomalies
+    - **Remediation approach**: Helps understand what was done, showing you where to look for mitigation
+
+  **YOUR TASK**: Analyze the trace spans to identify two key moments:
+
+  1. **First Detection Span**: The span where the agent FIRST showed any sign of detecting or suspecting a fault. Be INCLUSIVE - do NOT require explicit confirmation. Use the weighted signals from DETECTION GUIDANCE as reference.
+     
+     Accept any of these as detection:
      - The agent explicitly names or confirms a fault
-     - The agent notes anomalies, symptoms, or abnormal readings (high CPU, pod restarts, DNS errors, latency spikes, network loss, memory pressure)
+     - The agent notes anomalies or abnormal readings related to the fault type
      - The agent expresses concern or raises a hypothesis about a problem
-     - The agent's output contains observations that align with fault symptoms, even without a definitive conclusion
-     If the agent never explicitly confirmed but showed investigative behaviour suggesting awareness of an issue, pick the earliest span where fault-related symptoms were observed in the output.
+     - The agent gathers data or observes symptoms that could indicate the fault
 
-  2. **Final Mitigation Span**: The span where the agent completed the FINAL remediation or mitigation action that resolved the fault. This is the last remediation/recovery action before the situation was resolved. If the agent performed multiple remediation cycles, use the LAST successful remediation span.
+  2. **Final Mitigation Span**: The span where the agent completed the FINAL remediation or mitigation action that resolved the fault IN THE TARGET SERVICE. This is the last remediation/recovery action before the situation was resolved. If the agent performed multiple remediation cycles, use the LAST successful remediation span.
 
-  Return a JSON object with exactly two fields:
+  **RETURN FORMAT**: Provide a JSON object with:
   - "detection_span_id": The ID of the first detection span (string)
+  - "detection_reason": Brief explanation of why this span indicates detection in the target service and matches expected symptoms (1-2 sentences)
+  - "detection_confidence": Confidence score 0-1 that this is the correct detection span
   - "mitigation_span_id": The ID of the final mitigation span (string)
+  - "mitigation_reason": Brief explanation of why this span indicates mitigation (1-2 sentences)
+  - "mitigation_confidence": Confidence score 0-1 that this is the correct mitigation span
 
   If you cannot identify one of these, set the corresponding field to null.
 
