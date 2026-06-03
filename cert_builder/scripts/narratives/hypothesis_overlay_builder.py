@@ -434,15 +434,20 @@ def _generic_strip(
     
     v_lower = str(verdict_text).lower()
     
-    if any(kw in v_lower for kw in {"insufficient_groups", "insufficient_data", "no_data", "conditional"}):
+    if any(kw in v_lower for kw in {"insufficient_groups", "insufficient_data", "no_data", "no_sla_defined", "conditional", "low_power", "incomplete_coverage", "inconclusive"}):
         verdict = "inconclusive"
+    # Pass-through guards (must precede the flag set since "drift_detected"
+    # is a substring of "no_drift_detected", and "significant" is a substring
+    # of "no_significant").
+    elif "no_drift_detected" in v_lower:
+        verdict = "pass"
+    elif "no_significant" in v_lower:
+        verdict = "pass"
     # H06-H09 metric verdict keywords that indicate flag/warning status
-    elif any(kw in v_lower for kw in {"non_compliant", "non-compliant", "exceeds", "fail", "wide_ci"}):
+    elif any(kw in v_lower for kw in {"non_compliant", "non-compliant", "exceeds", "fail", "wide_ci", "non_uniform", "instability", "unequal", "drift_detected"}):
         verdict = "flag"
     elif "flag" in v_lower:
         verdict = "flag"
-    elif "no_significant" in v_lower:
-        verdict = "pass"
     elif "significant" in v_lower:
         verdict = "flag"
     else:

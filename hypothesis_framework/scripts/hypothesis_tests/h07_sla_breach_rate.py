@@ -233,12 +233,16 @@ def run_breach_rate_test(
         per_cat.append(cat_result)
 
     cat_verdicts = [c.verdict for c in per_cat]
-    if all(v == "PASS" for v in cat_verdicts):
-        overall = "breach_rate_certified"
-    elif any(v == "FAIL" for v in cat_verdicts):
+    assessed = [v for v in cat_verdicts if v in ("PASS", "FAIL", "INCONCLUSIVE")]
+
+    if any(v == "FAIL" for v in cat_verdicts):
         overall = "breach_rate_exceeds_target"
-    elif any(v == "INCOMPLETE" for v in cat_verdicts):
-        overall = "incomplete_coverage"
+    elif assessed and all(v == "PASS" for v in assessed) and not any(
+        v in ("INSUFFICIENT_DATA", "NO_DATA") for v in cat_verdicts
+    ):
+        overall = "breach_rate_certified"
+    elif not assessed:
+        overall = "insufficient_data"
     else:
         overall = "inconclusive"
 

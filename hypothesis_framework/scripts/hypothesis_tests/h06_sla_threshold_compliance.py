@@ -172,11 +172,15 @@ def run_sla_compliance_test(
         n_failed = sum(v == "FAIL" for v in verdicts)
         n_cond = sum(v == "CONDITIONAL" for v in verdicts)
         n_no_sla = sum(v == "NO_SLA_DEFINED" for v in verdicts)
+        n_insufficient = sum(v == "INSUFFICIENT_DATA" for v in verdicts)
+        n_assessed = n_passed + n_failed + n_cond  # statistically evaluated
 
         if n_failed > 0:
             cat_verdict = "FAIL"
-        elif n_no_sla > 0:
-            cat_verdict = "INCOMPLETE"
+        elif n_no_sla > 0 and n_assessed == 0:
+            cat_verdict = "NO_SLA_DEFINED"
+        elif n_assessed == 0 and n_insufficient > 0:
+            cat_verdict = "INSUFFICIENT_DATA"
         elif n_cond > 0:
             cat_verdict = "CONDITIONAL"
         elif n_passed > 0:
@@ -208,11 +212,17 @@ def run_sla_compliance_test(
 
     # Overall assessment
     cat_verdicts = [c.verdict for c in per_cat]
-    if all(v == "PASS" for v in cat_verdicts):
-        overall = "sla_compliant"
-    elif any(v == "FAIL" for v in cat_verdicts):
+    assessed = [v for v in cat_verdicts if v in ("PASS", "FAIL", "CONDITIONAL")]
+
+    if any(v == "FAIL" for v in cat_verdicts):
         overall = "sla_non_compliant"
-    elif any(v == "INCOMPLETE" for v in cat_verdicts):
+    elif assessed and all(v == "PASS" for v in assessed) and not any(
+        v in ("INSUFFICIENT_DATA", "NO_SLA_DEFINED", "NO_DATA") for v in cat_verdicts
+    ):
+        overall = "sla_compliant"
+    elif not assessed:
+        overall = "insufficient_data"
+    elif any(v == "NO_SLA_DEFINED" for v in cat_verdicts):
         overall = "incomplete_coverage"
     else:
         overall = "conditional_compliance"
