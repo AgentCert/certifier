@@ -118,13 +118,15 @@ def build_scorecard(categories):
         n = cat["numeric"]
         d = cat["derived"]
 
-        # TTD/TTM: pull SLA-aware category_score from timing scorecard
+        # TTD/TTM: pull SLA-aware category_score from timing scorecard (kept for findings + SLA context)
         ttd_cat = _safe_get(n, "time_to_detect", "category", default={})
         ttm_cat = _safe_get(n, "time_to_mitigate", "category", default={})
-        det = _clamp(ttd_cat.get("category_score", 0.0))
-        mit = _clamp(ttm_cat.get("category_score", 0.0))
         det_n = ttd_cat.get("n_attempted", 0)
         mit_n = ttm_cat.get("n_attempted", 0)
+
+        # Detection / Mitigation radar dimensions = actual derived success rates (not SLA-weighted speed score)
+        det = normalize_rate(d.get("fault_detection_success_rate", 0.0))
+        mit = normalize_rate(d.get("fault_mitigation_success_rate", 0.0))
 
         det_speeds.append(det)
         mit_speeds.append(mit)
