@@ -265,7 +265,7 @@ def _agg_subfault_grain(
         result[sub_fault] = {
             "n_attempted": n_runs,
             "detection_rate": round(det_rate, precision),
-            "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
+            "sla_compliance": round(n_compliant / n_obs, precision) if n_obs > 0 else None,
             "weighted_score": round(weighted, precision) if weighted is not None else None,
             "mean_s": round(statistics.mean(raw_detected), 2) if raw_detected else None,
             "median_s": round(statistics.median(raw_detected), 2) if raw_detected else None,
@@ -288,6 +288,7 @@ def _agg_category_grain(
     pool = [o for o in obs if o["status"] != "NO_SLA"]
     n_obs = len(pool)
     n_runs = len({o["run_id"] for o in pool})
+    n_runs_all = len({o["run_id"] for o in obs})
     n_sub_faults = len({o["sub_fault"] for o in pool})
     detected = [
         o for o in pool
@@ -316,7 +317,7 @@ def _agg_category_grain(
         "n_sub_faults": n_sub_faults,
         "n_attempted": n_runs,
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
+        "sla_compliance": round(n_compliant / n_runs_all, precision) if n_runs_all > 0 else None,
         "category_score": round(category_score, precision),
         "mean": round(statistics.mean(scores_cat), precision) if scores_cat else None,
         "median": round(statistics.median(scores_cat), precision) if scores_cat else None,
@@ -332,6 +333,7 @@ def _agg_cumulative_grain(
     pool = [o for o in obs if o["status"] != "NO_SLA"]
     n_obs = len(pool)
     n_runs = len({o["run_id"] for o in pool})
+    n_runs_all = len({o["run_id"] for o in obs})
     n_no_sla = sum(1 for o in obs if o["status"] == "NO_SLA")
     detected_sorted = sorted(
         o["normalized_score"]
@@ -360,7 +362,7 @@ def _agg_cumulative_grain(
     return {
         "cumulative_score": round(headline, precision),
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_valid, precision) if n_valid > 0 else None,
+        "sla_compliance": round(n_compliant / n_runs_all, precision) if n_runs_all > 0 else None,
         "n_attempted": n_runs,
         "quality_flags": flags,
     }

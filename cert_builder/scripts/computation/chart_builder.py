@@ -205,7 +205,7 @@ def _build_ttm_bar(categories):
         "categories": _labels(categories),
         "series": [
             {"name": "Mitigation Rate", "values": [round(_safe_get(c, "numeric", "time_to_mitigate", "category", "detection_rate") * 100, 1) for c in categories]},
-            {"name": "SLA Met (Detected)", "values": [round(_safe_get(c, "numeric", "time_to_mitigate", "category", "sla_compliance") * 100, 1) for c in categories]},
+            {"name": "SLA Met (Mitigated)", "values": [round(_safe_get(c, "numeric", "time_to_mitigate", "category", "sla_compliance") * 100, 1) for c in categories]},
         ],
         "y_axis": "Percentage (%)",
     }

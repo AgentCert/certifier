@@ -113,9 +113,13 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     for c in cats:
         det = c["derived"]["fault_detection_success_rate"]
         cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
+        ttd_cat = ((c.get("numeric") or {}).get("time_to_detect") or {}).get("category", {}) or {}
+        sla_pct_cat = ttd_cat.get("sla_compliance")
+        sla_str = f"{sla_pct_cat*100:.0f}%" if sla_pct_cat is not None else "N/A"
         lines.append(
             f"  {c['label']} [{cat_runs} successful runs]: "
             f"detection_rate={det*100:.0f}%, "
+            f"TTD SLA met={sla_str}, "
             f"TTD mean={_stat(c, 'time_to_detect', 'mean')}s, "
             f"median={_stat(c, 'time_to_detect', 'median')}s, "
             f"std={_stat(c, 'time_to_detect', 'std_dev')}s, "
@@ -126,11 +130,14 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         if ttd_sf:
             for sf, td in sorted(ttd_sf.items()):
                 sla = td.get("sla_seconds")
+                sla_pct = td.get("sla_compliance")
+                sla_pct_str = f", SLA met={sla_pct*100:.0f}%" if sla_pct is not None else ""
                 lines.append(
                     f"    {sf}: TTD score={td.get('weighted_score', 'N/A')}, "
                     f"det_rate={td.get('detection_rate', 'N/A')}, "
                     f"n={td.get('n_attempted', 'N/A')}"
                     + (f", SLA={sla}s" if sla else "")
+                    + sla_pct_str
                 )
     lines.append(f"\nScorecard: Detection Rate = {sc_map.get('Detection Rate', 'N/A')}")
     # Compute weighted overall but expose only as percentage with run-level framing.
@@ -149,9 +156,13 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         mit = c["derived"]["fault_mitigation_success_rate"]
         fp = c["derived"]["false_positive_rate"]
         cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
+        ttm_cat = ((c.get("numeric") or {}).get("time_to_mitigate") or {}).get("category", {}) or {}
+        sla_pct_cat = ttm_cat.get("sla_compliance")
+        sla_str = f"{sla_pct_cat*100:.0f}%" if sla_pct_cat is not None else "N/A"
         lines.append(
             f"  {c['label']} [{cat_runs} successful runs]: "
             f"mitigation_rate={mit*100:.0f}%, false_pos={fp*100:.0f}%, "
+            f"TTM SLA met={sla_str}, "
             f"TTM mean={_stat(c, 'time_to_mitigate', 'mean')}s, "
             f"median={_stat(c, 'time_to_mitigate', 'median')}s, "
             f"std={_stat(c, 'time_to_mitigate', 'std_dev')}s"
@@ -161,11 +172,14 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
         if ttm_sf:
             for sf, tm in sorted(ttm_sf.items()):
                 sla = tm.get("sla_seconds")
+                sla_pct = tm.get("sla_compliance")
+                sla_pct_str = f", SLA met={sla_pct*100:.0f}%" if sla_pct is not None else ""
                 lines.append(
                     f"    {sf}: TTM score={tm.get('weighted_score', 'N/A')}, "
                     f"mit_rate={tm.get('detection_rate', 'N/A')}, "
                     f"n={tm.get('n_attempted', 'N/A')}"
                     + (f", SLA={sla}s" if sla else "")
+                    + sla_pct_str
                 )
     lines.append(f"\nScorecard: Mitigation Rate = {sc_map.get('Mitigation Rate', 'N/A')}")
     mit_count = sum(int(c["derived"]["fault_mitigation_success_rate"] * c["total_runs"]) for c in cats)
