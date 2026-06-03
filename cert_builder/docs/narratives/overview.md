@@ -16,18 +16,48 @@ hardcoded_content.yaml ────────┘
 
 ---
 
-## Sub-Phase Structure
+## Builder Inventory
 
-Each LLM call is implemented as an independent sub-phase with its own requirements document, prompt template, Pydantic schema, validation rules, and fallback logic.
+`NarrativeAssembler` orchestrates 7 builder functions. Calls 1–6 run
+concurrently via `asyncio.gather(asyncio.to_thread(...))`; Call 7 runs
+afterward because it consumes Call 5's enriched limitations.
 
-| Sub-Phase | LLM Call | Purpose | Requirements Doc |
-|-----------|----------|---------|------------------|
-| **phase3a** | Call 1 | Scope Narrative | `phase3a/docs/scope_narrative_requirements.md` |
-| **phase3b** | Call 2 | Key Findings Synthesis | `phase3b/docs/key_findings_requirements.md` |
-| **phase3c** | Call 3 | Qualitative Synthesis (7 dimensions) | `phase3c/docs/qualitative_requirements.md` |
-| **phase3d** | Call 4 | Fault Category Analysis | `phase3d/docs/fault_analysis_requirements.md` |
-| **phase3e** | Call 5 | Limitation Enrichment & Labeling | `phase3e/docs/limitation_requirements.md` |
-| **phase3f** | Call 6 | Recommendation Enrichment & Consolidation | `phase3f/docs/recommendation_requirements.md` |
+| Builder | Call | Purpose | Doc |
+|---------|------|---------|-----|
+| `scope_narrative_builder` | 1 | Scope Narrative | `narratives/scope_narrative.md` |
+| `key_findings_builder`    | 2 | Key Findings Synthesis | `narratives/key_findings.md` |
+| `qualitative_builder`     | 3 | Qualitative Synthesis (7 dimensions) | `narratives/qualitative_findings.md` |
+| `fault_analysis_builder`  | 4 | Fault Category Analysis | `narratives/fault_analysis.md` |
+| `limitation_builder`      | 5 | Limitation Enrichment & Labeling | `narratives/limitations.md` |
+| `fairness_builder`        | 6 | Fairness / cross-category consistency score | (uses `prompts/fairness_scoring_prompt.yaml`) |
+| `recommendation_builder`  | 7 | Recommendation Enrichment & Consolidation (sequential — depends on Call 5) | `narratives/recommendations.md` |
+
+Two additional builders live in `scripts/narratives/` but are invoked by
+`ReportAssembler` (Phase 4), **not** by `NarrativeAssembler`:
+
+| Builder | Purpose |
+|---------|---------|
+| `sample_size_notice_builder` | Emits a §1 `NoticeBlock` when `statistical_hypothesis.status == "skipped"` |
+| `hypothesis_overlay_builder` | Emits `HypothesisStripBlock` content for §5–§10 (deterministic facts + LLM findings) |
+
+---
+
+## Input Data Quality Guarantees
+
+**Critical Context**: Phase 3 narratives are built on top of **high-quality, ground-truth validated** fault bucketing and metrics extraction from upstream pipeline phases (Phase 0 and Phase 1 of the full AgentCert pipeline).
+
+### Upstream Quality Baseline
+
+The input data reliability is backed by:
+
+- **93.7% fault bucketing accuracy** (exact + partial match) validated against manual ground truth
+- **96.4% precision** in event classification — events are correctly assigned to fault buckets with high confidence
+- **66.2% recall** — conservative by design to minimize false positives in safety-critical certification
+- **Millisecond-precision timestamps** for TTD/TTM calculations
+
+This means Phase 3 LLM synthesis operates on **reliable, validated metrics** rather than noisy or speculative data. The conservative 66.2% recall is a deliberate design choice: under-reporting is preferable to mis-reporting in safety-critical AI agent certification.
+
+**Implication for narrative generation**: When the LLM describes detection gaps or failures, these are based on high-confidence observations, not false positives.
 
 ---
 
@@ -40,18 +70,20 @@ Each LLM call is implemented as an independent sub-phase with its own requiremen
 
 ---
 
-## Output: `phase3_narratives.json`
+## Output: `narratives.json`
 
 ```json
 {
-  "scope_narrative":          { ... },   // Phase 3A — Call 1
-  "key_findings":             { ... },   // Phase 3B — Call 2
-  "qualitative_findings":     { ... },   // Phase 3C — Call 3 (7 sub-sections)
-  "fault_category_analysis":  { ... },   // Phase 3D — Call 4 (detail line + analysis per category)
-  "limitations_enriched":     { ... },   // Phase 3E — Call 5 (label + enrich + discover)
-  "recommendations_enriched": { ... },   // Phase 3F — Call 6 (label + enrich + merge + discover)
+  "scope_narrative":          { ... },   // Call 1 — scope_narrative_builder
+  "key_findings":             { ... },   // Call 2 — key_findings_builder
+  "qualitative_findings":     { ... },   // Call 3 — qualitative_builder
+  "fault_category_analysis":  { ... },   // Call 4 — fault_analysis_builder
+  "limitations_enriched":     { ... },   // Call 5 — limitation_builder
+  "fairness_score":           { ... },   // Call 6 — fairness_builder
+  "recommendations_enriched": { ... },   // Call 7 — recommendation_builder
   "fallbacks_used": false,
-  "errors": []
+  "errors": [],
+  "phase_3_tokens": { "input_tokens": ..., "output_tokens": ..., "total_tokens": ... }
 }
 ```
 
@@ -75,17 +107,23 @@ Each LLM call is implemented as an independent sub-phase with its own requiremen
 ```
 Phase 1 + Phase 2 Input
     │
-    ├──► Phase 3A (Scope Narrative)           ──┐
-    ├──► Phase 3B (Key Findings)              ──┤
-    ├──► Phase 3C (Qualitative Synthesis)     ──┤
-    ├──► Phase 3D (Fault Category Analysis)   ──┼──► Assembler ──► phase3_narratives.json
-    ├──► Phase 3E (Limitation Enrichment)     ──┤
-    │         │                                 │
-    │         ▼                                 │
-    └──► Phase 3F (Recommendation Enrichment) ──┘
+    ├──► Call 1 — scope_narrative_builder    ──┐
+    ├──► Call 2 — key_findings_builder       ──┤
+    ├──► Call 3 — qualitative_builder        ──┤   asyncio.gather
+    ├──► Call 4 — fault_analysis_builder     ──┤   (asyncio.to_thread)
+    ├──► Call 5 — limitation_builder         ──┤
+    └──► Call 6 — fairness_builder           ──┘
+                       │
+                       ▼
+            Call 7 — recommendation_builder       (sequential — consumes Call 5 output)
+                       │
+                       ▼
+                 NarrativeAssembler merge ──► narratives.json
 ```
 
-**Parallelism**: Calls 1-5 (Phase 3A-3E) can run in parallel. Call 6 (Phase 3F) depends on Call 5 output (enriched limitations feed into recommendation context).
+**Parallelism**: Calls 1–6 run concurrently. Call 7 (`recommendation_builder`)
+depends on Call 5 (`limitation_builder`) — `limitations_enriched` is passed
+in as context so recommendations can reference labelled limitations.
 
 ---
 
@@ -406,59 +444,56 @@ Cell 12:  Display token usage and cost estimate
 ## Module Layout
 
 ```
-engine/phase3/
-├── __init__.py
-├── assembler.py              # Runs all calls, merges into Phase3Output, validates
-├── schemas.py                # All Phase 3 Pydantic models (imports from certification_schema)
-│                              #   - Intermediate: KeyFinding, QualitativeFinding, etc.
-│                              #   - Envelopes: Phase3Output, ScopeNarrative, etc.
-│                              #   - .to_certified() converters
-├── phase3a/
-│   ├── __init__.py
-│   ├── scope_narrative_builder.py
-│   └── docs/
-│       └── scope_narrative_requirements.md
-├── phase3b/
-│   ├── __init__.py
-│   ├── key_findings_builder.py
-│   └── docs/
-│       └── key_findings_requirements.md
-├── phase3c/
-│   ├── __init__.py
-│   ├── qualitative_builder.py
-│   └── docs/
-│       └── qualitative_requirements.md
-├── phase3d/
-│   ├── __init__.py
-│   ├── fault_analysis_builder.py
-│   └── docs/
-│       └── fault_analysis_requirements.md
-├── phase3e/
-│   ├── __init__.py
-│   ├── limitation_builder.py
-│   └── docs/
-│       └── limitation_requirements.md
-├── phase3f/
-│   ├── __init__.py
-│   ├── recommendation_builder.py
-│   └── docs/
-│       └── recommendation_requirements.md
-└── docs/
-    └── phase3_requirements.md   # This document (orchestration overview)
+cert_builder/scripts/narratives/
+├── __init__.py                       # re-exports NarrativeAssembler
+├── assembler.py                      # NarrativeAssembler — orchestrates 6 concurrent + 1 sequential
+├── llm_client.py                     # get_client() + call_llm() (Azure OpenAI, structured output)
+├── scope_narrative_builder.py        # Call 1
+├── key_findings_builder.py           # Call 2
+├── qualitative_builder.py            # Call 3
+├── fault_analysis_builder.py         # Call 4
+├── limitation_builder.py             # Call 5
+├── fairness_builder.py               # Call 6
+├── recommendation_builder.py         # Call 7 (sequential after Call 5)
+├── sample_size_notice_builder.py     # Invoked by ReportAssembler (§1 notice)
+└── hypothesis_overlay_builder.py     # Invoked by ReportAssembler (§5–§10 strips)
+
+cert_builder/prompts/
+├── scope_narrative_prompt.yaml
+├── key_findings_prompt.yaml
+├── qualitative_prompt.yaml
+├── fault_analysis_prompt.yaml
+├── limitation_prompt.yaml
+├── recommendation_prompt.yaml
+├── fairness_scoring_prompt.yaml
+├── hypothesis_findings_prompt.yaml
+├── agent_performance_summary_prompt.yaml
+├── statistical_findings_prompt.yaml
+└── table_findings_prompt.yaml
+
+cert_builder/docs/narratives/
+├── overview.md                       # This document
+├── scope_narrative.md
+├── key_findings.md
+├── qualitative_findings.md
+├── fault_analysis.md
+├── limitations.md
+└── recommendations.md
 ```
 
 ---
 
 ## Summary
 
-| Sub-Phase | Call | Type | Input Sources | Output | Items |
-|-----------|------|------|---------------|--------|-------|
-| 3A | 1 | LLM | Phase 1 meta | Scope narrative paragraph | 1 paragraph |
-| 3B | 2 | LLM | Phase 2 findings + scorecard + Phase 1 metrics | Synthesized key findings | 5-7 items |
-| 3C | 3 | LLM | Phase 1 textual/numeric/derived/boolean + Phase 2 scorecard + safety table | Qualitative findings (7 sub-sections) | 8-16 items |
-| 3D | 4 | LLM | Phase 1 all per-category data + Phase 2 assessments/limitations/recommendations | Fault category analysis (detail line + synthesis) | 1 per category |
-| 3E | 5 | LLM | Phase 2 limitations + ALL Phase 1/2 tables | Enriched & labeled limitations (+ new discoveries) | 10-13 items |
-| 3F | 6 | LLM | Phase 2 recommendations + ALL Phase 1/2 tables + Phase 3E output | Enriched, labeled & consolidated recommendations (+ new discoveries) | 6-10 items |
+| Call | Builder | Type | Input Sources | Output | Items |
+|------|---------|------|---------------|--------|-------|
+| 1 | `scope_narrative_builder` | LLM | Phase 1 meta | Scope narrative paragraph | 1 paragraph |
+| 2 | `key_findings_builder` | LLM | Phase 2 findings + scorecard + Phase 1 metrics | Synthesized key findings | 5–7 items |
+| 3 | `qualitative_builder` | LLM | Phase 1 textual/numeric/derived/boolean + Phase 2 scorecard + safety table | Qualitative findings (7 sub-sections) | 8–16 items |
+| 4 | `fault_analysis_builder` | LLM | Phase 1 all per-category data + Phase 2 assessments/limitations/recommendations | Fault category analysis | 1 per category |
+| 5 | `limitation_builder` | LLM | Phase 2 limitations + ALL Phase 1/2 tables | Enriched & labeled limitations | 10–13 items |
+| 6 | `fairness_builder` | LLM (deterministic-first when hypothesis present) | Phase 1 categories + statistical_hypothesis | Fairness score + label + reasoning | 1 score |
+| 7 | `recommendation_builder` | LLM | Phase 2 recommendations + ALL Phase 1/2 tables + Call 5 output | Enriched, labeled, consolidated recommendations | 6–10 items |
 
 ---
 

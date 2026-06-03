@@ -498,7 +498,7 @@ Welch's ANOVA for reasoning_quality_score:
 
 - **Welch, B.L. (1951)** "On the comparison of several mean values." *Biometrika*, 38, 330-336 -- [DOI](https://doi.org/10.1093/biomet/38.3-4.330)
 - [Wikipedia: Welch's t-test / ANOVA generalization](https://en.wikipedia.org/wiki/Welch%27s_t-test)
-- Python: `scipy.stats.f_oneway` (then use pingouin for Welch's variant)
+- Python: `statsmodels.stats.oneway.anova_oneway(data, groups, use_var='unequal')` — implements Welch's F-test directly without assuming equal variances
 
 ---
 

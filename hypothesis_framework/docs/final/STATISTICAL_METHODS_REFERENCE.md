@@ -323,7 +323,7 @@ More powerful than Kruskal-Wallis but requires bell-curve data. Used only when a
 ### Sources
 
 - **Welch, B.L. (1951)** *Biometrika*, 38
-- Python: `scipy.stats.f_oneway` (with pingouin for Welch variant)
+- Python: `statsmodels.stats.oneway.anova_oneway` with `use_var='unequal'` (direct Welch's F-test implementation)
 
 ---
 
