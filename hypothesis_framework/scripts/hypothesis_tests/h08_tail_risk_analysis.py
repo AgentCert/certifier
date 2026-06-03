@@ -151,7 +151,15 @@ def run_tail_risk_test(
         ))
 
     sig_cats = [c.category for c in per_cat if c.risk_level == "significant"]
-    overall = "significant_tail_risk" if sig_cats else "acceptable_tail_risk"
+    assessed = [c for c in per_cat
+                if c.risk_level in ("mild", "moderate", "significant")]
+
+    if sig_cats:
+        overall = "significant_tail_risk"
+    elif not assessed:
+        overall = "insufficient_data"
+    else:
+        overall = "acceptable_tail_risk"
 
     return H08Result(
         metric_name=metric_name,

@@ -134,7 +134,16 @@ def run_drift_test(
         ))
 
     any_drift = any(c.drift_verdict == "DRIFT_DETECTED" for c in per_cat)
-    overall = "drift_detected" if any_drift else "no_drift_detected"
+    all_low_power = bool(per_cat) and all(
+        c.drift_verdict == "LOW_POWER" for c in per_cat
+    )
+
+    if any_drift:
+        overall = "drift_detected"
+    elif all_low_power:
+        overall = "low_power"
+    else:
+        overall = "no_drift_detected"
 
     return H09Result(
         metric_name=metric_name,
