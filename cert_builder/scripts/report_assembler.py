@@ -1417,18 +1417,92 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
         y_label="Score (0-1)",
     )
 
+    # Build per-category Council reasoning evidence (Phase 2 LLM Council
+    # consensus over per-run reasoning_quality notes). Passed as extra context
+    # to the Section 5.1 table-findings LLM so it can ground the verdict in
+    # WHAT the agent reasoned about, not just the score numbers from the
+    # table. Mirrors the hallucination evidence pattern below.
+    #
+    # Also surfaces the four reasoning sub-dimensions (logical coherence,
+    # diagnostic depth, tool-usage relevance, explanation clarity) per
+    # category so the LLM can name the strongest and weakest aspect rather
+    # than only the composite mean. Falls back gracefully when older
+    # scorecards do not carry the sub-dimensions.
+    _sub_dim_labels = {
+        "reasoning_logical_coherence": "logical coherence",
+        "reasoning_diagnostic_depth": "diagnostic depth",
+        "reasoning_tool_usage_relevance": "tool-usage relevance",
+        "reasoning_explanation_clarity": "explanation clarity",
+    }
+    reasoning_evidence_parts: list[str] = []
+    for c in cats:
+        rn = ((c.get("textual") or {}).get("overall_response_and_reasoning_quality") or {})
+        summary = (rn.get("consensus_summary") or "").strip()
+        if not (summary and summary != "Not evaluated."):
+            continue
+        rating = rn.get("severity_label") or "—"
+        confidence = rn.get("confidence") or "—"
+        agreement = rn.get("inter_judge_agreement")
+        agreement_str = f"{agreement:.2f}" if isinstance(agreement, (int, float)) else "—"
+
+        numeric = c.get("numeric") or {}
+        sub_pairs: list[tuple[str, float]] = []
+        for key, label in _sub_dim_labels.items():
+            sub_block = numeric.get(key) or {}
+            mean_val = sub_block.get("mean") if isinstance(sub_block, dict) else None
+            if isinstance(mean_val, (int, float)):
+                sub_pairs.append((label, float(mean_val)))
+        sub_line = ""
+        if sub_pairs:
+            sub_pairs_sorted = sorted(sub_pairs, key=lambda kv: kv[1])
+            weakest_label, weakest_val = sub_pairs_sorted[0]
+            strongest_label, strongest_val = sub_pairs_sorted[-1]
+            all_parts = ", ".join(f"{lbl} {val:.2f}" for lbl, val in sub_pairs)
+            sub_line = (
+                f"\n  Sub-dimensions (0-1 mean): {all_parts}. "
+                f"Strongest = {strongest_label} ({strongest_val:.2f}); "
+                f"weakest = {weakest_label} ({weakest_val:.2f})."
+            )
+
+        reasoning_evidence_parts.append(
+            f"- {c.get('label', '?')} [Council rating: {rating} | confidence: {confidence} | inter-judge agreement: {agreement_str}]:\n  {summary}{sub_line}"
+        )
+    reasoning_evidence = "\n".join(reasoning_evidence_parts)
+
     # Build per-category Council hallucination evidence (Phase 2 LLM Council
     # consensus over per-run hallucination_notes). Passed as extra context to
     # the Section 5.2 table-findings LLM so it can cite WHAT the agent
-    # fabricated, not just the score numbers from the table. Falls back to ""
-    # when the Council block is missing (older scorecards, fallback path).
+    # fabricated, not just the score numbers from the table. We include
+    # severity, confidence, inter-judge agreement, and the count of flagged
+    # runs (from the hallucination table) so the LLM has concrete frequency
+    # framing in addition to the prose summary. Falls back to "" when the
+    # Council block is missing (older scorecards, fallback path).
+    halluc_table = phase2.get("tables", {}).get("hallucination") or {}
+    halluc_headers = [str(h) for h in (halluc_table.get("headers") or [])]
+    flagged_idx = next(
+        (i for i, h in enumerate(halluc_headers) if "flagged" in h.lower()),
+        None,
+    )
+    flagged_by_label: dict[str, str] = {}
+    if flagged_idx is not None:
+        for row in (halluc_table.get("rows") or []):
+            if len(row) > flagged_idx:
+                flagged_by_label[str(row[0])] = str(row[flagged_idx])
+
     halluc_evidence_parts: list[str] = []
     for c in cats:
         hn = ((c.get("textual") or {}).get("hallucination_notes") or {})
         summary = (hn.get("consensus_summary") or "").strip()
         if summary and summary != "Not evaluated.":
             rating = hn.get("severity_label") or "—"
-            halluc_evidence_parts.append(f"- {c.get('label', '?')} [Council rating: {rating}]: {summary}")
+            confidence = hn.get("confidence") or "—"
+            agreement = hn.get("inter_judge_agreement")
+            agreement_str = f"{agreement:.2f}" if isinstance(agreement, (int, float)) else "—"
+            label = c.get("label", "?")
+            flagged = flagged_by_label.get(label, "—")
+            halluc_evidence_parts.append(
+                f"- {label} [Council rating: {rating} | confidence: {confidence} | inter-judge agreement: {agreement_str} | flagged runs: {flagged}]:\n  {summary}"
+            )
     halluc_evidence = "\n".join(halluc_evidence_parts)
 
     return {
@@ -1452,7 +1526,7 @@ def _section_reasoning(phase1, phase2, overlay: HypothesisOverlay | None = None)
             _chart(phase2["charts"]["reasoning_bar"]),
             *([_chart(reas_ci)] if reas_ci is not None else []),
             _table(**phase2["tables"]["reasoning_quality"]),
-            *((reasoning_findings_block,) if (reasoning_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["reasoning_quality"], "Reasoning & Response Quality"))) else ()),
+            *((reasoning_findings_block,) if (reasoning_findings_block := _findings_from_text(_get_table_findings(phase2["tables"]["reasoning_quality"], "Reasoning & Response Quality", extra_context=reasoning_evidence))) else ()),
             _heading("5.2 Hallucination Assessment"),
             _text(defs["hallucination_score"], style="info"),
             _chart(phase2["charts"]["hallucination_bar"]),
