@@ -7,6 +7,9 @@ Always active — does not require SLA thresholds.
 Data must be in run-order (time-sequential).
 Target defaults to IQM of each sub-fault's data.
 
+ROBUSTNESS: Optional sorting by fault_injection_time ensures chronological order
+even if input data is not pre-sorted (via timestamps_per_category parameter).
+
 Sub-fault verdicts:
   - STABLE: no drift detected
   - DRIFT_DETECTED: CUSUM or EWMA alarm triggered
@@ -34,6 +37,7 @@ def run_drift_test(
     metric_name: str = "time_to_detect",
     target: Optional[float] = None,
     lambda_: float = 0.2,
+    timestamps_per_category: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> H09Result:
     """Run H-09: Temporal Stability & Drift Detection.
 
@@ -44,6 +48,9 @@ def run_drift_test(
         metric_name: Name of the metric.
         target: Reference value for drift detection (default: IQM per sub-fault).
         lambda_: EWMA smoothing factor.
+        timestamps_per_category: Optional {category: {sub_fault: [timestamps]}} 
+                                  for sorting values by fault_injection_time.
+                                  If provided, values are sorted chronologically.
 
     Returns:
         H09Result with per-sub-fault drift verdicts rolled up to categories.
@@ -59,13 +66,22 @@ def run_drift_test(
             n = len(values)
             cat_n += n
 
-            if n < 2:
-                warnings.append(f"{cat}/{fname}: need at least 2 observations.")
-                sub_results.append(SubFaultDriftResult(
-                    fault_name=fname, n=n, drift_verdict="LOW_POWER",
-                ))
-                continue
-
+            # Sort by fault_injection_time if timestamps provided (robustness check)
+            if timestamps_per_category and cat in timestamps_per_category and fname in timestamps_per_category[cat]:
+                ts_list = timestamps_per_category[cat][fname]
+                if len(ts_list) == n:
+                    # Sort values by their corresponding timestamps
+                    sorted_pairs = sorted(zip(ts_list, values), key=lambda x: x[0])
+                    values = [v for _, v in sorted_pairs]
+                    warnings.append(
+                        f"{cat}/{fname}: values sorted chronologically by fault_injection_time."
+                    )
+                else:
+                    warnings.append(
+                        f"{cat}/{fname}: timestamp count ({len(ts_list)}) != value count ({n}); "
+                        f"skipping sort, using values as-is."
+                    )
+                    
             if n < 8:
                 warnings.append(
                     f"{cat}/{fname}: n={n} < 8; drift detection has very low power."
@@ -118,7 +134,16 @@ def run_drift_test(
         ))
 
     any_drift = any(c.drift_verdict == "DRIFT_DETECTED" for c in per_cat)
-    overall = "drift_detected" if any_drift else "no_drift_detected"
+    all_low_power = bool(per_cat) and all(
+        c.drift_verdict == "LOW_POWER" for c in per_cat
+    )
+
+    if any_drift:
+        overall = "drift_detected"
+    elif all_low_power:
+        overall = "low_power"
+    else:
+        overall = "no_drift_detected"
 
     return H09Result(
         metric_name=metric_name,

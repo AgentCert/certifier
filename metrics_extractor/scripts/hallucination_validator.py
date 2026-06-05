@@ -3,17 +3,25 @@ Per-step claim-grounding hallucination validator.
 
 For each agent reasoning step, pair (the tool responses the agent observed)
 with (the claims the agent then made) and ask an LLM judge to classify each
-distinct claim as GROUNDED / INFERRED / UNGROUNDED / IGNORED_ERROR.
+distinct claim as GROUNDED / INFERRED / UNGROUNDED / UNGROUNDED_EXTERNAL /
+FABRICATED_TOOL_CALL / TRAJECTORY_DEVIATION / NON_OPERATIONAL / IGNORED_ERROR.
 
 The judge prompt lives in `metrics_extractor/prompt/prompts.yml` under the
 `hallucination_judge` key. The response is validated against the
 `HallucinationJudgeResponse` Pydantic schema in `schema/metrics_model.py`.
 
 Library entry point:
-    judge_trace(client, trace_dict, model="gpt-4o") -> (hallucination_count, total_response_count)
+    judge_trace(client, trace_dict, model="gpt-4o")
+    -> (hallucination_count, total_response_count, notes, breakdown)
 
-The (count, total) tuple has the same shape the existing QualitativeAggregator
-already consumes, so downstream Phase 2/3 code is unchanged.
+hallucination_count = sum of UNGROUNDED + UNGROUNDED_EXTERNAL +
+                      FABRICATED_TOOL_CALL + TRAJECTORY_DEVIATION +
+                      IGNORED_ERROR across all steps.
+NON_OPERATIONAL is tracked in breakdown but excluded from hallucination_count.
+
+breakdown keys:
+    ungrounded_operational, ungrounded_external, fabricated_tool_calls,
+    trajectory_deviations, ignored_errors, non_operational
 """
 
 from __future__ import annotations
@@ -142,24 +150,35 @@ async def judge_trace(
     trace: dict,
     model: str = "gpt-4o",
     max_concurrency: int = 4,
-) -> tuple[int, int, str]:
+) -> tuple[int, int, str, dict]:
     """
     Run the per-step claim-grounding judge over a trace.
 
     Returns:
-        (hallucination_count, total_response_count, notes) where
-            hallucination_count   = sum(ungrounded + ignored_error) across steps
+        (hallucination_count, total_response_count, notes, breakdown) where
+            hallucination_count   = UNGROUNDED + UNGROUNDED_EXTERNAL +
+                                    FABRICATED_TOOL_CALL + TRAJECTORY_DEVIATION +
+                                    IGNORED_ERROR (NON_OPERATIONAL excluded)
             total_response_count  = sum(total_claims) across steps
             notes                 = " | "-joined step summaries from the judge
+            breakdown             = per-type counts dict:
+                {
+                    "ungrounded_operational": int,
+                    "ungrounded_external": int,
+                    "fabricated_tool_calls": int,
+                    "trajectory_deviations": int,
+                    "ignored_errors": int,
+                    "non_operational": int,
+                }
 
-    On failure returns (0, 0, "") and the caller can fall back to whatever the bulk LLM produced.
+    On failure returns (0, 0, "", {}) and the caller can fall back to bulk LLM count.
     """
     if not isinstance(trace, dict):
-        return 0, 0, ""
+        return 0, 0, "", {}
 
     steps = build_trajectory(trace)
     if not steps:
-        return 0, 0, ""
+        return 0, 0, "", {}
 
     sem = asyncio.Semaphore(max(1, max_concurrency))
 
@@ -169,8 +188,23 @@ async def judge_trace(
 
     results = await asyncio.gather(*[_bounded(s) for s in steps])
 
-    hallucination_count = sum(r.ungrounded_count + r.ignored_error_count for r in results)
+    breakdown = {
+        "ungrounded_operational": sum(r.ungrounded_count for r in results),
+        "ungrounded_external": sum(r.ungrounded_external_count for r in results),
+        "fabricated_tool_calls": sum(r.fabricated_tool_call_count for r in results),
+        "trajectory_deviations": sum(r.trajectory_deviation_count for r in results),
+        "ignored_errors": sum(r.ignored_error_count for r in results),
+        "non_operational": sum(r.non_operational_count for r in results),
+    }
+
+    hallucination_count = (
+        breakdown["ungrounded_operational"]
+        + breakdown["ungrounded_external"]
+        + breakdown["fabricated_tool_calls"]
+        + breakdown["trajectory_deviations"]
+        + breakdown["ignored_errors"]
+    )
     total_response_count = sum(r.total_claims for r in results)
     notes_parts = [r.summary for r in results if r.summary]
     notes = " | ".join(notes_parts) if notes_parts else ""
-    return hallucination_count, total_response_count, notes
+    return hallucination_count, total_response_count, notes, breakdown

@@ -511,12 +511,8 @@ async def run_pipeline(
                 certification_run_id=certification_run_id,
                 runs_per_fault=runs_per_fault,
                 store_results=False,
-                # Anchor "Total Runs" to the actual count of distinct run_ids
-                # in the raw (un-grouped) input so unclassified / single_fault
-                # folders count toward total_runs and total_failed_runs is
-                # derived as (total - successful). Keeps invariant
-                # successful_runs <= total_runs always satisfied.
                 total_input_runs=len(_distinct_run_ids(agent_docs)),
+                min_runs_per_category=3,
             )
         except MyCustomError:
             raise

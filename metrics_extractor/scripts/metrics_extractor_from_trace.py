@@ -27,8 +27,7 @@ from metrics_extractor.scripts.span_aggregator import (
     QualitativeAggregator,
     QuantitativeAggregator,
 )
-from metrics_extractor.scripts.hallucination_validator import judge_trace
-from metrics_extractor.scripts.reasoning_judge import judge_reasoning
+from metrics_extractor.scripts.combined_judge import judge_combined
 from metrics_extractor.schema.data_models import (
     ExtractionResult,
     TokenUsage,
@@ -119,6 +118,8 @@ class TraceMetricsExtractor:
         self,
         config: Optional[Dict[str, Any]] = None,
         bucket_metadata: Optional[Dict[str, Any]] = None,
+        output_dir: Optional[Path] = None,
+        debug_metrics: bool = False,
     ):
         if config:
             self.config = config
@@ -130,6 +131,8 @@ class TraceMetricsExtractor:
         self.token_usage = TokenUsage()
         self.mongodb_client: Optional[Any] = None
         self.bucket_metadata: Optional[Dict[str, Any]] = bucket_metadata
+        self.output_dir = output_dir
+        self.debug_metrics = debug_metrics
         self.quant_aggregator = QuantitativeAggregator()
         self.qual_aggregator = QualitativeAggregator()
 
@@ -146,6 +149,52 @@ class TraceMetricsExtractor:
         if ideal_trajectory is not None:
             ground_truth["ideal_tool_usage_trajectory"] = ideal_trajectory
         return ground_truth if ground_truth else None
+
+    def _build_fault_context(self) -> str:
+        """Build fault context from bucket_metadata for use in LLM prompts.
+        
+        Includes infrastructure metadata and expected behavioral responses (ground truth).
+        
+        Returns:
+            Formatted fault context string with injection timestamp, fault name, 
+            expected agent responses, and tool usage trajectory.
+        """
+        bucket_context = ""
+        if self.bucket_metadata:
+            injection_ts = self.bucket_metadata.get("injection_timestamp")
+            fault_name = self.bucket_metadata.get("fault_name")
+            context_parts = ["## Fault Context"]
+            if injection_ts:
+                context_parts.append(
+                    f"- **Fault injection timestamp**: {injection_ts}"
+                )
+            if fault_name:
+                context_parts.append(
+                    f"- **Fault name/type**: {fault_name}"
+                )
+            target_ns = self.bucket_metadata.get("namespace")
+            target_svc = self.bucket_metadata.get("target_pod")
+            if target_ns:
+                context_parts.append(f"- **Target namespace**: {target_ns}")
+            if target_svc:
+                context_parts.append(f"- **Target service**: {target_svc}")
+            
+            # Add ground truth data (fault description, symptoms, remediation)
+            ground_truth = self._get_ground_truth()
+            if ground_truth:
+                # Add fault description, symptoms, and remediation guidance
+                fault_desc = ground_truth.get("fault_description_goal_remediation", {})
+                if fault_desc:
+                    symptoms = fault_desc.get("symptoms")
+                    if symptoms:
+                        symptoms_str = ", ".join(symptoms) if isinstance(symptoms, list) else str(symptoms)
+                        context_parts.append(f"- **Expected symptoms**: {symptoms_str}")
+                    remediation = fault_desc.get("remediation")
+                    if remediation:
+                        context_parts.append(f"- **Remediation approach**: {remediation.strip()}")
+            
+            bucket_context = "\n".join(context_parts)
+        return bucket_context
 
     def _build_quantitative_batch_prompt(
         self, batch_number: int, total_batches: int
@@ -331,38 +380,135 @@ class TraceMetricsExtractor:
             "usage": span.get("usage", ""),
         }
 
+    async def _score_detection_spans(
+        self,
+        spans: List[Dict[str, Any]],
+    ) -> Dict[str, Dict[str, Any]]:
+        """Score each span for detection likelihood (debug mode only).
+        
+        Returns:
+            Dict mapping span_id → {detection_score, detection_reason}
+        """
+        if not self.debug_metrics:
+            return {}
+
+        sorted_spans = sorted(spans, key=lambda x: x.get("startTime", ""))
+        # Only score first 10 spans to reduce tokens
+        first_10_spans = sorted_spans[:10]
+        full_spans = [self._prepare_span_for_llm(span) for span in first_10_spans]
+        
+        span_ids = [span.get("id", "") for span in first_10_spans]
+        
+        user_message = (
+            f"Analyze these {len(full_spans)} trace spans and for EACH span, "
+            f"score how strongly it indicates the agent DETECTING or CONFIRMING a fault.\n\n"
+            f"For each span, provide:\n"
+            f"- detection_score (0-1): likelihood this span represents fault detection\n"
+            f"- detection_reason (brief): why or why not this indicates detection\n\n"
+            f"Spans:\n```json\n{json.dumps(full_spans, indent=2)}\n```\n\n"
+            f'Return a JSON object: {{"span_scores": [{{"span_id": "...", "detection_score": 0.X, "detection_reason": "..."}}]}}'
+        )
+        
+        try:
+            result, token_usage = await self.llm_client.call_llm(
+                model_name="gpt-4o",
+                messages=user_message,
+                max_tokens=2000,
+                system_prompt=(
+                    "You are an expert IT-Ops analyst. Evaluate each span for detection indicators. "
+                    "Be concise in your reasoning (1-2 sentences per span)."
+                ),
+            )
+            self.token_usage.add(token_usage)
+            
+            if isinstance(result, str):
+                try:
+                    result = json.loads(result)
+                except (json.JSONDecodeError, TypeError):
+                    result = {}
+            
+            if not isinstance(result, dict):
+                logger.warning("Unexpected span scoring result type")
+                return {}
+            
+            # Build map: span_id → {score, reason}
+            span_scores = {}
+            for item in result.get("span_scores", []):
+                if isinstance(item, dict):
+                    span_id = item.get("span_id", "")
+                    score = item.get("detection_score", 0.0)
+                    reason = item.get("detection_reason", "")
+                    if span_id in span_ids:
+                        span_scores[span_id] = {
+                            "detection_score": score,
+                            "detection_reason": reason,
+                        }
+            
+            logger.info(f"Scored {len(span_scores)} spans for detection")
+            return span_scores
+            
+        except Exception as e:
+            logger.error(f"Error scoring detection spans: {e}")
+            return {}
+
     async def _identify_detection_mitigation_spans(
         self,
         spans: List[Dict[str, Any]],
     ) -> Dict[str, Optional[str]]:
-        """Use LLM to identify the first detection and final mitigation spans."""
+        """Use LLM to identify the first detection and final mitigation spans.
+        
+        Uses batch size logic to limit spans sent to LLM. If detection_span_limit
+        is configured, only processes the first N spans for identification.
+        """
         self._init_llm_client()
 
         sorted_spans = sorted(spans, key=lambda x: x.get("startTime", ""))
 
+        # Apply span limit if configured (useful for large traces)
+        detection_span_limit = MODULE_CONFIG.get("extractor", {}).get("detection_span_limit")
+        spans_to_process = sorted_spans
+        if detection_span_limit and detection_span_limit > 0:
+            spans_to_process = sorted_spans[:detection_span_limit]
+            if len(sorted_spans) > detection_span_limit:
+                logger.info(
+                    f"Detection span limit applied: processing first {detection_span_limit} "
+                    f"of {len(sorted_spans)} spans"
+                )
+
         span_start_times: Dict[str, str] = {}
         span_end_times: Dict[str, str] = {}
         full_spans = []
-        for span in sorted_spans:
+        for span in spans_to_process:
             span_id = span.get("id", "")
             span_start_times[span_id] = span.get("startTime", "")
             span_end_times[span_id] = span.get("endTime", "")
-            full_spans.append(self._prepare_span_for_llm(span))
+            # Prepare span for LLM, but exclude usage, metadata, and input to reduce token size
+            prepared = self._prepare_span_for_llm(span)
+            prepared.pop("usage", None)  # Remove usage field
+            prepared.pop("metadata", None)  # Remove metadata field
+            prepared.pop("input", None)  # Remove input field (mostly repetitive noise)
+            full_spans.append(prepared)
 
+        # Build fault context for improved detection identification
+        fault_context = self._build_fault_context()
+        
         user_message = (
+            f"{fault_context}\n\n"
             f"Analyze these {len(full_spans)} trace spans (chronologically ordered) "
             f"and identify:\n"
             f"1. The span where the agent FIRST detected/confirmed the fault\n"
             f"2. The span where the agent completed the FINAL remediation/mitigation\n\n"
             f"Spans:\n```json\n{json.dumps(full_spans, indent=2)}\n```\n\n"
-            f'Return a JSON object with "detection_span_id" and "mitigation_span_id".'
+            f'Return a JSON object with: "detection_span_id", "detection_reason" (why this span indicates detection), '
+            f'"detection_confidence" (0-1 confidence score), "mitigation_span_id", "mitigation_reason" (why this span indicates mitigation), '
+            f'and "mitigation_confidence" (0-1 confidence score).'
         )
 
         try:
             result, token_usage = await self.llm_client.call_llm(
                 model_name="gpt-4o",
                 messages=user_message,
-                max_tokens=500,
+                max_tokens=800,
                 system_prompt=PROMPTS["span_identification"],
             )
             self.token_usage.add(token_usage)
@@ -385,9 +531,11 @@ class TraceMetricsExtractor:
             times: Dict[str, Optional[str]] = {}
             if detection_id and detection_id in span_start_times:
                 times["agent_fault_detection_time"] = span_start_times[detection_id]
+                
                 logger.info(
                     f"LLM identified detection span: {detection_id} "
-                    f"at {span_start_times[detection_id]}"
+                    f"at {span_start_times[detection_id]} "
+                    f"(reason: {result.get('detection_reason', '')})"
                 )
             elif detection_id:
                 logger.warning(
@@ -411,11 +559,88 @@ class TraceMetricsExtractor:
                     f"Mitigation span ID '{mitigation_id}' not found in trace spans"
                 )
 
+            # Create debug metrics file if enabled (includes per-span detection scoring on first 10 spans)
+            if self.debug_metrics and self.output_dir:
+                # Pass only first 10 spans for scoring
+                first_10_spans = sorted_spans[:10]
+                detection_scores = await self._score_detection_spans(first_10_spans)
+                await self._create_debug_detection_analysis(
+                    full_spans, result, detection_id, mitigation_id, detection_scores,
+                    llm_user_message=user_message
+                )
+
             return times
 
         except Exception as e:
             logger.error(f"Error identifying detection/mitigation spans: {e}")
             return {}
+
+    async def _create_debug_detection_analysis(
+        self,
+        spans: List[Dict[str, Any]],
+        llm_result: Dict[str, Any],
+        detection_id: Optional[str],
+        mitigation_id: Optional[str],
+        detection_scores: Optional[Dict[str, Dict[str, Any]]] = None,
+        llm_user_message: Optional[str] = None,
+    ) -> None:
+        """Create debug JSON file documenting detection analysis.
+        
+        File is generated even if detection_id is null. Mitigation analysis is omitted.
+        Only first 10 spans are included in per-span scoring analysis.
+        
+        Args:
+            spans: List of prepared spans for LLM
+            llm_result: Main LLM result (detection_span_id, reason, confidence)
+            detection_id: Selected detection span ID (can be None)
+            mitigation_id: Selected mitigation span ID (omitted from debug)
+            detection_scores: Optional dict of span_id → {detection_score, detection_reason}
+            llm_user_message: Complete user message sent to LLM
+        """
+        try:
+            fault_name = self.bucket_metadata.get("fault_name", "unknown_fault") if self.bucket_metadata else "unknown_fault"
+            
+            debug_data = {
+                "fault_name": fault_name,
+                "llm_input": llm_user_message or "(no user message captured)",
+                "detection_analysis": {
+                    "selected_span_id": detection_id,
+                    "selection_reason": llm_result.get("detection_reason", ""),
+                    "llm_confidence": llm_result.get("detection_confidence", 0.9),
+                    "span_analysis": []
+                }
+            }
+            
+            # Analyze each span for detection (with per-span scoring if available)
+            for span in spans:
+                span_id = span.get("id", "")
+                span_name = span.get("name", "")
+                is_detection = span_id == detection_id
+                
+                span_entry = {
+                    "span_id": span_id,
+                    "span_name": span_name,
+                    "was_selected": is_detection,
+                    "timestamp": span.get("startTime", ""),
+                }
+                
+                # Include per-span detection scoring if available (only first 10 spans have scores)
+                if detection_scores and span_id in detection_scores:
+                    score_info = detection_scores[span_id]
+                    span_entry["detection_score"] = score_info.get("detection_score")
+                    span_entry["detection_reason"] = score_info.get("detection_reason", "")
+                
+                debug_data["detection_analysis"]["span_analysis"].append(span_entry)
+            
+            # Write debug file
+            debug_file = self.output_dir / f"debug_detection_analysis_{fault_name}.json"
+            with open(debug_file, "w", encoding="utf-8") as f:
+                json.dump(debug_data, f, indent=2)
+            
+            logger.info(f"Debug detection analysis written to {debug_file}")
+            
+        except Exception as e:
+            logger.error(f"Error creating debug detection analysis file: {e}")
 
     async def _validate_bucket_timestamps_with_llm(
         self,
@@ -624,6 +849,11 @@ Extract all quantitative metrics from this batch as a JSON object. Parse every s
         logger.info("Identifying detection and mitigation spans using LLM...")
         span_times = await self._identify_detection_mitigation_spans(spans)
 
+        # Step 0b: Validate bucket timestamps
+        logger.info("Validating bucket timestamps...")
+        validated_timestamps = await self._validate_bucket_timestamps_with_llm(spans)
+        span_times.update(validated_timestamps)
+
         # Step 1: Aggregate all numeric fields in code
         prescan = self.quant_aggregator.prescan_spans_for_sensitive_data(spans)
         logger.info(
@@ -774,50 +1004,44 @@ Extract any qualitative observations you can make from this batch."""
                 f"Qualitative code aggregation failed: {e}"
             ) from e
 
-        # Step 1b: override hallucination signal with per-step claim-grounding judge.
-        # The bulk LLM count (rules 4(a)-(d)) is replaced with a deterministic,
-        # evidence-anchored validator. Output shape (count + total + score) is unchanged
-        # so the rest of the pipeline (Phase 2 aggregator, Phase 3 cert builder) is unaffected.
+        # Step 1b: combined per-step hallucination + reasoning judge.
+        # A single LLM call per trace step produces both claim-grounding classifications
+        # AND four-dimension reasoning quality scores, halving LLM calls vs two separate judges.
         if spans:
             try:
                 self._init_llm_client()
                 trace_dict = {"events": spans}
-                h_count, r_count, h_notes = await judge_trace(
-                    self.llm_client, trace_dict, model="gpt-4o"
-                )
-                if r_count > 0:
-                    code_aggregated["hallucination_count"] = h_count
-                    code_aggregated["total_response_count"] = r_count
-                    code_aggregated["hallucination_score"] = round(h_count / r_count, 2)
-                    if h_notes:
-                        code_aggregated["hallucination_notes"] = h_notes
-                    logger.info(
-                        f"Hallucination validator: {h_count}/{r_count} claims ungrounded "
-                        f"(score={code_aggregated['hallucination_score']})"
-                    )
-                else:
-                    logger.info("Hallucination validator: no reasoning steps found, retaining bulk count")
-            except Exception as e:
-                logger.warning(f"Hallucination validator failed, falling back to bulk count: {e}")
+                cj = await judge_combined(self.llm_client, trace_dict, model="gpt-4o")
 
-        # Step 1c: override reasoning_quality_score with per-step multi-dimensional judge.
-        # Replaces the old LLM-averaged batch score with a structured, evidence-anchored
-        # four-dimension assessment (coherence, depth, tool relevance, clarity).
-        if spans:
-            try:
-                self._init_llm_client()
-                trace_dict = {"events": spans}
-                rj = await judge_reasoning(self.llm_client, trace_dict, model="gpt-4o")
-                if rj.mean_composite > 0:
-                    code_aggregated["reasoning_quality_score"] = rj.mean_composite
-                    code_aggregated["reasoning_logical_coherence"] = rj.mean_logical_coherence
-                    code_aggregated["reasoning_diagnostic_depth"] = rj.mean_diagnostic_depth
-                    code_aggregated["reasoning_tool_usage_relevance"] = rj.mean_tool_usage_relevance
-                    code_aggregated["reasoning_explanation_clarity"] = rj.mean_explanation_clarity
-                    if rj.overall_notes:
-                        code_aggregated["reasoning_quality_notes"] = rj.overall_notes
+                # Hallucination signals
+                if cj.total_response_count > 0:
+                    code_aggregated["hallucination_count"] = cj.hallucination_count
+                    code_aggregated["total_response_count"] = cj.total_response_count
+                    code_aggregated["hallucination_score"] = round(
+                        cj.hallucination_count / cj.total_response_count, 3
+                    )
+                    if cj.hallucination_notes:
+                        code_aggregated["hallucination_notes"] = cj.hallucination_notes
+                    if cj.breakdown:
+                        code_aggregated["hallucination_ungrounded_external_count"] = cj.breakdown.get("ungrounded_external", 0)
+                        code_aggregated["hallucination_fabricated_tool_count"] = cj.breakdown.get("fabricated_tool_calls", 0)
+                        code_aggregated["hallucination_trajectory_deviation_count"] = cj.breakdown.get("trajectory_deviations", 0)
+                        code_aggregated["hallucination_non_operational_count"] = cj.breakdown.get("non_operational", 0)
+                else:
+                    logger.info("Combined judge: no reasoning steps found, retaining bulk hallucination count")
+
+                # Reasoning quality signals
+                if cj.mean_composite > 0:
+                    code_aggregated["reasoning_quality_score"] = cj.mean_composite
+                    code_aggregated["reasoning_logical_coherence"] = cj.mean_logical_coherence
+                    code_aggregated["reasoning_diagnostic_depth"] = cj.mean_diagnostic_depth
+                    code_aggregated["reasoning_tool_usage_relevance"] = cj.mean_tool_usage_relevance
+                    code_aggregated["reasoning_explanation_clarity"] = cj.mean_explanation_clarity
+                    if cj.overall_reasoning_notes:
+                        code_aggregated["reasoning_quality_notes"] = cj.overall_reasoning_notes
+
             except Exception as e:
-                logger.warning(f"Reasoning judge failed, LLM batch score will be used: {e}")
+                logger.warning(f"Combined judge failed, falling back to bulk counts: {e}")
 
         # Step 2: Use LLM only for text/narrative synthesis
         user_message = f"""Synthesize text and narrative fields from these observations from {len(partial_observations)} batches.

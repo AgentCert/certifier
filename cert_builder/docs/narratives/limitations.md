@@ -6,8 +6,29 @@ Phase 3E takes the existing 10 Phase 2 limitations, **labels** each one with a c
 
 **What changed from Phase 2:** Phase 2 generates limitations deterministically using per-category threshold rules. It cannot spot cross-category patterns, implicit data quality issues, or nuanced gaps that only emerge when reading multiple tables together. The LLM adds these.
 
-**LLM Call**: 5 of 6 (JSON output — array of enriched limitation items)
-**Dependencies**: None — this call is independent. However, its output is consumed by Phase 3F (Call 6).
+### Upstream Pipeline Limitation (Always Present)
+
+Every certification report should include awareness of the **conservative fault bucketing design**:
+
+- **66.2% recall** in fault event detection — approximately 34% of actual fault lifecycle events may not be captured
+- **High precision (96.4%)** design choice — minimizes false positives at the cost of moderate recall
+- **Intentional for safety**: In safety-critical AI agent certification, under-reporting is preferable to mis-reporting
+
+This is a **known, validated limitation** of the upstream pipeline that affects all certification reports. It should be surfaced as a low-severity "Coverage Gap" limitation:
+
+```
+{
+  "severity": "Low",
+  "category": "Cross-cutting",
+  "label": "Coverage Gap",
+  "frequency": "Systematic (all reports)",
+  "limitation": "Conservative fault bucketing design with 66.2% recall may under-report agent performance — actual detection capabilities may exceed reported metrics by ~34%. This precision-first approach (96.4% precision) is intentional for safety-critical certification to minimize false positives."
+}
+```
+
+**LLM Call**: 5 of 7 (JSON output — array of enriched limitation items, enforced via structured-output Pydantic schema)
+**Concurrency**: Runs concurrently with Calls 1–4 and 6 (fairness) via `asyncio.gather`.
+**Dependencies**: None — this call is independent. However, its output is consumed by Call 7 (`recommendation_builder`).
 
 ---
 
@@ -280,16 +301,16 @@ class LimitationsEnriched(BaseModel):
 
 ---
 
-## Downstream Dependency: Call 5 -> Call 6
+## Downstream Dependency: Call 5 -> Call 7
 
-Phase 3E output feeds into Phase 3F (Call 6) as input context:
+Phase 3E output feeds into Call 7 (`recommendation_builder`) as input context:
 
 ```
-Phase 3E output (LimitationsEnriched)
+limitation_builder output (LimitationsEnriched)
     |
     v
-Phase 3F input context (enriched_limitations field)
-    - Allows Call 6 to reference limitation L-numbers
+recommendation_builder input context (limitations_enriched field)
+    - Allows Call 7 to reference limitation L-numbers
     - Ensures every High-severity limitation gets a recommendation
 ```
 
@@ -353,17 +374,18 @@ No new items added in fallback mode.
 ## Module Layout
 
 ```
-engine/phase3/phase3e/
-├── __init__.py                        # re-exports build_limitations()
+cert_builder/scripts/narratives/
 ├── limitation_builder.py              # prompt assembly, LLM call, validation, fallback
-└── docs/
-    └── limitation_requirements.md      # This document
+cert_builder/prompts/
+├── limitation_prompt.yaml             # system + user_prompt_template
+cert_builder/docs/narratives/
+└── limitations.md                     # This document
 ```
 
 ### Entry Point
 
 ```python
-def build_limitations(phase1: dict, phase2: dict, llm_client) -> dict:
+def build_limitations(phase1: dict, phase2: dict) -> dict:
     """
     Returns:
         {
@@ -371,11 +393,22 @@ def build_limitations(phase1: dict, phase2: dict, llm_client) -> dict:
                 "items": [...],
                 "source": "llm" | "fallback",
                 "model": "gpt-4o",
-                "tokens_used": 890
+                "tokens_used": 890,
+                "input_tokens": 612,
+                "output_tokens": 278
             }
         }
     """
 ```
+
+Note: the LLM client is obtained internally via `get_client()` from
+`cert_builder.scripts.narratives.llm_client`. The builder calls
+`call_llm(..., response_schema=LimitationsEnrichedResponse)` so the
+LLM is invoked with Pydantic-enforced structured output.
+
+The post-processing step also runs `_scrub_kn()` over `frequency` and
+`limitation` strings to strip stray `(k/n runs, p%)` fragments produced
+by the LLM.
 
 ---
 

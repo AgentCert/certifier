@@ -6,6 +6,51 @@ Migrate the certification framework from the current `engine/` structure (with d
 
 ---
 
+## Upstream Data Quality and Pipeline Dependencies
+
+The certification framework depends on **high-quality upstream data** from the fault bucketing and detection pipeline (Phase 0 and Phase 1 of the full AgentCert pipeline). Understanding these quality guarantees is critical for interpreting certification results.
+
+### Fault Bucketing Quality Baseline
+
+The input data (`aggregated_scorecard_output.json`) is derived from fault-bucketed traces with the following validated quality metrics:
+
+| Metric | Value | Validation Method |
+|--------|-------|-------------------|
+| **Exact + Partial Match Accuracy** | 93.7% | Manual ground truth labeling (50 fault injections) |
+| **Bucketing Precision** | 96.4% | Events correctly classified into fault buckets |
+| **Bucketing Recall** | 66.2% | Proportion of actual fault events detected |
+| **Detection Timestamp Precision** | Millisecond-level | Conservative high-precision detection logic |
+
+### Conservative Behavior Design
+
+**Precision-Recall Trade-off**: The fault bucketing pipeline is intentionally designed with **high precision (96.4%)** at the cost of **moderate recall (66.2%)**. This conservative approach is appropriate for safety-critical AI agent certification because:
+
+- **False positives are costly**: Incorrectly attributing events to the wrong fault category would corrupt certification metrics
+- **High confidence required**: Only events with strong evidence are classified; ambiguous events are excluded
+- **Safety-first philosophy**: Under-reporting is preferable to mis-reporting in safety-critical systems
+
+### Implications for Certification Reports
+
+**What this means for certification consumers**:
+
+1. **Metrics are high-confidence**: Reported detection rates, TTD/TTM values, and fault analysis are based on reliably bucketed events (96.4% precision)
+2. **Conservative estimates**: Actual agent performance may be slightly better than reported due to the 66.2% recall — some successful detections may not be captured
+3. **Known limitation**: ~34% of fault lifecycle events may not be captured by the bucketing pipeline — this is documented in Section 11 (Limitations) of every certification report
+4. **Ground truth validated**: All bucketing methodology has been validated against manually labeled ground truth data
+
+### Detection Methodology Improvements
+
+Recent enhancements to the fault detection pipeline include:
+
+- **Context injection**: Full fault bucket context provided to detection logic for improved accuracy
+- **Token optimization**: Structured fault context reduces token usage while improving precision
+- **Timestamp precision**: Millisecond-precision timestamps for accurate TTD/TTM calculations
+- **Ground truth validation**: All detection logic validated against manually labeled fault injection runs
+
+**Reference**: See `docs/Methodologies/06-Observations/6.4-Fault-Bucketing-And-Detection-Findings.md` for detailed fault bucketing quality analysis.
+
+---
+
 ## Migration Principles
 
 1. **Builder logic stays untouched** — the Python code inside each builder file (`scorecard_builder.py`, `key_findings_builder.py`, etc.) does not change
@@ -44,20 +89,21 @@ certification_framework/
 │   ├── narratives/                             # ── Phase 3: LLM Generation ──
 │   │   ├── __init__.py
 │   │   ├── assembler.py                        #   NarrativeAssembler (class)
-│   │   │                                       #     Runs 6 LLM calls, merges outputs
-│   │   ├── llm_client.py                       #   was: phase3/llm_client.py (shared client)
-│   │   ├── scope_narrative_builder.py          #   was: phase3a/scope_narrative_builder.py
-│   │   ├── key_findings_builder.py             #   was: phase3b/key_findings_builder.py
-│   │   ├── qualitative_builder.py              #   was: phase3c/qualitative_builder.py
-│   │   ├── fault_analysis_builder.py           #   was: phase3d/fault_analysis_builder.py
-│   │   ├── limitation_builder.py               #   was: phase3e/limitation_builder.py
-│   │   └── recommendation_builder.py           #   was: phase3f/recommendation_builder.py
+│   │   │                                       #     Runs 6 concurrent LLM calls + 1 sequential
+│   │   ├── llm_client.py                       #   Shared Azure OpenAI client + call_llm()
+│   │   ├── scope_narrative_builder.py          #   Call 1 (concurrent)
+│   │   ├── key_findings_builder.py             #   Call 2 (concurrent)
+│   │   ├── qualitative_builder.py              #   Call 3 (concurrent)
+│   │   ├── fault_analysis_builder.py           #   Call 4 (concurrent)
+│   │   ├── limitation_builder.py               #   Call 5 (concurrent)
+│   │   ├── fairness_builder.py                 #   Call 6 (concurrent) — Fairness/consistency score
+│   │   ├── recommendation_builder.py           #   Call 7 (sequential, depends on limitations)
+│   │   ├── hypothesis_overlay_builder.py       #   Invoked by ReportAssembler for §5–§10 strips
+│   │   └── sample_size_notice_builder.py       #   Invoked by ReportAssembler for §1 sample-size notice
 │   │
-│   ├── assembly/                               # ── Phase 4: Report Assembly ──
-│   │   ├── __init__.py
-│   │   └── report_assembler.py                 #   ReportAssembler (class)
-│   │                                           #     Merges Phase 1+2+3 → 12-section report
-│   │                                           #     Validates against CertificationReport schema
+│   └── report_assembler.py                     #   ReportAssembler (class) — Phase 4
+│                                               #     Merges Phase 1+2+3 → 12-section report
+│                                               #     Validates against CertificationReport schema
 │   │
 │   └── certification_pipeline.py               # ── Main Orchestrator ──
 │                                               #   CertificationPipeline (class)
@@ -279,20 +325,22 @@ class NarrativeAssembler:
         self.llm_client = LLMClient()
 
     async def assemble(self) -> dict:
-        """Run 6 LLM calls (3A-3E concurrent, 3F sequential), merge results."""
+        """Run 7 LLM calls (Calls 1-6 concurrent, Call 7 sequential), merge results."""
 
-        # 3A-3E: run concurrently
-        scope, findings, qualitative, fault_analysis, limitations = await asyncio.gather(
-            asyncio.to_thread(build_scope_narrative, self.llm_client, self.parsed_context),
-            asyncio.to_thread(build_key_findings, self.llm_client, self.parsed_context, self.computed_content),
-            asyncio.to_thread(build_qualitative, self.llm_client, self.parsed_context, self.computed_content),
-            asyncio.to_thread(build_fault_analysis, self.llm_client, self.parsed_context, self.computed_content),
-            asyncio.to_thread(build_limitations, self.llm_client, self.parsed_context, self.computed_content),
+        # Calls 1-6: run concurrently via asyncio.gather + asyncio.to_thread
+        outcomes = await asyncio.gather(
+            _safe_call("scope_narrative", build_scope_narrative, phase1),
+            _safe_call("key_findings",    build_key_findings,    phase1, phase2),
+            _safe_call("qualitative",     build_qualitative_findings, phase1, phase2),
+            _safe_call("fault_analysis",  build_fault_analysis,  phase1, phase2),
+            _safe_call("limitations",     build_limitations,     phase1, phase2),
+            _safe_call("fairness_score",  build_fairness_score,  phase1, phase2),
         )
 
-        # 3F: sequential — depends on 3E limitations output
-        recommendations = build_recommendations(
-            self.llm_client, self.parsed_context, self.computed_content, limitations
+        # Call 7: sequential — depends on limitations_enriched from Call 5
+        recommendations = await _safe_call(
+            "recommendations", build_recommendations,
+            phase1, phase2, limitations_enriched,
         )
 
         result = {
@@ -412,12 +460,15 @@ Builder scripts are **plain functions**, not classes. Each file exports one `bui
 | `assessment_formatter.py` | `format_assessments(parsed_context) → list` | Returns assessment blocks |
 | `hardcoded_loader.py` | `load_hardcoded_content() → dict` | Returns static content |
 | `card_builder.py` | `build_cards(parsed_context) → list` | Returns 3 cards |
-| `scope_narrative_builder.py` | `build_scope_narrative(llm_client, parsed_context) → dict` | LLM call with fallback |
-| `key_findings_builder.py` | `build_key_findings(llm_client, parsed_context, computed) → dict` | LLM call with fallback |
-| `qualitative_builder.py` | `build_qualitative(llm_client, parsed_context, computed) → dict` | LLM call with fallback |
-| `fault_analysis_builder.py` | `build_fault_analysis(llm_client, parsed_context, computed) → dict` | LLM call with fallback |
-| `limitation_builder.py` | `build_limitations(llm_client, parsed_context, computed) → dict` | LLM call with fallback |
-| `recommendation_builder.py` | `build_recommendations(llm_client, parsed_context, computed, limitations) → dict` | LLM call with fallback; depends on limitations |
+| `scope_narrative_builder.py` | `build_scope_narrative(phase1) → dict` | Call 1 — concurrent, no LLM client arg (built-in via `get_client()`) |
+| `key_findings_builder.py` | `build_key_findings(phase1, phase2) → dict` | Call 2 — concurrent |
+| `qualitative_builder.py` | `build_qualitative_findings(phase1, phase2) → dict` | Call 3 — concurrent |
+| `fault_analysis_builder.py` | `build_fault_analysis(phase1, phase2) → dict` | Call 4 — concurrent |
+| `limitation_builder.py` | `build_limitations(phase1, phase2) → dict` | Call 5 — concurrent |
+| `fairness_builder.py` | `build_fairness_score(phase1, phase2) → dict` | Call 6 — concurrent; deterministic-from-hypothesis / LLM / fallback score resolution |
+| `recommendation_builder.py` | `build_recommendations(phase1, phase2, limitations_enriched) → dict` | Call 7 — sequential after Call 5 |
+| `hypothesis_overlay_builder.py` | `build_hypothesis_overlay(phase1)` | Called by `ReportAssembler`, not the narrative assembler; emits §5–§10 hypothesis strips |
+| `sample_size_notice_builder.py` | `build_sample_size_notice(phase1)` | Called by `ReportAssembler`; emits §1 NoticeBlock when sample size below framework minimum |
 
 ---
 
@@ -448,19 +499,23 @@ data/input/aggregated_scorecard_output.json
     │  Phase 3: NarrativeAssembler.assemble()                   │
     │  scripts/narratives/assembler.py                          │
     │  ├─ scope_narrative_builder     → scope paragraph         │  ┐
-    │  ├─ key_findings_builder        → 5-7 findings            │  │ concurrent
-    │  ├─ qualitative_builder         → 7-dim findings          │  │
-    │  ├─ fault_analysis_builder      → per-cat analysis        │  │
-    │  ├─ limitation_builder          → enriched limitations    │  ┘
-    │  └─ recommendation_builder      → enriched recs (→3E)     │  sequential
+    │  ├─ key_findings_builder        → 5-7 findings            │  │
+    │  ├─ qualitative_builder         → 7-dim findings          │  │ concurrent
+    │  ├─ fault_analysis_builder      → per-cat analysis        │  │ (asyncio.gather
+    │  ├─ limitation_builder          → enriched limitations    │  │  + asyncio.to_thread)
+    │  └─ fairness_builder            → fairness/consistency    │  ┘
+    │  └─ recommendation_builder      → enriched recs           │  sequential (after limitations)
+    │  (token totals aggregated into phase_3_tokens)            │
     └────┬──────────────────────────────────────────────────────┘
-         │  → data/narratives/narratives.json  (debug)
-         │    + individual builder outputs    (debug)
+         │  → narratives.json  (debug → data/intermediate/)
          │
     ┌────▼──────────────────────────────────────────────────────┐
     │  Phase 4: ReportAssembler.assemble()                      │
-    │  scripts/assembly/report_assembler.py                     │
+    │  scripts/report_assembler.py                              │
     │  Merge all → 12 sections → validate CertificationReport   │
+    │  Also invokes:                                            │
+    │    - build_sample_size_notice() for §1                    │
+    │    - build_hypothesis_overlay() for §5–§10 strips         │
     └────┬──────────────────────────────────────────────────────┘
          │
     data/output/certification_report.json  (always written)
@@ -521,15 +576,16 @@ Phase 3: NarrativeAssembler
     │
     ├── scope_narrative_builder   ─┐
     ├── key_findings_builder      ─┤
-    ├── qualitative_builder       ─┼── concurrent
+    ├── qualitative_builder       ─┼── concurrent (asyncio.gather)
     ├── fault_analysis_builder    ─┤
-    ├── limitation_builder        ─┘
-    │       │
-    │       ▼
-    └── recommendation_builder        ── sequential (needs limitations)
+    ├── limitation_builder        ─┤
+    └── fairness_builder          ─┘
+            │
+            ▼
+    recommendation_builder         ── sequential (consumes limitations_enriched)
     │
     ▼
-Phase 4: ReportAssembler
+Phase 4: ReportAssembler (also invokes hypothesis_overlay + sample_size_notice)
 ```
 
 ---

@@ -38,6 +38,7 @@ from aggregator.scripts.numeric_aggregation import (
     compute_derived_rates,
     compute_numeric_aggregates,
 )
+from aggregator.scripts.rai_scoring import compute_responsible_ai
 
 # ---------------------------------------------------------------------------
 # Module-level config
@@ -178,6 +179,49 @@ def _extract_fault_category(doc: Dict[str, Any]) -> Optional[str]:
     return doc.get("fault_category") or doc.get("quantitative", {}).get("injected_fault_category")
 
 
+def _extract_fault_name(doc: Dict[str, Any]) -> str:
+    """Extract fault_name from a metrics document (top-level or nested)."""
+    return doc.get("fault_name") or doc.get("quantitative", {}).get("injected_fault_name") or ""
+
+
+def _enrich_fault_categories(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Two-pass enrichment: infer fault_category for docs that are missing it.
+
+    When injected_fault_category is None/empty, look up the most common category
+    used by other docs with the same fault_name in this dataset.  This fixes runs
+    where the LLM extractor failed to classify an unusual fault name variant
+    (e.g. pod-network-loss6zfpq instead of pod-network-loss).
+    """
+    from collections import Counter
+
+    # Pass 1 — build fault_name → category counter from docs that have a category
+    name_to_counter: Dict[str, Counter] = {}
+    for doc in docs:
+        cat = _extract_fault_category(doc)
+        fault_name = _extract_fault_name(doc)
+        if cat and fault_name:
+            if fault_name not in name_to_counter:
+                name_to_counter[fault_name] = Counter()
+            name_to_counter[fault_name][cat] += 1
+
+    # Pass 2 — fill in missing categories
+    result = []
+    for doc in docs:
+        cat = _extract_fault_category(doc)
+        if cat:
+            result.append(doc)
+            continue
+        fault_name = _extract_fault_name(doc)
+        inferred: Optional[str] = None
+        if fault_name and fault_name in name_to_counter:
+            inferred = name_to_counter[fault_name].most_common(1)[0][0]
+        if inferred:
+            doc = dict(doc)
+            doc["fault_category"] = inferred
+        result.append(doc)
+    return result
+
+
 def _extract_run_id(doc: Dict[str, Any]) -> Optional[str]:
     """Extract run_id from a metrics document (top-level or nested)."""
     return doc.get("run_id") or doc.get("quantitative", {}).get("run_id")
@@ -216,6 +260,7 @@ class DirectoryQueryService:
             except (json.JSONDecodeError, OSError) as exc:
                 logger.warning(f"Skipping {filepath}: {exc}")
 
+        self._docs = _enrich_fault_categories(self._docs)
         logger.info(
             f"Loaded {len(self._docs)} documents from {self.directory}"
         )
@@ -541,9 +586,9 @@ def _validate_metrics_across_categories(
         "input_tokens",
         "output_tokens",
         "tool_calls",
-        "pii_detection",
-        "number_of_pii_instances_detected",
-        "malicious_prompts_detected",
+        "personal_pii_detected",
+        "sensitive_data_exposure_count",
+        "adversarial_input_count",
         "tool_selection_accuracy",
     ]
     critical_fields_qualitative = [
@@ -758,6 +803,7 @@ class AggregationOrchestrator:
         runs_per_fault: int = 30,
         store_results: bool = True,
         total_input_runs: Optional[int] = None,
+        min_runs_per_category: int = 3,
     ) -> Dict[str, Any]:
         """
         Aggregate metrics for all fault categories and produce the final certification scorecard.
@@ -771,6 +817,10 @@ class AggregationOrchestrator:
                 ``GroupedDocsQueryService``), the caller must supply this
                 from the un-grouped docs so ``total_runs`` reflects the
                 true number of attempted runs.
+            min_runs_per_category: minimum number of docs a fault category
+                must have to be included in aggregation. Categories with
+                fewer docs (e.g. LLM misclassified singleton runs) are
+                silently skipped so they don't dilute aggregate statistics.
         """
         try:
             # ── FIRST STEP: Validate metrics across all categories ──
@@ -785,6 +835,24 @@ class AggregationOrchestrator:
                 agent_id=agent_id or None
             )
             logger.info(f"Found {len(categories)} fault categories: {categories}")
+
+            # Filter out categories with too few runs — LLM misclassification can
+            # produce singleton categories that distort aggregate statistics.
+            if min_runs_per_category > 1:
+                eligible = []
+                for cat in categories:
+                    docs_count = len(self.query_service.query_runs_by_fault_category(
+                        cat, agent_id=agent_id or None
+                    ))
+                    if docs_count >= min_runs_per_category:
+                        eligible.append(cat)
+                    else:
+                        logger.info(
+                            f"Skipping fault_category='{cat}' — only {docs_count} doc(s) "
+                            f"(min_runs_per_category={min_runs_per_category})"
+                        )
+                categories = eligible
+            logger.info(f"Eligible fault categories ({len(categories)}): {categories}")
 
             # ── Auto-derive agent metadata from docs when not provided ──
             if not agent_id or not agent_name or not certification_run_id:
@@ -894,6 +962,19 @@ class AggregationOrchestrator:
 
             # ── Attach metrics validation flag ──
             final_scorecard["metrics_validation_failed"] = metrics_validation_failed
+
+            # ── Compute and attach RAI block ──
+            try:
+                final_scorecard["responsible_ai"] = compute_responsible_ai(
+                    category_scorecards, all_docs_for_tokens
+                )
+                logger.info(
+                    f"RAI scoring complete: decision={final_scorecard['responsible_ai']['rai_decision']}, "
+                    f"score={final_scorecard['responsible_ai']['score']}"
+                )
+            except Exception as exc:
+                logger.warning(f"RAI scoring failed, attaching empty block: {exc}", exc_info=True)
+                final_scorecard["responsible_ai"] = None
 
             # ── Collect Phase 0-1 tokens and build final pipeline_tokens ──
             try:

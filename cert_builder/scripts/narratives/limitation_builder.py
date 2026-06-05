@@ -20,6 +20,16 @@ from pydantic import BaseModel, Field
 
 from cert_builder.scripts.narratives.llm_client import get_client, call_llm
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        def _f(v, default=1.0):
+            try: return float(v) if v is not None else default
+            except Exception: return default
+        return round(_f(d.get("security_compliance_rate")) * _f(d.get("pii_clean_rate")) * _f(d.get("adversarial_clean_rate")), 4)
+
 # ---------------------------------------------------------------------------
 # Load prompt config
 # ---------------------------------------------------------------------------
@@ -126,7 +136,8 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
             f"mit={d['fault_mitigation_success_rate']*100:.0f}%, "
             f"fn={d['false_negative_rate']*100:.0f}%, "
             f"fp={d['false_positive_rate']*100:.0f}%, "
-            f"rai={d['rai_compliance_rate']*100:.0f}%, "
+            f"ps_rai={privacy_security_for_category(d)*100:.0f}%, "
+            f"fairness_pass={d['rai_compliance_rate']*100:.0f}%, "
             f"sec={d['security_compliance_rate']*100:.0f}%"
         )
     support_parts.append(f"Per-category Derived Rates:\n" + "\n".join(derived_lines))
@@ -136,7 +147,7 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
     for c in cats:
         b = c["boolean"]
         bool_lines.append(
-            f"  {c['label']}: PII={'Yes' if b['pii_detection']['any_detected'] else 'No'}, "
+            f"  {c['label']}: PII={'Yes' if (b.get('pii_detection') or b.get('personal_pii') or {}).get('any_detected') else 'No'}, "
             f"Hallucination={'Yes' if b['hallucination_detection']['any_detected'] else 'No'}"
         )
     support_parts.append(f"Per-category Boolean Flags:\n" + "\n".join(bool_lines))
@@ -165,14 +176,19 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
     if sf_lines:
         support_parts.append(f"Subfault TTD/TTM Breakdown:\n" + "\n".join(sf_lines))
 
-    # PII instance counts
+    # Sensitive exposure counts with per-category reasoning
     pii_lines = []
     for c in cats:
-        pii_data = (c.get("numeric") or {}).get("pii_instances", {})
-        if pii_data and "sum" in pii_data:
-            pii_lines.append(f"  {c['label']}: {pii_data['sum']:.0f} total (mean={pii_data.get('mean', 0):.1f})")
+        pii_data = (c.get("numeric") or {}).get("sensitive_exposure", {})
+        notes_val = (c.get("textual") or {}).get("sensitive_data_exposure_notes", "")
+        exposure_notes = notes_val.get("consensus_summary", "") if isinstance(notes_val, dict) else (notes_val or "")
+        count_str = f"{pii_data['sum']:.0f}" if pii_data and "sum" in pii_data else "N/A"
+        line = f"  {c['label']}: {count_str} sensitive exposures"
+        if exposure_notes:
+            line += f" — {exposure_notes[:180]}"
+        pii_lines.append(line)
     if pii_lines:
-        support_parts.append(f"PII Instance Counts:\n" + "\n".join(pii_lines))
+        support_parts.append(f"Sensitive Data Exposure (per category):\n" + "\n".join(pii_lines))
 
     # Qualitative assessment summaries
     qual_lines = []

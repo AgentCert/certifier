@@ -36,16 +36,21 @@ def run_tail_risk_test(
     metric_name: str = "time_to_detect",
     quantile: float = 0.95,
     sla_thresholds: Optional[Dict[str, float]] = None,
+    min_sample_size: int = 20,
 ) -> H08Result:
     """Run H-08: Tail Risk Analysis.
 
     CVaR analysis per sub-fault, with optional per-sub-fault SLA overshoot.
+    
+    Sub-faults with n < min_sample_size are gated as INSUFFICIENT_DATA
+    (P95 and CVaR estimates are unreliable at small sample sizes).
 
     Args:
         data_per_category: {category: {sub_fault: [values]}} (detected-only).
         metric_name: Name of the metric.
         quantile: Quantile for VaR/CVaR (default 0.95).
         sla_thresholds: Optional {sub_fault: threshold} for overshoot analysis.
+        min_sample_size: Minimum sample size for tail risk assessment (default 20).
 
     Returns:
         H08Result with per-sub-fault tail risk rolled up to categories.
@@ -57,6 +62,7 @@ def run_tail_risk_test(
     for cat, subfaults in data_per_category.items():
         sub_results: List[SubFaultTailResult] = []
         cat_n = 0
+        n_insufficient = 0
 
         for fname, values in sorted(subfaults.items()):
             arr = np.asarray(values, dtype=float)
@@ -70,10 +76,19 @@ def run_tail_risk_test(
                 ))
                 continue
 
-            if n < 20:
+            # Sub-fault gate-keeper: minimum sample size for reliable P95/CVaR
+            if n < min_sample_size:
+                n_insufficient += 1
+                sub_results.append(SubFaultTailResult(
+                    fault_name=fname,
+                    n=n,
+                    risk_level="INSUFFICIENT_DATA",
+                ))
                 warnings.append(
-                    f"{cat}/{fname}: n={n}; tail risk estimates uncertain at small n."
+                    f"{cat}/{fname}: n={n} < {min_sample_size}; "
+                    f"P95 and CVaR estimates unreliable at small n."
                 )
+                continue
 
             sf_sla = sla_map.get(fname)
             cvar_r = cvar_analysis(values, quantile=quantile, sla_threshold=sf_sla)
@@ -106,15 +121,19 @@ def run_tail_risk_test(
                 risk_level=risk_level,
             ))
 
-        # Category rollup: worst risk level
-        risk_levels = [s.risk_level for s in sub_results if s.risk_level != "unknown"]
+        # Category rollup: worst risk level (excluding INSUFFICIENT_DATA)
+        risk_levels = [s.risk_level for s in sub_results 
+                       if s.risk_level not in ("unknown", "INSUFFICIENT_DATA")]
         if risk_levels:
             cat_risk = max(risk_levels, key=lambda r: _RISK_ORDER.get(r, -1))
+        elif n_insufficient == len(sub_results):
+            # All sub-faults are insufficient
+            cat_risk = "INSUFFICIENT_DATA"
         else:
             cat_risk = "unknown"
 
         worst = ""
-        assessed = [s for s in sub_results if s.risk_level != "unknown"]
+        assessed = [s for s in sub_results if s.risk_level not in ("unknown", "INSUFFICIENT_DATA")]
         if assessed:
             worst = max(
                 assessed,
@@ -125,13 +144,22 @@ def run_tail_risk_test(
             category=cat,
             n=cat_n,
             n_sub_faults=len(sub_results),
+            n_insufficient_data=n_insufficient,
             risk_level=cat_risk,
             worst_sub_fault=worst,
             sub_faults=sub_results,
         ))
 
     sig_cats = [c.category for c in per_cat if c.risk_level == "significant"]
-    overall = "significant_tail_risk" if sig_cats else "acceptable_tail_risk"
+    assessed = [c for c in per_cat
+                if c.risk_level in ("mild", "moderate", "significant")]
+
+    if sig_cats:
+        overall = "significant_tail_risk"
+    elif not assessed:
+        overall = "insufficient_data"
+    else:
+        overall = "acceptable_tail_risk"
 
     return H08Result(
         metric_name=metric_name,

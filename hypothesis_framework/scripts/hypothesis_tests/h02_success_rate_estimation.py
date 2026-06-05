@@ -19,6 +19,7 @@ from hypothesis_framework.schema.hypothesis_results import (
     SubFaultRateResult,
 )
 from hypothesis_framework.scripts.statistical_tests.wilson_ci import wilson_ci
+from hypothesis_framework.scripts.utils import filter_categories_by_min_sample_size_counts
 
 
 def run_success_rate_test(
@@ -32,6 +33,9 @@ def run_success_rate_test(
     averages sub-fault rates for the category estimate. The certified floor
     is the Wilson lower bound of the category-level rate.
 
+    Categories with insufficient sample size (n < 1 trial after filtering)
+    are excluded from the analysis.
+
     Args:
         counts_per_category: {category: {sub_fault: (successes, trials)}}.
         metric_name: Name of the rate metric.
@@ -41,9 +45,18 @@ def run_success_rate_test(
         H02Result with per-category Wilson CI, sub-fault breakdown, and certified floor.
     """
     warnings: List[str] = []
+    
+    # Filter categories by minimum sample size (n >= 1)
+    filtered_data, excluded_cats = filter_categories_by_min_sample_size_counts(
+        counts_per_category, min_n=1
+    )
+    if excluded_cats:
+        for cat_info in excluded_cats:
+            warnings.append(f"Category excluded: {cat_info}")
+    
     per_cat: List[CategoryRateResult] = []
 
-    for cat, subfaults in counts_per_category.items():
+    for cat, subfaults in filtered_data.items():
         sub_results: List[SubFaultRateResult] = []
         total_successes = 0
         total_trials = 0

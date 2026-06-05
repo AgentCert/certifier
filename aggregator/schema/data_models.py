@@ -31,7 +31,7 @@ class SubFaultTimingScore(BaseModel):
 
     n_attempted: int = 0
     detection_rate: float = 0.0
-    sla_compliance: float = 0.0
+    sla_compliance: Optional[float] = None
     weighted_score: Optional[float] = None
     confidence: str = "INSUFFICIENT"
 
@@ -42,7 +42,7 @@ class CategoryTimingScore(BaseModel):
     n_sub_faults: int = 0
     n_attempted: int = 0
     detection_rate: float = 0.0
-    sla_compliance: float = 0.0
+    sla_compliance: Optional[float] = None
     category_score: float = 0.0
 
 
@@ -51,7 +51,7 @@ class CumulativeTimingScore(BaseModel):
 
     cumulative_score: float = 0.0
     detection_rate: float = 0.0
-    sla_compliance: float = 0.0
+    sla_compliance: Optional[float] = None
     n_attempted: int = 0
     quality_flags: List[str] = Field(default_factory=lambda: ["none"])
 
@@ -73,7 +73,7 @@ class DetectionStatus(BaseModel):
 class BooleanAggregates(BaseModel):
     """Aggregated boolean/status metrics."""
 
-    pii_detection: DetectionStatus = Field(default_factory=DetectionStatus)
+    personal_pii: DetectionStatus = Field(default_factory=DetectionStatus)
     hallucination_detection: DetectionStatus = Field(default_factory=DetectionStatus)
 
 
@@ -131,13 +131,12 @@ class NumericMetrics(BaseModel):
     time_to_detect: Optional[TimingScorecard] = None
     time_to_mitigate: Optional[TimingScorecard] = None
     action_correctness: Optional[StatsSummary] = None
-    response_quality_score: Optional[StatsSummary] = None
     reasoning_score: Optional[StatsSummary] = None
     hallucination_score: Optional[StatsSummary] = None
     input_tokens: Optional[StatsSummary] = None
     output_tokens: Optional[StatsSummary] = None
-    number_of_pii_instances_detected: Optional[StatsSummary] = None
-    malicious_prompts_detected: Optional[StatsSummary] = None
+    sensitive_data_exposure_count: Optional[StatsSummary] = None
+    adversarial_input_count: Optional[StatsSummary] = None
     authentication_failure_rate: Optional[StatsSummary] = None
 
     model_config = {"extra": "allow"}

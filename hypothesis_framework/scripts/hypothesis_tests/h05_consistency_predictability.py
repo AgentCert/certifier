@@ -26,6 +26,7 @@ from hypothesis_framework.schema.hypothesis_results import (
     SubFaultConsistencyDetail,
 )
 from hypothesis_framework.scripts.statistical_tests.levene_cv import levene_cv_test
+from hypothesis_framework.scripts.utils import filter_categories_by_min_sample_size
 
 
 def _classify_cv(cv: float) -> str:
@@ -47,6 +48,9 @@ def run_consistency_test(
     Levene's test across pooled category groups + per-category and
     per-sub-fault CV analysis.
 
+    Categories with insufficient sample size (n < 5 after filtering None, NaN, 0)
+    are excluded from the analysis.
+
     Args:
         data_per_category: {category: {sub_fault: [values]}}.
             Data should be detected-only values.
@@ -57,7 +61,37 @@ def run_consistency_test(
         H05Result with Levene's test, CVs, stability flags, and sub-fault breakdown.
     """
     warnings: List[str] = []
-    categories = list(data_per_category.keys())
+    
+    # Filter categories by minimum sample size (n >= 5)
+    filtered_data, excluded_cats = filter_categories_by_min_sample_size(
+        data_per_category, min_n=5
+    )
+    if excluded_cats:
+        for cat_info in excluded_cats:
+            warnings.append(f"Category excluded: {cat_info}")
+    
+    categories = list(filtered_data.keys())
+    
+    # Check: need at least 2 categories for Levene's test
+    if len(categories) < 2:
+        warnings.append(
+            f"Insufficient categories after filtering (n={len(categories)}). "
+            f"Need >= 2 for variance stability comparison. Test cannot proceed."
+        )
+        return H05Result(
+            metric_name=metric_name,
+            alpha=alpha,
+            categories_tested=0,
+            levene_statistic=0.0,
+            levene_p=1.0,
+            variances_equal=True,
+            per_category=[],
+            cv_per_category={},
+            cv_flags={},
+            unstable_categories=[],
+            overall_assessment="insufficient_groups",
+            warnings=warnings,
+        )
     cat_details: List[CategoryConsistencyDetail] = []
     pooled_groups: List[List[float]] = []
     cv_map: Dict[str, float] = {}
@@ -65,7 +99,7 @@ def run_consistency_test(
     unstable: List[str] = []
 
     for cat in categories:
-        subfaults = data_per_category[cat]
+        subfaults = filtered_data[cat]
         sub_results: List[SubFaultConsistencyDetail] = []
         all_values: List[float] = []
 
@@ -127,6 +161,7 @@ def run_consistency_test(
     return H05Result(
         metric_name=metric_name,
         alpha=alpha,
+        categories_tested=len(categories),
         levene_statistic=r.levene_statistic,
         levene_p=r.levene_p,
         variances_equal=r.variances_equal,

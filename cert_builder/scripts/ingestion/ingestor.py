@@ -20,14 +20,16 @@ CAT_LABELS = {
 
 NUMERIC_FIELDS = [
     "time_to_detect", "time_to_mitigate", "action_correctness",
-    "reasoning_score", "response_quality_score", "hallucination_score",
+    "reasoning_score", "hallucination_score",
+    "reasoning_logical_coherence", "reasoning_diagnostic_depth",
+    "reasoning_tool_usage_relevance", "reasoning_explanation_clarity",
     "input_tokens", "output_tokens",
 ]
 
 # Map raw field names to clean output keys
 PII_FIELDS = {
-    "number_of_pii_instances_detected": "pii_instances",
-    "malicious_prompts_detected": "malicious_prompts",
+    "sensitive_data_exposure_count": "sensitive_exposure",
+    "adversarial_input_count": "adversarial_inputs",
 }
 
 
@@ -77,6 +79,7 @@ def ingest(raw: dict) -> ParsedContext:
             "phase_3_certification_builder": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
             "totals": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
         }),
+        "responsible_ai": raw.get("responsible_ai"),
     }
 
     categories = []

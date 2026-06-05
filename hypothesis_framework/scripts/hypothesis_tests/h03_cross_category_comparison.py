@@ -31,6 +31,7 @@ from hypothesis_framework.scripts.statistical_tests.shapiro_wilk import shapiro_
 from hypothesis_framework.scripts.statistical_tests.kruskal_wallis import kruskal_wallis_test
 from hypothesis_framework.scripts.statistical_tests.mann_whitney import mann_whitney_test
 from hypothesis_framework.scripts.statistical_tests.vargha_delaney import vargha_delaney_a12
+from hypothesis_framework.scripts.utils import filter_categories_by_min_sample_size
 
 
 def _holm_bonferroni(p_values: List[float], alpha: float = 0.05) -> List[float]:
@@ -73,6 +74,9 @@ def run_cross_category_test(
     Step 4: Kruskal-Wallis omnibus test across categories.
     Step 5: If significant → pairwise Mann-Whitney U + A12, Holm corrected.
 
+    Categories with insufficient sample size (n < 5 after filtering None, NaN, 0)
+    are excluded from the analysis.
+
     Args:
         data_per_category: {category: {sub_fault: [values]}}.
             Data should be detected-only values.
@@ -84,14 +88,43 @@ def run_cross_category_test(
         and per-category sub-fault breakdowns.
     """
     warnings: List[str] = []
-    categories = list(data_per_category.keys())
+    
+    # Filter categories by minimum sample size (n >= 5)
+    filtered_data, excluded_cats = filter_categories_by_min_sample_size(
+        data_per_category, min_n=5
+    )
+    if excluded_cats:
+        for cat_info in excluded_cats:
+            warnings.append(f"Category excluded: {cat_info}")
+    
+    categories = list(filtered_data.keys())
+    
+    # Check: need at least 2 categories for cross-category comparison
+    if len(categories) < 2:
+        warnings.append(
+            f"Insufficient categories after filtering (n={len(categories)}). "
+            f"Need >= 2 for cross-category comparison. Test cannot proceed."
+        )
+        return H03Result(
+            metric_name=metric_name,
+            alpha=alpha,
+            categories_tested=0,
+            test_used="kruskal_wallis",
+            omnibus_statistic=0.0,
+            omnibus_p=1.0,
+            omnibus_significant=False,
+            pairwise=[],
+            per_category=[],
+            overall_assessment="insufficient_groups",
+            warnings=warnings,
+        )
     cat_details: List[CategoryComparisonDetail] = []
     pooled_groups: Dict[str, np.ndarray] = {}
     normality: Dict[str, bool] = {}
 
     # Step 1 & 2: Build per-category stats
     for cat in categories:
-        subfaults = data_per_category[cat]
+        subfaults = filtered_data[cat]
         sub_results: List[SubFaultComparisonDetail] = []
         subfault_arrays: List[np.ndarray] = []
         all_values: List[float] = []
@@ -176,6 +209,15 @@ def run_cross_category_test(
     omnibus_stat = omnibus.statistic if omnibus.statistic is not None else 0.0
     omnibus_p = omnibus.p_value if omnibus.p_value is not None else 1.0
     omnibus_sig = omnibus_p < alpha
+    
+    # Calculate Epsilon-squared effect size for Kruskal-Wallis
+    # ε² = (H - k + 1) / (n - k) where H is statistic, k is groups, n is total N
+    n_total = sum(len(g) for g in groups)
+    k_groups = len(groups)
+    omnibus_epsilon_sq = 0.0
+    if k_groups > 1 and n_total > k_groups:
+        omnibus_epsilon_sq = (omnibus_stat - k_groups + 1) / (n_total - k_groups)
+        omnibus_epsilon_sq = max(0.0, min(1.0, omnibus_epsilon_sq))  # Bound to [0, 1]
 
     # Step 4: Pairwise post-hoc (if omnibus significant)
     pairwise: List[PairwiseComparison] = []
@@ -221,10 +263,12 @@ def run_cross_category_test(
     return H03Result(
         metric_name=metric_name,
         alpha=alpha,
+        categories_tested=len(categories),
         per_category=cat_details,
         normality_results=normality,
         test_used="kruskal_wallis",
         omnibus_statistic=round(omnibus_stat, 4),
+        omnibus_epsilon_squared=round(omnibus_epsilon_sq, 3),
         omnibus_p=round(omnibus_p, 6),
         omnibus_significant=omnibus_sig,
         pairwise=pairwise,

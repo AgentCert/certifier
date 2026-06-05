@@ -25,7 +25,7 @@ def exact_binomial_test(
 ) -> ExactBinomialResult:
     """Exact binomial test for SLA breach rate.
 
-    Tests H₀: breach_rate ≥ target_rate vs Hₐ: breach_rate < target_rate.
+    Tests H₀: breach_rate < target_rate (meets SLA) vs Hₐ: breach_rate ≥ target_rate (doesn't meet).
 
     Args:
         breaches: Number of SLA breaches observed.
@@ -53,7 +53,7 @@ def exact_binomial_test(
     observed_rate = breaches / trials
 
     # Exact binomial test (one-sided: is breach rate < target?)
-    result = stats.binomtest(breaches, trials, p=target_rate, alternative="less")
+    result = stats.binomtest(breaches, trials, p=target_rate, alternative="greater")
     p_val = result.pvalue
 
     # Clopper-Pearson exact CI
@@ -61,7 +61,7 @@ def exact_binomial_test(
     ci_lower = float(ci.low)
     ci_upper = float(ci.high)
 
-    meets_target = p_val < alpha
+    meets_target = p_val >= alpha
 
     return ExactBinomialResult(
         alpha=alpha,

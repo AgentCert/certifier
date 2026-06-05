@@ -123,7 +123,14 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
             val = float(getattr(d, "value", 0))
         else:
             continue
-        rows.append({"key": label, "value": max(0.0, min(1.0, val))})
+        sublabel = str(d.get("sublabel", "")) if isinstance(d, dict) else ""
+        sublabel_color = str(d.get("sublabel_color", "#666666")) if isinstance(d, dict) else "#666666"
+        rows.append({
+            "key": label,
+            "value": max(0.0, min(1.0, val)),
+            "sublabel": sublabel,
+            "sublabel_color": sublabel_color,
+        })
 
     if not rows:
         return _build_placeholder(block)
@@ -215,6 +222,7 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 "source": "table",
                 "transform": [{"type": "aggregate", "groupby": ["key"]}],
             },
+            {"name": "sublabels", "source": "table", "transform": [{"type": "aggregate", "groupby": ["key", "sublabel", "sublabel_color"]}]},
             {"name": "grid", "values": grid_rows},
             {"name": "ticks", "values": tick_rows},
             {"name": "legend", "values": legend_rows},
@@ -362,6 +370,31 @@ def _build_radar(block: dict[str, Any]) -> dict[str, Any]:
                 },
             },
         },
+        {
+            "type": "text",
+            "from": {"data": "sublabels"},
+            "encode": {
+                "enter": {
+                    "x": {"signal": "cx + (radius + 22) * cos(scale('angular', datum.key))"},
+                    "y": {"signal": "cy + (radius + 22) * sin(scale('angular', datum.key))"},
+                    "dy": [
+                        {"test": "sin(scale('angular', datum.key)) < -0.15", "value": 2},
+                        {"test": "sin(scale('angular', datum.key)) > 0.15", "value": 13},
+                        {"value": 7},
+                    ],
+                    "text": {"field": "sublabel"},
+                    "align": [
+                        {"test": "abs(cos(scale('angular', datum.key))) < 0.15", "value": "center"},
+                        {"test": "cos(scale('angular', datum.key)) > 0", "value": "left"},
+                        {"value": "right"},
+                    ],
+                    "baseline": {"value": "top"},
+                    "fill": {"field": "sublabel_color"},
+                    "fontSize": {"value": 10},
+                    "fontWeight": {"value": "bold"},
+                },
+            },
+        },
         # Radial tick labels (0.2, 0.4, …).
         {
             "type": "text",
@@ -458,8 +491,9 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
     if not categories or not series_list:
         return _build_placeholder(block)
 
-    # Flatten to long-form for Vega-Lite
+    # Flatten to long-form for Vega-Lite, preserving series insertion order
     flat_rows = []
+    series_order = []
     for s in series_list:
         if isinstance(s, dict):
             name = s.get("name", "?")
@@ -469,6 +503,7 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
             values = getattr(s, "values", [])
         else:
             continue
+        series_order.append(name)
         for cat, val in zip(categories, values):
             try:
                 val = float(val)
@@ -486,9 +521,9 @@ def _build_grouped_bar(block: dict[str, Any]) -> dict[str, Any]:
                 "x": {"field": "category", "type": "nominal", "axis": {"title": None}},
                 "y": {"field": "value", "type": "quantitative",
                       "axis": {"title": y_axis}},
-                "xOffset": {"field": "series", "type": "nominal"},
+                "xOffset": {"field": "series", "type": "nominal", "sort": series_order},
                 "color": {"field": "series", "type": "nominal",
-                          "scale": {"scheme": "tableau10"}, "title": "Series"},
+                          "scale": {"scheme": "tableau10", "domain": series_order}, "title": "Series"},
                 "tooltip": [
                     {"field": "category", "type": "nominal"},
                     {"field": "series", "type": "nominal"},
@@ -725,6 +760,20 @@ def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
         point_encoding["color"] = color
         point_encoding["xOffset"] = {"field": "group", "type": "nominal"}
 
+    # Prepare bound tick marks data (small dashes at CI bounds)
+    bound_marks = []
+    for row in rows:
+        bound_marks.append({
+            **row,
+            "mark_type": "tick",
+            "tick_pos": row["ci_low"],
+        })
+        bound_marks.append({
+            **row,
+            "mark_type": "tick",
+            "tick_pos": row["ci_high"],
+        })
+
     spec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "width": 480,
@@ -737,11 +786,80 @@ def _build_ci_bar(block: dict[str, Any]) -> dict[str, Any]:
                 "encoding": rule_encoding,
             },
             {
+                "data": {"values": bound_marks},
+                "mark": {"type": "tick", "thickness": 2, "size": 10, "color": "#4c5aa0"},
+                "encoding": {
+                    "x": {"field": "label", "type": "nominal"},
+                    "y": {"field": "tick_pos", "type": "quantitative"},
+                    **({"color": {"field": "group", "type": "nominal", "scale": {"scheme": "tableau10"}, "title": "Group"}, "xOffset": {"field": "group", "type": "nominal"}} if has_groups else {}),
+                },
+            },
+            {
                 "mark": {"type": "point", "filled": True, "size": 80, "color": "#1a2744"},
                 "encoding": point_encoding,
             },
         ],
-        "resolve": {"scale": {"color": "independent"}},
+    }
+    return spec
+
+
+def _build_line(block: dict[str, Any]) -> dict[str, Any]:
+    """Line chart from categories + series."""
+    categories = block.get("categories", [])
+    series_list = block.get("series", [])
+    y_axis = block.get("y_axis", "Value")
+    x_axis = block.get("x_axis", "")
+
+    if not categories or not series_list:
+        return _build_placeholder(block)
+
+    flat_rows = []
+    for s in series_list:
+        if isinstance(s, dict):
+            name = s.get("name", "?")
+            values = s.get("values", [])
+        elif hasattr(s, "name"):
+            name = s.name
+            values = getattr(s, "values", [])
+        else:
+            continue
+        for cat, val in zip(categories, values):
+            try:
+                val = float(val)
+            except (TypeError, ValueError):
+                val = 0.0
+            flat_rows.append({"category": str(cat), "series": name, "value": val})
+
+    if not flat_rows:
+        return _build_placeholder(block)
+
+    spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "width": 500,
+        "height": 320,
+        "background": "transparent",
+        "data": {"values": flat_rows},
+        "mark": {"type": "line", "point": True, "strokeWidth": 2.5},
+        "encoding": {
+            "x": {
+                "field": "category", "type": "nominal",
+                "axis": {"title": x_axis or None},
+                "sort": None,
+            },
+            "y": {
+                "field": "value", "type": "quantitative",
+                "axis": {"title": y_axis},
+            },
+            "color": {
+                "field": "series", "type": "nominal",
+                "scale": {"scheme": "tableau10"}, "title": "Series",
+            },
+            "tooltip": [
+                {"field": "category", "type": "nominal"},
+                {"field": "series", "type": "nominal"},
+                {"field": "value", "type": "quantitative", "format": ",.0f"},
+            ],
+        },
     }
     return spec
 
@@ -772,6 +890,7 @@ _BUILDERS: dict[str, Any] = {
     "stacked_bar": _build_stacked_bar,
     "heatmap": _build_heatmap,
     "ci_bar": _build_ci_bar,
+    "line": _build_line,
 }
 
 

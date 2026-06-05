@@ -71,6 +71,8 @@ def _get_jinja_env():
     env.filters["tag_class"] = _tag_class
     env.filters["replace_underscore"] = lambda s: str(s).replace("_", " ").title()
     env.filters["md"] = _md
+    env.filters["md_inline"] = _md_inline
+    env.filters["strip_md"] = _strip_md
     # Globals used by the section dispatcher
     env.globals["_resolve_block_type"] = _resolve_block_type
     env.globals["_block_has_template"] = _block_has_template
@@ -137,15 +139,16 @@ def _tag_class(value: str) -> str:
     """Return a CSS tag class for status/rating values in table cells."""
     s = str(value).strip().upper()
     if s in ("PASS", "OK", "SUCCESS", "EXCELLENT", "COMPLIANT", "VALID",
-             "PERFECT", "CLEAN", "STRONG", "GOLD"):
+             "PERFECT", "CLEAN", "STRONG", "GOLD", "STABLE", "MILD"):
         return "tag-excellent"
-    if s in ("GOOD", "SILVER"):
+    if s in ("GOOD", "SILVER", "CONDITIONAL"):
         return "tag-good"
     if s in ("WARN", "WARNING", "CAUTION", "REVIEW", "PARTIAL", "ADVISORY",
-             "MODERATE", "MINOR", "ADEQUATE", "BRONZE", "NEEDS IMPROVEMENT"):
+             "MODERATE", "MINOR", "ADEQUATE", "BRONZE", "NEEDS IMPROVEMENT", "LOW_POWER", "INCOMPLETE", "UNKNOWN",
+             "INCONCLUSIVE", "NO_DATA", "INSUFFICIENT_DATA", "NO_SLA_DEFINED"):
         return "tag-warn"
     if s in ("FAIL", "FAILED", "ERROR", "CRITICAL", "INVALID", "REJECT",
-             "NOT CERTIFIED", "WEAK", "BAD", "POOR", "SIGNIFICANT"):
+             "NOT CERTIFIED", "WEAK", "BAD", "POOR", "SIGNIFICANT", "DRIFT_DETECTED"):
         return "tag-bad"
     return ""
 
@@ -175,6 +178,25 @@ def _md(text: str) -> str:
     # Single newline → <br>
     s = s.replace("\n", "<br>")
     return Markup(f"<p>{s}</p>")
+
+
+def _md_inline(text: str) -> str:
+    """Convert **bold**, *italic*, `code` to HTML — no <p> wrapper."""
+    import re
+    from markupsafe import Markup, escape
+    if not text:
+        return Markup("")
+    s = str(escape(text))
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    return Markup(s)
+
+
+def _strip_md(text: str) -> str:
+    """Strip **bold** / *italic* markers (for CSS class lookups)."""
+    import re
+    return re.sub(r"\*+", "", str(text)).strip()
 
 
 def _severity_class(severity: str) -> str:

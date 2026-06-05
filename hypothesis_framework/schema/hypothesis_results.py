@@ -163,7 +163,9 @@ class SubFaultSLAResult(BaseModel):
     n: int = 0
     sla_threshold: Optional[float] = None
     median: float = 0.0
+    wilcoxon_w_statistic: Optional[float] = None
     wilcoxon_p: Optional[float] = None
+    ci_lower: Optional[float] = None
     ci_upper: Optional[float] = None
     tost_equivalent: Optional[bool] = None
     tost_p: Optional[float] = None
@@ -210,13 +212,12 @@ class SubFaultBreachResult(BaseModel):
 
 
 class CategoryBreachResult(BaseModel):
-    """Per-category rollup for H-07.
+    """Per-category result for H-07.
 
-    Category verdict is derived from sub-fault verdicts:
-      PASS: all assessed sub-faults PASS
-      FAIL: any sub-fault FAIL
-      INCOMPLETE: any sub-fault NO_SLA_DEFINED and none FAIL
-      INCONCLUSIVE: any sub-fault INCONCLUSIVE and none FAIL/INCOMPLETE
+    Category verdict is derived from aggregated breach counts:
+      PASS: binomial p ≥ α AND (CI clearly below target OR observed rate below target)
+      FAIL: CI lower > target AND binomial doesn't pass
+      INCONCLUSIVE: binomial passes but CI not clearly below target
     """
 
     category: str
@@ -226,14 +227,30 @@ class CategoryBreachResult(BaseModel):
     n_failed: int = 0
     n_inconclusive: int = 0
     n_no_sla: int = 0
+    n_insufficient_data: int = 0
     verdict: str = ""
-    aggregation_method: str = "per_subfault_sla"
+    aggregation_method: str = "pooled_breaches"
     sub_faults: List[SubFaultBreachResult] = Field(default_factory=list)
     worst_sub_fault: str = ""
+    # Aggregated category-level metrics (hybrid approach)
+    category_breaches: Optional[int] = None
+    category_trials: Optional[int] = None
+    category_observed_rate: Optional[float] = None
+    category_binomial_p: Optional[float] = None
+    category_ci_lower: Optional[float] = None
+    category_ci_upper: Optional[float] = None
 
 
 class SubFaultTailResult(BaseModel):
-    """Per sub-fault tail risk result for H-08."""
+    """Per sub-fault tail risk result for H-08.
+    
+    Verdict logic:
+      - INSUFFICIENT_DATA: n < 20 (P95 and CVaR estimates unreliable at small n)
+      - mild: CVaR/IQM < 1.5 (tail outcomes close to typical)
+      - moderate: 1.5 ≤ CVaR/IQM < 2.0 (tail noticeably worse)
+      - significant: CVaR/IQM ≥ 2.0 (catastrophic tail risk)
+      - unknown: insufficient data or missing SLA
+    """
 
     fault_name: str
     n: int = 0
@@ -251,12 +268,20 @@ class CategoryTailResult(BaseModel):
     """Per-category rollup for H-08.
 
     Always active — missing SLA only disables overshoot fields.
-    Category risk is the worst sub-fault risk level.
+    Category risk is the worst sub-fault risk level, excluding INSUFFICIENT_DATA verdicts.
+    
+    Verdict logic:
+      - INSUFFICIENT_DATA: all sub-faults insufficient (n < 20)
+      - significant: any assessed sub-fault is significant
+      - moderate: any assessed sub-fault is moderate (and none significant)
+      - mild: all assessed sub-faults are mild
+      - unknown: no assessed sub-faults
     """
 
     category: str
     n: int = 0
     n_sub_faults: int = 0
+    n_insufficient_data: int = 0
     risk_level: str = ""
     worst_sub_fault: str = ""
     aggregation_method: str = "per_subfault_cvar"
@@ -318,10 +343,12 @@ class H03Result(HypothesisResult):
     hypothesis_name: str = "Cross-Category Performance Comparison"
     null_hypothesis: str = "Performance is the same across all fault categories."
     alt_hypothesis: str = "At least one fault category has significantly different performance."
+    categories_tested: int = 0
     per_category: List[CategoryComparisonDetail] = Field(default_factory=list)
     normality_results: Dict[str, bool] = Field(default_factory=dict)
     test_used: str = "kruskal_wallis"
     omnibus_statistic: float = 0.0
+    omnibus_epsilon_squared: float = 0.0
     omnibus_p: float = 1.0
     omnibus_significant: bool = False
     pairwise: List[PairwiseComparison] = Field(default_factory=list)
@@ -335,6 +362,7 @@ class H04Result(HypothesisResult):
     hypothesis_name: str = "Cross-Category Success Rate Uniformity"
     null_hypothesis: str = "Success rates are the same across all fault categories."
     alt_hypothesis: str = "At least one category has a significantly different success rate."
+    categories_tested: int = 0
     test_used: str = ""
     statistic: Optional[float] = None
     p_value: float = 1.0
@@ -380,6 +408,7 @@ class H05Result(HypothesisResult):
     hypothesis_name: str = "Consistency & Predictability"
     null_hypothesis: str = "Variance is equal across all fault categories."
     alt_hypothesis: str = "At least one category has significantly higher variance."
+    categories_tested: int = 0
     levene_statistic: float = 0.0
     levene_p: float = 1.0
     variances_equal: bool = True
@@ -394,8 +423,8 @@ class H06Result(HypothesisResult):
 
     hypothesis_id: str = "H-06"
     hypothesis_name: str = "SLA Threshold Compliance"
-    null_hypothesis: str = "The agent's true median performance does NOT meet the SLA."
-    alt_hypothesis: str = "The agent's true median performance IS within the SLA."
+    null_hypothesis: str = "The agent's true median performance IS within the SLA (median ≤ SLA)."
+    alt_hypothesis: str = "The agent's true median performance does NOT meet the SLA (median > SLA)."
     sla_thresholds: Dict[str, float] = Field(default_factory=dict)
     per_category: List[CategorySLAResult] = Field(default_factory=list)
 
@@ -405,8 +434,8 @@ class H07Result(HypothesisResult):
 
     hypothesis_id: str = "H-07"
     hypothesis_name: str = "SLA Breach Rate Estimation"
-    null_hypothesis: str = "The true SLA breach rate is at or above the allowed target."
-    alt_hypothesis: str = "The true SLA breach rate is below the allowed target."
+    null_hypothesis: str = "The true SLA breach rate IS below the allowed target (meets SLA)."
+    alt_hypothesis: str = "The true SLA breach rate is AT/ABOVE the allowed target (doesn't meet SLA)."
     sla_thresholds: Dict[str, float] = Field(default_factory=dict)
     target_rate: float = 0.05
     per_category: List[CategoryBreachResult] = Field(default_factory=list)

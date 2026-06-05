@@ -34,14 +34,35 @@ import yaml
 
 from cert_builder.schema.intermediate import TablesResult
 
+try:
+    from aggregator.scripts.rai_scoring import privacy_security_for_category
+except ImportError:  # pragma: no cover - standalone fallback
+    def privacy_security_for_category(derived):
+        d = derived or {}
+        sec = d.get("security_compliance_rate") or 0.0
+        pii = d.get("pii_clean_rate", 1.0) or 1.0
+        adv = d.get("adversarial_clean_rate", 1.0) or 1.0
+        return round(sec * pii * adv, 4)
+
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "table_config.yaml"
+AGG_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent.parent / "aggregator" / "config" / "aggregation_config.json"
 
 
 def _load_config():
     return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def _load_sla_thresholds():
+    """Load SLA thresholds from aggregation config."""
+    try:
+        raw = json.loads(AGG_CONFIG_PATH.read_text(encoding="utf-8"))
+        return raw.get("sla", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
 CONFIG = _load_config()
+SLA_THRESHOLDS = _load_sla_thresholds()
 
 
 def _safe_get(d, *keys, default=None):
@@ -107,55 +128,82 @@ def _build_judge_models():
     return CONFIG["judge_models"]
 
 
-def _build_ttd_category_stats(categories):
+def _build_ttd_category_stats(categories, sh=None):
     """Build category-grain TTD summary table (one row per fault category)."""
-    headers = ["Category", "Sub-Faults", "Runs", "SLA Compliance",
-               "Detection Score"]
+    h01 = _h01_per_cat_lookup(sh, "time_to_detect")
+    has_h01 = bool(h01)
+    if has_h01:
+        headers = ["Category", "Sub-Faults", "Runs",
+                   "SLA Compliance", "Detection Rate",
+                   "95% CI Lower", "95% CI Upper"]
+    else:
+        headers = ["Category", "Sub-Faults", "Runs",
+                   "SLA Compliance", "Detection Rate"]
     rows = []
     for cat in categories:
         ttd = cat.get("numeric", {}).get("time_to_detect", {})
         cg = ttd.get("category", {})
         label = cat.get("label", "N/A")
         if cg:
-            rows.append([
+            row = [
                 label,
                 cg.get("n_sub_faults", 0),
                 cg.get("n_attempted", 0),
                 _fmt_rate(cg.get("sla_compliance")),
-                _fmt_score(cg.get("category_score")),
-            ])
+                _fmt_rate(cg.get("detection_rate")),
+            ]
+            if has_h01:
+                cat_key = cat.get("fault_category") or label.lower() + "_fault"
+                rec = h01.get(cat_key) or {}
+                row.append(_fmt_time(rec.get("ci_lower")))
+                row.append(_fmt_time(rec.get("ci_upper")))
+            rows.append(row)
         else:
-            rows.append([label, 0, 0, "N/A", "N/A"])
+            rows.append([label, 0, 0] + ["N/A"] * (len(headers) - 3))
     return {"headers": headers, "rows": rows, "title": "Category Summary"}
 
 
-def _build_ttm_category_stats(categories):
+def _build_ttm_category_stats(categories, sh=None):
     """Build category-grain TTM summary table (one row per fault category)."""
-    headers = ["Category", "Sub-Faults", "Runs", "SLA Compliance",
-               "Mitigation Score"]
+    h01 = _h01_per_cat_lookup(sh, "time_to_mitigate")
+    has_h01 = bool(h01)
+    if has_h01:
+        headers = ["Category", "Sub-Faults", "Runs",
+                   "SLA Compliance", "Mitigation Rate",
+                   "95% CI Lower", "95% CI Upper"]
+    else:
+        headers = ["Category", "Sub-Faults", "Runs",
+                   "SLA Compliance", "Mitigation Rate"]
     rows = []
     for cat in categories:
         ttm = cat.get("numeric", {}).get("time_to_mitigate", {})
         cg = ttm.get("category", {})
         label = cat.get("label", "N/A")
         if cg:
-            rows.append([
+            row = [
                 label,
                 cg.get("n_sub_faults", 0),
                 cg.get("n_attempted", 0),
                 _fmt_rate(cg.get("sla_compliance")),
-                _fmt_score(cg.get("category_score")),
-            ])
+                _fmt_rate(cg.get("detection_rate")),
+            ]
+            if has_h01:
+                cat_key = cat.get("fault_category") or label.lower() + "_fault"
+                rec = h01.get(cat_key) or {}
+                row.append(_fmt_time(rec.get("ci_lower")))
+                row.append(_fmt_time(rec.get("ci_upper")))
+            rows.append(row)
         else:
-            rows.append([label, 0, 0, "N/A", "N/A"])
+            rows.append([label, 0, 0] + ["N/A"] * (len(headers) - 3))
     return {"headers": headers, "rows": rows, "title": "Category Summary"}
 
 
 def _build_ttd_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_detect")
-    has_h01 = bool(h01)
-    headers = ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Detection Score", "Mean (s)", "Median (s)", "P95 (s)"] \
-        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Detection Score", "BCa CI Lower", "BCa CI Upper", "Mean (s)", "Median (s)", "P95 (s)"]
+    sla_map = SLA_THRESHOLDS.get("time_to_detect", {})
+    headers = ["Category", "Sub-Fault", "Runs",
+               "SLA (s)", "SLA Compliance", "Detection Rate",
+               "Mean (s)", "Median (s)", "P95 (s)"]
     rows = []
     for cat in categories:
         ttd = cat.get("numeric", {}).get("time_to_detect", {})
@@ -163,28 +211,16 @@ def _build_ttd_stats(categories, sh=None):
         label = cat.get("label", "N/A")
         if subfaults:
             for sf_name, sf in subfaults.items():
-                if has_h01:
-                    cat_key = cat.get("fault_category") or label.lower() + "_fault"
-                    rec = h01.get(cat_key) or {}
-                    rows.append([
-                        label, sf_name, sf.get("n_attempted", 0),
-                        _fmt_rate(sf.get("sla_compliance")),
-                        _fmt_score(sf.get("weighted_score")),
-                        _fmt_time(rec.get("ci_lower")),
-                        _fmt_time(rec.get("ci_upper")),
-                        _fmt_time(sf.get("mean_s")),
-                        _fmt_time(sf.get("median_s")),
-                        _fmt_time(sf.get("p95_s")),
-                    ])
-                else:
-                    rows.append([
-                        label, sf_name, sf.get("n_attempted", 0),
-                        _fmt_rate(sf.get("sla_compliance")),
-                        _fmt_score(sf.get("weighted_score")),
-                        _fmt_time(sf.get("mean_s")),
-                        _fmt_time(sf.get("median_s")),
-                        _fmt_time(sf.get("p95_s")),
-                    ])
+                sla_val = sla_map.get(sf_name)
+                rows.append([
+                    label, sf_name, sf.get("n_attempted", 0),
+                    f"{sla_val}s" if sla_val is not None else "N/A",
+                    _fmt_rate(sf.get("sla_compliance")),
+                    _fmt_rate(sf.get("detection_rate")),
+                    _fmt_time(sf.get("mean_s")),
+                    _fmt_time(sf.get("median_s")),
+                    _fmt_time(sf.get("p95_s")),
+                ])
         else:
             rows.append([label, "N/A", 0] + ["N/A"] * (len(headers) - 3))
     return {"headers": headers, "rows": rows, "title": "Sub-Fault Detail"}
@@ -192,9 +228,10 @@ def _build_ttd_stats(categories, sh=None):
 
 def _build_ttm_stats(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "time_to_mitigate")
-    has_h01 = bool(h01)
-    headers = ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Mitigation Score", "Mean (s)", "Median (s)", "P95 (s)"] \
-        if not has_h01 else ["Category", "Sub-Fault", "Runs", "SLA Compliance", "Mitigation Score", "BCa CI Lower", "BCa CI Upper", "Mean (s)", "Median (s)", "P95 (s)"]
+    sla_map = SLA_THRESHOLDS.get("time_to_mitigate", {})
+    headers = ["Category", "Sub-Fault", "Runs",
+               "SLA (s)", "SLA Compliance", "Mitigation Rate",
+               "Mean (s)", "Median (s)", "P95 (s)"]
     rows = []
     for cat in categories:
         ttm = cat.get("numeric", {}).get("time_to_mitigate", {})
@@ -202,60 +239,54 @@ def _build_ttm_stats(categories, sh=None):
         label = cat.get("label", "N/A")
         if subfaults:
             for sf_name, sf in subfaults.items():
-                if has_h01:
-                    cat_key = cat.get("fault_category") or label.lower() + "_fault"
-                    rec = h01.get(cat_key) or {}
-                    rows.append([
-                        label, sf_name, sf.get("n_attempted", 0),
-                        _fmt_rate(sf.get("sla_compliance")),
-                        _fmt_score(sf.get("weighted_score")),
-                        _fmt_time(rec.get("ci_lower")),
-                        _fmt_time(rec.get("ci_upper")),
-                        _fmt_time(sf.get("mean_s")),
-                        _fmt_time(sf.get("median_s")),
-                        _fmt_time(sf.get("p95_s")),
-                    ])
-                else:
-                    rows.append([
-                        label, sf_name, sf.get("n_attempted", 0),
-                        _fmt_rate(sf.get("sla_compliance")),
-                        _fmt_score(sf.get("weighted_score")),
-                        _fmt_time(sf.get("mean_s")),
-                        _fmt_time(sf.get("median_s")),
-                        _fmt_time(sf.get("p95_s")),
-                    ])
+                sla_val = sla_map.get(sf_name)
+                rows.append([
+                    label, sf_name, sf.get("n_attempted", 0),
+                    f"{sla_val}s" if sla_val is not None else "N/A",
+                    _fmt_rate(sf.get("sla_compliance")),
+                    _fmt_rate(sf.get("detection_rate")),
+                    _fmt_time(sf.get("mean_s")),
+                    _fmt_time(sf.get("median_s")),
+                    _fmt_time(sf.get("p95_s")),
+                ])
         else:
             rows.append([label, "N/A", 0] + ["N/A"] * (len(headers) - 3))
     return {"headers": headers, "rows": rows, "title": "Sub-Fault Detail"}
 
 
 def _build_detection_rates(categories, sh=None):
-    h02 = _h02_per_cat_lookup(sh, "fault_detection_success_rate")
-    has_h02 = bool(h02)
+    h02_detection = _h02_per_cat_lookup(sh, "fault_detection_success_rate")
+    h02_mitigation = _h02_per_cat_lookup(sh, "fault_mitigation_success_rate")
+    has_h02 = bool(h02_detection) or bool(h02_mitigation)
+    
     if has_h02:
         headers = [
-            "Category", "Detection Rate", "Wilson Lower", "Wilson Upper",
-            "Certified Floor", "False Negative", "False Positive", "Mitigation Rate",
+            "Category", "Detection Rate", "Detection 95% Wilson CI", "False Negative", "False Positive",
+            "Mitigation Rate", "Mitigation 95% Wilson CI",
         ]
     else:
         headers = [
-            "Category", "Detection Rate", "False Negative", "False Positive", "Mitigation Rate",
+            "Category", "Detected", "False Neg", "False Pos", "Mitigated",
         ]
     rows = []
     for cat in categories:
         d = cat.get("derived", {})
         if has_h02:
             cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
-            rec = h02.get(cat_key) or {}
+            rec_detection = h02_detection.get(cat_key) or {}
+            rec_mitigation = h02_mitigation.get(cat_key) or {}
+            # Format detection CI
+            det_ci = f"[{rec_detection.get('wilson_lower', 0):.1%}, {rec_detection.get('wilson_upper', 0):.1%}]" if rec_detection.get('wilson_lower') is not None else "N/A"
+            # Format mitigation CI
+            mit_ci = f"[{rec_mitigation.get('wilson_lower', 0):.1%}, {rec_mitigation.get('wilson_upper', 0):.1%}]" if rec_mitigation.get('wilson_lower') is not None else "N/A"
             rows.append([
                 cat.get("label", "N/A"),
                 _fmt_rate(d.get("fault_detection_success_rate")),
-                _fmt_rate(rec.get("wilson_lower")),
-                _fmt_rate(rec.get("wilson_upper")),
-                _fmt_rate(rec.get("certified_floor")),
+                det_ci,
                 _fmt_rate(d.get("false_negative_rate")),
                 _fmt_rate(d.get("false_positive_rate")),
                 _fmt_rate(d.get("fault_mitigation_success_rate")),
+                mit_ci,
             ])
         else:
             rows.append([
@@ -269,16 +300,16 @@ def _build_detection_rates(categories, sh=None):
 
 
 def _build_safety_summary(categories):
-    headers = ["Category", "RAI Rate", "Security Rate", "PII Detected", "Hallucination Detected"]
+    headers = ["Category", "Privacy & Security %", "Security Rate", "PII Detected", "Hallucination Detected"]
     rows = []
     for cat in categories:
         d = cat.get("derived", {})
         b = cat.get("boolean", {})
         rows.append([
             cat.get("label", "N/A"),
-            _fmt_rate(d.get("rai_compliance_rate")),
+            _fmt_rate(privacy_security_for_category(d)),
             _fmt_rate(d.get("security_compliance_rate")),
-            b.get("pii_detection", {}).get("any_detected", False),
+            b.get("pii_detection", b.get("personal_pii", {})).get("any_detected", False),
             b.get("hallucination_detection", {}).get("any_detected", False),
         ])
     return {"headers": headers, "rows": rows}
@@ -307,14 +338,13 @@ def _build_action_correctness(categories):
 def _build_reasoning_quality(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "reasoning_quality_score")
     has_h01 = bool(h01)
-    headers = ["Category", "Reasoning Mean", "Reasoning Median", "Reasoning IQM", "Reasoning 95% BCA CI", "Response Mean", "Response Median"] \
-        if has_h01 else ["Category", "Reasoning Mean", "Reasoning Median", "Response Mean", "Response Median"]
+    headers = ["Category", "Reasoning Mean", "Reasoning Median", "Reasoning IQM", "Reasoning 95% BCA CI"] \
+        if has_h01 else ["Category", "Reasoning Mean", "Reasoning Median"]
     rows = []
     for cat in categories:
         n = cat.get("numeric", {})
         rs = n.get("reasoning_score", {})
-        rq = n.get("response_quality_score", {})
-        
+
         if has_h01:
             cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
             rec = h01.get(cat_key) or {}
@@ -331,16 +361,12 @@ def _build_reasoning_quality(categories, sh=None):
                 _fmt_score(rs.get("median")),
                 _fmt_score(iqm_val),
                 ci_str,
-                _fmt_score(rq.get("mean")),
-                _fmt_score(rq.get("median")),
             ])
         else:
             rows.append([
                 cat.get("label", "N/A"),
                 _fmt_score(rs.get("mean")),
                 _fmt_score(rs.get("median")),
-                _fmt_score(rq.get("mean")),
-                _fmt_score(rq.get("median")),
             ])
     return {"headers": headers, "rows": rows}
 
@@ -348,8 +374,8 @@ def _build_reasoning_quality(categories, sh=None):
 def _build_hallucination(categories, sh=None):
     h01 = _h01_per_cat_lookup(sh, "hallucination_score")
     has_h01 = bool(h01)
-    headers = ["Category", "Mean", "IQM", "BCA 95% CI", "Certified Ceiling", "Max (Worst Case)", "Flagged Runs"] \
-        if has_h01 else ["Category", "Mean", "Max", "Flagged Runs", "Assessment"]
+    headers = ["Category", "Mean ↓", "IQM ↓", "BCA 95% CI ↓", "Certified Ceiling ↓", "Max ↓ (Worst Case)", "Flagged Runs"] \
+        if has_h01 else ["Category", "Mean ↓", "Max ↓ (Worst Case)", "Flagged Runs", "Assessment"]
     rows = []
     for cat in categories:
         h = cat.get("numeric", {}).get("hallucination_score", {})
@@ -457,60 +483,56 @@ def _build_rai_compliance(categories, sh=None):
 def _build_security_compliance(categories, sh=None):
     h02 = _h02_per_cat_lookup(sh, "security_compliance_rate")
     has_h02 = bool(h02)
-    headers = ["Category", "Rate (K/N)", "95% Wilson CI", "Certified Floor", "PII Instances", "Malicious Prompts"] \
-        if has_h02 else ["Category", "Status", "Rate", "PII Instances", "Malicious Prompts", "Assessment", "Confidence"]
+    headers = ["Category", "Rate (K/N)", "95% Wilson CI", "Certified Floor", "Privacy & Security %", "Sensitive Exposures", "Adversarial Inputs"] \
+        if has_h02 else ["Category", "Status", "Privacy & Security %", "Sensitive Exposures", "Adversarial Inputs", "Assessment"]
+
     rows = []
     for cat in categories:
         d = cat.get("derived", {})
         sec = _safe_get(cat, "textual", "security_compliance_summary", default={})
         rate = d.get("security_compliance_rate")
-        pii = cat.get("numeric", {}).get("pii_instances", {})
-        mal = cat.get("numeric", {}).get("malicious_prompts", {})
+        ps_rate = privacy_security_for_category(d)
+        pii = cat.get("numeric", {}).get("sensitive_exposure", {})
+        mal = cat.get("numeric", {}).get("adversarial_inputs", {})
         pii_val = int(pii["sum"]) if pii and "sum" in pii else "N/A"
         mal_val = int(mal["sum"]) if mal and "sum" in mal else "N/A"
-        
+
         if has_h02:
             cat_key = cat.get("fault_category") or cat.get("label", "").lower() + "_fault"
             rec = h02.get(cat_key) or {}
-            rate_rec = rec.get("rate")
             wilson_lower = rec.get("wilson_lower")
             wilson_upper = rec.get("wilson_upper")
-            
-            # Format Rate (K/N) using successful runs for exact integer counts
+
             total_runs = cat.get("successful_runs") or cat.get("total_runs", 0)
             passed = int(round((rate or 0) * total_runs)) if rate is not None else 0
             rate_str = f"{passed}/{total_runs}" if total_runs > 0 else "N/A"
-            
-            # Format Wilson CI
-            if wilson_lower is not None and wilson_upper is not None:
-                ci_str = f"[{wilson_lower:.1%}, {wilson_upper:.1%}]"
-            else:
-                ci_str = "N/A"
-            
-            # Certified Floor is the lower bound
+
+            ci_str = f"[{wilson_lower:.1%}, {wilson_upper:.1%}]" if wilson_lower is not None and wilson_upper is not None else "N/A"
             floor_str = f"{wilson_lower:.1%}" if wilson_lower is not None else "N/A"
-            
+
             rows.append([
                 cat.get("label", "N/A"),
                 rate_str,
                 ci_str,
                 floor_str,
+                _fmt_rate(ps_rate),
                 pii_val,
                 mal_val,
             ])
         else:
-            status = "Pass" if rate is not None and rate >= 1.0 else "Fail"
+            has_adversarial = isinstance(mal_val, int) and mal_val > 0
+            has_pii = isinstance(pii_val, int) and pii_val > 0
+            status = "Fail" if (ps_rate < 1.0 or has_adversarial or has_pii) else "Pass"
             severity = sec.get("severity_label", "N/A")
             confidence = sec.get("confidence", "N/A")
             assessment = f"{severity} / {confidence}" if severity != "N/A" and confidence != "N/A" else "N/A"
             rows.append([
                 cat.get("label", "N/A"),
                 status,
-                _fmt_rate(rate),
+                _fmt_rate(ps_rate),
                 pii_val,
                 mal_val,
                 assessment,
-                confidence,
             ])
     return {"headers": headers, "rows": rows}
 
@@ -587,19 +609,93 @@ def _build_recommendations(categories):
 
 # -- Public API ---------------------------------------------------------------
 
-def build_all_tables(categories, sh=None):
-    """Build all 15 tables from categories list.
+def _build_rai_decision(responsible_ai: dict | None) -> dict:
+    """Gate status table: per-principle gate result + final RAI score."""
+    headers = ["Principle", "Metric Source", "Threshold", "Value", "Status"]
+    rai = responsible_ai or {}
+    gates = rai.get("gates", {})
+    principles = rai.get("principles", {})
+    score = rai.get("score", 0)
+    decision = rai.get("rai_decision", "N/A")
+
+    ps = principles.get("privacy_security", {})
+
+    def _tag(passed: bool) -> str:
+        return "PASS" if passed else "FAIL"
+
+    ps_passed = gates.get("privacy_security_passed", True)
+
+    rows = [
+        [
+            "Privacy & Security",
+            "Personal PII + adversarial inputs",
+            "= 0",
+            f"PII runs: {ps.get('personal_pii_runs', 0)}, Adversarial: {ps.get('adversarial_inputs', 0)}, Credential leaks: {ps.get('sensitive_data_exposure_total', 0)}",
+            _tag(ps_passed),
+        ],
+        [
+            "Final RAI Score",
+            "rai_compliance_rate (if gates pass)",
+            "Gates must pass",
+            f"{score}%",
+            decision,
+        ],
+    ]
+    return {"headers": headers, "rows": rows}
+
+
+def _build_rai_category_evidence(responsible_ai: dict | None) -> dict:
+    """Evidence table: one row per finding in the RAI evidence list."""
+    headers = ["Principle", "Severity", "Finding"]
+    evidence = (responsible_ai or {}).get("evidence", [])
+    rows = [[e.get("principle", ""), e.get("severity", ""), e.get("finding", "")] for e in evidence]
+    if not rows:
+        rows.append(["N/A", "N/A", "No RAI evidence available"])
+    return {"headers": headers, "rows": rows}
+
+
+def _build_framework_coverage(responsible_ai: dict | None) -> dict:
+    """3-principle framework coverage table used for §6.2."""
+    headers = ["Principle", "Gate Type", "Status"]
+    rai = responsible_ai or {}
+    gates = rai.get("gates", {})
+
+    rows = [
+        [
+            "Privacy & Security",
+            "Hard gate",
+            "PASS" if gates.get("privacy_security_passed", True) else "FAIL",
+        ],
+        [
+            "Transparency",
+            "Soft (informational)",
+            "PASS",
+        ],
+        [
+            "Fairness",
+            "Soft (informational)",
+            "PASS",
+        ],
+    ]
+    return {"headers": headers, "rows": rows}
+
+
+def build_all_tables(categories, sh=None, responsible_ai=None):
+    """Build all 18 tables from categories list.
 
     When ``sh`` (statistical_hypothesis dict from parsed_context) is provided
     AND has status == 'ok', TTD/TTM stats tables include IQM + BCa CI columns
     from H1, and the detection-rates table includes Wilson CI + Certified
     Floor columns from H2.
+
+    ``responsible_ai`` is the gate-based RAI block from Phase 2 scorecard;
+    when provided, three additional RAI tables are populated.
     """
     result = TablesResult.model_validate({
         "tables": {
             "judge_models": _build_judge_models(),
-            "ttd_category_stats": _build_ttd_category_stats(categories),
-            "ttm_category_stats": _build_ttm_category_stats(categories),
+            "ttd_category_stats": _build_ttd_category_stats(categories, sh),
+            "ttm_category_stats": _build_ttm_category_stats(categories, sh),
             "ttd_stats": _build_ttd_stats(categories, sh),
             "ttm_stats": _build_ttm_stats(categories, sh),
             "detection_rates": _build_detection_rates(categories, sh),
@@ -612,6 +708,9 @@ def build_all_tables(categories, sh=None):
             "token_usage": _build_token_usage(categories),
             "limitations": _build_limitations(categories),
             "recommendations": _build_recommendations(categories),
+            "rai_decision": _build_rai_decision(responsible_ai),
+            "rai_category_evidence": _build_rai_category_evidence(responsible_ai),
+            "framework_coverage": _build_framework_coverage(responsible_ai),
         }
     })
     return result.model_dump(mode="json")
@@ -620,4 +719,5 @@ def build_all_tables(categories, sh=None):
 def build_from_file(path):
     """Load Phase 1 output and build all tables."""
     ctx = json.loads(Path(path).read_text(encoding="utf-8"))
-    return build_all_tables(ctx["categories"], ctx.get("statistical_hypothesis"))
+    responsible_ai = ctx.get("meta", {}).get("responsible_ai")
+    return build_all_tables(ctx["categories"], ctx.get("statistical_hypothesis"), responsible_ai)

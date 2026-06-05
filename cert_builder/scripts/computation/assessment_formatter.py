@@ -23,7 +23,6 @@ FIELD_MAP = [
     ("agent_summary",                          "Agent Summary",                  False),
     ("overall_response_and_reasoning_quality",  "Response & Reasoning Quality",  True),
     ("security_compliance_summary",             "Security Compliance",           True),
-    ("rai_check_summary",                       "RAI Compliance",                True),
 ]
 
 

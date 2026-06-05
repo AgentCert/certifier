@@ -25,6 +25,7 @@ from hypothesis_framework.schema.hypothesis_results import (
     SubFaultCIResult,
 )
 from hypothesis_framework.scripts.statistical_tests.iqm import interquartile_mean
+from hypothesis_framework.scripts.utils import filter_categories_by_min_sample_size
 
 
 def _equal_weight_iqm(subfault_arrays: List[np.ndarray]) -> float:
@@ -51,6 +52,9 @@ def run_confidence_interval_test(
     them for the category estimate. Bootstrap BCa CI is computed on the
     equal-weight estimator to properly quantify uncertainty.
 
+    Categories with insufficient sample size (n < 5 after filtering None, NaN, 0)
+    are excluded from the analysis.
+
     Args:
         data_per_category: {category: {sub_fault: [values]}}.
             Data should be detected-only values (exclude censored/timed-out).
@@ -63,9 +67,18 @@ def run_confidence_interval_test(
         H01Result with per-category CI results including sub-fault breakdown.
     """
     warnings: List[str] = []
+    
+    # Filter categories by minimum sample size (n >= 5)
+    filtered_data, excluded_cats = filter_categories_by_min_sample_size(
+        data_per_category, min_n=5
+    )
+    if excluded_cats:
+        for cat_info in excluded_cats:
+            warnings.append(f"Category excluded: {cat_info}")
+    
     per_cat: List[CategoryCIResult] = []
 
-    for cat, subfaults in data_per_category.items():
+    for cat, subfaults in filtered_data.items():
         # Build per-sub-fault results
         sub_results: List[SubFaultCIResult] = []
         subfault_arrays: List[np.ndarray] = []

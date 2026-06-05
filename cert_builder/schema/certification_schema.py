@@ -42,7 +42,7 @@ Usage
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Dict, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
 
@@ -149,6 +149,12 @@ class BarSeries(BaseModel):
     values: list[float] = Field(..., min_length=1)
 
 
+class LineSeries(BaseModel):
+    """Named data series for line charts."""
+    name: str = Field(..., min_length=1)
+    values: list[float] = Field(..., min_length=1)
+
+
 class CIBarPoint(BaseModel):
     """One bar in a CI bar chart with optional 95% confidence interval whiskers.
 
@@ -178,6 +184,12 @@ class Meta(BaseModel):
     total_categories: int = Field(..., ge=0)
     runs_per_fault_configured: int = Field(default=0, ge=0)
     categories: list[CategoryMeta] = Field(..., min_length=1)
+    # Canonical post-Phase-3 RAI block. Populated by `_build_meta` from the
+    # in-place patched `phase1["meta"]["responsible_ai"]` so JSON consumers
+    # see the same fairness score (LLM-sourced) and weighted RAI score that
+    # the HTML renders. ``None`` only when the aggregator emitted no RAI
+    # block at all (legacy pipelines).
+    responsible_ai: Optional[Dict[str, Any]] = Field(default=None)
 
 
 # ── Top-Level: Header ────────────────────────────────────────────────
@@ -279,6 +291,16 @@ class CIBarChartData(BaseModel):
     reference_lines: list[ReferenceLine] = Field(default_factory=list)
 
 
+class LineChartData(BaseModel):
+    """Line chart data with multiple series over shared x-axis categories."""
+    chart_type: Literal["line"] = "line"
+    title: str = Field(..., min_length=1)
+    categories: list[str] = Field(..., min_length=1)
+    series: list[LineSeries] = Field(..., min_length=1)
+    y_axis: str = Field(..., min_length=1)
+    x_axis: str | None = None
+
+
 # ── Content Blocks (report-level: add type discriminators) ──────────
 
 class HeadingBlock(BaseModel):
@@ -338,6 +360,11 @@ class HeatmapChartBlock(HeatmapChartData):
 
 class CIBarChartBlock(CIBarChartData):
     """CI bar chart content block (used for hypothesis findings)."""
+    type: Literal["chart"] = "chart"
+
+
+class LineChartBlock(LineChartData):
+    """Line chart content block."""
     type: Literal["chart"] = "chart"
 
 
@@ -436,7 +463,6 @@ class CategoryPanelBlock(BaseModel):
     detection_rate_pct: float | None = None
     mitigation_rate_pct: float | None = None
     reasoning_score: float | None = None
-    response_quality_score: float | None = None
     dimensions: list[CategoryPanelDimension] = Field(..., min_length=1)
 
 
@@ -511,6 +537,7 @@ ContentBlock = Annotated[
         Annotated[StackedBarChartBlock, Tag("chart.stacked_bar")],
         Annotated[HeatmapChartBlock, Tag("chart.heatmap")],
         Annotated[CIBarChartBlock, Tag("chart.ci_bar")],
+        Annotated[LineChartBlock, Tag("chart.line")],
         Annotated[NoticeBlock, Tag("notice")],
         Annotated[HypothesisStripBlock, Tag("hypothesis_strip")],
         Annotated[ScopeStatsBlock, Tag("scope_stats")],
