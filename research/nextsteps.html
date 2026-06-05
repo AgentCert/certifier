@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AgentCert — Token Optimization Options</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --accent: #0b6e6e;
+    --accent-soft: #e6f1f1;
+    --ink: #1b1f23;
+    --muted: #5b6770;
+    --line: #e1e5e9;
+    --bg-soft: #f7f9fa;
+    --easy: #2e7d32;
+    --med: #b8860b;
+    --hard: #b03030;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    line-height: 1.55;
+    margin: 0;
+    padding: 32px 24px;
+  }
+  main { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 6px; color: var(--accent); }
+  h2 { font-size: 20px; margin: 36px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); color: var(--accent); }
+  p { margin: 6px 0; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .section-intro {
+    background: var(--bg-soft);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0 14px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 16px;
+    background: #fff;
+    font-size: 14px;
+  }
+  thead th {
+    background: var(--accent-soft);
+    color: var(--accent);
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--accent);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    vertical-align: top;
+  }
+  tbody td {
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: var(--bg-soft); }
+  td.num-cell {
+    width: 44px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  td.diff-cell { width: 92px; }
+  td.item-cell { width: 22%; font-weight: 600; }
+  td.why-cell, td.how-cell { width: 26%; }
+  td.src-cell { width: auto; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .badge.med  { background: #fef3d7; color: var(--med); }
+  .badge.hard { background: #fde0e0; color: var(--hard); }
+  .badge.easy { background: #d9efdb; color: var(--easy); }
+  .badge.new  { background: #e0e7ff; color: #3b3aaa; }
+  td.src-cell a {
+    display: block;
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent);
+    margin: 2px 0;
+    font-size: 13px;
+    width: fit-content;
+  }
+  td.src-cell a:hover { background: var(--accent-soft); }
+  code { background: var(--bg-soft); padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>AgentCert — Token Optimization Options</h1>
+  <p class="sub">Things we can try in the <b>Certifier</b> (fault bucketing + metrics extraction), on the <b>Langfuse</b> side, and at the <b>product surface</b>. Ordered easy → hard within each section.</p>
+
+  <h2>Guardrails and Grounding</h2>
+  <p class="section-intro">Status update: this is now integrated in <b>flash-agent</b> using NVIDIA NeMo Guardrails for safety guardrails, hallucination checks, and evidence-grounded validation.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Difficulty</th>
+        <th>Item</th>
+        <th>Why</th>
+        <th>How</th>
+        <th>Sources</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num-cell">0</td>
+        <td class="diff-cell"><span class="badge med">Medium</span></td>
+        <td class="item-cell">NeMo Guardrails post-analysis validation</td>
+        <td class="why-cell">Safety and trust matter as much as speed. Guardrails reduce the risk of unsafe or weakly supported conclusions in operational analysis.</td>
+        <td class="how-cell">Validate generated findings against policy expectations and available evidence before treating them as actionable. Treat flagged outputs as review-required rather than final decisions.</td>
+        <td class="src-cell">
+          <a href="https://docs.nvidia.com/nemo/guardrails/">NVIDIA NeMo Guardrails</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Certifier</h2>
+  <p class="section-intro">Goal: bring down the GPT-4 bill in <code>fault_analyzer/</code> and <code>metrics_extractor/</code>.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Difficulty</th>
+        <th>Item</th>
+        <th>Why</th>
+        <th>How</th>
+        <th>Sources</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num-cell">1</td>
+        <td class="diff-cell"><span class="badge easy">Easy</span></td>
+        <td class="item-cell">Check if prompt caching is actually working</td>
+        <td class="why-cell">Repeated instructions and schema text can dominate token spend across large runs. Caching lowers both cost and latency when the shared prompt context stays stable.</td>
+        <td class="how-cell">Keep the reusable context consistent across requests and place variable trace content after that stable context. In batch workflows, maximize reuse of the same static prompt prefix and track cache-hit behavior.</td>
+        <td class="src-cell">
+          <a href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI Prompt Caching</a>
+          <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">Anthropic Prompt Caching</a>
+          <a href="https://learn.microsoft.com/azure/ai-services/openai/how-to/prompt-caching">Azure OpenAI caching</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="num-cell">2</td>
+        <td class="diff-cell"><span class="badge easy">Easy</span></td>
+        <td class="item-cell">XGrammar / structured outputs</td>
+        <td class="why-cell">Unstructured model output creates avoidable parsing failures, retries, and quality drift in downstream pipelines.</td>
+        <td class="how-cell">Use schema-constrained generation to keep output aligned with the expected structure, and use Pydantic as the typed contract for runtime validation. The combination improves reliability, reduces rework, and stabilizes batch processing.</td>
+        <td class="src-cell">
+          <a href="https://arxiv.org/abs/2411.15100">XGrammar (arXiv 2411.15100)</a>
+          <a href="https://platform.openai.com/docs/guides/structured-outputs">OpenAI Structured Outputs</a>
+          <a href="https://docs.vllm.ai/en/latest/features/structured_outputs.html">vLLM structured outputs</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="num-cell">3</td>
+        <td class="diff-cell"><span class="badge med">Medium</span></td>
+        <td class="item-cell">Trim the prompt and batch 8–10 items per call</td>
+        <td class="why-cell">Sending repeated instructions for every small unit of work drives unnecessary token and request overhead.</td>
+        <td class="how-cell">Reduce prompt verbosity and process items in grouped batches so shared context is paid once per batch. Use asynchronous batch processing for non-interactive certification workloads.</td>
+        <td class="src-cell">
+          <a href="https://platform.openai.com/docs/guides/batch">OpenAI Batch API</a>
+          <a href="https://learn.microsoft.com/azure/ai-services/openai/how-to/batch">Azure OpenAI Batch</a>
+          <a href="https://arxiv.org/abs/2305.05176">FrugalGPT (arXiv 2305.05176)</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="num-cell">4</td>
+        <td class="diff-cell"><span class="badge med">Medium</span></td>
+        <td class="item-cell">Follow the OTel GenAI span spec</td>
+        <td class="why-cell">Standard telemetry already contains deterministic signals for usage, timing, and tool activity. Re-extracting these with an LLM adds cost and ambiguity.</td>
+        <td class="how-cell">Align instrumentation with OTel GenAI conventions and treat structured span attributes as the first source of truth. Use LLM reasoning only for the remaining ambiguous context.</td>
+        <td class="src-cell">
+          <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/">OTel GenAI Spans spec</a>
+          <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">OTel GenAI semconv</a>
+          <a href="https://langfuse.com/docs/opentelemetry/get-started">Langfuse OTel ingestion</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="num-cell">5</td>
+        <td class="diff-cell"><span class="badge med">Medium</span></td>
+        <td class="item-cell">Use a cheaper model for classification</td>
+        <td class="why-cell">Many bucketing and screening decisions are routine classification tasks that do not require the most expensive model tier.</td>
+        <td class="how-cell">Use a routed model strategy: start with a lower-cost model and escalate only uncertain cases to a stronger model. Calibrate the routing policy against quality benchmarks.</td>
+        <td class="src-cell">
+          <a href="https://arxiv.org/abs/2406.18665">RouteLLM (arXiv 2406.18665)</a>
+          <a href="https://arxiv.org/abs/2404.14618">Hybrid LLM (arXiv 2404.14618)</a>
+          <a href="https://www.anthropic.com/news/claude-haiku-4-5">Claude Haiku 4.5</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="num-cell">6</td>
+        <td class="diff-cell"><span class="badge med">Medium</span></td>
+        <td class="item-cell">Prompt compression + caching + constrained decoding (stacked)</td>
+        <td class="why-cell">Individual optimizations usually provide moderate gains, but token-heavy pipelines benefit most from a combined strategy.</td>
+        <td class="how-cell">Apply context compression for variable payloads, prompt caching for repeated context, and structured decoding for stable outputs. Evaluate quality and cost together to keep optimization safe.</td>
+        <td class="src-cell">
+          <a href="https://arxiv.org/abs/2501.16214">Provence (arXiv 2501.16214)</a>
+          <a href="https://arxiv.org/abs/2403.12968">LLMLingua-2 (arXiv 2403.12968)</a>
+          <a href="https://arxiv.org/abs/2408.03094">500xCompressor (arXiv 2408.03094)</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="num-cell">7</td>
+        <td class="diff-cell"><span class="badge hard">Hard</span></td>
+        <td class="item-cell">Hybrid GraphRAG over a fault-pattern graph</td>
+        <td class="why-cell">Flat prompt context scales poorly as fault taxonomies and trace volume grow, leading to rising cost and lower retrieval focus.</td>
+        <td class="how-cell">Introduce graph-aware retrieval so each analysis step pulls only the most relevant fault subgraph and evidence paths. Keep knowledge updates incremental and evaluation benchmark-driven.</td>
+        <td class="src-cell">
+          <a href="https://arxiv.org/abs/2502.14802">HippoRAG-2 (arXiv 2502.14802)</a>
+          <a href="https://arxiv.org/abs/2410.05779">LightRAG (arXiv 2410.05779)</a>
+          <a href="https://arxiv.org/abs/2408.04948">HybridRAG (arXiv 2408.04948)</a>
+          <a href="https://arxiv.org/abs/2406.14550">GraphReader (arXiv 2406.14550)</a>
+          <a href="https://github.com/gusye1234/nano-graphrag">nano-graphrag</a>
+          <a href="https://github.com/HKUDS/LightRAG">LightRAG repo</a>
+          <a href="https://www.falkordb.com/">FalkorDB</a>
+          <a href="https://neo4j.com/labs/genai-ecosystem/llm-graph-builder/">Neo4j LLM-KG-Builder</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Langfuse</h2>
+  <p class="section-intro">Push as much of the classification and extraction work into Langfuse as we can. The Certifier then only does what Langfuse can't.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Difficulty</th>
+        <th>Item</th>
+        <th>Why</th>
+        <th>How</th>
+        <th>Sources</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num-cell">1</td>
+        <td class="diff-cell"><span class="badge med">Medium</span></td>
+        <td class="item-cell">Do classification &amp; extraction in Langfuse; Certifier picks up the rest</td>
+        <td class="why-cell">Running classification and extraction where telemetry is first ingested reduces duplicate processing and keeps Certifier focused on higher-value synthesis.</td>
+        <td class="how-cell">Use Langfuse-native evaluators and telemetry attributes for early tagging and scoring, then pass standardized outputs into Certifier for aggregation and certification narratives.</td>
+        <td class="src-cell">
+          <a href="https://langfuse.com/docs/scores/model-based-evals">Langfuse LLM-as-Judge</a>
+          <a href="https://langfuse.com/docs/opentelemetry/get-started">Langfuse OTel ingestion</a>
+          <a href="https://langfuse.com/docs/datasets/overview">Langfuse Datasets</a>
+          <a href="https://langfuse.com/changelog">Langfuse v3 changelog</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Product surface</h2>
+  <p class="section-intro">Make Certifier usable by teams who don't author code — agent onboarding, prompt and metric authoring, and certificate runs all from a UI.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Difficulty</th>
+        <th>Item</th>
+        <th>Why</th>
+        <th>How</th>
+        <th>Sources</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num-cell">1</td>
+        <td class="diff-cell"><span class="badge hard">Hard</span> <span class="badge new">New</span></td>
+        <td class="item-cell">Build a Certifier UI: onboard agents, author prompts &amp; metrics dynamically, trigger certification runs</td>
+        <td class="why-cell">Today every new agent or metric requires a code change in <code>fault_analyzer/</code>, <code>metrics_extractor/</code>, or the prompt configs. That blocks non-engineers from running their own certifications and slows iteration on prompts and metrics.</td>
+        <td class="how-cell">Web UI where users (1) onboard an agent (name, model, trace source); (2) an <b>auto-bootstrap pipeline</b> runs to generate / refresh the agent-specific prompts — hypothesis prompts, narrative prompts, fault-bucketing prompts, metric-extraction prompts, and any other prompts the pipeline depends on; (3) the user reviews and edits prompts and metric definitions in a form/JSON editor with live validation; (4) save as a versioned bundle; (5) trigger a certification run that pulls the bundle and executes the existing pipeline. Persist bundles in MongoDB next to the existing collections; reuse the FastAPI endpoints in <code>app.py</code> as the backend.</td>
+        <td class="src-cell">
+          <a href="https://fastapi.tiangolo.com/">FastAPI</a>
+          <a href="https://react.dev/">React</a>
+          <a href="https://docs.pydantic.dev/latest/">Pydantic (existing schema layer)</a>
+          <a href="https://github.com/itbench-hub/ITBench-CISO-SRE-FinOps-Agent" target="_blank" rel="noopener">ITBench CISO/SRE/FinOps Agent (test target for onboarding flow)</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Generated 2026-06-02 · See <a href="summary.html">summary.html</a> and <a href="detailed.html">detailed.html</a> for the full research synthesis.
+  </footer>
+
+</main>
+</body>
+</html>

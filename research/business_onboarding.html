@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hypothesis Studio &mdash; full UX &amp; mapping</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121833; --panel2:#1a2347; --ink:#e9edff; --muted:#9aa6d6;
+    --line:#27305a; --accent:#7c9cff; --accent2:#52e3c2; --warn:#ffb454; --bad:#ff6b8a;
+    --chip:#1c2856;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:linear-gradient(180deg,#070a18,#0b1020 40%,#0b1020);color:var(--ink);
+    font:14px/1.55 ui-sans-serif,system-ui,Segoe UI,Roboto,Inter,Arial;scroll-behavior:smooth}
+
+  /* sticky top nav */
+  .topnav{position:sticky;top:0;z-index:20;background:rgba(7,10,24,.9);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);padding:10px 5vw;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .topnav .brand{font-weight:700;letter-spacing:.4px;color:#fff;margin-right:6px}
+  .topnav a{color:var(--muted);text-decoration:none;font-size:12.5px;padding:5px 9px;border-radius:8px}
+  .topnav a:hover{background:#1c2856;color:#fff}
+  .topnav .pill{font-size:11px;padding:3px 8px;border-radius:999px;background:#1c2856;color:#bff2e3;
+    border:1px solid rgba(82,227,194,.4)}
+  .topnav .right{margin-left:auto}
+
+  header.hero{padding:32px 5vw 18px;border-bottom:1px solid var(--line);
+    background:radial-gradient(800px 300px at 8% 0%, rgba(124,156,255,.18), transparent 60%),
+               radial-gradient(700px 280px at 92% 0%, rgba(82,227,194,.14), transparent 60%);}
+  header h1{margin:0 0 6px;font-size:26px}
+  header p{margin:0;color:var(--muted);max-width:1000px}
+  header .tag{display:inline-block;background:#1d3a5a;color:#9ec5ff;padding:3px 10px;border-radius:999px;font-size:12px;margin-right:6px;margin-top:8px}
+
+  main{padding:26px 5vw 80px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:46px}
+  section{scroll-margin-top:64px}
+  h2{margin:0 0 6px;font-size:20px}
+  h2 .num{display:inline-block;background:#1d2654;color:#dfe6ff;border:1px solid var(--line);
+    border-radius:8px;padding:1px 9px;font-size:13px;margin-right:8px}
+  h3{margin:22px 0 8px;font-size:16px;color:#dfe6ff}
+  .desc{color:var(--muted);max-width:1100px;margin:2px 0 14px;font-size:13.5px}
+  .group-hdr{border-top:1px dashed var(--line);padding-top:20px;margin-top:8px}
+
+  /* ----- wireframe chrome ----- */
+  .wire{background:#0a0f24;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .titlebar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#0e1530;border-bottom:1px solid var(--line)}
+  .titlebar i{width:10px;height:10px;border-radius:50%}
+  .titlebar .r{background:#ff6b8a}.titlebar .y{background:#ffb454}.titlebar .g{background:#52e3c2}
+  .titlebar .url{color:#9aa6d6;font-size:12px;margin-left:10px;font-family:ui-monospace,Consolas,monospace}
+  .body{display:grid;grid-template-columns:220px 1fr;min-height:430px}
+  .nav{background:#0d1430;border-right:1px solid var(--line);padding:14px}
+  .nav .logo{font-weight:700;color:#dfe6ff;margin-bottom:14px;font-size:14px;letter-spacing:.5px}
+  .nav ul{list-style:none;padding:0;margin:0}
+  .nav li{padding:7px 9px;border-radius:8px;color:#9aa6d6;margin-bottom:2px;font-size:13px}
+  .nav li.active{background:#1c2856;color:#fff}
+  .nav li::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:#3a4783;margin-right:8px;vertical-align:middle}
+  .nav li.active::before{background:var(--accent2)}
+  .content{padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+  .crumb{color:var(--muted);font-size:12px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;gap:10px}
+  .right-aligned{margin-left:auto}
+  .side3{display:grid;grid-template-columns:220px 240px 1fr 280px;min-height:430px}
+  @media (max-width:1100px){.side3{grid-template-columns:1fr}}
+
+  .stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .step{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12.5px}
+  .step .n{width:22px;height:22px;border-radius:50%;background:#1c2856;display:flex;
+    align-items:center;justify-content:center;font-weight:700;color:#cfd7ff;font-size:11.5px;border:1px solid var(--line)}
+  .step.done .n{background:rgba(82,227,194,.2);border-color:rgba(82,227,194,.5);color:#bff2e3}
+  .step.active .n{background:#3756d9;border-color:#7c9cff;color:#fff}
+  .step .arrow{color:#3a4783}
+
+  /* ----- buttons / inputs ----- */
+  .btn{background:#1c2856;border:1px solid var(--line);color:#dfe6ff;padding:6px 12px;border-radius:8px;
+    font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:linear-gradient(180deg,#3756d9,#2740aa);border-color:#3a4ebf;color:#fff}
+  .btn.danger{background:rgba(255,107,138,.12);border-color:rgba(255,107,138,.5);color:#ffc1cf}
+  .btn.ghost{background:transparent}
+  .btn.icon{padding:5px 9px}
+  .btn .plus{font-weight:700;color:var(--accent2)}
+  .btn.primary .plus{color:#fff}
+  .input{background:#070b1d;border:1px solid var(--line);border-radius:8px;padding:6px 10px;
+    color:#dfe6ff;font-size:12.5px;display:inline-block;min-width:140px}
+  .input.block{display:block;width:100%}
+  .label{color:#cdd6ff;font-size:12px;display:block;margin-bottom:4px}
+  .small{color:var(--muted);font-size:12px}
+
+  /* ----- cards / question palette ----- */
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+  .qcard{background:#101839;border:1px solid var(--line);border-radius:10px;padding:12px;position:relative}
+  .qcard.picked{outline:2px solid var(--accent2);background:rgba(82,227,194,.06)}
+  .qcard h4{margin:0 0 6px;font-size:13.5px;color:#fff;display:flex;align-items:center;gap:6px}
+  .qcard p{margin:0;color:var(--muted);font-size:12px}
+  .qcard .htag{position:absolute;top:8px;right:8px;font-size:10.5px;background:#1c2856;
+    color:#cfd7ff;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
+  .qcard .check{position:absolute;top:8px;left:8px;width:18px;height:18px;border-radius:50%;
+    border:1px solid var(--line);background:#0a0f24}
+  .qcard.picked .check{background:var(--accent2);border-color:var(--accent2);color:#082;text-align:center;line-height:18px;font-weight:700;font-size:12px}
+
+  /* ----- node (designer / generic) ----- */
+  .node{background:#101839;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .node .h{display:flex;justify-content:space-between;align-items:center;color:#dfe6ff;font-weight:600;font-size:13px;gap:8px}
+  .node .meta{color:var(--muted);font-size:12px;margin-top:6px}
+
+  /* ----- chip ----- */
+  .chip{font-size:12px;color:#cfd7ff;background:#1c2856;border:1px solid var(--line);padding:3px 9px;
+    border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+  .chip.add{background:transparent;color:var(--accent);border:1px dashed var(--accent)}
+  .chip .x{color:#9aa6d6}
+  .badge{font-size:11px;padding:2px 7px;border-radius:999px;background:#1c2856;color:#cfd7ff;border:1px solid var(--line)}
+  .badge.green{background:rgba(82,227,194,.15);color:#bff2e3;border-color:rgba(82,227,194,.4)}
+  .badge.amber{background:rgba(255,180,84,.15);color:#ffd8a8;border-color:rgba(255,180,84,.4)}
+  .badge.red{background:rgba(255,107,138,.15);color:#ffc1cf;border-color:rgba(255,107,138,.4)}
+
+  /* ----- canvas ----- */
+  .canvas{background:
+      linear-gradient(#0a0f24,#0a0f24),
+      radial-gradient(circle, #1a2347 1px, transparent 1px);
+    background-size: auto, 18px 18px;
+    border:1px dashed var(--line);border-radius:10px;min-height:260px;padding:12px;display:grid;
+    grid-template-columns:repeat(2,1fr);gap:10px}
+  @media (max-width:900px){.canvas{grid-template-columns:1fr}}
+
+  /* ----- palette ----- */
+  .palette{display:flex;flex-direction:column;gap:6px}
+  .palette .item{background:#101839;border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+    font-size:12.5px;color:#dfe6ff;display:flex;justify-content:space-between;align-items:center}
+  .palette .item small{color:var(--muted)}
+  .palette .item.add{border-style:dashed;color:var(--accent2);justify-content:center;background:transparent}
+
+  /* ----- modal ----- */
+  .modal-wrap{padding:24px;background:repeating-linear-gradient(45deg,#0a0f24 0 12px,#0c1228 12px 24px);
+    border:1px solid var(--line);border-radius:12px}
+  .modal{background:linear-gradient(180deg,#121833,#1a2347);border:1px solid var(--line);
+    border-radius:14px;max-width:820px;margin:0 auto;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.55)}
+  .modal .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .modal h3{margin:0;font-size:16px;color:#fff}
+  .modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media (max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  /* ----- tables ----- */
+  table{width:100%;border-collapse:collapse;font-size:13px;background:#0a0f24;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+  th{background:#0e1530;color:#cdd6ff;position:sticky;top:54px;z-index:1}
+  td.h{white-space:nowrap;font-weight:600;color:#dfe6ff}
+  .stat{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#cdd6ff;background:#1c2856;
+    border:1px solid var(--line);padding:2px 7px;border-radius:6px}
+  .miniTable{width:100%;font-size:12.5px;border-collapse:collapse}
+  .miniTable th,.miniTable td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left}
+  .miniTable th{color:#cdd6ff;background:#101839;position:static}
+
+  /* ----- code block ----- */
+  pre{background:#070b1d;border:1px solid var(--line);border-radius:10px;padding:12px;
+    color:#dbe2ff;font-size:12.5px;font-family:ui-monospace,Consolas,monospace;overflow:auto;margin:0}
+
+  .arrow-down{display:flex;justify-content:center;color:var(--accent);font-weight:700;font-size:18px;margin:-12px 0 -6px}
+
+  /* domain legend */
+  .legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin:6px 0 10px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .d-itops{background:#7c9cff}.d-finops{background:#52e3c2}.d-secops{background:#ffb454}
+  .d-sales{background:#ff6b8a}.d-cx{background:#c79cff}
+
+  .hbar{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="brand">AgentCert · Studio</span>
+  <a href="#why">Why</a>
+  <a href="#onboard">Business onboarding (1-5)</a>
+  <a href="#studio">Studio UI (designer / catalogue)</a>
+  <a href="#newhyp">Add hypothesis modal</a>
+  <a href="#newplugin">Register new plugin</a>
+  <a href="#questions">9 questions</a>
+  <a href="#map">H ↔ business mapping</a>
+  <a href="#sidebyside">Same H, 3 domains</a>
+  <a href="#delta">What changes / doesn't</a>
+  <span class="right pill">single source · everything below</span>
+</nav>
+
+<header class="hero">
+  <span class="tag">AgentCert</span><span class="tag">Domain-agnostic</span>
+  <h1>Hypothesis Studio &mdash; full UX walkthrough + business mapping</h1>
+  <p>This single page combines: the <strong>business onboarding wizard</strong> (5 steps), the <strong>Studio UI walkthrough</strong> (packs library, designer canvas, modals, plugin registration, dry-run), the <strong>9 universal business questions</strong>, the <strong>H01&ndash;H09 ↔ business-metric Rosetta stone</strong> across 5 domains, and the <strong>side-by-side &ldquo;same H06 in 3 domain packs&rdquo;</strong> JSON cards. Use the top nav to jump.</p>
+</header>
+
+<main>
+
+<!-- =================================================================== -->
+<section id="why">
+  <h2><span class="num">·</span>The two ideas behind this UI</h2>
+  <div class="qgrid">
+    <div class="qcard">
+      <h4>① Business questions, not statistics</h4>
+      <p>The SME picks from <b>9 universal questions</b> (&ldquo;typical value&rdquo;, &ldquo;breach rate&rdquo;, &ldquo;tail risk&rdquo;&hellip;). Each is just a friendly alias for one of H01&ndash;H09 in the engine.</p>
+    </div>
+    <div class="qcard">
+      <h4>② Domain Pack = one JSON</h4>
+      <p>The wizard&rsquo;s output is a versioned <b>Domain Pack</b> (metrics + thresholds + chosen questions). The engine is untouched; only the pack changes per domain.</p>
+    </div>
+    <div class="qcard">
+      <h4>③ New stat test = backend plugin</h4>
+      <p>Only when the domain needs a genuinely new statistical method does a developer register a <code>StatPlugin</code>. Once registered it appears in everyone&rsquo;s palette.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- BUSINESS ONBOARDING - 5 STEPS                                      -->
+<!-- =================================================================== -->
+<section id="onboard">
+  <h2><span class="num">A</span>Business onboarding wizard &mdash; for a non-technical domain SME</h2>
+  <p class="desc">5 steps. A FinOps lead / Sales VP / SecOps manager who is not a statistician can finish in &lt;30 min.</p>
+</section>
+
+<!-- Step 1 -->
+<section>
+  <h3>Step 1 · Tell us about your domain</h3>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / onboard / step-1</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li class="active">Business onboarding</li>
+          <li>Packs library</li><li>Hypothesis designer</li>
+          <li>Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="crumb">Onboard / Step 1 of 5</div>
+        <div class="stepper">
+          <div class="step active"><span class="n">1</span>Domain</div><span class="arrow">→</span>
+          <div class="step"><span class="n">2</span>Questions</div><span class="arrow">→</span>
+          <div class="step"><span class="n">3</span>Metrics &amp; targets</div><span class="arrow">→</span>
+          <div class="step"><span class="n">4</span>Data source</div><span class="arrow">→</span>
+          <div class="step"><span class="n">5</span>Review &amp; publish</div>
+        </div>
+
+        <div class="qgrid">
+          <div class="qcard"><h4>🧰 ITOps (Kubernetes)</h4>
+            <p>fault detection · mitigation · MTTR · SLA breaches</p>
+            <p class="small" style="margin-top:6px">9 questions pre-mapped</p></div>
+          <div class="qcard picked"><span class="check">✓</span><h4>💰 FinOps</h4>
+            <p>cost savings · acceptance · budget compliance · drift</p>
+            <p class="small" style="margin-top:6px">7 questions pre-mapped</p></div>
+          <div class="qcard"><h4>🛡 SecOps</h4>
+            <p>true-positive rate · MTTR · dwell time · alert drift</p></div>
+          <div class="qcard"><h4>📈 SalesOps</h4>
+            <p>conversion · pipeline coverage · slippage · deal-cycle</p></div>
+          <div class="qcard"><h4>🎧 Customer Support</h4>
+            <p>FCR · handle time · CSAT · wait-time tail</p></div>
+          <div class="qcard"><h4>＋ Start blank (custom)</h4>
+            <p>No template &mdash; AI infers metrics from sample runs.</p></div>
+        </div>
+
+        <div class="row">
+          <span class="label" style="margin:0">Sample run data</span>
+          <span class="btn">⇪ Upload 3–10 JSON runs</span>
+          <span class="badge green">finops_run_001.json</span>
+          <span class="badge green">+4 more</span>
+        </div>
+
+        <div class="row"><div class="right-aligned"><span class="btn primary">Continue →</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="arrow-down">▼</div>
+
+<!-- Step 2 -->
+<section>
+  <h3>Step 2 · &ldquo;Which business questions matter to you?&rdquo;</h3>
+  <p class="desc">9 universal questions. Each tile = one of H01&ndash;H09 (shown as a pill, top-right). The SME never sees Greek letters.</p>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / onboard / step-2</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li class="active">Business onboarding</li><li>Packs library</li>
+          <li>Hypothesis designer</li><li>Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="crumb">Onboard / Step 2 of 5 · <b>finops</b></div>
+        <div class="stepper">
+          <div class="step done"><span class="n">✓</span>Domain</div><span class="arrow">→</span>
+          <div class="step active"><span class="n">2</span>Questions</div><span class="arrow">→</span>
+          <div class="step"><span class="n">3</span>Metrics &amp; targets</div><span class="arrow">→</span>
+          <div class="step"><span class="n">4</span>Data source</div><span class="arrow">→</span>
+          <div class="step"><span class="n">5</span>Review &amp; publish</div>
+        </div>
+        <div class="row">
+          <span class="small">AI pre-selected 6 questions based on your sample data &amp; FinOps template.</span>
+          <span class="right-aligned"><span class="btn ghost">Select all</span><span class="btn ghost">Clear</span></span>
+        </div>
+
+        <div class="qgrid">
+          <div class="qcard picked"><span class="check">✓</span><span class="htag">H01</span>
+            <h4>📈 Typical value with confidence</h4>
+            <p>&ldquo;What&rsquo;s our typical % savings per recommendation?&rdquo;</p></div>
+          <div class="qcard picked"><span class="check">✓</span><span class="htag">H02</span>
+            <h4>✅ Success / acceptance rate</h4>
+            <p>&ldquo;What % of recommendations are accepted by owners?&rdquo;</p></div>
+          <div class="qcard"><span class="check"></span><span class="htag">H03</span>
+            <h4>🔍 Differences across segments</h4>
+            <p>&ldquo;Do savings differ by cost driver?&rdquo;</p></div>
+          <div class="qcard"><span class="check"></span><span class="htag">H04</span>
+            <h4>⚖️ Uniformity / fairness</h4>
+            <p>&ldquo;Is acceptance uniform across business units?&rdquo;</p></div>
+          <div class="qcard picked"><span class="check">✓</span><span class="htag">H05</span>
+            <h4>📉 Predictability / consistency</h4>
+            <p>&ldquo;Is monthly spend stable week-on-week?&rdquo;</p></div>
+          <div class="qcard picked"><span class="check">✓</span><span class="htag">H06</span>
+            <h4>🎯 Meeting the target on average</h4>
+            <p>&ldquo;Is monthly spend ≤ budget?&rdquo;</p></div>
+          <div class="qcard picked"><span class="check">✓</span><span class="htag">H07</span>
+            <h4>🚨 Breach frequency</h4>
+            <p>&ldquo;In how many months did we go over budget?&rdquo;</p></div>
+          <div class="qcard picked"><span class="check">✓</span><span class="htag">H08</span>
+            <h4>⚠️ Worst-case / tail risk</h4>
+            <p>&ldquo;How bad were the worst 5% of cost spikes?&rdquo;</p></div>
+          <div class="qcard"><span class="check"></span><span class="htag">H09</span>
+            <h4>📊 Drift over time</h4>
+            <p>&ldquo;Is unit cost creeping up after the last vendor change?&rdquo;</p></div>
+        </div>
+
+        <div class="row">
+          <span class="small">6 of 9 questions selected · the rest can be added later in the designer.</span>
+          <span class="right-aligned"><span class="btn ghost">← Back</span><span class="btn primary">Continue →</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="arrow-down">▼</div>
+
+<!-- Step 3 -->
+<section>
+  <h3>Step 3 · For each picked question, map a metric &amp; target</h3>
+  <p class="desc">The AI proposes a JSON path + unit + direction from your sample data; SME confirms or edits. <em>Plugin column is shown for transparency only.</em></p>
+
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / onboard / step-3</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li class="active">Business onboarding</li><li>Packs library</li>
+          <li>Hypothesis designer</li><li>Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="crumb">Onboard / Step 3 of 5 · finops</div>
+        <div class="stepper">
+          <div class="step done"><span class="n">✓</span>Domain</div><span class="arrow">→</span>
+          <div class="step done"><span class="n">✓</span>Questions</div><span class="arrow">→</span>
+          <div class="step active"><span class="n">3</span>Metrics &amp; targets</div><span class="arrow">→</span>
+          <div class="step"><span class="n">4</span>Data source</div><span class="arrow">→</span>
+          <div class="step"><span class="n">5</span>Review &amp; publish</div>
+        </div>
+
+        <table class="miniTable">
+          <thead><tr><th>Question</th><th>Metric (AI suggestion)</th><th>Target</th><th>Direction</th><th>Plugin</th></tr></thead>
+          <tbody>
+            <tr><td>📈 Typical value</td>
+              <td><span class="chip">savings_realised_pct</span><br><span class="small">quantitative.savings_pct · %</span></td>
+              <td><span class="input">—</span></td><td><span class="badge">higher better</span></td>
+              <td><span class="stat">bootstrap_bca_iqm</span></td></tr>
+            <tr><td>✅ Acceptance rate</td>
+              <td><span class="chip">recommendation_acceptance_rate</span></td>
+              <td><span class="input">≥ 0.90</span></td><td><span class="badge">higher better</span></td>
+              <td><span class="stat">wilson_ci</span></td></tr>
+            <tr><td>📉 Predictability</td>
+              <td><span class="chip">monthly_cloud_spend</span></td>
+              <td><span class="input">CV &lt; 0.15</span></td><td><span class="badge">lower better</span></td>
+              <td><span class="stat">levene_cv</span></td></tr>
+            <tr><td>🎯 Meeting target</td>
+              <td><span class="chip">monthly_cloud_spend</span></td>
+              <td><span class="input">≤ $250 000</span></td><td><span class="badge">lower better</span></td>
+              <td><span class="stat">one_sided_ci</span></td></tr>
+            <tr><td>🚨 Breach frequency</td>
+              <td><span class="chip">monthly_cloud_spend &gt; $250k</span></td>
+              <td><span class="input">≤ 5%</span></td><td><span class="badge">lower better</span></td>
+              <td><span class="stat">wilson_breach_rate</span></td></tr>
+            <tr><td>⚠️ Worst-case</td>
+              <td><span class="chip">monthly_cloud_spend</span></td>
+              <td><span class="input">CVaR₀.₀₅ ≤ $320k</span></td><td><span class="badge">lower better</span></td>
+              <td><span class="stat">cvar</span></td></tr>
+          </tbody>
+        </table>
+
+        <div class="row">
+          <span class="btn ghost">＋ Add another metric</span>
+          <span class="small">Need a metric the AI couldn&rsquo;t find? Define it manually here.</span>
+          <span class="right-aligned"><span class="btn ghost">← Back</span><span class="btn primary">Continue →</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="arrow-down">▼</div>
+
+<!-- Step 4 -->
+<section>
+  <h3>Step 4 · Connect the live data source</h3>
+  <div class="modal-wrap">
+    <div class="modal">
+      <div class="head"><h3>Data source for <b>finops</b> pack</h3><span class="btn icon ghost">×</span></div>
+      <div class="qgrid">
+        <div class="qcard picked"><span class="check">✓</span>
+          <h4>🗄 MongoDB collection</h4>
+          <p>db: <code>certifier</code> · collection: <code>finops_runs</code></p>
+          <p class="small" style="margin-top:6px">Same engine path used by ITOps today (<code>MetricsQueryService</code>)</p>
+        </div>
+        <div class="qcard"><h4>🌐 REST endpoint</h4>
+          <p>GET https://finops.internal/api/runs?since=…</p></div>
+        <div class="qcard"><h4>📁 File drop</h4>
+          <p>azure-blob://finops-runs/ · daily</p></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <span class="label" style="margin:0">Min runs required</span><span class="input">30</span>
+        <span class="label" style="margin:0;margin-left:14px">Refresh cadence</span><span class="input">Daily 02:00 UTC ▾</span>
+      </div>
+      <div class="foot">
+        <span class="btn ghost">Test connection</span>
+        <span class="badge green">connected · 1 247 runs available</span>
+        <span class="btn ghost">← Back</span><span class="btn primary">Continue →</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="arrow-down">▼</div>
+
+<!-- Step 5 -->
+<section>
+  <h3>Step 5 · Review, dry-run &amp; publish</h3>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / onboard / step-5</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li class="active">Business onboarding</li><li>Packs library</li>
+          <li>Hypothesis designer</li><li>Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="crumb">Onboard / Step 5 of 5</div>
+        <div class="stepper">
+          <div class="step done"><span class="n">✓</span>Domain</div><span class="arrow">→</span>
+          <div class="step done"><span class="n">✓</span>Questions</div><span class="arrow">→</span>
+          <div class="step done"><span class="n">✓</span>Metrics &amp; targets</div><span class="arrow">→</span>
+          <div class="step done"><span class="n">✓</span>Data source</div><span class="arrow">→</span>
+          <div class="step active"><span class="n">5</span>Review &amp; publish</div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <span class="label">Generated Domain Pack · finops v0.1.0</span>
+<pre>{
+  "domain": "finops",
+  "version": "0.1.0",
+  "data_source": { "type": "mongo",
+                   "collection": "finops_runs" },
+  "metrics": [
+    { "id": "savings_realised_pct",
+      "path": "quantitative.savings_pct",
+      "type": "continuous", "unit": "percent",
+      "direction": "higher_better" },
+    { "id": "monthly_cloud_spend",
+      "path": "quantitative.spend_usd",
+      "type": "continuous", "unit": "USD",
+      "direction": "lower_better" },
+    { "id": "recommendation_acceptance_rate",
+      "type": "rate",
+      "success_field": "recommendation_status",
+      "success_value": "accepted" }
+  ],
+  "hypotheses": [
+    { "id":"q_typical",    "stat_test_id":"bootstrap_bca_iqm",
+      "metric":"savings_realised_pct" },
+    { "id":"q_accept",     "stat_test_id":"wilson_ci",
+      "metric":"recommendation_acceptance_rate",
+      "target":{ "op":"gte", "value":0.90 } },
+    { "id":"q_consistent", "stat_test_id":"levene_cv",
+      "metric":"monthly_cloud_spend",
+      "target":{ "cv_max":0.15 } },
+    { "id":"q_target",     "stat_test_id":"one_sided_ci",
+      "metric":"monthly_cloud_spend",
+      "target":{ "op":"lte", "value":250000 } },
+    { "id":"q_breach",     "stat_test_id":"wilson_breach_rate",
+      "metric":"monthly_cloud_spend",
+      "target":{ "op":"gt", "value":250000, "max_rate":0.05 } },
+    { "id":"q_tail",       "stat_test_id":"cvar",
+      "metric":"monthly_cloud_spend",
+      "params":{"alpha":0.05, "ceiling":320000} }
+  ]
+}</pre>
+          </div>
+
+          <div>
+            <span class="label">Dry-run on 47 sample runs</span>
+            <table class="miniTable">
+              <thead><tr><th>Question</th><th>Result</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>📈 Typical savings</td><td>IQM = 18.4% · CI [15.1, 21.9]</td><td><span class="badge green">pass</span></td></tr>
+                <tr><td>✅ Acceptance</td><td>0.87 · CI [0.79, 0.93]</td><td><span class="badge amber">below 0.90</span></td></tr>
+                <tr><td>📉 Spend consistency</td><td>CV = 0.11</td><td><span class="badge green">pass</span></td></tr>
+                <tr><td>🎯 Spend ≤ budget</td><td>p95 = $238k</td><td><span class="badge green">pass</span></td></tr>
+                <tr><td>🚨 Over-budget months</td><td>11.6% · CI [6.1, 19.8]</td><td><span class="badge red">exceeds 5%</span></td></tr>
+                <tr><td>⚠️ Worst-5% cost</td><td>CVaR₀.₀₅ = $314k</td><td><span class="badge green">pass</span></td></tr>
+              </tbody>
+            </table>
+            <p class="small" style="margin-top:8px">Dry-run uses the same deterministic engine that runs in production.</p>
+            <div class="row" style="margin-top:14px">
+              <span class="btn ghost">Re-run</span>
+              <span class="btn ghost">Edit pack JSON</span>
+              <span class="btn ghost">Save as draft</span>
+              <span class="right-aligned"><span class="btn primary">Approve &amp; publish v0.1.0</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- STUDIO UI: PACKS / DESIGNER / CATALOGUE / DRY-RUN                  -->
+<!-- =================================================================== -->
+<section id="studio" class="group-hdr">
+  <h2><span class="num">B</span>Studio UI &mdash; for the maintainer / power user</h2>
+  <p class="desc">After onboarding, packs live in a library. Power users open the <strong>designer</strong> to tweak hypotheses, browse the <strong>stat-test catalogue</strong>, or register a new plugin.</p>
+</section>
+
+<!-- Packs library -->
+<section>
+  <h3>B-1 · Packs library (landing)</h3>
+  <p class="desc">Top-right has the two main entry points: <code>+ New domain pack</code> (runs the wizard above) and <code>+ New hypothesis</code> (opens modal in C-1).</p>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / packs</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li>Business onboarding</li><li class="active">Packs library</li>
+          <li>Hypothesis designer</li><li>Stat-test catalogue</li>
+          <li>Metric catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="row">
+          <div class="crumb">Studio / Packs</div>
+          <div class="right-aligned row">
+            <span class="input">🔍 Search packs…</span>
+            <span class="btn"><span class="plus">+</span> New domain pack</span>
+            <span class="btn primary"><span class="plus">+</span> New hypothesis</span>
+          </div>
+        </div>
+        <table class="miniTable">
+          <thead><tr><th>Domain pack</th><th>Version</th><th>Hypotheses</th><th>Last dry-run</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>itops_kubernetes</b></td><td>v1.2.0</td><td>9</td><td>2d ago · 47 runs</td>
+              <td><span class="badge green">approved</span></td>
+              <td class="right-aligned"><span class="btn ghost">Open</span><span class="btn ghost">Clone</span></td></tr>
+            <tr><td><b>finops</b></td><td>v0.1.0</td><td>6</td><td>4h ago · 47 runs</td>
+              <td><span class="badge amber">draft</span></td>
+              <td class="right-aligned"><span class="btn ghost">Open</span><span class="btn ghost">Clone</span></td></tr>
+            <tr><td><b>secops</b></td><td>v0.3.1</td><td>7</td><td>1w ago</td>
+              <td><span class="badge green">approved</span></td>
+              <td class="right-aligned"><span class="btn ghost">Open</span><span class="btn ghost">Clone</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Hypothesis Designer -->
+<section>
+  <h3>B-2 · Hypothesis designer &mdash; canvas + AI co-pilot</h3>
+  <p class="desc">Each card is one hypothesis. Buttons: <code>+ Add hypothesis</code>, <code>+ add metric</code> (per card), ✎ Edit, × Remove. Left palette lists available stat plugins (drag to canvas, or click <code>+</code>). Right panel is the AI co-pilot.</p>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / packs / finops / designer</span></div>
+    <div class="body side3">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li>Business onboarding</li><li>Packs library</li>
+          <li class="active">Hypothesis designer</li>
+          <li>Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+
+      <div style="padding:14px;border-right:1px solid var(--line);background:#0d1430">
+        <div style="color:#cdd6ff;font-weight:600;margin-bottom:6px">Stat-test palette</div>
+        <div class="small" style="margin-bottom:8px">Drag onto canvas, or click + to add.</div>
+        <div class="palette">
+          <div class="item">Bootstrap BCa (IQM) <small>continuous · +</small></div>
+          <div class="item">Wilson CI <small>rate · +</small></div>
+          <div class="item">Kruskal-Wallis <small>k-sample · +</small></div>
+          <div class="item">Mann-Whitney U <small>2-sample · +</small></div>
+          <div class="item">CVaR <small>tail · +</small></div>
+          <div class="item">CUSUM/EWMA <small>drift · +</small></div>
+          <div class="item">Wilson breach rate <small>rate vs SLA · +</small></div>
+          <div class="item add">＋ Register new plugin → (D)</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="row">
+          <div class="crumb">finops / v0.1.0 · <span class="badge amber">draft</span></div>
+          <div class="right-aligned row">
+            <span class="btn ghost">↶ Undo</span><span class="btn ghost">↷ Redo</span>
+            <span class="btn"><span class="plus">+</span> Add hypothesis → (C-1)</span>
+            <span class="btn primary">Run dry-run</span>
+          </div>
+        </div>
+
+        <div class="canvas">
+          <div class="node">
+            <div class="h">H1 · Confidence intervals
+              <span><span class="badge green">bootstrap_bca_iqm</span>
+                <span class="btn icon ghost">✎</span><span class="btn icon ghost">×</span></span></div>
+            <div class="meta">Metrics:
+              <span class="chip">savings_realised_pct <span class="x">×</span></span>
+              <span class="chip">time_to_recommend <span class="x">×</span></span>
+              <span class="chip add">+ add metric → (C-2)</span></div>
+            <div class="meta">α = 0.05 · 10 000 resamples · min n = 5</div>
+          </div>
+          <div class="node">
+            <div class="h">H2 · Acceptance rate
+              <span><span class="badge green">wilson_ci</span>
+                <span class="btn icon ghost">✎</span><span class="btn icon ghost">×</span></span></div>
+            <div class="meta">Rate: <span class="chip">recommendation_acceptance_rate <span class="x">×</span></span></div>
+            <div class="meta">target ≥ 0.90</div>
+          </div>
+          <div class="node">
+            <div class="h">H3 · SLA breach
+              <span><span class="badge amber">wilson_breach_rate</span>
+                <span class="btn icon ghost">✎</span><span class="btn icon ghost">×</span></span></div>
+            <div class="meta">Metric: <span class="chip">monthly_cloud_spend &gt; $250k <span class="x">×</span></span></div>
+            <div class="meta">acceptable breach ≤ 5%</div>
+          </div>
+          <div class="node" style="border-style:dashed">
+            <div class="h" style="color:var(--accent)">＋ Add hypothesis (opens modal C-1)</div>
+            <div class="meta">Drop a stat test from the left, or ask the AI co-pilot on the right.</div>
+          </div>
+        </div>
+      </div>
+
+      <aside style="padding:14px;border-left:1px solid var(--line);background:#0d1430">
+        <div style="color:#cdd6ff;font-weight:600">AI co-pilot</div>
+        <div class="small" style="margin:4px 0 8px">Suggestions based on your goals + data.</div>
+        <div class="node" style="margin-bottom:8px">
+          <div class="h" style="font-size:12.5px">Add drift check? <span class="badge amber">suggested</span></div>
+          <div class="meta">Goal says &ldquo;stable week-on-week&rdquo;. Use <code>cusum_ewma</code> on acceptance rate.</div>
+          <div class="row" style="margin-top:8px"><span class="btn primary">Add</span><span class="btn ghost">Dismiss</span></div>
+        </div>
+        <div class="node">
+          <div class="h" style="font-size:12.5px">Compare cost drivers <span class="badge">optional</span></div>
+          <div class="meta">Kruskal-Wallis across <code>cost_driver</code> categories.</div>
+          <div class="row" style="margin-top:8px"><span class="btn primary">Add</span><span class="btn ghost">Dismiss</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<div class="arrow-down">▼ click &ldquo;+ Add hypothesis&rdquo; ▼</div>
+
+<!-- =================================================================== -->
+<!-- C. ADD HYPOTHESIS + METRIC MODALS                                   -->
+<!-- =================================================================== -->
+<section id="newhyp">
+  <h2><span class="num">C</span>Add a new hypothesis (using existing tests)</h2>
+</section>
+
+<!-- C-1 modal -->
+<section>
+  <h3>C-1 · Modal &mdash; New hypothesis</h3>
+  <p class="desc">Pick a test → params schema renders dynamically → pick metrics that match the test&rsquo;s accepted type → severity rule → Save.</p>
+  <div class="modal-wrap">
+    <div class="modal">
+      <div class="head"><h3>New hypothesis</h3><span class="btn icon ghost">×</span></div>
+      <div class="field">
+        <span class="label">Hypothesis name</span>
+        <span class="input block">SLA compliance · time-to-recommend</span>
+      </div>
+      <div class="grid3">
+        <div class="field">
+          <span class="label">Statistical test <span class="small">(from registry)</span></span>
+          <span class="input block">wilson_breach_rate ▾</span>
+          <span class="small">Accepts: continuous metric + SLA threshold</span>
+        </div>
+        <div class="field">
+          <span class="label">Severity rule</span>
+          <span class="input block">breach &gt; 5% → fail ▾</span>
+        </div>
+        <div class="field">
+          <span class="label">Min sample size</span>
+          <span class="input block">30</span>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Metric(s) <span class="small">(only metrics whose type matches the test are shown)</span></span>
+        <div class="row" style="gap:6px">
+          <span class="chip">time_to_recommend <span class="x">×</span></span>
+          <span class="chip add">+ Pick metric → (C-2)</span>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Test parameters <span class="small">(auto-generated from plugin&rsquo;s params_schema)</span></span>
+        <div class="grid3">
+          <span class="input">α = 0.05</span><span class="input">threshold = 60 s</span><span class="input">op = &gt;</span>
+        </div>
+      </div>
+      <div class="row">
+        <span class="btn ghost">🪄 Ask AI to suggest params</span>
+        <span class="btn ghost">View plugin docs</span>
+      </div>
+      <div class="foot">
+        <span class="btn ghost">Cancel</span>
+        <span class="btn">Save as draft</span>
+        <span class="btn primary">Save &amp; preview</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- C-2 metric picker -->
+<section>
+  <h3>C-2 · Modal &mdash; Pick metric / Define new metric</h3>
+  <p class="desc">Two tabs. Tab 1 picks from the domain&rsquo;s catalogue. Tab 2 defines a new metric (path, type, unit, direction, eligibility filter) &mdash; the same shape today&rsquo;s <code>CONTINUOUS_METRICS</code> dict expects.</p>
+  <div class="modal-wrap">
+    <div class="modal">
+      <div class="head"><h3>Metric</h3><span class="btn icon ghost">×</span></div>
+      <div class="row" style="border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:10px">
+        <span class="btn ghost" style="border-bottom:2px solid var(--accent2);border-radius:0">Pick existing</span>
+        <span class="btn ghost">Define new</span>
+        <span class="right-aligned small">Domain: <b>finops</b></span>
+      </div>
+      <div class="field">
+        <span class="label">Search</span><span class="input block">🔍 time_to…</span>
+      </div>
+      <table class="miniTable">
+        <thead><tr><th></th><th>Metric id</th><th>Type</th><th>Unit</th><th>Direction</th></tr></thead>
+        <tbody>
+          <tr><td>◉</td><td>time_to_recommend</td><td>continuous</td><td>seconds</td><td>lower better</td></tr>
+          <tr><td>○</td><td>savings_realised_pct</td><td>continuous</td><td>percent</td><td>higher better</td></tr>
+          <tr><td>○</td><td>recommendation_acceptance_rate</td><td>rate</td><td>—</td><td>higher better</td></tr>
+        </tbody>
+      </table>
+      <div class="node" style="margin-top:14px">
+        <div class="h">Define new metric <span class="badge">Tab 2 preview</span></div>
+        <div class="grid3" style="margin-top:8px">
+          <div class="field"><span class="label">id</span><span class="input">cost_anomaly_score</span></div>
+          <div class="field"><span class="label">JSON path</span><span class="input">quantitative.anom_score</span></div>
+          <div class="field"><span class="label">type</span><span class="input">continuous ▾</span></div>
+          <div class="field"><span class="label">unit</span><span class="input">z-score</span></div>
+          <div class="field"><span class="label">direction</span><span class="input">lower better ▾</span></div>
+          <div class="field"><span class="label">eligibility filter</span><span class="input">status == "scored"</span></div>
+        </div>
+      </div>
+      <div class="foot">
+        <span class="btn ghost">Cancel</span>
+        <span class="btn primary">Use this metric</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- D. REGISTER NEW PLUGIN                                              -->
+<!-- =================================================================== -->
+<section id="newplugin" class="group-hdr">
+  <h2><span class="num">D</span>Register a brand-new statistical test (plugin)</h2>
+  <p class="desc">The only path that touches backend code. A developer uses this wizard when none of H01&ndash;H09 cover a domain&rsquo;s need (e.g. unit-economics margin). Once published the test appears in the designer&rsquo;s palette (B-2) and in C-1&rsquo;s dropdown automatically.</p>
+</section>
+
+<section>
+  <h3>D-1 · Wizard step 3 · Implementation</h3>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / catalogue / register-plugin</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li>Business onboarding</li><li>Packs library</li>
+          <li>Hypothesis designer</li>
+          <li class="active">Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="crumb">Catalogue / Register new plugin</div>
+        <div class="stepper">
+          <div class="step done"><span class="n">✓</span>Identity</div><span class="arrow">→</span>
+          <div class="step done"><span class="n">✓</span>Inputs &amp; params</div><span class="arrow">→</span>
+          <div class="step active"><span class="n">3</span>Implementation</div><span class="arrow">→</span>
+          <div class="step"><span class="n">4</span>Validate</div><span class="arrow">→</span>
+          <div class="step"><span class="n">5</span>Publish</div>
+        </div>
+
+        <div class="grid2">
+          <div class="node">
+            <span class="label">Plugin id (slug)</span><span class="input block">finops_unit_economics</span>
+            <div style="height:8px"></div>
+            <span class="label">Version</span><span class="input block">0.1.0</span>
+            <div style="height:8px"></div>
+            <span class="label">Accepted metric type</span><span class="input block">continuous ▾</span>
+            <div style="height:8px"></div>
+            <span class="label">Returns</span><span class="input block">UnitEconomicsResult (Pydantic)</span>
+            <div style="height:8px"></div>
+            <span class="label">Tags</span>
+            <div class="row" style="gap:6px;margin-top:4px">
+              <span class="chip">finops</span><span class="chip">economics</span><span class="chip add">+</span>
+            </div>
+          </div>
+          <div class="node">
+            <span class="label">Implementation</span>
+            <div class="row" style="margin-bottom:8px">
+              <span class="btn">📁 Upload .py file</span>
+              <span class="btn ghost">Pick from repo branch</span>
+              <span class="btn ghost">Paste inline</span>
+            </div>
+<pre>def run(data, params):
+    """Implements the StatPlugin interface."""
+    revenue = data["revenue"]
+    cogs    = data["cogs"]
+    margin  = (revenue - cogs) / revenue
+    ci      = bootstrap_ci(margin, alpha=params["alpha"])
+    return UnitEconomicsResult(
+        margin_iqm = iqm(margin),
+        ci_lower   = ci.low,
+        ci_upper   = ci.high,
+    )</pre>
+            <div class="row" style="margin-top:10px">
+              <span class="badge green">interface check ✓</span>
+              <span class="badge green">params_schema valid ✓</span>
+              <span class="badge amber">unit tests: 0 found</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="justify-content:flex-end;margin-top:6px">
+          <span class="btn ghost">← Back</span>
+          <span class="btn">Save draft</span>
+          <span class="btn primary">Next: validate →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h3>D-2 · Wizard step 4 · Validate on sample data</h3>
+  <p class="desc">Server runs the plugin against the pack&rsquo;s sample runs. Determinism check, runtime, per-run preview. Publish is gated on a green run.</p>
+  <div class="modal-wrap">
+    <div class="modal" style="max-width:860px">
+      <div class="head">
+        <h3>Validate · finops_unit_economics v0.1.0</h3>
+        <div class="row">
+          <span class="badge green">interface ✓</span>
+          <span class="badge green">deterministic ✓ (seed=42)</span>
+          <span class="badge amber">runtime 312 ms</span>
+        </div>
+      </div>
+      <table class="miniTable">
+        <thead><tr><th>Sample run</th><th>Input shape</th><th>Output</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>run_001.json</td><td>n=47 (revenue, cogs)</td><td>margin_iqm=0.184, CI=[0.151, 0.219]</td><td><span class="badge green">ok</span></td></tr>
+          <tr><td>run_002.json</td><td>n=52</td><td>margin_iqm=0.171, CI=[0.139, 0.205]</td><td><span class="badge green">ok</span></td></tr>
+          <tr><td>run_003.json</td><td>n=3</td><td>—</td><td><span class="badge amber">n &lt; 5 skipped</span></td></tr>
+        </tbody>
+      </table>
+      <div class="node" style="margin-top:10px">
+        <span class="label">Auto-generated docs (from docstring + params_schema)</span>
+<pre>finops_unit_economics(data, alpha=0.05)
+  • input  : continuous metric pair (revenue, cogs)
+  • output : UnitEconomicsResult { margin_iqm, ci_lower, ci_upper }
+  • method : equal-weight IQM + bootstrap BCa CI on margin
+  • min n  : 5</pre>
+      </div>
+      <div class="foot">
+        <span class="btn ghost">← Back</span>
+        <span class="btn ghost">Re-run</span>
+        <span class="btn primary">Publish to registry →</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h3>D-3 · Stat-test catalogue (after publish)</h3>
+  <p class="desc">New plugin shows with a <code>NEW</code> badge. <code>Use in hypothesis</code> jumps back to C-1 with the test pre-selected.</p>
+  <div class="wire">
+    <div class="titlebar"><i class="r"></i><i class="y"></i><i class="g"></i>
+      <span class="url">agentcert.studio / catalogue</span></div>
+    <div class="body">
+      <aside class="nav">
+        <div class="logo">AgentCert · Studio</div>
+        <ul>
+          <li>Business onboarding</li><li>Packs library</li>
+          <li>Hypothesis designer</li>
+          <li class="active">Stat-test catalogue</li><li>Run console</li>
+        </ul>
+      </aside>
+      <div class="content">
+        <div class="row">
+          <div class="crumb">Catalogue</div>
+          <div class="right-aligned row">
+            <span class="input">🔍 Search tests…</span>
+            <span class="btn primary"><span class="plus">+</span> Register new plugin</span>
+          </div>
+        </div>
+        <table class="miniTable">
+          <thead><tr><th>id</th><th>Version</th><th>Accepts</th><th>Used by</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>bootstrap_bca_iqm</td><td>1.0.0</td><td>continuous</td><td>itops · finops</td>
+              <td class="right-aligned"><span class="btn ghost">Use in hypothesis</span></td></tr>
+            <tr><td>wilson_ci</td><td>1.0.0</td><td>rate</td><td>itops · finops · secops</td>
+              <td class="right-aligned"><span class="btn ghost">Use in hypothesis</span></td></tr>
+            <tr><td>cvar</td><td>1.0.0</td><td>continuous (tail)</td><td>itops</td>
+              <td class="right-aligned"><span class="btn ghost">Use in hypothesis</span></td></tr>
+            <tr style="background:rgba(82,227,194,.06)">
+              <td><b>finops_unit_economics</b> <span class="badge green">NEW</span></td>
+              <td>0.1.0</td><td>continuous pair</td><td>—</td>
+              <td class="right-aligned"><span class="btn primary">Use in hypothesis</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- E. 9 QUESTIONS REFERENCE                                            -->
+<!-- =================================================================== -->
+<section id="questions" class="group-hdr">
+  <h2><span class="num">E</span>The 9 universal business questions (reference)</h2>
+  <p class="desc">Each tile = one of H01&ndash;H09 in friendly form. Shown to SMEs in Step 2 of the onboarding wizard.</p>
+  <div class="qgrid">
+    <div class="qcard"><span class="htag">H01</span><h4>📈 Typical value with confidence</h4>
+      <p>Point estimate + CI. <i>&ldquo;Typical % savings · typical handle time&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H02</span><h4>✅ Success / acceptance rate</h4>
+      <p>Rate + CI. <i>&ldquo;Acceptance rate · conversion · FCR&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H03</span><h4>🔍 Differences across segments</h4>
+      <p>Compare k groups. <i>&ldquo;Savings by cost driver · AHT by channel&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H04</span><h4>⚖️ Uniformity / fairness</h4>
+      <p>No segment dominates. <i>&ldquo;Conversion fairness across reps&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H05</span><h4>📉 Predictability / consistency</h4>
+      <p>Low variance. <i>&ldquo;Spend stability · CSAT stability&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H06</span><h4>🎯 Meeting the target on average</h4>
+      <p>One-sided CI vs threshold. <i>&ldquo;Spend ≤ budget · MTTR ≤ 24h&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H07</span><h4>🚨 Breach frequency</h4>
+      <p>How often a target is missed. <i>&ldquo;Months over budget · deals slipping&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H08</span><h4>⚠️ Worst-case / tail risk</h4>
+      <p>Downside. <i>&ldquo;Worst-5% cost spike · worst-5% wait time&rdquo;</i></p></div>
+    <div class="qcard"><span class="htag">H09</span><h4>📊 Drift over time</h4>
+      <p>Regime change. <i>&ldquo;Unit-cost creep · CSAT drift&rdquo;</i></p></div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- F. ROSETTA STONE TABLE                                              -->
+<!-- =================================================================== -->
+<section id="map" class="group-hdr">
+  <h2><span class="num">F</span>Rosetta stone &mdash; H01-H09 mapped to 5 business domains</h2>
+  <p class="desc">Same hypothesis, same plugin, different metric id and threshold per domain. <strong>This is exactly what the onboarding wizard produces</strong>, but laid out for all five domains side-by-side.</p>
+
+  <div class="legend">
+    <span><i class="dot d-itops"></i> ITOps (today)</span>
+    <span><i class="dot d-finops"></i> FinOps</span>
+    <span><i class="dot d-secops"></i> SecOps</span>
+    <span><i class="dot d-sales"></i> SalesOps</span>
+    <span><i class="dot d-cx"></i> Customer Support</span>
+  </div>
+
+  <div style="overflow:auto">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:5%">H</th>
+        <th style="width:18%">Business question</th>
+        <th style="width:13%">Stat plugin</th>
+        <th>ITOps</th><th>FinOps</th><th>SecOps</th><th>SalesOps</th><th>Customer Support</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="h">H01</td><td>Typical value + CI</td><td><span class="stat">bootstrap_bca_iqm</span></td>
+        <td>time-to-detect</td><td>% savings realised</td><td>mean time-to-contain</td><td>deal-cycle length</td><td>handle time</td></tr>
+      <tr><td class="h">H02</td><td>Success / acceptance rate</td><td><span class="stat">wilson_ci</span></td>
+        <td>detection success rate</td><td>recommendation acceptance</td><td>true-positive rate</td><td>lead-to-opp conversion</td><td>first-contact resolution</td></tr>
+      <tr><td class="h">H03</td><td>Differences across segments</td><td><span class="stat">kruskal_wallis</span></td>
+        <td>by fault category</td><td>by cost driver</td><td>by attack type</td><td>by region / rep</td><td>by queue / channel</td></tr>
+      <tr><td class="h">H04</td><td>Uniformity / fairness</td><td><span class="stat">chi_square_fisher</span></td>
+        <td>across workloads</td><td>across business units</td><td>across detector rules</td><td>across products</td><td>across agent cohorts</td></tr>
+      <tr><td class="h">H05</td><td>Predictability / consistency</td><td><span class="stat">levene_cv</span></td>
+        <td>mitigation time</td><td>monthly cloud spend</td><td>alert volume</td><td>quota attainment</td><td>CSAT scores</td></tr>
+      <tr><td class="h">H06</td><td>Meeting the target on average</td><td><span class="stat">one_sided_ci</span></td>
+        <td>p95 detect ≤ SLA</td><td>spend ≤ budget</td><td>MTTR ≤ 24h</td><td>coverage ≥ 3× quota</td><td>AHT ≤ 6 min</td></tr>
+      <tr><td class="h">H07</td><td>Breach frequency</td><td><span class="stat">wilson_breach_rate</span></td>
+        <td>runs missing SLA</td><td>months over budget</td><td>incidents missing MTTR</td><td>deals slipping quarter</td><td>tickets breaching CSAT</td></tr>
+      <tr><td class="h">H08</td><td>Worst-case / tail risk</td><td><span class="stat">cvar</span></td>
+        <td>p99 mitigation time</td><td>worst-5% cost spike</td><td>worst-5% dwell time</td><td>worst-5% slippage</td><td>worst-5% wait time</td></tr>
+      <tr><td class="h">H09</td><td>Drift over time</td><td><span class="stat">cusum_ewma</span></td>
+        <td>detect-time drift</td><td>unit-cost creep</td><td>alert-precision drift</td><td>conversion drift</td><td>CSAT drift</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- G. SAME H, 3 DOMAINS (JSON cards)                                   -->
+<!-- =================================================================== -->
+<section id="sidebyside" class="group-hdr">
+  <h2><span class="num">G</span>Proof &mdash; the same H06 in 3 different domain packs</h2>
+  <p class="desc">Notice: identical JSON structure, only <code>metric id</code>, <code>threshold</code>, <code>op</code> and <code>unit</code> change. No code, no new test &mdash; just a different Domain Pack.</p>
+
+  <div class="qgrid">
+    <div class="qcard">
+      <h4><span class="hbar" style="background:#7c9cff"></span>ITOps &mdash; H06</h4>
+<pre>{
+  "id": "h06_sla",
+  "stat_test_id": "one_sided_ci",
+  "metric": "time_to_detect",
+  "threshold": 30,
+  "op": "lte",
+  "unit": "seconds"
+}</pre>
+      <p class="small" style="margin-top:8px">&ldquo;Mean time-to-detect should not exceed 30s.&rdquo;</p>
+    </div>
+    <div class="qcard">
+      <h4><span class="hbar" style="background:#52e3c2"></span>FinOps &mdash; H06</h4>
+<pre>{
+  "id": "h06_budget",
+  "stat_test_id": "one_sided_ci",
+  "metric": "monthly_cloud_spend",
+  "threshold": 250000,
+  "op": "lte",
+  "unit": "USD"
+}</pre>
+      <p class="small" style="margin-top:8px">&ldquo;Monthly cloud spend should not exceed $250k.&rdquo;</p>
+    </div>
+    <div class="qcard">
+      <h4><span class="hbar" style="background:#ff6b8a"></span>SalesOps &mdash; H06</h4>
+<pre>{
+  "id": "h06_coverage",
+  "stat_test_id": "one_sided_ci",
+  "metric": "pipeline_coverage_ratio",
+  "threshold": 3.0,
+  "op": "gte",
+  "unit": "x"
+}</pre>
+      <p class="small" style="margin-top:8px">&ldquo;Pipeline coverage should be at least 3× the quota.&rdquo;</p>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- H. WHAT CHANGES / WHAT DOESN'T                                      -->
+<!-- =================================================================== -->
+<section id="delta" class="group-hdr">
+  <h2><span class="num">H</span>What changes per domain &mdash; and what doesn&rsquo;t</h2>
+  <div class="qgrid">
+    <div class="qcard"><h4>✅ What changes</h4>
+      <ul style="margin:6px 0 0 18px;padding:0;color:#dfe6ff">
+        <li>The <b>Domain Pack</b> JSON (metrics, units, thresholds, picked questions)</li>
+        <li>The <b>narrative templates</b> for the cert report (&ldquo;speaks FinOps&rdquo;)</li>
+        <li>The <b>data source connector</b> (Mongo / REST / file drop)</li>
+      </ul>
+    </div>
+    <div class="qcard"><h4>🔒 What does NOT change</h4>
+      <ul style="margin:6px 0 0 18px;padding:0;color:#dfe6ff">
+        <li>The 16 stat-test plugins in <code>scripts/statistical_tests/</code></li>
+        <li>The 9 hypothesis runners (H01&ndash;H09)</li>
+        <li>The Pydantic result schema</li>
+        <li>The cert builder pipeline</li>
+      </ul>
+    </div>
+    <div class="qcard"><h4>🛠 When code is needed</h4>
+      <ul style="margin:6px 0 0 18px;padding:0;color:#dfe6ff">
+        <li>Only if the domain needs a <em>genuinely new</em> statistical method (e.g. unit-economics margin, cohort retention curves).</li>
+        <li>Then: register a plugin via the catalogue (section D) → it shows up in the designer&rsquo;s palette &amp; the wizard&rsquo;s test list automatically.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

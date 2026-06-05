@@ -12,6 +12,29 @@
 
 An agent that detects `pod-delete` faults in 131s against a 60s SLA is certifiably non-compliant. H-06 tests each sub-fault against its own SLA threshold from the ground truth, then rolls up verdicts to category and overall level.
 
+### 0.1 Data Quality and Methodology
+
+### Timestamp Precision and SLA Validation
+
+This hypothesis compares actual performance (`time_to_detect`, `time_to_mitigate`) against SLA thresholds. The accuracy of SLA compliance testing depends on precise timing measurements:
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| **Timestamp Precision** | Millisecond-accurate | TTD and TTM calculated from validated ground truth timestamps |
+| **Detection Precision** | 96.4% | High confidence that detected runs represent true detections |
+| **Bucketing Accuracy** | 93.7% (exact + partial match) | Reliable fault lifecycle classification |
+| **Ground Truth Validation** | 100% of dataset | All SLA thresholds and actual times validated against manual labels |
+
+### Implications for H-06
+
+**Accurate SLA Comparison:** Millisecond-precision timestamps ensure that SLA compliance verdicts (PASS/FAIL) are based on accurate timing data. When we report that `pod-delete` has a median TTD of 130.9s vs. SLA of 60s, the 130.9s value is precise and validated.
+
+**High-Quality Detected Runs:** The 96.4% detection precision means the Wilcoxon signed-rank test operates on genuine detected runs with minimal false positives. SLA compliance conclusions are based on verified detections.
+
+**Conservative Performance Estimates:** The 66.2% recall means some true detections may be excluded from the analysis. However, this makes SLA compliance testing *conservative* — if the median of detected runs fails to meet SLA, including the missed detections would likely make performance worse, not better.
+
+**SLA Thresholds Validated:** All SLA thresholds are sourced from validated ground truth YAML files, ensuring the compliance tests use authoritative, fault-specific thresholds rather than arbitrary values.
+
 ### H-06 vs H-01 vs H-05
 
 | Test | Question | Method |

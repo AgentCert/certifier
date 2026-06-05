@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentCert Token Optimization — Executive Summary</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #131829;
+    --surface2: #1c2238;
+    --surface3: #232a45;
+    --accent: #7c5cff;
+    --accent2: #00e0b4;
+    --accent3: #ff6584;
+    --accent4: #ffb648;
+    --accent5: #5cc8ff;
+    --text: #eef2f8;
+    --muted: #94a3b8;
+    --border: #2a3454;
+    --code-bg: #0d1424;
+    --good: #4ade80;
+    --warn: #f59e0b;
+    --bad:  #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(180deg, #07091a 0%, #0c1126 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 36px 24px;
+    max-width: 1180px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  h1 { font-size: 30px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  h2 { font-size: 17px; font-weight: 700; color: #fff; margin: 40px 0 14px; border-left: 3px solid var(--accent); padding-left: 12px; }
+  p  { color: var(--muted); margin-bottom: 10px; }
+  a  { color: var(--accent5); text-decoration: none; transition: color .15s; }
+  a:hover { color: var(--accent2); }
+  strong { color: var(--text); }
+  code { font-family: 'JetBrains Mono', 'Cascadia Code', monospace; font-size: 12px; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; color: var(--accent2); border: 1px solid var(--border); }
+
+  .hero { background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(0,224,180,0.08)); border: 1px solid var(--border); border-radius: 18px; padding: 28px 32px; margin-bottom: 32px; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; right: -80px; top: -80px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(124,92,255,0.3), transparent 70%); }
+  .hero-meta { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .pill { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--muted); }
+  .pill.good { color: var(--good); border-color: rgba(74,222,128,0.4); }
+
+  .grid-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 32px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-size: 22px; font-weight: 800; color: #fff; }
+  .stat-sub { font-size: 11px; color: var(--accent2); margin-top: 4px; }
+  .stat.warn .stat-sub { color: var(--warn); }
+  .stat.bad  .stat-sub { color: var(--accent3); }
+
+  .approaches { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .approach { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; position: relative; transition: transform .15s, border-color .15s; }
+  .approach:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .approach.featured { grid-column: span 2; background: linear-gradient(135deg, var(--surface), var(--surface2)); border-color: rgba(0,224,180,0.3); }
+  .approach-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .approach-num { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; }
+  .approach-title { font-size: 17px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .approach-savings { background: rgba(0,224,180,0.12); color: var(--accent2); border: 1px solid rgba(0,224,180,0.3); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .approach-body { font-size: 13px; color: var(--muted); margin: 10px 0 14px; }
+  .approach-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .mtag { font-size: 10px; padding: 2px 8px; border-radius: 12px; }
+  .mtag.effort-low { background: rgba(74,222,128,0.12); color: var(--good); border: 1px solid rgba(74,222,128,0.25); }
+  .mtag.effort-med { background: rgba(245,158,11,0.12); color: var(--warn); border: 1px solid rgba(245,158,11,0.25); }
+  .mtag.effort-high { background: rgba(239,68,68,0.12); color: var(--bad);  border: 1px solid rgba(239,68,68,0.25); }
+  .mtag.risk { background: rgba(124,92,255,0.12); color: var(--accent); border: 1px solid rgba(124,92,255,0.25); }
+  .mtag.phase { background: rgba(255,182,72,0.12); color: var(--accent4); border: 1px solid rgba(255,182,72,0.25); }
+  .approach-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .detail-link { font-size: 12px; font-weight: 700; color: var(--accent5); }
+  .detail-link::after { content: ' →'; }
+  .ref-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+  .ref-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--code-bg); color: var(--muted); border: 1px solid var(--border); }
+
+  .baseline { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 28px; }
+  .baseline-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .baseline h3 { font-size: 13px; font-weight: 700; color: var(--accent4); margin-bottom: 10px; }
+  .baseline ul { list-style: none; }
+  .baseline li { font-size: 12.5px; color: var(--muted); padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.04); display: flex; justify-content: space-between; gap: 12px; }
+  .baseline li strong { color: var(--text); }
+  .baseline li code { background: transparent; border: none; padding: 0; color: var(--accent2); }
+
+  .stack-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  .stack-table th { background: var(--surface2); color: var(--muted); text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+  .stack-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .stack-table tr:last-child td { border-bottom: none; background: rgba(0,224,180,0.06); font-weight: 700; color: var(--accent2); }
+
+  .roadmap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 28px; }
+  .roadmap-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 16px; }
+  .step { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; position: relative; }
+  .step-when { font-size: 10px; text-transform: uppercase; color: var(--accent); letter-spacing: 0.08em; font-weight: 700; margin-bottom: 6px; }
+  .step-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .step-desc { font-size: 11px; color: var(--muted); }
+
+  .sources { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; }
+  .sources-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+  .src-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .src-card .count { color: var(--accent2); font-weight: 700; font-size: 13px; }
+  .src-card .desc { color: var(--muted); font-size: 12px; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 11px; padding: 32px 0 8px; }
+
+  @media (max-width: 760px) {
+    .approaches, .baseline-row, .grid-stats, .roadmap-steps, .sources-grid { grid-template-columns: 1fr !important; }
+    .approach.featured { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>AgentCert Token Optimization</h1>
+  <p style="font-size: 14px; color: var(--text); opacity: 0.85; margin-top: 8px;">Re-engineering Phase 0 (Fault Bucketing) and Phase 1 (Metrics Extraction) — a 10–50× cost-reduction path grounded in 35+ arxiv papers and 20 industry case studies.</p>
+  <div class="hero-meta">
+    <span class="pill">v2 — Optimized Edition</span>
+    <span class="pill">2026-06-02</span>
+    <span class="pill good">35 papers · 40+ industry sources · 15 eval frameworks · K8s/Langfuse/FinOps landscape</span>
+    <span class="pill">Target: 5–10× reduction (achievable 10–50× stacked)</span>
+  </div>
+</div>
+
+<div class="grid-stats">
+  <div class="stat bad">
+    <div class="stat-label">Current Phase 0 input</div>
+    <div class="stat-value">18K–40K</div>
+    <div class="stat-sub">tokens / trace</div>
+  </div>
+  <div class="stat bad">
+    <div class="stat-label">Current Phase 1 / bucket</div>
+    <div class="stat-value">~20 calls</div>
+    <div class="stat-sub">47K in + 25K out</div>
+  </div>
+  <div class="stat warn">
+    <div class="stat-label">Redundant work</div>
+    <div class="stat-value">~40%</div>
+    <div class="stat-sub">quant+qual same spans 2×</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Stacked potential</div>
+    <div class="stat-value" style="color: var(--accent2);">10–50×</div>
+    <div class="stat-sub">if all 5 approaches ship</div>
+  </div>
+</div>
+
+<h2>Current baseline — measured hot spots</h2>
+<div class="baseline">
+  <div class="baseline-row">
+    <div>
+      <h3>PHASE 0 — Fault Bucketing</h3>
+      <ul>
+        <li><span>System prompt v2</span><strong>~1,500 tok</strong></li>
+        <li><span>Known Faults block (verbose)</span><strong>500–2,000 tok</strong></li>
+        <li><span>Event input + output verbatim</span><strong>500–1,500 tok</strong></li>
+        <li><span><code>fault_pruning</code> flag (disabled)</span><strong>–84%</strong></li>
+        <li><span><code>cache_enabled</code> flag (disabled)</span><strong>–50%</strong></li>
+      </ul>
+    </div>
+    <div>
+      <h3>PHASE 1 — Metrics Extraction (per 30-span bucket)</h3>
+      <ul>
+        <li><span>Span identification</span><strong>1 call</strong></li>
+        <li><span>Timestamp validation</span><strong>0–2 calls</strong></li>
+        <li><span>Quantitative batches</span><strong>5 calls</strong></li>
+        <li><span>Qualitative batches (redundant — same spans)</span><strong>5 calls</strong></li>
+        <li><span>Combined judge per reasoning step</span><strong>5+ calls</strong></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<h2>Top 5 approaches — ranked by leverage × risk</h2>
+
+<div class="approaches">
+
+  <div class="approach featured">
+    <div class="approach-head">
+      <div>
+        <div class="approach-num">APPROACH 1 · QUICK WIN</div>
+        <div class="approach-title">Deterministic First, LLM Last — OTel + Drain3 + Regex Cascade</div>
+      </div>
+      <div class="approach-savings">60–80% calls</div>
+    </div>
+    <p class="approach-body">Litmus/Chaos Mesh already emit OTel attributes that <em>are</em> the lifecycle labels (<code>chaosUID</code>, <code>phase</code>, timestamps). Lift them with a deterministic preprocessor; collapse repetitive spans with Drain3 templates; LLM is invoked only on the residue. AWS CloudWatch Logs Anomaly Detection and Inspect AI both ship this pattern.</p>
+    <div class="approach-meta">
+      <span class="mtag effort-low">Effort: 2–3 days</span>
+      <span class="mtag risk">Risk: Very low</span>
+      <span class="mtag phase">Phase 0 + Phase 1</span>
+    </div>
+    <div class="approach-foot">
+      <div class="ref-pills">
+        <span class="ref-pill">Drain3 / LILAC</span>
+        <span class="ref-pill">LogParser-LLM</span>
+        <span class="ref-pill">OTel CNCF</span>
+        <span class="ref-pill">MonitorAssistant FSE'24</span>
+        <span class="ref-pill">AWS CloudWatch</span>
+      </div>
+      <a class="detail-link" href="detailed.html#approach-1">See detailed mapping</a>
+    </div>
+  </div>
+
+  <div class="approach">
+    <div class="approach-head">
+      <div>
+        <div class="approach-num">APPROACH 2</div>
+        <div class="approach-title">Cascade Router — Cheap-First, Frontier-on-Disagreement</div>
+      </div>
+      <div class="approach-savings">50–70% $</div>
+    </div>
+    <p class="approach-body">Wrap <code>AzureLLMClient</code> in a routing layer. Haiku/Phi-3-mini handles the common case; flagship only fires when logprob confidence &lt; 0.85 or schema validation fails. Uber, GitHub Copilot, Gemini Flash→Pro all production-validated.</p>
+    <div class="approach-meta">
+      <span class="mtag effort-med">Effort: 1 week</span>
+      <span class="mtag risk">Risk: Medium</span>
+      <span class="mtag phase">All phases</span>
+    </div>
+    <div class="approach-foot">
+      <div class="ref-pills">
+        <span class="ref-pill">FrugalGPT</span>
+        <span class="ref-pill">RouteLLM</span>
+        <span class="ref-pill">Hybrid LLM</span>
+        <span class="ref-pill">Uber Gateway</span>
+      </div>
+      <a class="detail-link" href="detailed.html#approach-2">See detailed mapping</a>
+    </div>
+  </div>
+
+  <div class="approach">
+    <div class="approach-head">
+      <div>
+        <div class="approach-num">APPROACH 3 · ALMOST FREE</div>
+        <div class="approach-title">Aggressive Prompt Caching + Batch API + Constrained JSON</div>
+      </div>
+      <div class="approach-savings">85% input</div>
+    </div>
+    <p class="approach-body">Anthropic prompt-cache: 10% of base on reads, 90% cost / 85% latency cut. OpenAI Batch API = 50% off for 24h SLA. XGrammar/SGLang/Outlines kill JSON-retry waste. Plus: flip the existing <code>fault_pruning</code> + <code>cache_enabled</code> flags.</p>
+    <div class="approach-meta">
+      <span class="mtag effort-low">Effort: 1–2 days</span>
+      <span class="mtag risk">Risk: Very low</span>
+      <span class="mtag phase">Phase 0 + 1 + 2</span>
+    </div>
+    <div class="approach-foot">
+      <div class="ref-pills">
+        <span class="ref-pill">Anthropic Caching</span>
+        <span class="ref-pill">OpenAI Batch</span>
+        <span class="ref-pill">XGrammar</span>
+        <span class="ref-pill">SGLang</span>
+      </div>
+      <a class="detail-link" href="detailed.html#approach-3">See detailed mapping</a>
+    </div>
+  </div>
+
+  <div class="approach">
+    <div class="approach-head">
+      <div>
+        <div class="approach-num">APPROACH 4</div>
+        <div class="approach-title">Merge Quant+Qual + Chain-of-Draft + ChainPoll Early-Stop</div>
+      </div>
+      <div class="approach-savings">40% calls · 90% out</div>
+    </div>
+    <p class="approach-body">Phase 1 currently sends the same 6 spans twice. Merge into one prompt. Chain-of-Draft drops reasoning to 7.6% of CoT tokens at parity accuracy. Galileo ChainPoll: stop sampling once 3-of-5 judges agree.</p>
+    <div class="approach-meta">
+      <span class="mtag effort-med">Effort: 1 week</span>
+      <span class="mtag risk">Risk: Medium</span>
+      <span class="mtag phase">Phase 1 + Phase 2</span>
+    </div>
+    <div class="approach-foot">
+      <div class="ref-pills">
+        <span class="ref-pill">Chain of Draft</span>
+        <span class="ref-pill">Skeleton-of-Thought</span>
+        <span class="ref-pill">ChainPoll</span>
+        <span class="ref-pill">Batch Prompting</span>
+      </div>
+      <a class="detail-link" href="detailed.html#approach-4">See detailed mapping</a>
+    </div>
+  </div>
+
+  <div class="approach">
+    <div class="approach-head">
+      <div>
+        <div class="approach-num">APPROACH 5 · REIMPLEMENTATION</div>
+        <div class="approach-title">Distilled Small-Model Extractor + NLI Verifier</div>
+      </div>
+      <div class="approach-savings">90%+ steady</div>
+    </div>
+    <p class="approach-body">Each shipped Phase-1 output is labelled training data. Fine-tune Phi-3-mini / Mistral-7B for bucketing; replace LLM-Council judges with Vectara HHEM-2.1-Open NLI. AWS Bedrock Distillation: 75% cheaper / 500% faster / &lt;2% accuracy delta.</p>
+    <div class="approach-meta">
+      <span class="mtag effort-high">Effort: 1–3 months</span>
+      <span class="mtag risk">Risk: High</span>
+      <span class="mtag phase">Reimplementation</span>
+    </div>
+    <div class="approach-foot">
+      <div class="ref-pills">
+        <span class="ref-pill">Bedrock Distillation</span>
+        <span class="ref-pill">Self-Taught Evaluator</span>
+        <span class="ref-pill">Patronus Lynx</span>
+        <span class="ref-pill">Phi-3</span>
+      </div>
+      <a class="detail-link" href="detailed.html#approach-5">See detailed mapping</a>
+    </div>
+  </div>
+
+</div>
+
+<h2>Stacked cost-stack math</h2>
+<div class="baseline">
+  <table class="stack-table">
+    <thead><tr><th>Lever</th><th>Multiplier on Phase 0+1 tokens</th></tr></thead>
+    <tbody>
+      <tr><td>Approach 1 — OTel + Drain3 deterministic pre-pass</td><td>0.3 – 0.5×</td></tr>
+      <tr><td>Approach 2 — Cascade routing, Haiku-first</td><td>0.3 – 0.5×</td></tr>
+      <tr><td>Approach 3 — Caching + batch + constrained output</td><td>0.4 – 0.6×</td></tr>
+      <tr><td>Approach 4 — Merge passes + Chain-of-Draft + ChainPoll</td><td>0.5 – 0.7×</td></tr>
+      <tr><td>Compounded total (1+2+3+4)</td><td>~0.018 – 0.105×  →  10–50× reduction</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Recommended roadmap</h2>
+<div class="roadmap">
+  <p>Sequence prioritizes risk-free wins first, then capability-building, then reimplementation.</p>
+  <div class="roadmap-steps">
+    <div class="step"><div class="step-when">Week 1</div><div class="step-title">Approach 3</div><div class="step-desc">Caching + batch + constrained output. No model change.</div></div>
+    <div class="step"><div class="step-when">Week 2–3</div><div class="step-title">Approach 1</div><div class="step-desc">OTel + Drain3 preprocessor. Kills deterministic waste.</div></div>
+    <div class="step"><div class="step-when">Month 1</div><div class="step-title">Approach 4</div><div class="step-desc">Merge passes, Chain-of-Draft, ChainPoll. Needs golden set.</div></div>
+    <div class="step"><div class="step-when">Month 1–2</div><div class="step-title">Approach 2</div><div class="step-desc">Cascade routing once telemetry reveals confidence floors.</div></div>
+    <div class="step"><div class="step-when">Quarter 2</div><div class="step-title">Approach 5</div><div class="step-desc">Distillation after 10K+ labelled traces accumulate.</div></div>
+  </div>
+</div>
+
+<h2>Research sources index</h2>
+<div class="sources">
+  <p>Click through to <a href="detailed.html">the detailed report</a> for code mappings, full citations, and per-source notes.</p>
+  <div class="sources-grid">
+    <div class="src-card"><div class="count">17 new arxiv papers</div><div class="desc"><code>research/02_papers/01-new-arxiv-papers.md</code> — FrugalGPT, RouteLLM, Chain-of-Draft, Gisting, ICAE, XGrammar, SGLang, LogParser-LLM, DivLog, Batch Prompting, tau-bench, etc.</div></div>
+    <div class="src-card"><div class="count">20 industry case studies</div><div class="desc"><code>research/03_industry/01-company-case-studies.md</code> — Uber, LinkedIn, Pinterest, Airbnb, DoorDash, Meta, Honeycomb, Copilot, AWS Bedrock, Gemini, Datadog, JPMorgan, Bloomberg.</div></div>
+    <div class="src-card"><div class="count">33 chaos / LLMOps / RCA sources</div><div class="desc"><code>research/03_industry/02-chaos-llmops-sources.md</code> — MonitorAssistant, LM-PACE, RCAgent, Eadro, OneRCA, LogSummary, OTel semantic conventions, Litmus, Chaos Mesh.</div></div>
+    <div class="src-card"><div class="count">15 eval framework patterns</div><div class="desc"><code>research/03_industry/03-llm-judge-frameworks.md</code> — Arize Phoenix, LangSmith, Patronus Lynx, Galileo ChainPoll, Braintrust, RAGAS HHEM, DeepEval, Inspect AI, Verdict, NeMo Evaluator.</div></div>
+    <div class="src-card"><div class="count">20+ K8s · Langfuse · FinOps sources</div><div class="desc"><code>research/03_industry/04-k8s-langfuse-finops-landscape.md</code> — K8sGPT, HolmesGPT, Komodor Klaudia, KAITO, Dynatrace Davis CoPilot, Grafana Sift, Datadog Bits, Langfuse LLM-as-Judge, OTel GenAI semconv, OpenCost, Helicone, Azure FinOps Toolkit. <strong>Includes 5 reusable prompt templates and OTel <code>gen_ai.*</code> attribute table.</strong></div></div>
+    <div class="src-card"><div class="count">29 baseline papers (v1)</div><div class="desc"><code>research/token-optimization-research.md</code> — LLMLingua-2, LongLLMLingua, FAISS, DSPy/MIPRO, Phi-3, Outlines, kNN few-shot, LogBERT, Lost-in-Middle, RECOMP, HyDE.</div></div>
+    <div class="src-card"><div class="count">Synthesis (this report)</div><div class="desc"><code>research/04_synthesis/00-top-5-approaches.md</code> — top 5 approaches mapped to <code>classifier.py</code>, <code>metrics_extractor_from_trace.py</code>, <code>combined_judge.py</code>.</div></div>
+  </div>
+</div>
+
+<div class="footer">
+  AgentCert Research · v2 (2026-06-02) · 35+ papers / 20 industry sources / 15 frameworks · Open <a href="detailed.html">Detailed Report</a> for full code mappings &amp; arxiv links.
+</div>
+
+</body></html>

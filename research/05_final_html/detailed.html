@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentCert Token Optimization — Detailed Approach (v2)</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #131829;
+    --surface2: #1c2238;
+    --surface3: #232a45;
+    --accent: #7c5cff;
+    --accent2: #00e0b4;
+    --accent3: #ff6584;
+    --accent4: #ffb648;
+    --accent5: #5cc8ff;
+    --text: #eef2f8;
+    --muted: #94a3b8;
+    --border: #2a3454;
+    --code-bg: #0d1424;
+    --good: #4ade80;
+    --warn: #f59e0b;
+    --bad:  #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(180deg, #07091a 0%, #0c1126 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 36px 24px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 28px; font-weight: 800; color: #fff; }
+  h2 { font-size: 19px; font-weight: 700; color: #fff; margin: 44px 0 14px; border-left: 3px solid var(--accent); padding-left: 12px; scroll-margin-top: 20px; }
+  h3 { font-size: 15px; font-weight: 700; color: var(--accent2); margin: 22px 0 8px; }
+  h4 { font-size: 13px; font-weight: 700; color: var(--accent4); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+  p  { color: var(--muted); margin-bottom: 10px; font-size: 13.5px; }
+  a  { color: var(--accent5); text-decoration: none; }
+  a:hover { color: var(--accent2); }
+  strong { color: var(--text); }
+  em { color: var(--accent4); font-style: normal; font-weight: 600; }
+  ul, ol { margin: 6px 0 14px 22px; color: var(--muted); }
+  li { margin-bottom: 4px; font-size: 13px; }
+  code { font-family: 'JetBrains Mono', 'Cascadia Code', monospace; font-size: 12px; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; color: var(--accent2); border: 1px solid var(--border); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; overflow-x: auto; margin: 12px 0; color: #d4dbe6; }
+  pre code { background: transparent; border: none; padding: 0; color: inherit; }
+
+  .header { background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(0,224,180,0.08)); border: 1px solid var(--border); border-radius: 16px; padding: 26px 30px; margin-bottom: 30px; }
+  .header-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .pill { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--muted); }
+  .back-link { display: inline-block; margin-bottom: 14px; font-size: 12px; color: var(--accent5); }
+  .back-link::before { content: '← '; }
+
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 32px; }
+  .toc-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
+  .toc ol { list-style: none; columns: 2; gap: 24px; margin: 0; padding: 0; }
+  .toc li { padding: 4px 0; font-size: 13px; }
+  .toc li a { color: var(--text); }
+  .toc li a:hover { color: var(--accent2); }
+
+  .approach-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 26px; margin-bottom: 24px; }
+  .approach-card.featured { border-color: rgba(0,224,180,0.3); background: linear-gradient(135deg, var(--surface), var(--surface2)); }
+  .approach-banner { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .approach-banner h2 { margin: 0; padding-left: 0; border: none; font-size: 21px; }
+  .savings-badge { background: rgba(0,224,180,0.15); color: var(--accent2); border: 1px solid rgba(0,224,180,0.35); border-radius: 22px; padding: 6px 16px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .meta-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .mtag { font-size: 10.5px; padding: 3px 10px; border-radius: 14px; }
+  .mtag.effort-low  { background: rgba(74,222,128,0.12);  color: var(--good); border: 1px solid rgba(74,222,128,0.25); }
+  .mtag.effort-med  { background: rgba(245,158,11,0.12);  color: var(--warn); border: 1px solid rgba(245,158,11,0.25); }
+  .mtag.effort-high { background: rgba(239,68,68,0.12);   color: var(--bad);  border: 1px solid rgba(239,68,68,0.25); }
+  .mtag.risk        { background: rgba(124,92,255,0.12);  color: var(--accent); border: 1px solid rgba(124,92,255,0.25); }
+  .mtag.phase       { background: rgba(255,182,72,0.12);  color: var(--accent4); border: 1px solid rgba(255,182,72,0.25); }
+
+  .section-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 14px 0; }
+  .section-block h4 { margin-top: 0; }
+
+  .ref-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; }
+  .ref-list li { font-size: 12.5px; }
+  .ref-list a { color: var(--accent5); }
+
+  .file-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+  .file-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .file-card code { display: block; background: transparent; border: none; padding: 0; color: var(--accent5); margin-bottom: 4px; }
+  .file-card .desc { color: var(--muted); font-size: 12px; }
+
+  table.cost { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  table.cost th, table.cost td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; }
+  table.cost th { background: var(--surface3); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  table.cost tr:last-child td { background: rgba(0,224,180,0.06); color: var(--accent2); font-weight: 700; }
+
+  .callout { background: rgba(124,92,255,0.08); border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 6px; margin: 12px 0; font-size: 13px; color: var(--text); }
+  .callout strong { color: var(--accent); }
+
+  .footer { text-align: center; color: var(--muted); font-size: 11px; padding: 32px 0 8px; border-top: 1px solid var(--border); margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="summary.html">Back to Executive Summary</a>
+
+<div class="header">
+  <h1>AgentCert Token Optimization — Detailed Approach (v2)</h1>
+  <p style="color: var(--text); opacity: 0.85; margin-top: 8px;">Code-level mapping of 5 optimization approaches onto Phase 0 (<code>fault_analyzer/</code>) and Phase 1 (<code>metrics_extractor/</code>). Each section includes: rationale, exact files/functions touched, prompt sketch, research grounding, and expected savings.</p>
+  <div class="header-meta">
+    <span class="pill">35 papers · 20 industry · 15 eval frameworks</span>
+    <span class="pill">v2 · 2026-06-02</span>
+    <span class="pill">Targets <code>fault_analyzer/classifier.py</code> · <code>metrics_extractor/scripts/*</code></span>
+  </div>
+</div>
+
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#baseline">Current baseline (what we measured)</a></li>
+    <li><a href="#approach-1">Approach 1 — Deterministic First (OTel + Drain3)</a></li>
+    <li><a href="#approach-2">Approach 2 — Cascade Router (Cheap → Flagship)</a></li>
+    <li><a href="#approach-3">Approach 3 — Caching + Batch + Constrained Output</a></li>
+    <li><a href="#approach-4">Approach 4 — Merge Passes + Chain-of-Draft + ChainPoll</a></li>
+    <li><a href="#approach-5">Approach 5 — Distilled SLM + NLI Verifier</a></li>
+    <li><a href="#stack-math">Stacked cost-stack math</a></li>
+    <li><a href="#roadmap">Recommended roadmap</a></li>
+    <li><a href="#sources">Research sources (full index)</a></li>
+  </ol>
+</div>
+
+<h2 id="baseline">Current baseline — what we measured</h2>
+
+<div class="section-block">
+  <h4>Phase 0 — Fault Bucketing (<code>fault_analyzer/</code>)</h4>
+  <ul>
+    <li>System prompt v2: ~1,500 tok · <code>fault_analyzer/prompt/v2/prompt.yml:1–223</code></li>
+    <li>Known Faults block (verbose): 500–2,000 tok · <code>classifier.py:173–258</code></li>
+    <li>Event input + output verbatim: 500–1,500 tok · <code>classifier.py:310–311</code></li>
+    <li><strong>Total per trace: ~18K–40K input tokens</strong></li>
+    <li>Two flags already exist but are <em>disabled</em>: <code>fault_pruning: true</code> (–84% on faults block) and <code>cache_enabled: true</code> (~50% on system prompt after first batch).</li>
+  </ul>
+</div>
+
+<div class="section-block">
+  <h4>Phase 1 — Metrics Extraction (per 30-span bucket)</h4>
+  <ul>
+    <li>1 span identification · 0–2 timestamp validation · 5 quantitative batches</li>
+    <li><strong>5 redundant qualitative batches</strong> — same 6 spans re-sent</li>
+    <li>5+ combined-judge calls per reasoning step</li>
+    <li><strong>Total: ~20 calls / ~47K input + ~25K output per bucket</strong></li>
+  </ul>
+</div>
+
+<!-- ============== APPROACH 1 ============== -->
+<div class="approach-card featured" id="approach-1">
+  <div class="approach-banner">
+    <h2 style="border:none; padding:0;">Approach 1 — Deterministic First, LLM Last <span style="color:var(--muted); font-size:13px; font-weight:500;">(OTel + Drain3 + Regex Cascade)</span></h2>
+    <div class="savings-badge">60–80% Phase 0 calls · 40% Phase 1</div>
+  </div>
+  <div class="meta-row">
+    <span class="mtag effort-low">Effort: 2–3 days</span>
+    <span class="mtag risk">Risk: Very low</span>
+    <span class="mtag phase">Phase 0 + Phase 1</span>
+  </div>
+
+  <h3>Why this works</h3>
+  <p>Litmus and Chaos Mesh already emit OpenTelemetry attributes on every event — <code>k8s.event.reason</code>, <code>chaosUID</code>, <code>experimentName</code>, <code>phase</code>, <code>start_time</code>, <code>end_time</code>. These <em>are</em> the lifecycle bucket labels you're paying GPT-4 to infer. Langfuse persists them. Both AWS CloudWatch Logs Anomaly Detection and UK AISI's Inspect AI ship a pattern: deterministic <code>match()</code>/regex first, LLM only on the residue. Drain3 / LILAC and LogParser-LLM show 5–20× compression on log templates with zero accuracy loss.</p>
+
+  <h3>Concrete code changes</h3>
+  <ol>
+    <li>Add <code>fault_analyzer/preprocessor.py</code>. Walks the raw trace, lifts OTel attributes into a <code>pre_bucket: Dict[chaosUID, BucketStub]</code>. Spans already labelled by Litmus/Chaos Mesh skip the LLM entirely.</li>
+    <li>Run <strong>Drain3</strong> over span names + log messages → template IDs. Identical templates collapse to one exemplar before any LLM call.</li>
+    <li>In <code>metrics_extractor/scripts/metrics_extractor_from_trace.py</code>: timestamps (<code>start_time</code>, <code>end_time</code>, TTD, TTR) come directly from OTel attributes — drop the LLM "timestamp validation" call. LLM only handles qualitative fields (root cause narrative, severity rationale).</li>
+    <li>Add a calibration gate: if pre_bucket coverage &gt; threshold (say, 80% of events labelled deterministically), <em>skip</em> the entire Phase 0 LLM call for that trace and only invoke for unlabelled residue.</li>
+  </ol>
+
+<pre><code># fault_analyzer/preprocessor.py (sketch)
+from drain3 import TemplateMiner
+from drain3.template_miner_config import TemplateMinerConfig
+
+class TracePreprocessor:
+    def __init__(self):
+        cfg = TemplateMinerConfig(); cfg.load_from_dict({"DRAIN": {"sim_th": 0.4}})
+        self.miner = TemplateMiner(config=cfg)
+
+    def lift_otel(self, span):
+        attrs = span.get("attributes", {})
+        return {
+            "chaos_uid": attrs.get("chaosUID"),
+            "experiment": attrs.get("experimentName"),
+            "phase": attrs.get("phase"),           # injected | running | recovered
+            "start_ns": span["startTimeUnixNano"],
+            "end_ns":   span.get("endTimeUnixNano"),
+        }
+
+    def to_buckets(self, trace):
+        buckets, residue = {}, []
+        for s in trace["spans"]:
+            stub = self.lift_otel(s)
+            if stub["chaos_uid"] and stub["phase"]:
+                buckets.setdefault(stub["chaos_uid"], []).append(s)
+            else:
+                # template-collapse before LLM
+                tpl = self.miner.add_log_message(s.get("name","")).cluster_id
+                residue.append((tpl, s))
+        return buckets, residue   # only `residue` is sent to the LLM</code></pre>
+
+  <h3>Expected savings</h3>
+  <p>Empirical estimates from chaos-experiment traces: 60–80% of events are deterministically classifiable from OTel attributes; Drain3 collapses the residue another 5–20×. Phase 1 timestamp + ID extraction (currently 1–2 calls per bucket) drops to zero.</p>
+
+  <div class="callout"><strong>Reinforced by K8s/Langfuse research:</strong> the OpenTelemetry <em>GenAI semantic conventions</em> (<code>gen_ai.usage.input_tokens</code>, <code>gen_ai.usage.output_tokens</code>, <code>gen_ai.usage.cached_input_tokens</code>, <code>gen_ai.request.model</code>, <code>gen_ai.response.finish_reasons</code>, <code>gen_ai.server.time_to_first_token</code>, etc.) are already populated by Langfuse, Traceloop OpenLLMetry, Arize Phoenix, Sentry, and PostHog. AgentCert is currently spending GPT-4 calls to <em>infer</em> values that are sitting in the span as structured attributes. K8sGPT, HolmesGPT, Komodor Klaudia, Dynatrace Davis CoPilot, and Grafana Sift all follow the same pattern: deterministic correlation first, LLM only for summarization. See <code>research/03_industry/04-k8s-langfuse-finops-landscape.md</code> for the full <code>gen_ai.*</code> attribute table and reusable prompt templates.</div>
+
+  <h3>Research grounding</h3>
+  <ul class="ref-list">
+    <li><a href="https://opentelemetry.io/docs/specs/semconv/general/events/">OpenTelemetry Semantic Conventions — Events</a> (CNCF)</li>
+    <li><a href="https://arxiv.org/abs/2310.01796">LILAC — Logstash + LLM template extraction (arxiv 2310.01796)</a></li>
+    <li><a href="https://arxiv.org/abs/2408.13727">LogParser-LLM (arxiv 2408.13727)</a></li>
+    <li><a href="https://aws.amazon.com/blogs/aws/use-natural-language-to-query-amazon-cloudwatch-logs-and-metrics-preview/">AWS CloudWatch Logs Anomaly Detection</a></li>
+    <li><a href="https://inspect.aisi.org.uk/scorers.html">Inspect AI — match/pattern/model_graded composition</a></li>
+    <li>MonitorAssistant (Huawei, FSE'24) — cited in <code>research/03_industry/02-chaos-llmops-sources.md</code></li>
+  </ul>
+</div>
+
+<!-- ============== APPROACH 2 ============== -->
+<div class="approach-card" id="approach-2">
+  <div class="approach-banner">
+    <h2 style="border:none; padding:0;">Approach 2 — Cascade Router <span style="color:var(--muted); font-size:13px; font-weight:500;">(Cheap-First, Frontier-on-Disagreement)</span></h2>
+    <div class="savings-badge">50–70% $</div>
+  </div>
+  <div class="meta-row">
+    <span class="mtag effort-med">Effort: 1 week</span>
+    <span class="mtag risk">Risk: Medium</span>
+    <span class="mtag phase">All phases</span>
+  </div>
+
+  <h3>Why this works</h3>
+  <p>Uber's GenAI Gateway, GitHub Copilot multi-model selection, Gemini Flash→Pro, and Microsoft AutoGen all centralize on the same pattern: route to a cheap model first, escalate to a flagship only when needed. FrugalGPT (arxiv 2305.05176) and RouteLLM (arxiv 2406.18665) formalize the decision rule. Anthropic's "Panel of Diverse Models" finding (3 small judges beat single GPT-4 at ~1/7 cost) makes the same point for evaluators. Haiku is ~1/7 of Sonnet; Gemini Flash is ~1/10 of Pro.</p>
+
+  <h3>Concrete code changes</h3>
+  <ol>
+    <li>Wrap <code>utils/azure_openai_util.py:AzureLLMClient</code> in a <code>RoutingLLMClient(tier="cheap"|"flagship"|"reasoning")</code>.</li>
+    <li>Phase 0 bucketing → Haiku / Phi-3-mini / Gemini Flash; Phase 1 quantitative → Haiku; Phase 1 qualitative → Sonnet only if Haiku log-prob confidence &lt; 0.85.</li>
+    <li>Cheap model returns <code>{label, confidence_logprob}</code>. Escalation triggers: (a) <code>confidence &lt; 0.85</code>, (b) schema-validation failure, (c) explicit <code>reasoning_required</code> flag.</li>
+    <li>Add <code>cost_per_call</code> to the <code>metrics_extractor</code> output object for closed-loop telemetry (same pattern New Relic AI Monitoring ships).</li>
+  </ol>
+
+<pre><code># utils/routing_llm_client.py (sketch)
+TIER_TO_MODEL = {
+    "cheap":     {"deployment": "haiku-4.5",  "max_cost": 0.0001},
+    "flagship":  {"deployment": "sonnet-4.6", "max_cost": 0.0030},
+    "reasoning": {"deployment": "opus-4.7",   "max_cost": 0.0150},
+}
+
+class RoutingLLMClient:
+    def chat(self, prompt, tier="cheap", escalation_threshold=0.85):
+        out = self._call(TIER_TO_MODEL[tier], prompt, logprobs=True)
+        if out.confidence &lt; escalation_threshold and tier != "reasoning":
+            self.metrics.escalations[tier] += 1
+            return self.chat(prompt, tier="flagship" if tier == "cheap" else "reasoning")
+        return out</code></pre>
+
+  <h3>Research grounding</h3>
+  <ul class="ref-list">
+    <li><a href="https://arxiv.org/abs/2305.05176">FrugalGPT (arxiv 2305.05176)</a></li>
+    <li><a href="https://arxiv.org/abs/2406.18665">RouteLLM (arxiv 2406.18665)</a></li>
+    <li><a href="https://arxiv.org/abs/2404.14618">Hybrid LLM Router (arxiv 2404.14618)</a></li>
+    <li><a href="https://www.uber.com/blog/genai-gateway/">Uber GenAI Gateway (2024)</a></li>
+    <li><a href="https://github.blog/news-insights/product-news/bringing-developer-choice-to-copilot-with-anthropics-claude-3-5-sonnet-googles-gemini-1-5-pro-and-openais-o1-preview/">GitHub Copilot multi-model choice (Oct 2024)</a></li>
+    <li><a href="https://cloud.google.com/blog/products/ai-machine-learning/gemini-1-5-flash-now-generally-available">Gemini 1.5 Flash GA</a></li>
+  </ul>
+</div>
+
+<!-- ============== APPROACH 3 ============== -->
+<div class="approach-card" id="approach-3">
+  <div class="approach-banner">
+    <h2 style="border:none; padding:0;">Approach 3 — Prompt Caching + Batch API + Constrained JSON</h2>
+    <div class="savings-badge">85% input · 50% nightly</div>
+  </div>
+  <div class="meta-row">
+    <span class="mtag effort-low">Effort: 1–2 days</span>
+    <span class="mtag risk">Risk: Very low</span>
+    <span class="mtag phase">Phase 0 + 1 + 2</span>
+  </div>
+
+  <h3>Why this works</h3>
+  <p>Anthropic prompt-caching: cache reads cost <strong>10% of base price</strong>, with reported <strong>90% cost / 85% latency reduction</strong> on cached prefixes. OpenAI Batch API: <strong>50% discount</strong> on Chat Completions with a 24h SLA. XGrammar (arxiv 2411.15100) and SGLang (arxiv 2312.07104) constrained decoding eliminate JSON-retry waste (Outlines reports 20–80% output-token reduction). The existing <code>fault_pruning</code> + <code>cache_enabled</code> flags in AgentCert are <em>already implemented</em> — just disabled.</p>
+
+  <h3>Concrete code changes</h3>
+  <ol>
+    <li>Flip <code>fault_pruning: true</code> and <code>cache_enabled: true</code> in <code>fault_analyzer/config/*.yaml</code>. Zero-line change, measured 84% reduction on faults block and 50% on system prompt.</li>
+    <li>Restructure all Phase 0/1 prompts so the <em>fixed</em> prefix (system, schema, few-shots) comes first. Mark with <code>cache_control: {type:"ephemeral"}</code> (Anthropic) or use Azure OpenAI's <code>cached_tokens</code> annotation.</li>
+    <li>Phase 2 aggregation + Phase 3 narrative builders that run per-run (not per-request) → submit as <strong>OpenAI Batch jobs</strong>. Wrap <code>cert_builder/run_aggregation_and_certification_pipeline.py</code> to write a <code>.jsonl</code> and submit to <code>/v1/batches</code>.</li>
+    <li>Replace JSON parsing with <strong>Outlines / XGrammar / SGLang</strong> constrained decoding. Eliminates the retry loop on malformed JSON.</li>
+  </ol>
+
+<pre><code># cert_builder/batch_submit.py (sketch)
+import json, openai
+
+def submit_batch(prompts, model="gpt-4o-mini"):
+    with open("/tmp/batch.jsonl", "w") as f:
+        for i, p in enumerate(prompts):
+            f.write(json.dumps({
+                "custom_id": f"req-{i}",
+                "method": "POST", "url": "/v1/chat/completions",
+                "body": {"model": model, "messages": p, "response_format": {"type":"json_object"}},
+            }) + "\n")
+    file = openai.files.create(file=open("/tmp/batch.jsonl","rb"), purpose="batch")
+    return openai.batches.create(input_file_id=file.id,
+        endpoint="/v1/chat/completions", completion_window="24h")
+# 50% off — perfect for nightly Phase 2/3.</code></pre>
+
+  <h3>Research grounding</h3>
+  <ul class="ref-list">
+    <li><a href="https://www.anthropic.com/news/prompt-caching">Anthropic Prompt Caching (Aug 2024)</a> — 90% cost / 85% latency</li>
+    <li><a href="https://platform.openai.com/docs/guides/batch">OpenAI Batch API docs</a> — 50% discount</li>
+    <li><a href="https://arxiv.org/abs/2411.15100">XGrammar (arxiv 2411.15100)</a></li>
+    <li><a href="https://arxiv.org/abs/2312.07104">SGLang / RadixAttention (arxiv 2312.07104)</a></li>
+    <li><a href="https://arxiv.org/abs/2307.09702">Outlines (arxiv 2307.09702)</a></li>
+  </ul>
+</div>
+
+<!-- ============== APPROACH 4 ============== -->
+<div class="approach-card" id="approach-4">
+  <div class="approach-banner">
+    <h2 style="border:none; padding:0;">Approach 4 — Merge Quant+Qual + Chain-of-Draft + ChainPoll Early-Stop</h2>
+    <div class="savings-badge">40% calls · 90% completion</div>
+  </div>
+  <div class="meta-row">
+    <span class="mtag effort-med">Effort: 1 week</span>
+    <span class="mtag risk">Risk: Medium</span>
+    <span class="mtag phase">Phase 1 + Phase 2</span>
+  </div>
+
+  <h3>Why this works</h3>
+  <p>Phase 1 currently sends the same 6 spans to GPT-4 <em>twice</em> — once for quantitative, once for qualitative. Merging halves Phase 1 calls. Chain-of-Draft (Zoom Communications, arxiv 2502.18600) shows reasoning can be expressed in ≤5-word drafts at <strong>7.6% of CoT token count with equal accuracy</strong>. Galileo ChainPoll: instead of fixed k=5 self-consistency samples, stop polling once 3-of-5 agree. Batch Prompting (arxiv 2301.08721) coalesces N inputs into one call for ~5× reduction.</p>
+
+  <h3>Concrete code changes</h3>
+  <ol>
+    <li>In <code>metrics_extractor/scripts/metrics_extractor_from_trace.py</code>: merge <code>quantitative_batch_extractor</code> and <code>qualitative_batch_extractor</code> into one prompt that emits <code>{"quant": {...}, "qual": {...}}</code>.</li>
+    <li>In <code>metrics_extractor/scripts/combined_judge.py</code>: replace any multi-step CoT with Chain-of-Draft — "think in ≤5-word drafts before answering."</li>
+    <li>In <code>aggregator/</code>: add <em>early-stop ChainPoll</em> to the LLM Council. Run k=5 cheap judges in parallel; if first 3 agree, drop calls 4 and 5. Only escalate to meta-judge on disagreement.</li>
+    <li>Batch 3–5 buckets per prompt where they share the same fault label (Batch Prompting).</li>
+  </ol>
+
+<pre><code># metrics_extractor/scripts/merged_extractor.py (sketch)
+SCHEMA = {
+  "quant": {"ttd_seconds": "float", "ttr_seconds": "float", "tokens_used": "int"},
+  "qual":  {"root_cause": "string", "severity": "enum(low,med,high)", "recovery_quality": "enum"},
+}
+
+PROMPT = """Analyze the bucket of {n} spans. Output JSON matching SCHEMA.
+Use Chain of Draft: jot ≤5-word draft thoughts, then answer.
+SCHEMA: {schema}
+SPANS: {spans}"""
+# 1 call instead of 2.</code></pre>
+
+  <h3>Research grounding</h3>
+  <ul class="ref-list">
+    <li><a href="https://arxiv.org/abs/2502.18600">Chain of Draft (arxiv 2502.18600, Zoom 2025)</a> — 7.6% of CoT tokens</li>
+    <li><a href="https://arxiv.org/abs/2307.15337">Skeleton-of-Thought (arxiv 2307.15337)</a></li>
+    <li><a href="https://www.galileo.ai/blog/chainpoll">Galileo ChainPoll</a> — AUROC 0.781</li>
+    <li><a href="https://arxiv.org/abs/2301.08721">Batch Prompting (arxiv 2301.08721)</a> — 5× via coalescing</li>
+    <li><a href="https://arxiv.org/abs/2305.11860">Adaptive Self-Consistency (arxiv 2305.11860)</a></li>
+  </ul>
+</div>
+
+<!-- ============== APPROACH 5 ============== -->
+<div class="approach-card" id="approach-5">
+  <div class="approach-banner">
+    <h2 style="border:none; padding:0;">Approach 5 — Distilled Small-Model Extractor + NLI Verifier <span style="color:var(--muted); font-size:13px; font-weight:500;">(Reimplementation Path)</span></h2>
+    <div class="savings-badge">90%+ steady-state</div>
+  </div>
+  <div class="meta-row">
+    <span class="mtag effort-high">Effort: 1–3 months</span>
+    <span class="mtag risk">Risk: High</span>
+    <span class="mtag phase">Full reimplementation</span>
+  </div>
+
+  <h3>Why this works</h3>
+  <p>Every shipped Phase-1 output is <em>already labelled training data</em>. AWS Bedrock Model Distillation (Dec 2024): teacher → student → <strong>75% cheaper, 500% faster, &lt;2% accuracy delta</strong>. Meta's Self-Taught Evaluator (arxiv 2408.02666): a Llama-3-70B judge trained on synthetic preferences matches GPT-4 on RewardBench with no human labels. Patronus Lynx-8B beats Claude-3-Sonnet by 8.6% on HaluBench at near-zero per-token cost. Vectara HHEM-2.1-Open: T5-class NLI runs on CPU and replaces GPT-4 for claim verification.</p>
+
+  <h3>Concrete code changes (phased)</h3>
+  <ol>
+    <li><strong>Now:</strong> log every Phase 0/1 input + GPT-4 output to a <code>distillation_corpus/</code> collection (already half-done in <code>utils/mongo_client.py</code>).</li>
+    <li><strong>Month 1:</strong> fine-tune <strong>Phi-3-mini / Mistral-7B</strong> on the bucketing task with LoRA + 4-bit QLoRA. Serve via vLLM/TGI on a single A10G. Target ≥ GPT-4 accuracy on the golden set.</li>
+    <li><strong>Month 2:</strong> replace LLM-Council qualitative judges in <code>aggregator/</code> with <strong>Vectara HHEM-2.1-Open</strong> NLI for atomic-claim verification. Flagship LLM only on the meta-synthesis step.</li>
+    <li><strong>Month 3:</strong> retire <code>extraction_model</code> GPT-4 calls in <code>configs/configs.json</code>. Keep <code>reasoning_model</code> only for Phase 3 final narrative.</li>
+  </ol>
+
+  <div class="callout"><strong>Caveat:</strong> distillation is irreversible cost win but adds training-infra ops burden (GPU, vLLM, eval harness). Don't start until Approaches 1–4 have made the per-call cost <em>acceptable</em> and you have ≥10K labelled traces.</div>
+
+  <h3>Research grounding</h3>
+  <ul class="ref-list">
+    <li><a href="https://aws.amazon.com/blogs/aws/build-your-own-distilled-models-with-amazon-bedrock-model-distillation/">AWS Bedrock Model Distillation (GA Dec 2024)</a></li>
+    <li><a href="https://arxiv.org/abs/2408.02666">Meta Self-Taught Evaluator (arxiv 2408.02666)</a></li>
+    <li><a href="https://www.patronus.ai/blog/lynx-state-of-the-art-open-source-hallucination-detection-model">Patronus Lynx — open-weights hallucination judge</a></li>
+    <li><a href="https://arxiv.org/abs/2404.14219">Phi-3-mini (arxiv 2404.14219)</a></li>
+    <li><a href="https://arxiv.org/abs/2304.08467">Gisting (arxiv 2304.08467)</a></li>
+    <li><a href="https://arxiv.org/abs/2307.06945">ICAE in-context autoencoder (arxiv 2307.06945)</a></li>
+    <li><a href="https://www.uber.com/blog/from-predictive-to-generative-ai/">Uber Michelangelo — hybrid in-house fine-tunes</a></li>
+    <li><a href="https://www.bloomberg.com/company/press/bloomberggpt-50-billion-parameter-llm-tuned-finance/">BloombergGPT — domain pre-training</a></li>
+  </ul>
+</div>
+
+<!-- ============== STACK MATH ============== -->
+<h2 id="stack-math">Stacked cost-stack math</h2>
+<table class="cost">
+  <thead><tr><th>Lever</th><th>Multiplier on Phase 0+1 tokens</th><th>Marginal effort</th></tr></thead>
+  <tbody>
+    <tr><td>Approach 1 — OTel + Drain3 deterministic pre-pass</td><td>0.3 – 0.5×</td><td>2–3 days</td></tr>
+    <tr><td>Approach 2 — Cascade routing, Haiku-first</td><td>0.3 – 0.5×</td><td>1 week</td></tr>
+    <tr><td>Approach 3 — Caching + batch + constrained output</td><td>0.4 – 0.6×</td><td>1–2 days</td></tr>
+    <tr><td>Approach 4 — Merge passes + Chain-of-Draft + ChainPoll</td><td>0.5 – 0.7×</td><td>1 week</td></tr>
+    <tr><td><strong>Compounded (1+2+3+4)</strong></td><td><strong>~0.018 – 0.105× → 10–50× reduction</strong></td><td>~4 weeks</td></tr>
+  </tbody>
+</table>
+
+<!-- ============== ROADMAP ============== -->
+<h2 id="roadmap">Recommended roadmap</h2>
+<ol>
+  <li><strong>Week 1 — Approach 3</strong>: flip the two flags, add prompt-caching control headers, move Phase 2/3 to Batch API, swap JSON parsing for XGrammar. No model change, no calibration risk.</li>
+  <li><strong>Week 2–3 — Approach 1</strong>: ship <code>fault_analyzer/preprocessor.py</code> with OTel-attribute lift + Drain3 template collapse. LLM remains the fallback for unlabelled residue.</li>
+  <li><strong>Month 1 — Approach 4</strong>: merge quant/qual passes; add Chain-of-Draft prompt; add ChainPoll early-stop in aggregator. Requires a golden-set regression harness (10–50 hand-labelled buckets).</li>
+  <li><strong>Month 1–2 — Approach 2</strong>: introduce <code>RoutingLLMClient</code> once Approach-3 telemetry reveals where Haiku is sufficient.</li>
+  <li><strong>Quarter 2 — Approach 5</strong>: only after ≥10K labelled traces from Approaches 1–4 are in the distillation corpus. Fine-tune Phi-3 / Mistral-7B, swap in HHEM for NLI verification, retire <code>extraction_model</code>.</li>
+</ol>
+
+<!-- ============== SOURCES ============== -->
+<h2 id="sources">Research sources — full index</h2>
+<p>All raw research is stored as markdown alongside this report.</p>
+<div class="file-grid">
+  <div class="file-card"><code>research/02_papers/01-new-arxiv-papers.md</code><div class="desc">17 new arxiv papers not in the v1 baseline (FrugalGPT, RouteLLM, Chain-of-Draft, Gisting, ICAE, Activation Beacon, XGrammar, SGLang, LogParser-LLM, DivLog, LogPrompt, Batch Prompting, Set-BSR, Adaptive SC, tau-bench, etc.)</div></div>
+  <div class="file-card"><code>research/03_industry/01-company-case-studies.md</code><div class="desc">20 industry sources — Uber GenAI Gateway, Uber QueryGPT, Uber Michelangelo, LinkedIn Hiring Assistant, Pinterest Text-to-SQL, Airbnb Automation Platform, DoorDash Support, Meta Llama 3, Meta Self-Taught Evaluator, Honeycomb Query Assistant, Anthropic Prompt Caching, GitHub Copilot, AutoGen, AWS Bedrock Distillation, AWS CloudWatch, Gemini Flash, Datadog Bits AI, New Relic AI, JPMorgan LLM Suite, BloombergGPT.</div></div>
+  <div class="file-card"><code>research/03_industry/02-chaos-llmops-sources.md</code><div class="desc">33 chaos-engineering / LLMOps / RCA sources — MonitorAssistant (Huawei FSE'24), LM-PACE, RCAgent, Eadro, OneRCA, LogSummary, OTel semantic conventions, Litmus / Chaos Mesh AI integrations, Langfuse evaluator patterns.</div></div>
+  <div class="file-card"><code>research/03_industry/03-llm-judge-frameworks.md</code><div class="desc">15 eval framework patterns — Arize Phoenix, LangSmith, Patronus Lynx, Galileo ChainPoll, Braintrust, RAGAS HHEM, DeepEval G-Eval, W&amp;B Weave, Anthropic Cookbook, OpenAI Batch, NVIDIA NeMo Evaluator, MLflow, TruLens, Inspect AI, Verdict.</div></div>
+  <div class="file-card"><code>research/03_industry/04-k8s-langfuse-finops-landscape.md</code><div class="desc">20+ K8s / Langfuse / OTel / FinOps sources — K8sGPT, HolmesGPT, Komodor Klaudia, KAITO, Datadog Bits, Dynatrace Davis CoPilot, Grafana Sift, Sysdig Sage, Elastic AI Assistant, Splunk AI, Langfuse LLM-as-Judge + Datasets, OTel GenAI semantic conventions, Phoenix/Sentry/Weave/PostHog/Traceloop, OpenCost, Helicone, Azure FinOps Toolkit, FinOps-for-AI KPIs. Includes <strong>5 reusable prompt templates</strong> (K8sGPT analyzer, HolmesGPT investigator, Langfuse judge, Phoenix QA, OTel-aware Phase 1) and the <strong>OTel <code>gen_ai.*</code> attribute table</strong> (12 span attributes AgentCert can read deterministically instead of LLM-extracting tokens/model/finish-reason/TTFB).</div></div>
+  <div class="file-card"><code>research/token-optimization-research.md</code><div class="desc">29 baseline papers (v1) — LLMLingua-2, LongLLMLingua, FAISS, DSPy/MIPRO, Phi-3, Outlines, kNN few-shot, LogBERT, Lost-in-Middle, RECOMP, HyDE, SBERT.</div></div>
+  <div class="file-card"><code>research/04_synthesis/00-top-5-approaches.md</code><div class="desc">This synthesis report in markdown form — top 5 approaches mapped to <code>classifier.py</code>, <code>metrics_extractor_from_trace.py</code>, <code>combined_judge.py</code>, plus cost-stack math and roadmap.</div></div>
+</div>
+
+<div class="footer">
+  AgentCert Research v2 · 2026-06-02 · 35+ papers / 20 industry sources / 15 frameworks · <a href="summary.html">Back to Executive Summary</a>
+</div>
+
+</body></html>

@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import List
 
 import numpy as np
-from scipy import stats
+from statsmodels.stats.oneway import anova_oneway
 
 from hypothesis_framework.schema.test_results import WelchAnovaResult
 
@@ -25,9 +25,9 @@ def welch_anova(
 ) -> WelchAnovaResult:
     """Run Welch's ANOVA (one-way, unequal variances).
 
-    Uses scipy.stats.f_oneway which is equivalent to Welch's F-test
-    for groups with unequal variances when combined with the
-    Welch-Satterthwaite approximation.
+    Uses statsmodels.stats.oneway.anova_oneway with use_var='unequal', which
+    correctly implements Welch's F-test without assuming equal group variances.
+    Only used when all groups pass Shapiro-Wilk normality test.
 
     Args:
         *groups: Two or more arrays of observed values.
@@ -61,10 +61,15 @@ def welch_anova(
             interpretation="Insufficient valid groups.",
         )
 
-    # Welch's ANOVA via scipy.stats.f_oneway
-    # Note: scipy.stats.f_oneway uses Welch's correction when groups have unequal variances
-    f_stat_val, p_val = stats.f_oneway(*non_empty)
-    f_stat = float(f_stat_val)
+    # Welch's ANOVA via statsmodels with use_var='unequal' — does not assume equal variances
+    all_data = np.concatenate(non_empty)
+    group_labels = np.concatenate(
+        [np.full(len(g), i) for i, g in enumerate(non_empty)]
+    )
+    ow = anova_oneway(all_data, groups=group_labels, use_var="unequal")
+    f_stat_val = float(ow.statistic)
+    p_val = float(ow.pvalue)
+    f_stat = f_stat_val
     significant = p_val < alpha
 
     k = len(non_empty)

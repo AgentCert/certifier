@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AgentCert — Token Optimization Options</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --accent: #0b6e6e;
+    --accent-soft: #e6f1f1;
+    --ink: #1b1f23;
+    --muted: #5b6770;
+    --line: #e1e5e9;
+    --bg-soft: #f7f9fa;
+    --easy: #2e7d32;
+    --med: #b8860b;
+    --hard: #b03030;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    line-height: 1.55;
+    margin: 0;
+    padding: 32px 24px;
+  }
+  main { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 6px; color: var(--accent); }
+  h2 { font-size: 20px; margin: 36px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); color: var(--accent); }
+  h3 { font-size: 16px; margin: 18px 0 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  p, ul { margin: 6px 0; }
+  ul { padding-left: 22px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .card {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 12px 0 16px;
+    background: #fff;
+  }
+  .card.med  { border-left-color: var(--med); }
+  .card.hard { border-left-color: var(--hard); }
+  .card.easy { border-left-color: var(--easy); }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .badge.med  { background: #fef3d7; color: var(--med); }
+  .badge.hard { background: #fde0e0; color: var(--hard); }
+  .badge.easy { background: #d9efdb; color: var(--easy); }
+  .num {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    width: 26px;
+    height: 26px;
+    text-align: center;
+    line-height: 26px;
+    border-radius: 50%;
+    font-size: 13px;
+  }
+  .sources {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    font-size: 13px;
+  }
+  .sources b { color: var(--muted); font-weight: 600; }
+  .sources a {
+    color: var(--accent);
+    text-decoration: none;
+    margin-right: 12px;
+    border-bottom: 1px dotted var(--accent);
+  }
+  .sources a:hover { background: var(--accent-soft); }
+  .section-intro {
+    background: var(--bg-soft);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0 14px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  code { background: var(--bg-soft); padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>AgentCert — Token Optimization Options</h1>
+  <p class="sub">Things we can try in the <b>Certifier</b> (fault bucketing + metrics extraction) and on the <b>Langfuse</b> side. Ordered easy → hard.</p>
+
+  <h2>Certifier</h2>
+  <p class="section-intro">Goal: bring down the GPT-4 bill in <code>fault_analyzer/</code> and <code>metrics_extractor/</code>.</p>
+
+  <!-- 1: prompt caching -->
+  <div class="card easy">
+    <h3><span class="num">1</span> Check if prompt caching is actually working <span class="badge easy">Easy</span></h3>
+    <p>First thing to do — verify whether our prompts are even hitting the cache. The static parts (taxonomy, schema, few-shot examples) need to sit at the front of the prompt and stay identical byte-for-byte. If we're reshuffling them per call, we get nothing.</p>
+    <ul>
+      <li>Restructure: <code>[static system + taxonomy + examples]</code> first, dynamic trace last.</li>
+      <li>Log <code>cached_tokens</code> from the API response to see hit rate.</li>
+      <li>Both Anthropic and OpenAI/Azure cache prefixes ≥ ~1024 tokens.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI Prompt Caching</a>
+      <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">Anthropic Prompt Caching</a>
+      <a href="https://learn.microsoft.com/azure/ai-services/openai/how-to/prompt-caching">Azure OpenAI caching</a>
+    </div>
+  </div>
+
+  <!-- 2: XGrammar -->
+  <div class="card easy">
+    <h3><span class="num">2</span> XGrammar / structured outputs <span class="badge easy">Easy</span></h3>
+    <p>Force the LLM to emit only valid JSON against our Pydantic schema. This kills retry loops on malformed output and stops the model from adding filler prose. Already supported in Azure OpenAI via <code>response_format</code>, so it's mostly a flag flip.</p>
+    <ul>
+      <li>Phase 0: constrain to the <code>FaultBucket</code> schema we already have.</li>
+      <li>Phase 1: use enum fields (severity, status) so the model can't drift.</li>
+      <li>Phase 2 judges: lock to <code>{score, rationale}</code> so the meta-judge parser stops breaking.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://arxiv.org/abs/2411.15100">XGrammar (arXiv 2411.15100)</a>
+      <a href="https://platform.openai.com/docs/guides/structured-outputs">OpenAI Structured Outputs</a>
+      <a href="https://docs.vllm.ai/en/latest/features/structured_outputs.html">vLLM structured outputs</a>
+    </div>
+  </div>
+
+  <!-- 3: batching + prompt engineering -->
+  <div class="card med">
+    <h3><span class="num">3</span> Trim the prompt and batch 8–10 items per call <span class="badge med">Medium</span></h3>
+    <p>Right now we re-send the same instructions for every event or fault. Strip the prompts down to what's actually needed, then batch — group 8–10 events for bucketing and 8–10 faults for metrics extraction into one call. The static instruction overhead gets paid once instead of N times.</p>
+    <ul>
+      <li>Audit current prompts; pull anything redundant or unused into the cached prefix.</li>
+      <li>Batch on the request side for live runs.</li>
+      <li>For nightly / offline certifications, use the OpenAI / Azure Batch API (50% off, async).</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://platform.openai.com/docs/guides/batch">OpenAI Batch API</a>
+      <a href="https://learn.microsoft.com/azure/ai-services/openai/how-to/batch">Azure OpenAI Batch</a>
+      <a href="https://arxiv.org/abs/2305.05176">FrugalGPT (arXiv 2305.05176)</a>
+    </div>
+  </div>
+
+  <!-- 4: OTel GenAI semconv -->
+  <div class="card med">
+    <h3><span class="num">4</span> Follow the OTel GenAI span spec <span class="badge med">Medium</span></h3>
+    <p>If the upstream agent emits spans following the OpenTelemetry GenAI conventions, a lot of what Phase 0 / Phase 1 do with an LLM becomes a plain field read — <code>gen_ai.usage.input_tokens</code>, <code>gen_ai.tool.name</code>, <code>gen_ai.agent.id</code>. We'd only call the LLM where the spans genuinely don't tell us what happened.</p>
+    <ul>
+      <li>Schema URL: <code>https://opentelemetry.io/schemas/gen-ai/1.42.0</code>.</li>
+      <li>Group events deterministically by agent / tool / operation; LLM is fallback, not first-pass.</li>
+      <li>Phase 1 numerics (tokens, latency, model) come straight from span attributes.</li>
+      <li>Ingest through Langfuse's native <code>/api/public/otel</code> endpoint — no custom parser.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/">OTel GenAI Spans spec</a>
+      <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">OTel GenAI semconv</a>
+      <a href="https://langfuse.com/docs/opentelemetry/get-started">Langfuse OTel ingestion</a>
+    </div>
+  </div>
+
+  <!-- 5: cheaper model -->
+  <div class="card med">
+    <h3><span class="num">5</span> Use a cheaper model for classification <span class="badge med">Medium</span></h3>
+    <p>Fault bucketing is essentially a classification task — we don't need GPT-4 for that. Move it to GPT-4o-mini, Claude Haiku 4.5, or Phi-4-Mini, and keep the big model around only for the cases the small one is uncertain about. RouteLLM is a clean pattern for the escalation.</p>
+    <ul>
+      <li>Small model first, escalate to GPT-4 / o3-mini only when confidence is low.</li>
+      <li>Compare quality on a held-out set before flipping the switch.</li>
+      <li>Same pattern works for Phase 2 council judges.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://arxiv.org/abs/2406.18665">RouteLLM (arXiv 2406.18665)</a>
+      <a href="https://arxiv.org/abs/2404.14618">Hybrid LLM (arXiv 2404.14618)</a>
+      <a href="https://www.anthropic.com/news/claude-haiku-4-5">Claude Haiku 4.5</a>
+    </div>
+  </div>
+
+  <!-- 6: prompt compression + caching + constrained -->
+  <div class="card med">
+    <h3><span class="num">6</span> Prompt compression + caching + constrained decoding (stacked) <span class="badge med">Medium</span></h3>
+    <p>These three play well together: compress the dynamic context (Provence / LLMLingua-2), let the cache handle the static prefix (item 1), and constrain the output (item 2). On its own, each one is incremental; stacked, they add up.</p>
+    <ul>
+      <li>Provence and LLMLingua-2 are drop-in: compress retrieved context before the LLM sees it.</li>
+      <li>Try it first on Phase 2 council inputs, where prompts are largest.</li>
+      <li>Measure end-to-end — compression has a quality cost, so it needs a guardrail.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://arxiv.org/abs/2501.16214">Provence (arXiv 2501.16214)</a>
+      <a href="https://arxiv.org/abs/2403.12968">LLMLingua-2 (arXiv 2403.12968)</a>
+      <a href="https://arxiv.org/abs/2408.03094">500xCompressor (arXiv 2408.03094)</a>
+    </div>
+  </div>
+
+  <!-- 7: Hybrid GraphRAG -->
+  <div class="card hard">
+    <h3><span class="num">7</span> Hybrid GraphRAG over a fault-pattern graph <span class="badge hard">Hard</span></h3>
+    <p>Right now we stuff the whole faults block into every Phase 0 prompt. The idea here is to build a small graph of fault patterns (fault type → expected span signatures → propagation paths) and retrieve only the relevant subgraph per trace. More work to set up, but it changes the cost curve — prompts stop growing with the taxonomy.</p>
+    <ul>
+      <li><b>Stack to try:</b> nano-graphrag (~1100 LOC) + Neo4j or FalkorDB + HippoRAG-2 retrieval + LightRAG for incremental updates.</li>
+      <li><b>Pre-filter cheaply:</b> use Langfuse tags / metadata / sessions to narrow the candidate set before graph traversal.</li>
+      <li><b>Borrow patterns:</b> MicroRCA-Agent, KnowledgeMind, GraphReader all do "compress then traverse" for RCA — worth reading.</li>
+      <li>Validate on the Nezha benchmark (TrainTicket / OnlineBoutique chaos data) before rolling out.</li>
+      <li>Main risk: KG construction cost. Mitigate by deriving most edges deterministically from OTel parent/child relations; LLM only for the fault-pattern ontology on top.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://arxiv.org/abs/2502.14802">HippoRAG-2 (arXiv 2502.14802)</a>
+      <a href="https://arxiv.org/abs/2410.05779">LightRAG (arXiv 2410.05779)</a>
+      <a href="https://arxiv.org/abs/2408.04948">HybridRAG (arXiv 2408.04948)</a>
+      <a href="https://arxiv.org/abs/2406.14550">GraphReader (arXiv 2406.14550)</a>
+      <a href="https://github.com/gusye1234/nano-graphrag">nano-graphrag</a>
+      <a href="https://github.com/HKUDS/LightRAG">LightRAG repo</a>
+      <a href="https://www.falkordb.com/">FalkorDB</a>
+      <a href="https://neo4j.com/labs/genai-ecosystem/llm-graph-builder/">Neo4j LLM-KG-Builder</a>
+    </div>
+  </div>
+
+  <!-- 8: BERT/SLM finetune -->
+  <div class="card hard">
+    <h3><span class="num">8</span> Fine-tune a BERT or small LM for fault classification <span class="badge hard">Hard</span></h3>
+    <p>The biggest long-term lever, but the most work. Once we have enough labeled data, a fine-tuned encoder (BERT, DeBERTa, DistilBERT) or a small LM (Phi-3-Mini, Qwen 0.5B) can do the classification at a fraction of the GPT-4 cost. The trick is keeping it generic — train on span attributes, not on hard-coded fault names, so new fault types don't require retraining from scratch.</p>
+    <ul>
+      <li>Bootstrap labels from current GPT-4 outputs (distillation).</li>
+      <li>Features: OTel span attributes (name, status, error type, parent), not raw fault strings.</li>
+      <li>Keep LLM as fallback for unseen / novel fault signatures.</li>
+      <li>Plan for re-training cadence and a confidence threshold for fallback.</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://arxiv.org/abs/1910.01108">DistilBERT (arXiv 1910.01108)</a>
+      <a href="https://arxiv.org/abs/2305.02301">Distilling step-by-step (arXiv 2305.02301)</a>
+      <a href="https://arxiv.org/abs/2404.14219">Phi-3 Technical Report (arXiv 2404.14219)</a>
+      <a href="https://huggingface.co/docs/transformers/training">HF fine-tuning guide</a>
+    </div>
+  </div>
+
+  <h2>Langfuse</h2>
+  <p class="section-intro">Push as much of the classification and extraction work into Langfuse as we can. The Certifier then only does what Langfuse can't.</p>
+
+  <div class="card med">
+    <h3><span class="num">1</span> Do classification &amp; extraction in Langfuse; Certifier picks up the rest <span class="badge med">Medium</span></h3>
+    <p>Langfuse v3 already has the primitives we'd otherwise rebuild — managed LLM-as-Judge evaluators, tags/metadata for span classification, Datasets for ground truth, and OTel GenAI ingestion that captures tokens and tool calls as structured fields. Run those on ingestion, and the Certifier becomes a much thinner layer that handles only aggregation across runs and the final narrative.</p>
+    <ul>
+      <li><b>Classification:</b> Langfuse managed evaluators (boolean / categorical / numeric) tag spans on the way in — Phase 0 just reads the tags.</li>
+      <li><b>Extraction:</b> OTel <code>gen_ai.usage.*</code> attributes are captured automatically — Phase 1 reads them as-is.</li>
+      <li><b>Qualitative scoring:</b> evaluator templates produce per-span scores; Phase 2 aggregates them.</li>
+      <li><b>Certifier scope shrinks to:</b> Phase 2 (stats + council) and Phase 3 (narrative).</li>
+    </ul>
+    <div class="sources">
+      <b>Sources:</b>
+      <a href="https://langfuse.com/docs/scores/model-based-evals">Langfuse LLM-as-Judge</a>
+      <a href="https://langfuse.com/docs/opentelemetry/get-started">Langfuse OTel ingestion</a>
+      <a href="https://langfuse.com/docs/datasets/overview">Langfuse Datasets</a>
+      <a href="https://langfuse.com/changelog">Langfuse v3 changelog</a>
+    </div>
+  </div>
+
+  <footer>
+    Generated 2026-06-02 · See <a href="summary.html">summary.html</a> and <a href="detailed.html">detailed.html</a> for the full research synthesis.
+  </footer>
+
+</main>
+</body>
+</html>

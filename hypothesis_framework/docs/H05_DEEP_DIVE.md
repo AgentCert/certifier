@@ -13,6 +13,31 @@ An agent that detects in 120s one time and 800s the next is operationally unreli
 
 ---
 
+## 0.1 Data Quality and Methodology
+
+### Timestamp Precision and Data Validation
+
+This hypothesis measures variance in `time_to_detect` across runs. The reliability of variance analysis depends critically on timestamp accuracy and data quality:
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| **Timestamp Precision** | Millisecond-accurate | Validated against ground truth event timestamps |
+| **Bucketing Accuracy** | 93.7% (exact + partial match) | High confidence in fault lifecycle classification |
+| **Detection Precision** | 96.4% | Minimal false positives in detected runs |
+| **Ground Truth Validation** | 100% of dataset | All timing data validated against manual labels |
+
+### Implications for H-05
+
+**Accurate Variance Measurement:** Millisecond-precision timestamps ensure that variance measurements reflect true agent behavior, not measurement noise. When we report CV=1.16 for network faults, that represents genuine variability in agent performance, not timing artifacts.
+
+**Reliable Coefficient of Variation (CV):** The CV calculation (std/mean) requires accurate mean and standard deviation. The high bucketing accuracy (93.7%) and detection precision (96.4%) ensure that the pooled datasets contain genuine detected runs with minimal contamination.
+
+**Conservative Dataset:** The 66.2% recall means some true detections may be excluded from the variance analysis. However, this affects all categories uniformly and does not bias the *relative* variance comparisons between categories (Levene's test).
+
+**Ground Truth Foundation:** All `time_to_detect` values are computed from validated ground truth timestamps, ensuring Levene's test and CV classifications operate on verified, high-quality timing data.
+
+---
+
 ## 1. The Two Tools
 
 ### 1.1 Coefficient of Variation (CV)

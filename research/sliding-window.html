@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AgentCert — Sliding Window with Inter-Window Summary</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --accent: #0b6e6e;
+    --accent-soft: #e6f1f1;
+    --ink: #1b1f23;
+    --muted: #5b6770;
+    --line: #e1e5e9;
+    --bg-soft: #f7f9fa;
+    --warn: #b8860b;
+    --good: #2e7d32;
+    --bad: #b03030;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    line-height: 1.55;
+    margin: 0;
+    padding: 32px 24px;
+  }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 6px; color: var(--accent); }
+  h2 { font-size: 20px; margin: 32px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); color: var(--accent); }
+  h3 { font-size: 16px; margin: 18px 0 6px; }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; margin: 6px 0; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  .callout {
+    background: var(--bg-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  .callout.warn { border-left-color: var(--warn); background: #fef8e8; }
+  .callout.good { border-left-color: var(--good); background: #effaf0; }
+
+  code { background: var(--bg-soft); padding: 1px 5px; border-radius: 3px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre {
+    background: #1e2733;
+    color: #e6edf3;
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre .kw { color: #ff7b72; }
+  pre .str { color: #a5d6ff; }
+  pre .com { color: #8b949e; font-style: italic; }
+  pre .fn { color: #d2a8ff; }
+
+  /* visual window diagram */
+  .windows { display: flex; gap: 6px; margin: 12px 0; flex-wrap: wrap; }
+  .win {
+    flex: 1 1 110px;
+    min-width: 110px;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 12px;
+    background: #fff;
+  }
+  .win b { display: block; font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+  .win .ctx { color: var(--muted); font-size: 11px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .arrow { text-align: center; color: var(--muted); font-size: 18px; margin: -2px 0 2px; }
+
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); }
+
+  .pill { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .pill.now { background: #fde0e0; color: var(--bad); }
+  .pill.new { background: #d9efdb; color: var(--good); }
+
+  .sources { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 13px; }
+  .sources a { color: var(--accent); border-bottom: 1px dotted var(--accent); text-decoration: none; margin-right: 12px; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Sliding Window for Extraction — with Inter-Window Summary</h1>
+  <p class="sub">How metrics extraction currently batches spans, and how we can carry a rolling summary from one window to the next so each LLM call has the context of what came before.</p>
+
+  <h2>1. What we do today</h2>
+
+  <p>In <code>metrics_extractor/scripts/metrics_extractor_from_trace.py</code>, spans are sorted by <code>startTime</code> and chopped into fixed-size, non-overlapping batches. Each batch is sent to the LLM independently; results are merged at the end.</p>
+
+  <pre><span class="com"># metrics_extractor_from_trace.py — lines 357–366</span>
+<span class="kw">def</span> <span class="fn">_create_batches</span>(self, spans: List[Dict[str, Any]]) -&gt; List[List[Dict[str, Any]]]:
+    <span class="str">"""Split spans into batches for processing."""</span>
+    sorted_spans = sorted(spans, key=<span class="kw">lambda</span> x: x.get(<span class="str">"startTime"</span>, <span class="str">""</span>))
+    batches = []
+    <span class="kw">for</span> i <span class="kw">in</span> range(0, len(sorted_spans), self.BATCH_SIZE):
+        batch = sorted_spans[i: i + self.BATCH_SIZE]
+        batches.append(batch)
+    <span class="kw">return</span> batches</pre>
+
+  <p>The per-batch LLM call sits in <code>_extract_batch_quantitative</code> (lines 797–839) and <code>_extract_batch_qualitative</code> (lines 950–987). Both look roughly like this:</p>
+
+  <pre><span class="com"># Each batch goes to the LLM on its own — no prior context</span>
+prepared_spans = [self._prepare_span_for_llm(s) <span class="kw">for</span> s <span class="kw">in</span> batch]
+prompt = self._build_quantitative_batch_prompt(batch_number, total_batches)
+result, token_usage = <span class="kw">await</span> self.llm_client.with_structured_output(...)</pre>
+
+  <div class="callout warn">
+    <b>The gap:</b> batches are processed independently. If a fault starts in batch 3 and resolves in batch 5, batch 5 has no idea what happened in batch 3 — the model sees only the current 15 spans. The merge step at the end stitches metrics together, but each individual call is context-blind.
+  </div>
+
+  <h3>Current flow</h3>
+  <div class="windows">
+    <div class="win"><b>Window 1</b>spans 1–15<div class="ctx">no prior context</div></div>
+    <div class="win"><b>Window 2</b>spans 16–30<div class="ctx">no prior context</div></div>
+    <div class="win"><b>Window 3</b>spans 31–45<div class="ctx">no prior context</div></div>
+    <div class="win"><b>Window 4</b>spans 46–60<div class="ctx">no prior context</div></div>
+  </div>
+  <p class="sub" style="text-align:center; margin:0;">→ merge all results in one final aggregation LLM call</p>
+
+  <h2>2. The change — pass a summary forward</h2>
+
+  <p>After each window's extraction, ask the LLM (or build deterministically) a small <b>carry-over summary</b>: open faults still in progress, unresolved tool calls, the last error seen, running counters. Prepend that summary to the next window's prompt. The window itself stays the same size, so prompt growth is bounded.</p>
+
+  <h3>New flow</h3>
+  <div class="windows">
+    <div class="win"><b>Window 1</b>spans 1–15<div class="ctx">no prior context</div></div>
+    <div class="win"><b>Window 2</b>spans 16–30<div class="ctx">+ summary of W1</div></div>
+    <div class="win"><b>Window 3</b>spans 31–45<div class="ctx">+ summary of W1+W2</div></div>
+    <div class="win"><b>Window 4</b>spans 46–60<div class="ctx">+ summary of W1+W2+W3</div></div>
+  </div>
+
+  <div class="callout good">
+    <b>Why it helps:</b> the model can resolve cross-window faults inline (no extra reasoning during merge), correctly attribute TTR when fault start and resolve sit in different batches, and skip re-asking questions whose answers it already produced. Fewer downstream corrections in the aggregation step.
+  </div>
+
+  <h3>What the carry-over summary should hold</h3>
+  <ul>
+    <li><b>Open faults:</b> <code>{fault_id, type, first_seen_span, started_at}</code> for anything detected but not yet resolved.</li>
+    <li><b>Pending tool calls:</b> tool invocations whose response span hasn't appeared yet.</li>
+    <li><b>Running counters:</b> tokens so far, retries so far, last error message.</li>
+    <li><b>Boundary span:</b> the last span ID seen, so the model knows where it left off.</li>
+  </ul>
+  <p>Keep it compact — target a few hundred tokens, capped. If it grows, drop the oldest closed items.</p>
+
+  <h2>3. Concrete code changes</h2>
+
+  <h3>3.1 Carry a summary object through the loop</h3>
+  <pre><span class="com"># new helper</span>
+<span class="kw">def</span> <span class="fn">_empty_carry</span>() -&gt; Dict[str, Any]:
+    <span class="kw">return</span> {
+        <span class="str">"open_faults"</span>: [],          <span class="com"># [{fault_id, type, started_at, first_seen_span}]</span>
+        <span class="str">"pending_tool_calls"</span>: [],   <span class="com"># [{tool, span_id, started_at}]</span>
+        <span class="str">"last_error"</span>: <span class="kw">None</span>,
+        <span class="str">"running_tokens"</span>: 0,
+        <span class="str">"last_span_id"</span>: <span class="kw">None</span>,
+        <span class="str">"window_index"</span>: 0,
+    }</pre>
+
+  <h3>3.2 Sequential batch loop instead of parallel</h3>
+  <pre><span class="com"># replace the gather-all pattern with a sequential walk so each window sees the prior summary</span>
+carry = self._empty_carry()
+results = []
+<span class="kw">for</span> i, batch <span class="kw">in</span> enumerate(batches):
+    res, carry = <span class="kw">await</span> self._extract_batch_quantitative_with_carry(
+        batch, batch_number=i + 1, total_batches=len(batches), carry=carry,
+    )
+    results.append(res)</pre>
+
+  <div class="callout warn">
+    <b>Tradeoff:</b> windows become sequential instead of parallel, so wall-time goes up. If that hurts, see the <i>hybrid</i> option below.
+  </div>
+
+  <h3>3.3 Inject the carry into the prompt</h3>
+  <pre><span class="kw">def</span> <span class="fn">_build_quantitative_batch_prompt</span>(self, batch_number, total_batches, carry=<span class="kw">None</span>):
+    base = self._base_quantitative_instructions()  <span class="com"># keep at the top so prompt cache hits</span>
+    carry_block = <span class="str">""</span>
+    <span class="kw">if</span> carry <span class="kw">and</span> carry[<span class="str">"window_index"</span>] &gt; 0:
+        carry_block = (
+            <span class="str">"\n## Context from previous windows\n"</span>
+            f<span class="str">"Open faults: {json.dumps(carry['open_faults'])}\n"</span>
+            f<span class="str">"Pending tool calls: {json.dumps(carry['pending_tool_calls'])}\n"</span>
+            f<span class="str">"Last error: {carry['last_error']}\n"</span>
+            f<span class="str">"Running tokens: {carry['running_tokens']}\n"</span>
+            f<span class="str">"Last span seen: {carry['last_span_id']}\n"</span>
+        )
+    <span class="kw">return</span> f<span class="str">"{base}\n{carry_block}\n## Window {batch_number}/{total_batches}"</span></pre>
+
+  <h3>3.4 Update the carry after each call</h3>
+  <pre><span class="kw">def</span> <span class="fn">_update_carry</span>(self, carry, batch_result, batch):
+    <span class="com"># close faults that this window resolved</span>
+    resolved_ids = {f[<span class="str">"fault_id"</span>] <span class="kw">for</span> f <span class="kw">in</span> batch_result.get(<span class="str">"resolved_faults"</span>, [])}
+    carry[<span class="str">"open_faults"</span>] = [
+        f <span class="kw">for</span> f <span class="kw">in</span> carry[<span class="str">"open_faults"</span>] <span class="kw">if</span> f[<span class="str">"fault_id"</span>] <span class="kw">not in</span> resolved_ids
+    ]
+    <span class="com"># add newly opened faults</span>
+    carry[<span class="str">"open_faults"</span>].extend(batch_result.get(<span class="str">"new_open_faults"</span>, []))
+    <span class="com"># swap pending tool calls based on responses observed</span>
+    answered = {r[<span class="str">"span_id"</span>] <span class="kw">for</span> r <span class="kw">in</span> batch_result.get(<span class="str">"tool_responses"</span>, [])}
+    carry[<span class="str">"pending_tool_calls"</span>] = [
+        t <span class="kw">for</span> t <span class="kw">in</span> carry[<span class="str">"pending_tool_calls"</span>] <span class="kw">if</span> t[<span class="str">"span_id"</span>] <span class="kw">not in</span> answered
+    ]
+    carry[<span class="str">"pending_tool_calls"</span>].extend(batch_result.get(<span class="str">"new_tool_calls"</span>, []))
+    carry[<span class="str">"last_error"</span>] = batch_result.get(<span class="str">"last_error"</span>, carry[<span class="str">"last_error"</span>])
+    carry[<span class="str">"running_tokens"</span>] += batch_result.get(<span class="str">"tokens_in_window"</span>, 0)
+    carry[<span class="str">"last_span_id"</span>] = batch[-1].get(<span class="str">"id"</span>)
+    carry[<span class="str">"window_index"</span>] += 1
+    self._cap_carry(carry)  <span class="com"># truncate to a token budget</span>
+    <span class="kw">return</span> carry</pre>
+
+  <h3>3.5 Extend the structured output schema</h3>
+  <p>Add a few fields to whatever Pydantic model <code>with_structured_output(...)</code> uses today so the LLM <i>tells us</i> what to carry forward:</p>
+  <pre><span class="kw">class</span> BatchQuantResult(BaseModel):
+    metrics: List[MetricItem]
+    new_open_faults: List[OpenFault] = []
+    resolved_faults: List[ResolvedRef] = []
+    new_tool_calls: List[ToolCallRef] = []
+    tool_responses: List[ToolResponseRef] = []
+    last_error: Optional[str] = <span class="kw">None</span>
+    tokens_in_window: int = 0</pre>
+
+  <h3>3.6 Cap the carry so it doesn't grow forever</h3>
+  <pre><span class="kw">def</span> <span class="fn">_cap_carry</span>(self, carry, max_open=20, max_pending=20):
+    carry[<span class="str">"open_faults"</span>] = carry[<span class="str">"open_faults"</span>][-max_open:]
+    carry[<span class="str">"pending_tool_calls"</span>] = carry[<span class="str">"pending_tool_calls"</span>][-max_pending:]
+    <span class="kw">if</span> carry[<span class="str">"last_error"</span>] <span class="kw">and</span> len(carry[<span class="str">"last_error"</span>]) &gt; 300:
+        carry[<span class="str">"last_error"</span>] = carry[<span class="str">"last_error"</span>][:300] + <span class="str">"..."</span></pre>
+
+  <h2>4. Variants worth considering</h2>
+
+  <table>
+    <thead><tr><th>Variant</th><th>How</th><th>When it fits</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Pure sequential</b></td>
+        <td>One window at a time, carry passed forward.</td>
+        <td>Default. Strongest cross-window correctness.</td>
+      </tr>
+      <tr>
+        <td><b>Overlapping windows</b></td>
+        <td>Add a small stride overlap (e.g., 15 spans, stride 12 → 3-span overlap). Dedupe on span ID.</td>
+        <td>Cheap alternative if you don't want the carry plumbing but want fewer boundary misses.</td>
+      </tr>
+      <tr>
+        <td><b>Hybrid (chunked parallel)</b></td>
+        <td>Process N windows in parallel without carry, then a "stitch" pass walks the open-fault set across chunk boundaries only.</td>
+        <td>Large traces where wall-time matters more than per-call accuracy.</td>
+      </tr>
+      <tr>
+        <td><b>Deterministic carry</b></td>
+        <td>Build the open-fault / pending-tool list from OTel span attributes (no LLM), only the LLM does extraction.</td>
+        <td>Once spans follow OTel GenAI semconv (see options.html #4) — cheapest and most reliable.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5. What to watch</h2>
+  <ul>
+    <li><b>Prompt cache hits.</b> Keep the static instructions first, then the carry block, then the window. The static prefix stays cacheable.</li>
+    <li><b>Carry token budget.</b> Log carry size per window. If it consistently nears the cap, the cap is too low.</li>
+    <li><b>Wall-time.</b> Sequential walk hurts here. Measure before / after; if it's bad, go hybrid.</li>
+    <li><b>Aggregation logic.</b> The final merge step gets simpler — it can stop re-resolving cross-batch faults, since each window already did it.</li>
+  </ul>
+
+  <h2>6. What happens if we shrink the batch size?</h2>
+
+  <p>A smaller batch <i>looks</i> like a cheaper bill — fewer spans per call, smaller prompt. In practice it usually costs more and the report quality goes down. Here's the customer-facing view of the trade-off.</p>
+
+  <h3>The business trade-off</h3>
+  <table>
+    <thead><tr><th></th><th>What you'd hope for</th><th>What actually happens</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Cost</b></td>
+        <td>Lower — smaller prompts.</td>
+        <td>Often <i>higher</i>. The fixed instructions get re-sent on every call, so doubling the call count roughly doubles that overhead.</td>
+      </tr>
+      <tr>
+        <td><b>Speed</b></td>
+        <td>Faster — smaller chunks.</td>
+        <td>Slower end-to-end. More calls means more network round-trips and more chance of throttling / retries.</td>
+      </tr>
+      <tr>
+        <td><b>Reliability</b></td>
+        <td>Same.</td>
+        <td>Lower. Every extra call is another chance for a transient failure.</td>
+      </tr>
+      <tr>
+        <td><b>Report quality</b></td>
+        <td>Same.</td>
+        <td>Lower for any metric that spans more than a few events (see below).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Which numbers in the certification report get hurt</h3>
+  <table>
+    <thead><tr><th>Metric</th><th>Impact</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Time-to-detect / time-to-resolve</b></td>
+        <td>Highest risk. A fault can start in one batch and resolve in another, so the duration is harder to compute correctly.</td>
+      </tr>
+      <tr>
+        <td><b>Tool / API success rate</b></td>
+        <td>A call and its response can fall into different batches, making good calls look like failures.</td>
+      </tr>
+      <tr>
+        <td><b>Retry counts</b></td>
+        <td>Retries get scattered across batches and undercounted.</td>
+      </tr>
+      <tr>
+        <td><b>Root-cause narrative</b></td>
+        <td>With less context per call, the report reads generically ("an error occurred") instead of specifically.</td>
+      </tr>
+      <tr>
+        <td><b>Open vs. resolved faults</b></td>
+        <td>More faults look "still open" at the end simply because the resolution sat in a later batch.</td>
+      </tr>
+      <tr>
+        <td><b>Token / latency totals</b></td>
+        <td>Largely unaffected — these add up cleanly regardless of how the data is chunked.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>How to deal with it</h3>
+  <ol>
+    <li><b>Don't shrink blindly.</b> Pick a batch size that fits a whole fault lifecycle, not an arbitrary number of events.</li>
+    <li><b>Add a small overlap</b> between batches so events near the boundary aren't cut in half.</li>
+    <li><b>Carry a short summary forward</b> (the pattern in sections 2–3) so each batch knows what's still open from before.</li>
+    <li><b>Measure, then tune.</b> Track cost <i>and</i> the count of unresolved-at-end faults. If the unresolved count climbs as you shrink, you've gone too small.</li>
+  </ol>
+
+  <div class="callout good">
+    <b>Bottom line:</b> the right batch size is the <i>smallest one that still captures a typical fault end-to-end</i>. Going below that saves a little on each call but costs more overall — in money, time, and report accuracy.
+  </div>
+
+  <footer>
+    Based on <code>metrics_extractor_from_trace.py</code>.
+  </footer>
+
+</main>
+</body>
+</html>

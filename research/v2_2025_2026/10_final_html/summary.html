@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AgentCert Token Optimization — 2025/2026 Research Synthesis</title>
+<style>
+  :root {
+    --accent: #0b6e6e;
+    --accent-2: #1f2a5e;
+    --ink: #1a1f2b;
+    --ink-soft: #4a5260;
+    --line: #e5e8ee;
+    --bg: #fbfbfc;
+    --bg-soft: #f3f5f8;
+    --bg-callout: #f0f7f7;
+    --paper: #2563eb;
+    --industry: #b45309;
+    --oss: #047857;
+    --standard: #6d28d9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.55;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 56px 32px 80px; }
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  header.hero .eyebrow {
+    text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px;
+    color: var(--accent); font-weight: 600; margin-bottom: 10px;
+  }
+  header.hero h1 {
+    font-size: 38px; line-height: 1.15; margin: 0 0 12px;
+    font-weight: 700; letter-spacing: -0.01em;
+  }
+  header.hero p.sub { font-size: 18px; color: var(--ink-soft); margin: 0; max-width: 760px; }
+  section { margin-bottom: 44px; }
+  h2 { font-size: 22px; margin: 0 0 16px; font-weight: 650; letter-spacing: -0.005em;
+       border-left: 4px solid var(--accent); padding-left: 12px; }
+  h3 { font-size: 16px; margin: 24px 0 10px; font-weight: 600; color: var(--ink); }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: var(--accent); }
+  .box {
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 8px; padding: 20px 22px; margin: 0;
+  }
+  .callout {
+    border-left: 5px solid var(--accent);
+    background: var(--bg-callout);
+    padding: 18px 22px; border-radius: 0 8px 8px 0;
+  }
+  .callout .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px;
+          background: white; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { background: var(--bg-soft); font-weight: 600; font-size: 13px; color: var(--ink); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .badge.eff-S { background: #e6f7ed; color: #047857; }
+  .badge.eff-M { background: #fef3c7; color: #92400e; }
+  .badge.eff-L { background: #fde2e2; color: #b91c1c; }
+  .badge.reduction { background: #e0e7ff; color: var(--accent-2); }
+  .roadmap {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .sprint {
+    border: 1px solid var(--line); border-radius: 8px; background: white;
+    padding: 16px 18px; position: relative; overflow: hidden;
+  }
+  .sprint::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--accent);
+  }
+  .sprint.s2::before { background: #4a90a4; }
+  .sprint.s3::before { background: var(--accent-2); }
+  .sprint h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .sprint .when { font-size: 12px; color: var(--ink-soft); margin-bottom: 10px; }
+  .sprint ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  .sprint li { margin-bottom: 6px; }
+  .cta {
+    display: inline-block; background: var(--accent); color: white;
+    padding: 12px 22px; border-radius: 6px; font-weight: 600; font-size: 15px;
+    border-bottom: 0;
+  }
+  .cta:hover { background: var(--accent-2); border-bottom: 0; }
+  footer {
+    border-top: 1px solid var(--line); margin-top: 60px; padding-top: 20px;
+    font-size: 13px; color: var(--ink-soft); text-align: center;
+  }
+  .pill {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; margin: 0 2px;
+  }
+  .pill.paper { background: #dbeafe; color: var(--paper); }
+  .pill.industry { background: #fef3c7; color: var(--industry); }
+  .pill.oss { background: #d1fae5; color: var(--oss); }
+  .pill.standard { background: #ede9fe; color: var(--standard); }
+  ul.tight li { margin-bottom: 4px; }
+  .matrix th, .matrix td { text-align: center; }
+  .matrix td.lbl { text-align: left; font-weight: 600; }
+  .matrix .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+  .matrix .dot.hi { background: var(--accent); }
+  .matrix .dot.md { background: #5fa8a8; }
+  .matrix .dot.lo { background: #c9d4dc; }
+  @media (max-width: 720px) {
+    .roadmap { grid-template-columns: 1fr; }
+    header.hero h1 { font-size: 28px; }
+    .wrap { padding: 32px 18px; }
+  }
+  @media print {
+    body { background: white; font-size: 12px; }
+    .wrap { max-width: none; padding: 0; }
+    .cta { display: none; }
+    a { color: var(--ink); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">AgentCert v2 · Token Optimization Synthesis</div>
+  <h1>AgentCert Token Optimization — 2025/2026 Research Synthesis</h1>
+  <p class="sub">Seven complementary approaches, grounded in ~100 sources across eight research streams, that compound to extract 50–70% of Phase 0/1 token spend while widening AgentCert's competitive moat in chaos-engineering certification.</p>
+</header>
+
+<section>
+  <h2>The Problem in 60 Seconds</h2>
+  <div class="box">
+    <p>AgentCert's hot path is <strong>Phase 0 (LLM-driven fault bucketing over interleaved Kubernetes chaos trace events)</strong> and <strong>Phase 1 (per-fault quantitative + qualitative metrics extraction)</strong>. Both burn GPT-4 tokens proportional to <em>faults × events × runs × metrics</em> per certification. Phase 0 today flattens whole Langfuse traces into one long-context prompt; Phase 1 re-queries the same long fault bucket for ~6 qualitative fields per fault. Phase 3 then runs five concurrent narrative builders plus a sequential recommendations builder via <code>asyncio.gather</code>, so wall-time is tail-latency bound on top of input cost.</p>
+    <p style="margin-bottom:0;">Where Phase 0/1 cost dominates today, every percentage point extracted compounds across <em>N</em> runs in Phase 2 aggregation and unlocks new market segments (regulated finance, sustainability disclosure) that competitors do not yet serve.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Competitive White-Space</h2>
+  <div class="callout">
+    <div class="tag">Strategic finding</div>
+    <p style="margin-bottom:8px;"><strong>After surveying ~60 commercial and OSS products, no public competitor offers "AI-agent certification under chaos injection on Kubernetes" as a packaged end-to-end deliverable.</strong></p>
+    <p style="margin-bottom:8px;">Nearest neighbors split the problem and miss the intersection:</p>
+    <ul class="tight" style="margin-bottom:8px;">
+      <li><strong>Inspect AI</strong> (UK AISI) runs agents in K8s sandboxes — but injects no chaos.</li>
+      <li><strong>Harness ChaosNative + Continuous Verification</strong> has chaos and verification — but is agent-blind.</li>
+      <li><strong>Patronus Percival / Galileo Agent Reliability</strong> score agent traces — but are blind to the substrate that produced them.</li>
+      <li><strong>Steadybit / Gremlin</strong> use AI to <em>drive</em> chaos — not chaos to <em>test</em> AI.</li>
+    </ul>
+    <p style="margin-bottom:0;">AgentCert's defensible novelty is the intersection. None of the 19 AIOps sources surveyed target chaos-engineering trace certification. <strong>Every percent of cost extracted from Phase 0/1 is unmatched by any competitor's parallel investment.</strong></p>
+  </div>
+</section>
+
+<section>
+  <h2>Top 7 Approaches at a Glance</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Approach</th>
+        <th>Token reduction</th>
+        <th>Effort</th>
+        <th>Phase impact</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">1</td>
+        <td>OTel GenAI semconv + Langfuse v3 native ingestion (replace Phase 0 LLM bucketing for deterministic events)</td>
+        <td><span class="badge reduction">30–50% Phase 0</span></td>
+        <td><span class="badge eff-M">M</span></td>
+        <td>Phase 0, Phase 1 schema</td>
+      </tr>
+      <tr>
+        <td class="num">2</td>
+        <td>Hybrid GraphRAG (HippoRAG-2 / HybridRAG) over a fault-pattern KG</td>
+        <td><span class="badge reduction">50–70% Phase 0</span></td>
+        <td><span class="badge eff-L">L</span></td>
+        <td>Phase 0, 1, 2 prefilter</td>
+      </tr>
+      <tr>
+        <td class="num">3</td>
+        <td>Model cascade with small reasoning models + RouteLLM</td>
+        <td><span class="badge reduction">&gt;2× at ≥95% quality</span></td>
+        <td><span class="badge eff-M">M</span></td>
+        <td>Phase 0, 1, 3</td>
+      </tr>
+      <tr>
+        <td class="num">4</td>
+        <td>LILAC-2 / Drain3 / DivLog-2 templated parsing → structured extractor</td>
+        <td><span class="badge reduction">50–70% Phase 1 calls</span></td>
+        <td><span class="badge eff-S">S–M</span></td>
+        <td>Phase 1</td>
+      </tr>
+      <tr>
+        <td class="num">5</td>
+        <td>Provence + 500xCompressor + prompt caching + XGrammar constrained decoding</td>
+        <td><span class="badge reduction">20–50% all phases</span></td>
+        <td><span class="badge eff-S">S</span></td>
+        <td>All phases</td>
+      </tr>
+      <tr>
+        <td class="num">6</td>
+        <td>ChaosEater / LitmusChaos MCP + MCP-based tool grounding</td>
+        <td><span class="badge reduction">Net-new + smaller prompts</span></td>
+        <td><span class="badge eff-L">M–L</span></td>
+        <td>New <code>chaos_driver/</code>; Phase 0</td>
+      </tr>
+      <tr>
+        <td class="num">7</td>
+        <td>FinOps + Sustainability instrumentation (FOCUS 1.2, CodeCarbon 3.0, Scopes-for-AI)</td>
+        <td><span class="badge reduction">Measures everything else</span></td>
+        <td><span class="badge eff-S">S</span></td>
+        <td>Cross-cutting + Phase 3</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="margin-top:14px;font-size:14px;color:var(--ink-soft);">The seven approaches are <strong>complementary, not alternatives</strong>. Approach 5 (compression + caching) compounds Approach 2 (GraphRAG); Approach 7 makes Approaches 1–6 measurable.</p>
+</section>
+
+<section>
+  <h2>Phase-Impact Matrix</h2>
+  <table class="matrix">
+    <thead>
+      <tr>
+        <th style="text-align:left;">Approach</th>
+        <th>Phase 0<br><span style="font-weight:400;font-size:11px;color:var(--ink-soft);">Bucketing</span></th>
+        <th>Phase 1<br><span style="font-weight:400;font-size:11px;color:var(--ink-soft);">Extraction</span></th>
+        <th>Phase 2<br><span style="font-weight:400;font-size:11px;color:var(--ink-soft);">Aggregation</span></th>
+        <th>Phase 3<br><span style="font-weight:400;font-size:11px;color:var(--ink-soft);">Certification</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="lbl">1. OTel GenAI semconv</td><td><span class="dot hi"></span></td><td><span class="dot md"></span></td><td><span class="dot lo"></span></td><td><span class="dot lo"></span></td></tr>
+      <tr><td class="lbl">2. Hybrid GraphRAG</td><td><span class="dot hi"></span></td><td><span class="dot hi"></span></td><td><span class="dot md"></span></td><td><span class="dot md"></span></td></tr>
+      <tr><td class="lbl">3. Model cascade + RouteLLM</td><td><span class="dot hi"></span></td><td><span class="dot hi"></span></td><td><span class="dot md"></span></td><td><span class="dot hi"></span></td></tr>
+      <tr><td class="lbl">4. Templated parsing (LILAC-2)</td><td><span class="dot md"></span></td><td><span class="dot hi"></span></td><td><span class="dot lo"></span></td><td><span class="dot lo"></span></td></tr>
+      <tr><td class="lbl">5. Compression + caching + XGrammar</td><td><span class="dot hi"></span></td><td><span class="dot hi"></span></td><td><span class="dot hi"></span></td><td><span class="dot hi"></span></td></tr>
+      <tr><td class="lbl">6. ChaosEater / MCP grounding</td><td><span class="dot hi"></span></td><td><span class="dot md"></span></td><td><span class="dot lo"></span></td><td><span class="dot md"></span></td></tr>
+      <tr><td class="lbl">7. FinOps + Sustainability</td><td><span class="dot md"></span></td><td><span class="dot md"></span></td><td><span class="dot md"></span></td><td><span class="dot hi"></span></td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px;font-size:13px;color:var(--ink-soft);"><span class="dot hi" style="display:inline-block;width:10px;height:10px;border-radius:50%;"></span> High impact &nbsp; <span class="dot md" style="display:inline-block;width:10px;height:10px;border-radius:50%;"></span> Medium &nbsp; <span class="dot lo" style="display:inline-block;width:10px;height:10px;border-radius:50%;"></span> Low / measurement only</p>
+</section>
+
+<section>
+  <h2>90-Day Roadmap</h2>
+  <div class="roadmap">
+    <article class="sprint">
+      <h4>Sprint 1–2</h4>
+      <div class="when">Weeks 1–4 · Quick wins</div>
+      <ul>
+        <li>Anthropic prompt caching on Phase 2 shared prefix (≈90% input cost drop)</li>
+        <li>Wrap <code>AzureLLMClient</code> with OTel <code>gen_ai.usage.*</code> + CodeCarbon</li>
+        <li>LILAC-2 + Drain3 templating in Phase 1 (~70% fewer LLM calls on extractive fields)</li>
+        <li>Langfuse v3 + OTel <code>/api/public/otel</code> ingestion (30–50% Phase 0)</li>
+        <li>XGrammar / Structured Outputs on Pydantic schemas (no more retry loops)</li>
+      </ul>
+    </article>
+    <article class="sprint s2">
+      <h4>Sprint 3–4</h4>
+      <div class="when">Weeks 5–8 · GraphRAG &amp; cascade</div>
+      <ul>
+        <li>PoC: nano-graphrag + Neo4j + HippoRAG-2 on Nezha benchmark (50–70% Phase 0)</li>
+        <li>Train RouteLLM v2 router; route easy half to Phi-4-Reasoning / o3-mini / Haiku 4.5</li>
+        <li>Phase 2 cascade with FrugalGPT-style escalate-on-low-confidence</li>
+        <li>PoLL bias mitigations: swap-order voting, cross-family panel, length-normalized scoring</li>
+        <li>Provence event-level pre-pruning on Phase 0 prompts (20–50% cut)</li>
+      </ul>
+    </article>
+    <article class="sprint s3">
+      <h4>Sprint 5–6</h4>
+      <div class="when">Weeks 9–12 · MCP + FinOps + Confidential Inference</div>
+      <ul>
+        <li>Grafana + Prometheus + Kubernetes MCP servers as Phase 0 tool layer</li>
+        <li>LitmusChaos MCP → new <code>chaos_driver/</code>; ChaosEater-Plus predicate DSL in Section 8/9</li>
+        <li>FOCUS 1.2 cost rows + CertificationReport Section 13 (Cost &amp; Sustainability)</li>
+        <li>Confidential Inference pilot on one council judge (NCC H100 v5)</li>
+        <li>LiteLLM Proxy per-phase virtual keys + Prometheus cost metrics</li>
+        <li>Cohere Embed v4 / Voyage-3 with MRL cascade replacing ada-002</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section>
+  <h2>Grounding</h2>
+  <div class="box">
+    <p style="margin-bottom:6px;">Grounded in <strong>~40 arXiv papers (2024–2026)</strong>, <strong>20+ industry case studies</strong> (Klarna, Notion, Shopify, LinkedIn, Google SRE, ServiceNow, BMC, Dynatrace), <strong>15+ OSS projects</strong> (Langfuse v3, Phoenix v5, Inspect AI, ChaosEater, LitmusChaos, vLLM, SGLang, XGrammar) and <strong>4 emerging standards</strong> (OTel GenAI semconv, FOCUS 1.2, NIST AI RMF, EU AI Act).</p>
+    <p style="margin-bottom:0;">Categories: <span class="pill paper">paper</span> <span class="pill industry">industry</span> <span class="pill oss">OSS</span> <span class="pill standard">standard</span></p>
+  </div>
+</section>
+
+<section style="text-align:center;">
+  <a class="cta" href="detailed.html">Read the deep dive →</a>
+</section>
+
+<footer>
+  Generated 2026-06-02 · Sources: 100+ items across 8 thematic dirs · AgentCert v2 research synthesis
+</footer>
+
+</div>
+</body>
+</html>

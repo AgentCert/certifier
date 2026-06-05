@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AgentCert Token Optimization — Deep Dive (v2 Synthesis)</title>
+<style>
+  :root {
+    --accent: #0b6e6e;
+    --accent-2: #1f2a5e;
+    --ink: #1a1f2b;
+    --ink-soft: #4a5260;
+    --line: #e5e8ee;
+    --bg: #fbfbfc;
+    --bg-soft: #f3f5f8;
+    --bg-callout: #f0f7f7;
+    --paper: #2563eb;
+    --industry: #b45309;
+    --oss: #047857;
+    --standard: #6d28d9;
+    --internal: #475569;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.55;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 960px);
+    gap: 40px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    font-size: 13px;
+    padding-right: 8px;
+    border-right: 1px solid var(--line);
+  }
+  nav.toc h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent); font-weight: 700; margin: 0 0 12px;
+  }
+  nav.toc ul { list-style: none; padding: 0; margin: 0; }
+  nav.toc li { margin: 0 0 6px; }
+  nav.toc a {
+    color: var(--ink-soft); text-decoration: none; display: block;
+    padding: 4px 8px; border-radius: 4px; line-height: 1.35;
+  }
+  nav.toc a:hover { background: var(--bg-soft); color: var(--accent); }
+  nav.toc .sub { padding-left: 14px; font-size: 12px; }
+  main { min-width: 0; }
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  header.hero .eyebrow {
+    text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px;
+    color: var(--accent); font-weight: 600; margin-bottom: 10px;
+  }
+  header.hero h1 {
+    font-size: 34px; line-height: 1.15; margin: 0 0 12px;
+    font-weight: 700; letter-spacing: -0.01em;
+  }
+  header.hero p.sub { font-size: 17px; color: var(--ink-soft); margin: 0; max-width: 760px; }
+  header.hero .back { font-size: 13px; }
+  section { margin-bottom: 52px; }
+  h2.section-title {
+    font-size: 22px; margin: 0 0 18px; font-weight: 650; letter-spacing: -0.005em;
+    border-left: 4px solid var(--accent); padding-left: 12px; scroll-margin-top: 24px;
+  }
+  h3 { font-size: 17px; margin: 24px 0 10px; font-weight: 600; color: var(--ink); }
+  h4 { font-size: 14px; margin: 18px 0 8px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: var(--accent); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;
+         background: var(--bg-soft); padding: 1px 5px; border-radius: 3px; }
+  .box {
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 8px; padding: 18px 20px; margin: 0 0 14px;
+  }
+  .callout {
+    border-left: 5px solid var(--accent);
+    background: var(--bg-callout);
+    padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 16px;
+  }
+  .callout .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px;
+          background: white; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+          margin-bottom: 14px; }
+  th, td { padding: 9px 11px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { background: var(--bg-soft); font-weight: 600; font-size: 12.5px; color: var(--ink); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .badge.eff-S { background: #e6f7ed; color: #047857; }
+  .badge.eff-M { background: #fef3c7; color: #92400e; }
+  .badge.eff-L { background: #fde2e2; color: #b91c1c; }
+  .badge.reduction { background: #e0e7ff; color: var(--accent-2); }
+  article.approach {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: white; padding: 22px 24px; margin-bottom: 26px;
+    scroll-margin-top: 24px;
+  }
+  article.approach > header { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  article.approach h3.title { margin: 0; font-size: 19px; flex: 1; min-width: 240px; font-weight: 650; }
+  article.approach .num-circle {
+    width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--accent);
+    color: white; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  article.approach .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  article.approach .summary { color: var(--ink-soft); margin: 4px 0 14px; font-size: 14.5px; }
+  details { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+  details summary {
+    cursor: pointer; font-weight: 600; color: var(--accent); font-size: 14px;
+    padding: 4px 0; list-style: none; user-select: none;
+  }
+  details summary::before { content: "▸ "; transition: transform 0.15s; display: inline-block; }
+  details[open] summary::before { content: "▾ "; }
+  details summary:hover { color: var(--accent-2); }
+  .pill {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; margin: 1px 2px;
+    border-bottom: 0; line-height: 1.6;
+  }
+  .pill.paper { background: #dbeafe; color: var(--paper); }
+  .pill.industry { background: #fef3c7; color: var(--industry); }
+  .pill.oss { background: #d1fae5; color: var(--oss); }
+  .pill.standard { background: #ede9fe; color: var(--standard); }
+  .pill.internal {
+    background: #f1f5f9; color: var(--internal);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px;
+  }
+  a.pill:hover { border-bottom: 0; opacity: 0.85; }
+  .grounding { margin: 12px 0; font-size: 13px; line-height: 2; }
+  .grounding strong { display: inline-block; margin-right: 4px; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+  ul.tight { margin: 8px 0 12px; padding-left: 22px; }
+  ul.tight li { margin-bottom: 6px; }
+  .roadmap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 12px; }
+  .sprint {
+    border: 1px solid var(--line); border-radius: 8px; background: white;
+    padding: 14px 16px; position: relative; overflow: hidden;
+  }
+  .sprint::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--accent); }
+  .sprint.s2::before { background: #4a90a4; }
+  .sprint.s3::before { background: var(--accent-2); }
+  .sprint h4 { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .sprint .when { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; }
+  .sprint ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .sprint li { margin-bottom: 5px; }
+  footer { border-top: 1px solid var(--line); margin-top: 60px; padding-top: 20px; font-size: 13px; color: var(--ink-soft); text-align: center; }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; padding: 24px 16px; }
+    nav.toc { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+    .roadmap-grid { grid-template-columns: 1fr; }
+    header.hero h1 { font-size: 26px; }
+  }
+  @media print {
+    body { background: white; font-size: 11.5px; }
+    .layout { display: block; padding: 0; max-width: none; }
+    nav.toc { display: none; }
+    details summary { display: none; }
+    details { border-top: 0; padding-top: 0; }
+    details[open], details:not([open]) > *:not(summary) { display: block !important; }
+    details > *:not(summary) { display: block !important; }
+    a { color: var(--ink); }
+    article.approach { page-break-inside: avoid; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Table of contents">
+  <h2>On this page</h2>
+  <ul>
+    <li><a href="#problem">The Problem</a></li>
+    <li><a href="#whitespace">Competitive White-Space</a></li>
+    <li><a href="#approaches">Top 7 Approaches</a>
+      <ul class="sub">
+        <li><a href="#a1">1. OTel GenAI semconv</a></li>
+        <li><a href="#a2">2. Hybrid GraphRAG</a></li>
+        <li><a href="#a3">3. Model cascade</a></li>
+        <li><a href="#a4">4. Templated parsing</a></li>
+        <li><a href="#a5">5. Compression + caching</a></li>
+        <li><a href="#a6">6. ChaosEater / MCP</a></li>
+        <li><a href="#a7">7. FinOps + Sustainability</a></li>
+        <li><a href="#a8">8. Embedding modernization</a></li>
+      </ul>
+    </li>
+    <li><a href="#phase-matrix">Phase Adoption Matrix</a></li>
+    <li><a href="#roadmap">90-Day Roadmap</a></li>
+    <li><a href="#borrow">Borrow Checklist + Threats</a></li>
+    <li><a href="#open">Open Questions / Pilots</a></li>
+    <li><a href="#risks">Risk Register (R1–R15)</a></li>
+    <li><a href="#sources">Appendix: Source Map</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<header class="hero">
+  <div class="eyebrow">AgentCert v2 · Deep Dive</div>
+  <h1>AgentCert Token Optimization — 2025/2026 Research Synthesis</h1>
+  <p class="sub">Seven complementary approaches (plus an embedding-modernization carve-out), grounded in ~100 sources across eight research streams, that compound to extract 50–70% of Phase 0/1 token spend while widening AgentCert's competitive moat.</p>
+  <p class="back" style="margin-top:14px;"><a href="summary.html">← Executive summary</a></p>
+</header>
+
+<section id="problem">
+  <h2 class="section-title">The Problem</h2>
+  <div class="box">
+    <p>AgentCert is a four-phase pipeline: Phase 0 (fault bucketing), Phase 1 (metrics extraction), Phase 2 (aggregation), Phase 3 (certification narrative). The hot path is <strong>Phase 0 + Phase 1</strong>, both burning GPT-4 tokens proportional to (faults × events × runs × metrics). Phase 0 today flattens whole Langfuse traces into one long-context prompt; Phase 1 re-queries the same long fault bucket for ~6 qualitative fields per fault.</p>
+    <p>Phase 3 runs five concurrent narrative builders + one sequential recommendations builder via <code>asyncio.gather</code>, so wall-time is tail-latency bound on top of input cost.</p>
+    <p style="margin-bottom:0;"><strong>Targets in this synthesis:</strong> 50–70% reduction on Phase 0, 40–60% on Phase 1 qualitative fields, 90% per-judge input cost drop in Phase 2 via shared-prefix caching, and Phase 3 wall-time compression via batched speculative decoding.</p>
+  </div>
+</section>
+
+<section id="whitespace">
+  <h2 class="section-title">Competitive White-Space</h2>
+  <div class="callout">
+    <div class="tag">Strategic finding · ~60 products surveyed</div>
+    <p style="margin-bottom:8px;"><strong>No public competitor offers "AI-agent certification under chaos injection on Kubernetes" as a packaged end-to-end deliverable.</strong></p>
+  </div>
+  <p>Nearest neighbors split the problem along three axes (agent eval, chaos injection, K8s substrate, certification report):</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Neighbor</th>
+        <th>Agent eval?</th>
+        <th>Chaos?</th>
+        <th>K8s?</th>
+        <th>Cert report?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Inspect AI</strong> (UK AISI)</td><td>Yes</td><td><strong>No</strong></td><td>Yes</td><td>Partial (log format)</td></tr>
+      <tr><td><strong>Harness ChaosNative + CV</strong></td><td><strong>No</strong> (deploy health)</td><td>Yes</td><td>Yes</td><td>Partial (verification gates)</td></tr>
+      <tr><td><strong>Patronus Percival</strong></td><td>Yes (failure taxonomy)</td><td>No</td><td>No</td><td>No (scores only)</td></tr>
+      <tr><td><strong>Galileo Agent Reliability</strong></td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr>
+      <tr><td><strong>OSWorld / WebArena</strong></td><td>Yes</td><td>No (static substrate)</td><td>Partial (VMs)</td><td>No</td></tr>
+      <tr><td><strong>Steadybit / Gremlin</strong></td><td>No (uses AI <em>for</em> chaos)</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td><strong>NVIDIA NeMo Evaluator</strong></td><td>Yes</td><td>No</td><td>Yes</td><td>No</td></tr>
+    </tbody>
+  </table>
+  <p>AgentCert's defensible novelty is the intersection. None of the 19 AIOps sources surveyed target chaos-engineering trace certification. <strong>Every percent of cost extracted from Phase 0/1 is unmatched by any competitor's parallel investment.</strong></p>
+</section>
+
+<section id="approaches">
+  <h2 class="section-title">Top 7 Approaches (+ Bonus #8)</h2>
+
+  <!-- Approach 1 -->
+  <article id="a1" class="approach">
+    <header>
+      <div class="num-circle">1</div>
+      <h3 class="title">OTel GenAI semconv + Langfuse v3 native ingestion</h3>
+      <div class="badges">
+        <span class="badge reduction">30–50% Phase 0</span>
+        <span class="badge eff-M">Effort: M</span>
+      </div>
+    </header>
+    <p class="summary">Replace LLM text-classification of agent steps with deterministic grouping by <code>gen_ai.agent.id</code> + <code>gen_ai.tool.name</code> + <code>gen_ai.operation.name</code>; LLM only for genuinely ambiguous interleaved events.</p>
+
+    <h4>Token impact</h4>
+    <p>The 2025 OTel GenAI semconv was split into a dedicated repo (schema URL <code>https://opentelemetry.io/schemas/gen-ai/1.42.0</code>) defining three attribute namespaces (<code>gen_ai.*</code>, <code>mcp.*</code>, <code>openai.*</code>) plus standalone documents for spans, metrics, events, exceptions, <strong>agent spans, and MCP</strong>. The stable client-inference subset (<code>gen_ai.request.*</code>, <code>gen_ai.response.*</code>, <code>gen_ai.usage.*</code>) is production-grade per the KubeCon NA 2025 keynote.</p>
+    <p>Phase 0 bucketing can switch to a <strong>hybrid: deterministic grouping by agent/tool spans, LLM only for ambiguous boundaries</strong>. Conservative estimate: 30–50% of Phase 0 LLM calls avoided.</p>
+
+    <details>
+      <summary>Fit, risks, and concrete steps</summary>
+      <h4>Fit</h4>
+      <ul class="tight">
+        <li><strong>Langfuse v3 GA Q1 2025</strong> ships a native OTLP/HTTP endpoint at <code>/api/public/otel</code>; ClickHouse-backed analytics scale to &gt;10k spans per fault.</li>
+        <li><strong>Traceloop OpenLLMetry 2025</strong> aligns fully with the ratified semconv; one-line instrumentation for 30+ LLM/vector/agent libs.</li>
+        <li><strong>Langtrace OTel exporter naming</strong> (Liu/Kalyanaraman, KubeCon EU 2025) gives a canonical "agent step → OTel span" mapping AgentCert currently re-invents in <code>fault_analyzer/</code>.</li>
+        <li><strong>Jaeger v2 OTel-native rebuild</strong> + MCP/ACP/AG-UI integration surfaces embedding latency, tool calls, token usage as first-class metrics.</li>
+      </ul>
+      <h4>Risk</h4>
+      <p>Agent-span conventions are still tagged Development per the KubeCon NA 2025 keynote — gate behind a feature flag. The deterministic-grouping fallback to LLM for ambiguous events must remain in place during rollout.</p>
+      <h4>Concrete schema migration steps</h4>
+      <ol>
+        <li>Adopt the schema URL constant <code>https://opentelemetry.io/schemas/gen-ai/1.42.0</code> in <code>utils/</code>.</li>
+        <li>In <code>fault_analyzer/</code>, replace text-classification with deterministic grouping by <code>gen_ai.agent.id</code> + <code>gen_ai.tool.name</code> + <code>gen_ai.operation.name</code>.</li>
+        <li>In <code>metrics_extractor/</code>, key Phase 1 numeric extractors off <code>gen_ai.usage.input_tokens</code>, <code>gen_ai.usage.output_tokens</code>, <code>gen_ai.response.model</code>, and the <code>gen_ai.client.token.usage</code> histogram.</li>
+        <li>Wire OpenLLMetry exporter so the chaos agent ships to Langfuse via OTel without code changes.</li>
+        <li>Accept native OTLP/HTTP at Langfuse's <code>/api/public/otel</code> endpoint to decouple agent instrumentation from the certifier.</li>
+      </ol>
+      <h4>Vendor-neutrality dividend</h4>
+      <p>Once Phase 0 ingests OTel GenAI semconv, AgentCert accepts traces from <strong>OpenLIT</strong>, <strong>Helicone</strong>, <strong>Lunary</strong>, <strong>Laminar</strong>, <strong>Langtrace</strong> — five 2025-active OSS observability projects.</p>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <span class="pill standard">OTel GenAI semconv 1.42.0</span>
+      <span class="pill oss">Langfuse v3</span>
+      <span class="pill oss">OpenLLMetry</span>
+      <span class="pill oss">Langtrace</span>
+      <span class="pill oss">Jaeger v2</span>
+      <span class="pill industry">KubeCon NA 2025 keynote</span>
+      <a class="pill internal" href="../03_trace_chaos/findings.md">03_trace_chaos §A.1–A.5</a>
+      <a class="pill internal" href="../05_langfuse_embeddings/findings.md">05_langfuse_embeddings §A.1–A.2, §B.9–B.10</a>
+      <a class="pill internal" href="../06_finops_ai/findings.md">06_finops_ai §2.1</a>
+    </div>
+  </article>
+
+  <!-- Approach 2 -->
+  <article id="a2" class="approach">
+    <header>
+      <div class="num-circle">2</div>
+      <h3 class="title">Hybrid GraphRAG over a fault-pattern KG (HippoRAG-2 / HybridRAG)</h3>
+      <div class="badges">
+        <span class="badge reduction">50–70% Phase 0</span>
+        <span class="badge reduction">40–60% Phase 1</span>
+        <span class="badge eff-L">Effort: L</span>
+      </div>
+    </header>
+    <p class="summary">Highest-leverage single approach. Replace the static faults block in the bucketing prompt with a retrieved subgraph (<code>fault_type → expected span signatures → known propagation paths</code>) per trace.</p>
+
+    <h4>Token impact</h4>
+    <table>
+      <thead><tr><th>Phase</th><th>Current cost driver</th><th>KG intervention</th><th>Est. savings</th></tr></thead>
+      <tbody>
+        <tr><td>Phase 0 bucketing</td><td>Full faults-block (~3–8k tokens)</td><td>HippoRAG-2/HybridRAG subgraph retrieval</td><td><strong>50–70%</strong></td></tr>
+        <tr><td>Phase 1 extraction</td><td>Whole bucket for qualitative fields</td><td>GraphReader-style agent navigates span DAG</td><td><strong>40–60%</strong></td></tr>
+        <tr><td>Phase 2 aggregation</td><td>Council reads all run metrics</td><td>Graph-distance ranking prefilter</td><td>30–40%</td></tr>
+        <tr><td>Phase 3 narrative</td><td>Builders re-read full scorecard</td><td>Subgraph per narrative section</td><td>20–30%</td></tr>
+      </tbody>
+    </table>
+
+    <details>
+      <summary>2025 reference stack, industry analogs, validation harness</summary>
+      <h4>Reference stack</h4>
+      <ul class="tight">
+        <li><a class="pill paper" href="https://arxiv.org/abs/2502.14802">HippoRAG-2 · arXiv:2502.14802</a> — PPR over passage+entity graph; +12–20% over vanilla RAG on multi-hop QA. Ideal for "given this span set, find related fault patterns."</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2408.04948">HybridRAG · arXiv:2408.04948</a> — BlackRock + Nvidia; 79% faithfulness vs 65% vector-only on financial QA. <strong>Strongest empirical case for the architecture.</strong></li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2410.05779">LightRAG · arXiv:2410.05779</a> — Dual-level retrieval, ~10× fewer LLM calls than MS GraphRAG; <strong>incremental update is the killer feature</strong>.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2504.11544">NodeRAG · arXiv:2504.11544</a> — Heterogeneous nodes map cleanly onto (<code>Fault</code>, <code>Span</code>, <code>K8sResource</code>, <code>Phase</code>, <code>Metric</code>).</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2406.14550">GraphReader · arXiv:2406.14550</a> — LLM agent navigates KG; <strong>4–32× less context</strong>. Highly relevant for Phase 1.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2502.01113">GFM-RAG · arXiv:2502.01113</a> — Pre-trained GNN retriever generalizes zero-shot across KGs.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2502.13073">Causal KG for Microservices RCA · arXiv:2502.13073</a> — Directly applicable; AgentCert traces are already span-DAGs.</li>
+        <li><span class="pill paper">MicroRCA-Agent (Sept 2025)</span> — Compresses logs into "fault features"; multi-level filtering before multimodal LLM.</li>
+        <li><span class="pill paper">KnowledgeMind (July 2025)</span> — MCTS with KB-derived rewards; <strong>90% context reduction + 49–128% RCA accuracy lift</strong>.</li>
+        <li><span class="pill industry">Microsoft DRIFT search (Feb 2025)</span> — Hybrid local + global mode, incremental indexing.</li>
+      </ul>
+
+      <h4>Recommended PoC stack</h4>
+      <p><strong>nano-graphrag</strong> (~1100 LOC) + <strong>Neo4j or FalkorDB</strong> + <strong>HippoRAG-2 retrieval</strong> + <strong>LightRAG incremental updates</strong>. Validate on the <strong>Nezha benchmark</strong> (TrainTicket / OnlineBoutique chaos data).</p>
+
+      <h4>Risk</h4>
+      <p>KG construction cost (LLM-extraction of edges per new trace) could offset savings. <strong>Mitigation:</strong> use deterministic OTel-derived edges (parent/child, service-call) from Jaeger v2 and reserve LLM extraction for the small "fault-pattern" upper ontology. Confidence rated <strong>Medium-High</strong> — no published 2025 paper validates this specifically on chaos-engineering traces (AgentCert would be early).</p>
+
+      <h4>Industry analogs validating the pattern</h4>
+      <ul class="tight">
+        <li><span class="pill industry">ServiceNow ITOM / Now Assist (2025)</span> — CMBD graph + LLM for causal-path traversal; direct industry analog for "structured topology graph + LLM narrative."</li>
+        <li><span class="pill industry">BMC HelixGPT for AIOps (2025)</span> — Service topology + graph-distance ranking. Cheap classical algorithm that could replace some LLM reasoning in Phase 2.</li>
+        <li><span class="pill industry">Dynatrace Davis AI + Smartscape (2025)</span> — Real-time entity/dep graph feeding NL→DQL queries. Reference for "topology-aware LLM observability."</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2501.06366">LLM-Augmented Causal Discovery for Cloud Incidents · arXiv:2501.06366</a> — Could automate building AgentCert's "fault → metric anomaly" edges from historical runs.</li>
+      </ul>
+
+      <h4>Pre-filtering with graph query languages</h4>
+      <ul class="tight">
+        <li><span class="pill oss">Grafana Tempo + TraceQL graph features (2025)</span> — Structural span-tree queries; pre-filter before LLM.</li>
+        <li><span class="pill oss">Jaeger v2 + OTel graph context</span> — Free service-dependency graph extraction directly from Langfuse OTel exports.</li>
+        <li><span class="pill oss">Neo4j LLM Knowledge Graph Builder (2025 GA)</span> — Agentic chunking, Diffbot extractor, built-in vector+graph hybrid search.</li>
+        <li><span class="pill oss">GraphRAG-SDK (FalkorDB, 2025)</span> — Ontology-first matches AgentCert's strongly-typed domain — could reuse Pydantic schemas as the KG ontology.</li>
+      </ul>
+
+      <h4>Trace-summarization / RCA family worth borrowing</h4>
+      <ul class="tight">
+        <li><span class="pill paper">ErrorPrism (Sept 2025)</span> — Static analysis + LLM backward search; <strong>97% accuracy on real-world microservice failures</strong>.</li>
+        <li><span class="pill paper">RCLAgent (Aug 2025)</span> — Multi-agent SRE with recursion-of-thought; published template for "judge + meta-judge" identical to AgentCert's LLM Council.</li>
+        <li><span class="pill paper">GALA (Aug 2025)</span> — Statistical causal inference + LLM iterative reasoning; <strong>+42.22% over prior LLM-only RCA</strong>. Net-new "what-if" capability for Phase 2 aggregator.</li>
+        <li><span class="pill paper">Flow-of-Reasoning (ASPLOS'25 ML for Systems)</span> — DAG-of-Reasoning; <strong>~38% token cut vs monolithic CoT</strong>.</li>
+        <li><span class="pill paper">COCA (ISSRE'25)</span> — Synthetic counterfactual traces; useful for concurrent multi-fault disambiguation.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2407.05940">OpenRCA · ICLR 2025 · arXiv:2407.05940</a> — First reproducible LLM-RCA benchmark; best agent ~57% top-1.</li>
+      </ul>
+
+      <h4>Validation harness</h4>
+      <p><strong>Eadro (ICSE 2023) / Nezha (FSE 2023, 2025 extensions)</strong> — Joint embedding of logs + traces + metrics over a service-call KG. Same domain (microservices + chaos), evaluable ground truth.</p>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <a class="pill paper" href="https://arxiv.org/abs/2502.14802">HippoRAG-2</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2408.04948">HybridRAG</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2410.05779">LightRAG</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2504.11544">NodeRAG</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2406.14550">GraphReader</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2502.01113">GFM-RAG</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2502.13073">Causal KG RCA</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2407.05940">OpenRCA</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2501.06366">LLM-Aug Causal Discovery</a>
+      <span class="pill oss">nano-graphrag</span>
+      <span class="pill oss">Neo4j KG Builder</span>
+      <span class="pill oss">FalkorDB GraphRAG-SDK</span>
+      <span class="pill industry">ServiceNow / BMC / Dynatrace</span>
+      <a class="pill internal" href="../04_graphrag_kg/findings.md">04_graphrag_kg §TL;DR, §Synthesis, §1–§6</a>
+      <a class="pill internal" href="../03_trace_chaos/findings.md">03_trace_chaos §B.6–B.11</a>
+    </div>
+  </article>
+
+  <!-- Approach 3 -->
+  <article id="a3" class="approach">
+    <header>
+      <div class="num-circle">3</div>
+      <h3 class="title">Model cascade with small reasoning models + RouteLLM</h3>
+      <div class="badges">
+        <span class="badge reduction">&gt;2× at ≥95% quality</span>
+        <span class="badge eff-M">Effort: M</span>
+      </div>
+    </header>
+    <p class="summary">Phase 0 bucketing has a bimodal difficulty distribution. Send the easy half to small models (Phi-4-mini, GPT-4o-mini, Haiku 4.5) and only the hard half to GPT-4 / o3-mini / DeepSeek-R1.</p>
+
+    <h4>Routing primitives</h4>
+    <ul class="tight">
+      <li><a class="pill paper" href="https://arxiv.org/abs/2406.18665">RouteLLM v2 · ICLR 2025 · arXiv:2406.18665</a> — Four router architectures; <strong>&gt;2× cost reduction at ≥95% strong-model quality</strong> on MT-Bench/MMLU/GSM8K.</li>
+      <li><a class="pill paper" href="https://arxiv.org/abs/2404.14618">Hybrid LLM · ICLR 2024 · arXiv:2404.14618</a> — Per-input router; <strong>up to 40% fewer big-model calls</strong> with no quality drop.</li>
+      <li><span class="pill paper">Cost-Aware Cascades (FrugalGPT successor, 2025)</span> — Sequential cheap-first escalation; <strong>up to 98% cost cut</strong> on some workloads.</li>
+    </ul>
+
+    <details>
+      <summary>Small reasoning model arsenal · production routers · MoA · industry blogs</summary>
+      <h4>Small reasoning model arsenal (2025–2026)</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Claude Haiku 4.5 (Oct 15, 2025)</span> — $1 input / $5 output; ~1/3 cost of Sonnet 4; 90% of Sonnet 4.5 on agentic coding (partner report). <strong>Best fit: Phase 3 concurrent narrative builders.</strong></li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2504.21318">Phi-4-Reasoning · arXiv:2504.21318</a> — 14B; beats DeepSeek-R1-Distill-Llama-70B; <strong>smallest credible reasoning model for on-prem Phase 0/1</strong> with PII-bearing K8s traces.</li>
+        <li><span class="pill oss">Qwen3 (April 2025)</span> — 0.6B–235B; <strong>hybrid Thinking/Non-Thinking modes</strong> with controllable budget. Maps directly to phase split.</li>
+        <li><span class="pill oss">QwQ-32B (March 2025)</span> — Comparable to DeepSeek-R1 at ~21× fewer params; dense (simpler ops).</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2501.12948">DeepSeek-R1 · arXiv:2501.12948</a> — R1-Distill-Qwen-32B reaches o1-mini-level; full R1 <strong>~27× cheaper per output token than o1</strong>.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2412.19437">DeepSeek-V3 · arXiv:2412.19437</a> — $0.27/1M input, $1.10/1M output. Natural Phase 1 first migration target.</li>
+        <li><span class="pill oss">Mistral Small 3 (Jan 30, 2025)</span> — 24B Apache-2.0; &gt;3× faster than Llama-3.3-70B. Good for Phase 2 Council judges.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2503.19786">Gemma 3 · arXiv:2503.19786</a> — 128k context covers long Langfuse traces without chunking.</li>
+        <li><span class="pill industry">OpenAI o3-mini (Jan 2025)</span> — $1.10/$4.40 per 1M; <code>reasoning_effort: low|medium|high</code> per-phase knob. AzureLLMClient already strips temperature.</li>
+        <li><span class="pill industry">Anthropic Extended Thinking (Feb–May 2025)</span> — <code>thinking.budget_tokens</code> 1024–64000; thinking blocks are <strong>signed and cacheable</strong>. Phase 2 meta-judge cost drops ~75% via shared thinking blocks across k judges.</li>
+        <li><span class="pill industry">Gemini 2.5 Flash Thinking (Apr–Jun 2025)</span> — <code>thinking_budget</code> 0–24576; <strong>best price-per-quality on Pareto frontier mid-2025</strong>.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2408.03314">Snell et al. "Scaling Test-Time Compute Optimally" · arXiv:2408.03314</a> — Theoretical justification for difficulty-routed budgets.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2504.07876">DeepSeek-R1 Applied to Incident Reasoning · arXiv:2504.07876</a> — Reasoning models win on multi-hop causality but at 4–6× cost. Informs the <code>reasoning_model</code> vs <code>extraction_model</code> split.</li>
+      </ul>
+
+      <h4>Production routing platforms</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Not Diamond</span> — ~5% accuracy lift, ~30% cost reduction; Rootly reports +39% accuracy on long-running agent workloads.</li>
+        <li><span class="pill industry">Portkey AI Gateway 2.0 (2025)</span> — Budget guardrails per virtual key, automatic fallbacks, cost router with latency/quality SLOs.</li>
+      </ul>
+
+      <h4>Mixture-of-Agents upgrade for Phase 2</h4>
+      <p><a class="pill paper" href="https://arxiv.org/abs/2406.04692">MoA · arXiv:2406.04692</a> — Layered architecture; <strong>65.1% AlpacaEval 2.0 with open-source models, beating GPT-4 Omni's 57.5%</strong>. Phase 2's LLM Council is essentially single-layer MoA; multi-layer would raise consensus quality on qualitative fields without changing the deterministic numeric path.</p>
+
+      <h4>Recommended slot assignments</h4>
+      <table>
+        <thead><tr><th>Slot</th><th>Today</th><th>After cascade</th></tr></thead>
+        <tbody>
+          <tr><td><code>embedding_model</code></td><td>ada-002 (assumed)</td><td>Cohere Embed v4 or Voyage-3-large with MRL cascade</td></tr>
+          <tr><td><code>extraction_model</code></td><td>GPT-4</td><td>Phi-4-Reasoning (on-prem) or o3-mini <code>effort=low</code> (managed)</td></tr>
+          <tr><td><code>reasoning_model</code></td><td>GPT-4</td><td>DeepSeek-R1-Distill-Qwen-32B (on-prem) or Claude Sonnet 4 extended thinking</td></tr>
+          <tr><td>Phase 3 builders (×5)</td><td>GPT-4</td><td>Claude Haiku 4.5 + prompt caching</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Industry / production-blog evidence</h4>
+      <ul class="tight">
+        <li><span class="pill paper">RESIN-2 (FSE'25 Industry Track)</span> — 84% summary-acceptance, 32% TTD reduction over 6 months. Structured summary schema (impact/cause/mitigation) is a template for AgentCert's qualitative fields.</li>
+        <li><span class="pill industry">Google SRE LLM Copilot (USENIX SREcon Americas 2025)</span> — Guardrail patterns (no auto-execution, require-evidence prompts) for Phase 3.</li>
+        <li><span class="pill paper">LinkedIn IncidentCopilot (KDD'25)</span> — Llama-3-70B fine-tuned; <strong>41% reduction in postmortem authoring time</strong>. Role-conditioned builders (Investigator/Communicator/Scribe).</li>
+        <li><span class="pill paper">LLM-Generated Runbooks (Bansal et al., FSE'25)</span> — <strong>73% runbook acceptance</strong>; constrained executable-DSL output for the recommendations builder.</li>
+      </ul>
+
+      <h4>Risk</h4>
+      <p>Router miscalibration on out-of-distribution traces. Mitigation: gate router promotions on a held-out trace benchmark and on JudgeBench/RewardBench-2 deltas (see Open Questions).</p>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <a class="pill paper" href="https://arxiv.org/abs/2406.18665">RouteLLM v2</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2404.14618">Hybrid LLM</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2504.21318">Phi-4-Reasoning</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2501.12948">DeepSeek-R1</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2412.19437">DeepSeek-V3</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2503.19786">Gemma 3</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2406.04692">Mixture-of-Agents</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2408.03314">Snell test-time compute</a>
+      <span class="pill industry">Claude Haiku 4.5</span>
+      <span class="pill industry">o3-mini</span>
+      <span class="pill industry">Gemini 2.5 Flash Thinking</span>
+      <span class="pill industry">Not Diamond / Portkey</span>
+      <a class="pill internal" href="../01_llmops_cost/findings.md">01_llmops_cost §3.1–4.9</a>
+      <a class="pill internal" href="../02_aiops_itops/findings.md">02_aiops_itops §C.11–C.13, §E.17–E.19</a>
+      <a class="pill internal" href="../07_novel/findings.md">07_novel §2.1–2.5</a>
+    </div>
+  </article>
+
+  <!-- Approach 4 -->
+  <article id="a4" class="approach">
+    <header>
+      <div class="num-circle">4</div>
+      <h3 class="title">Templated parsing (LILAC-2 / Drain3 / DivLog-2) → structured extractor</h3>
+      <div class="badges">
+        <span class="badge reduction">~70% fewer Phase 1 LLM calls</span>
+        <span class="badge eff-S">Effort: S–M</span>
+      </div>
+    </header>
+    <p class="summary">Phase 1 sends entire fault bucket text for qualitative fields. Structured templating <em>before</em> the LLM cuts both prompt size and call count on extractive fields (HTTP code, latency, error class).</p>
+
+    <details>
+      <summary>Parsers, verifier patterns, foundational positioning</summary>
+      <h4>Parsers</h4>
+      <ul class="tight">
+        <li><a class="pill paper" href="https://arxiv.org/abs/2502.18936">LILAC-2 · arXiv:2502.18936</a> — Adaptive ICL log parser; <strong>&gt;0.95 parsing accuracy on Loghub-2.0 with ~70% fewer LLM calls than LILAC-v1</strong>.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2503.00505">DivLog-2 · arXiv:2503.00505</a> — Embedding-based diversity sampling + distilled LLM-parser; CoT template induction for rare templates.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2505.13858">LogGenius · arXiv:2505.13858</a> + <span class="pill paper">LogConfigLocalizer (ICSE'25)</span> — JSON-schema-constrained decoding for Pydantic outputs.</li>
+        <li><span class="pill paper">MicroRCA-Agent (Sept 2025)</span> — Drain-style log compression + multimodal prompt; cut Phase 1 token cost inside each bucket.</li>
+      </ul>
+
+      <h4>Complementary verifier / SOP patterns</h4>
+      <ul class="tight">
+        <li><a class="pill paper" href="https://arxiv.org/abs/2509.18127">AutoRCA · arXiv:2509.18127</a> — RL-trained evidence verifier; <strong>+9.4 pts over CoT baseline on OpenRCA</strong>. Directly addresses hallucination on numeric fields (TTD/TTR).</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2502.08224">Flow-of-Action · WWW'25 · arXiv:2502.08224</a> — Anchors LLM RCA to retrieved SOPs; <strong>35.5% → 64.0% accuracy lift</strong>. Maintain YAML SOPs in <code>metrics_extractor/config/sops/</code>.</li>
+        <li><span class="pill paper">RCACopilot (FSE'24 + 2025 Microsoft TR)</span> — Embedding retrieval + handler-aware prompts; <strong>76% category-prediction accuracy across 1k+ on-call shifts</strong>.</li>
+      </ul>
+
+      <h4>Foundational positioning</h4>
+      <ul class="tight">
+        <li><a class="pill paper" href="https://arxiv.org/abs/2507.12472">AIOps in the Era of LLMs survey · arXiv:2507.12472</a> — Synthesizes 183 papers; unified taxonomy (modality × technique × ops-task).</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2503.10772">Cloud/Service Operations 2025 survey · arXiv:2503.10772</a> — 90+ industrial deployments (Microsoft, Google, Alibaba, ByteDance, Salesforce).</li>
+        <li><span class="pill paper">FM4Ops (FSE'25 Industry Track)</span> — Releases <strong>OpsBench-1M</strong>; argues incident telemetry needs telemetry-aware tokenizers + LoRA adapters.</li>
+      </ul>
+
+      <h4>Risk</h4>
+      <p>Template drift on novel fault types. LILAC-2's adaptive cache and DivLog-2's diversity sampling mitigate; complement with periodic template-recall evaluated on OpenRCA.</p>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <a class="pill paper" href="https://arxiv.org/abs/2502.18936">LILAC-2</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2503.00505">DivLog-2</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2505.13858">LogGenius</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2509.18127">AutoRCA</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2502.08224">Flow-of-Action</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2507.12472">AIOps LLM survey</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2503.10772">Cloud Ops 2025 survey</a>
+      <a class="pill internal" href="../02_aiops_itops/findings.md">02_aiops_itops §A.1–A.3, §B.7–B.8, §D.14–D.16</a>
+      <a class="pill internal" href="../03_trace_chaos/findings.md">03_trace_chaos §B.7, §B.10</a>
+    </div>
+  </article>
+
+  <!-- Approach 5 -->
+  <article id="a5" class="approach">
+    <header>
+      <div class="num-circle">5</div>
+      <h3 class="title">Prompt compression + caching + constrained decoding</h3>
+      <div class="badges">
+        <span class="badge reduction">8–20× compression</span>
+        <span class="badge reduction">90% cache hit discount</span>
+        <span class="badge eff-S">Effort: S</span>
+      </div>
+    </header>
+    <p class="summary">Hierarchical compression at semantic + token granularity, KV-cache reuse for shared prefixes, and constrained decoding to eliminate retry loops. The combined stack hits <strong>8–20× compression at &lt;2% quality loss</strong>.</p>
+
+    <details>
+      <summary>Compression · Caching · Constrained decoding · Serving stack</summary>
+      <h4>Compression</h4>
+      <ul class="tight">
+        <li><a class="pill paper" href="https://arxiv.org/abs/2408.03094">500xCompressor · arXiv:2408.03094</a> — Compresses prompts to a single KV-pair token; <strong>6×–480× compression, 62–73% capability retention</strong>. Highest-leverage for Phase 1: encode bucket once, reuse KV for ~6 metric calls.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2501.16214">Provence · ICLR 2025 · arXiv:2501.16214</a> — Context pruning as sequence labeling with joint reranking; negligible quality drop. Ideal for Phase 0 K8s noise (probe checks, heartbeats).</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2409.01227">CPC · AAAI 2025 · arXiv:2409.01227</a> — Sentence-level contrastive encoder; <strong>up to 10.93× faster than best token-level compressor</strong>.</li>
+        <li><span class="pill paper">Hierarchical 2-stage (Provence/CPC → LongLLMLingua / LLMLingua-2)</span> — 2025 consensus pattern.</li>
+      </ul>
+
+      <h4>Caching</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Anthropic Prompt Caching</span> — <strong>90% input-token discount on cache hits</strong>; 2025 added 1-hour TTL beta. Cache the (trace + fault bucket) prefix across k judges in Phase 2.</li>
+        <li><span class="pill industry">Notion case study (2025)</span> — Prompt caching cut infra cost by an <strong>order of magnitude</strong>.</li>
+        <li><span class="pill industry">Cloudflare AI Gateway (2025)</span> — Per-gateway cost analytics + prompt-cache hit ratios.</li>
+      </ul>
+
+      <h4>Constrained decoding</h4>
+      <p><a class="pill paper" href="https://arxiv.org/abs/2411.15100">XGrammar · NeurIPS 2024 · arXiv:2411.15100</a> — Pushdown-automaton constrained decoding; near-zero overhead, sometimes <strong>100× faster than Outlines on JSON-Schema</strong>. Default in vLLM, SGLang, MLC since early 2025. <strong>Phase 1/3 schema validation moves from "validate &amp; retry" to "guarantee at decode time."</strong></p>
+
+      <h4>Serving stack to capture the wins</h4>
+      <ul class="tight">
+        <li><span class="pill oss">vLLM v0.6 (Sept 2024)</span> — Multi-step scheduling, async output processing; <strong>2.7× throughput / 5× lower TPOT on Llama-3 8B</strong>.</li>
+        <li><span class="pill oss">SGLang LMSYS large-scale EP for DeepSeek-V3 (May 2025)</span> — 52.3k input tok/s; <strong>$0.20/1M output tokens</strong>.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2406.16858">EAGLE-2 · arXiv:2406.16858</a> — <strong>3.05×–4.26× lossless speedup</strong>.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2503.01840">EAGLE-3 · March 2025 · arXiv:2503.01840</a> — <strong>Up to 6.5× speedup; 1.38× throughput at batch=64 in SGLang</strong>. Directly amortizes Phase 3 <code>asyncio.gather</code> wall time.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2401.10774">Medusa-2 · arXiv:2401.10774</a> — 2.3–3.6× speedup; easy deploy if AgentCert ever fine-tunes a small bucketer.</li>
+      </ul>
+
+      <h4>Risk</h4>
+      <p>500xCompressor's 62–73% capability retention is <strong>not acceptable for generative narrative tasks</strong> — restrict to extractive Phase 1 uses (TTD/TTR/event-list pulls). Validate Provence event-pruning on a held-out set before turning on.</p>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <a class="pill paper" href="https://arxiv.org/abs/2408.03094">500xCompressor</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2501.16214">Provence</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2409.01227">CPC</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2411.15100">XGrammar</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2406.16858">EAGLE-2</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2503.01840">EAGLE-3</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2401.10774">Medusa-2</a>
+      <span class="pill oss">vLLM v0.6</span>
+      <span class="pill oss">SGLang</span>
+      <span class="pill industry">Anthropic prompt caching</span>
+      <span class="pill industry">Notion case study</span>
+      <span class="pill industry">Cloudflare AI Gateway</span>
+      <a class="pill internal" href="../01_llmops_cost/findings.md">01_llmops_cost §1.1–1.5, §2.1–2.4</a>
+      <a class="pill internal" href="../06_finops_ai/findings.md">06_finops_ai §3.5, §7.2</a>
+      <a class="pill internal" href="../07_novel/findings.md">07_novel §7.1–7.2</a>
+    </div>
+  </article>
+
+  <!-- Approach 6 -->
+  <article id="a6" class="approach">
+    <header>
+      <div class="num-circle">6</div>
+      <h3 class="title">ChaosEater / LitmusChaos MCP + MCP-based tool grounding</h3>
+      <div class="badges">
+        <span class="badge reduction">Net-new + smaller prompts</span>
+        <span class="badge eff-L">Effort: M–L</span>
+      </div>
+    </header>
+    <p class="summary">MCP-grounded judges hallucinate fewer metrics (reducing verify-and-retry overhead) and pull only the spans/queries they need instead of stuffing the bucket. Closes the loop: Phase 3 weakness → ChaosEater generates targeted follow-up fault → re-run AgentCert.</p>
+
+    <details>
+      <summary>Net-new 2025 capabilities · MCP servers · Anthropic patterns · What did not exist in 2024</summary>
+      <h4>Net-new 2025 capabilities</h4>
+      <ul class="tight">
+        <li><a class="pill paper" href="https://arxiv.org/abs/2501.11107">ChaosEater · arXiv:2501.11107</a> — End-to-end LLM pipeline performing requirement definition, fault-injection codegen, debugging, validation for K8s-IaC. <strong>Most direct 2025-only extension for AgentCert.</strong></li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2511.07865">ChaosEater-Plus · arXiv:2511.07865</a> — <strong>Explicit steady-state predicate language</strong> + LLM verifier scoring pre/post chaos windows. Adopt the DSL in <code>cert_builder/</code> so Section 8/9 becomes machine-checkable.</li>
+        <li><a class="pill paper" href="https://arxiv.org/abs/2505.03096">Owotogbe 2025 — Chaos Engineering on LLM-MAS · arXiv:2505.03096</a> — First paper to define a steady-state hypothesis vocabulary for <em>agent</em> systems. Borrow its fault taxonomy as the canonical label set for <code>fault_analyzer/</code>.</li>
+        <li><span class="pill oss">LitmusChaos MCP Server (2025)</span> — Official MCP server exposing chaos experiments to any MCP-compatible LLM client. <strong>AgentCert can be MCP client of Litmus and MCP server for certification queries.</strong></li>
+        <li><span class="pill industry">"Intelligent Failure" — KubeCon NA 2025 (Solo.io)</span> — LLM-as-attacker reading Prometheus baselines; bridges research and production tooling.</li>
+      </ul>
+
+      <h4>MCP server ecosystem for grounding</h4>
+      <ul class="tight">
+        <li><span class="pill oss">kubernetes-mcp-server (manusa/Red Hat, 2025)</span> — Typed kubectl/Helm/OpenShift tools; RBAC pass-through, read-only mode.</li>
+        <li><span class="pill oss">Prometheus MCP Server (pab1it0, 2025)</span> — Live PromQL for ground-truth TTD/TTR.</li>
+        <li><span class="pill oss">Grafana MCP Server (official, 2025)</span> — Dashboards, datasources, alerts, Loki, Tempo, Pyroscope; <strong>single MCP endpoint replaces three custom clients</strong>.</li>
+        <li><span class="pill oss">Langfuse MCP / OTel (2025)</span> — Query traces by score, model, tag, cost. <strong>Replaces the bespoke trace loader across all phases.</strong></li>
+      </ul>
+
+      <h4>Anthropic-pattern justification</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Anthropic MCP Agents reference patterns (2024-12 → 2025)</span> — Evaluator-optimizer loop formalizes meta-judge returning narratives for revision rather than averaging.</li>
+        <li><span class="pill industry">OpenAI Agents SDK (Mar 2025)</span> — <code>handoff(target=Meta, condition=disagreement_score &gt; τ)</code> — skip meta-judge when judges agree.</li>
+        <li><span class="pill industry">Magentic-One (Microsoft Research, Nov 2024)</span> — Ledger-driven re-planning; Progress Ledger doubles as audit trail.</li>
+        <li><span class="pill industry">AutoGen v0.4 (Microsoft, Jan 2025)</span> — Actor-model messaging + OTel-instrumented agents.</li>
+        <li><span class="pill industry">CrewAI Flows (Jan 2025)</span> — Event-driven flow + state checkpointing; judge crash doesn't lose other votes.</li>
+      </ul>
+
+      <h4>What AgentCert can adopt that did not exist in 2024</h4>
+      <table>
+        <thead><tr><th>Capability</th><th>2025/26 source</th><th>Where it lands</th></tr></thead>
+        <tbody>
+          <tr><td><code>gen_ai.*</code> agent-span vocabulary</td><td>OTel GenAI semconv repo, agent-spans spec</td><td><code>fault_analyzer/</code> event normalizer</td></tr>
+          <tr><td>Compressed-context Phase-1 extraction</td><td>MicroRCA-Agent</td><td><code>metrics_extractor/</code> pre-processor</td></tr>
+          <tr><td>Causal "what-if" over N runs</td><td>GALA</td><td><code>aggregator/</code> new analyzer</td></tr>
+          <tr><td>SOP-grounded qualitative extraction</td><td>Flow-of-Action</td><td><code>metrics_extractor/config/sops/</code></td></tr>
+          <tr><td>MCTS-bounded LLM Council</td><td>KnowledgeMind</td><td><code>aggregator/</code> council orchestrator</td></tr>
+          <tr><td>Steady-state predicate DSL</td><td>ChaosEater + ChaosEater-Plus</td><td><code>cert_builder/</code> Section validators</td></tr>
+          <tr><td>LLM-MAS fault taxonomy</td><td>Owotogbe 2025</td><td><code>fault_analyzer/</code> bucket labels</td></tr>
+          <tr><td>Closed-loop chaos via MCP</td><td>LitmusChaos MCP + Solo.io talk</td><td>New <code>chaos_driver/</code> module</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Risk</h4>
+      <p>Closed-loop chaos drives up infra cost; gate behind explicit per-run budget guardrails (see Approach 7 + LiteLLM/Helicone).</p>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <a class="pill paper" href="https://arxiv.org/abs/2501.11107">ChaosEater</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2511.07865">ChaosEater-Plus</a>
+      <a class="pill paper" href="https://arxiv.org/abs/2505.03096">LLM-MAS-CE (Owotogbe)</a>
+      <span class="pill oss">LitmusChaos MCP</span>
+      <span class="pill oss">kubernetes-mcp-server</span>
+      <span class="pill oss">Prometheus MCP</span>
+      <span class="pill oss">Grafana MCP</span>
+      <span class="pill industry">Anthropic MCP patterns</span>
+      <span class="pill industry">OpenAI Agents SDK</span>
+      <span class="pill industry">Magentic-One</span>
+      <span class="pill industry">AutoGen v0.4</span>
+      <span class="pill industry">CrewAI Flows</span>
+      <a class="pill internal" href="../03_trace_chaos/findings.md">03_trace_chaos §C.12–C.16</a>
+      <a class="pill internal" href="../07_novel/findings.md">07_novel §1.1–1.5, §5.1–5.4</a>
+    </div>
+  </article>
+
+  <!-- Approach 7 -->
+  <article id="a7" class="approach">
+    <header>
+      <div class="num-circle">7</div>
+      <h3 class="title">FinOps + Sustainability instrumentation (FOCUS 1.2 / CodeCarbon 3.0 / Scopes-for-AI)</h3>
+      <div class="badges">
+        <span class="badge reduction">Makes everything else measurable</span>
+        <span class="badge eff-S">Effort: S</span>
+      </div>
+    </header>
+    <p class="summary">Does not directly cut tokens — instead makes every other approach measurable and adds a CertificationReport Section 13 that no competitor currently emits.</p>
+
+    <details>
+      <summary>FinOps schemas · attribution · gateways · cloud-vendor FinOps · sustainability · industry · confidential inference · online learning</summary>
+      <h4>FinOps schema and frameworks</h4>
+      <ul class="tight">
+        <li><span class="pill standard">FinOps Foundation "FinOps for AI" (2025)</span> — Formal "AI" Scope added 2025 alongside Cloud and SaaS.</li>
+        <li><span class="pill industry">State of FinOps 2025</span> — <strong>63% named "managing AI spend" #1; only 31% can attribute AI cost to a BU or tenant.</strong> Justifies dedicated "Cost &amp; Allocation" section.</li>
+        <li><span class="pill standard">FOCUS 1.2 (Sept 2025)</span> — Standardised AI billing columns (<code>x_ai_model</code>, <code>x_ai_token_input</code>, <code>x_ai_token_output</code>, <code>ServiceCategory=AI and Machine Learning</code>). Phase 1 should emit FOCUS-compliant rows.</li>
+        <li><span class="pill industry">FinOps X 2025 — "FinOps for AI Working Group"</span> — KPI templates (<code>$/successful-mitigation</code>, <code>$/fault-bucket</code>).</li>
+      </ul>
+
+      <h4>Attribution: OTel + commercial observability</h4>
+      <ul class="tight">
+        <li><span class="pill standard">OTel GenAI semconv stable May 2025</span> — <code>gen_ai.client.token.usage</code> histogram; AzureLLMClient should emit from every call.</li>
+        <li><span class="pill industry">Datadog LLM Observability cost views GA 2025</span> — Per-trace, per-prompt cost; drill to tenant via tag.</li>
+        <li><span class="pill industry">Grafana LLM cost dashboard (2025)</span> — PromQL on <code>gen_ai_client_token_usage_total</code>; ship as packaged dashboard.</li>
+        <li><span class="pill industry">Honeycomb BubbleUp + cost-as-SLO (2025)</span> — e.g., <code>$/certified fault</code> SLO line in scorecard.</li>
+        <li><span class="pill industry">New Relic AI Monitoring (2025)</span> — "AI Cost Anomaly" alert template.</li>
+      </ul>
+
+      <h4>Per-tenant gateways</h4>
+      <ul class="tight">
+        <li><span class="pill oss">LiteLLM Proxy (BerriAI, v1.50+)</span> — Team-level virtual keys, hard <code>max_budget</code>, Prometheus cost metrics. <strong>AgentCert could sit behind LiteLLM with per-phase virtual keys.</strong></li>
+        <li><span class="pill oss">Helicone Pro &amp; AI Gateway (2025)</span> — <code>Helicone-User-Id</code> maps to AgentCert's <code>agent_id</code>.</li>
+        <li><span class="pill oss">Kong AI Gateway (2025)</span> — <code>ai-rate-limiting-advanced</code> + <code>ai-cost-headers</code> plugins.</li>
+        <li><span class="pill oss">BricksLLM (2025)</span> — Go-based per-key ceilings; ground-truth cost via admin API.</li>
+        <li><span class="pill industry">OpenAI Usage API (GA 2025)</span> — Per-API-key, per-project, per-model usage; <strong>Phase 3 can GET /costs and embed authoritative spend</strong>.</li>
+      </ul>
+
+      <h4>Cloud-vendor FinOps</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Azure FinOps Toolkit 2025 (v0.10+)</span> — Azure OpenAI cost workbooks; <strong>PTU vs PAYG breakeven calculator</strong>.</li>
+        <li><span class="pill industry">AWS Bedrock cost-allocation tags (2025)</span> — <code>bedrock:application</code>, <code>bedrock:tenant</code>. Require tags-on-invocation as certification prerequisite.</li>
+        <li><span class="pill industry">Vertex AI cost mgmt (2025)</span> — Per-prompt cost estimation, Pub/Sub budget alerts as circuit breaker.</li>
+      </ul>
+
+      <h4>Sustainability</h4>
+      <ul class="tight">
+        <li><span class="pill oss">CodeCarbon 3.0 (Apr 2025)</span> — Per-API-call tracking via context manager; region-aware grid intensity (ElectricityMaps); OTel exporter. Wrap AzureLLMClient with <code>@track_emissions</code>.</li>
+        <li><span class="pill standard">HF AI Energy Score (Feb 2025)</span> — Industry-backed (HF + Salesforce + Cohere) 1–5 star ratings across 10 tasks.</li>
+        <li><span class="pill paper">Mistral Environmental Impact Study (Jul 2025)</span> — First peer-reviewed LCA by a frontier lab; Mistral Large 2 over 18 months: 20.4 ktCO2e + 281k m³ water; per-prompt 1.14 gCO2 + 45 mL water for 400-token answer. <strong>Required for EU AI Act.</strong></li>
+      </ul>
+
+      <h4>Industry case studies validating outcome KPIs</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Klarna (2025)</span> — $40M+ annualised savings; per-conversation P&amp;L; model swap cut prompt-token spend ~30% YoY. Template for <code>$/successful resolution</code>.</li>
+        <li><span class="pill industry">Notion (2025)</span> — Multi-model gateway + prompt-prefix caching → <strong>order-of-magnitude infra cost cut</strong>.</li>
+        <li><span class="pill industry">Shopify Sidekick (2025)</span> — Dynamic context-window trimming + small-model-first cascade + per-merchant tagging into data warehouse.</li>
+        <li><span class="pill industry">Salesforce AgentForce (2025)</span> — "Flex Credits" pay-per-agent-action; validates <code>$/action</code> or <code>$/mitigation</code> as natural KPI.</li>
+      </ul>
+
+      <h4>Confidential Inference (regulated-finance unlock)</h4>
+      <ul class="tight">
+        <li><span class="pill industry">Azure Confidential AI / NCC H100 v5 (GA Jan 2025)</span> — AMD SEV-SNP + NVIDIA H100 CC; end-to-end encrypted prompts/weights/KV-cache, attestation tokens verifiable via MAA. <strong>Satisfies JPMC/finance "data never left enclave."</strong></li>
+        <li><span class="pill industry">NVIDIA Blackwell CC (HGX B200/B100, 2025)</span> — Per-GPU and multi-GPU TEEs; <strong>FP4 inference under attestation</strong>; <strong>FP4 cuts cost ~3× vs FP8 H100</strong>.</li>
+        <li><span class="pill industry">Anthropic Confidential Inference / AWS Nitro Enclaves (2025)</span> — Bedrock Confidential Inference preview; for finance customers banned from Azure, swap council backend with no code change to AzureLLMClient interface.</li>
+      </ul>
+
+      <h4>Online learning / continuous improvement</h4>
+      <ul class="tight">
+        <li><span class="pill oss">vLLM Multi-LoRA / Lorax (2025)</span> — Hundreds of LoRA adapters from one base; <strong>~5× cheaper than full fine-tunes</strong>.</li>
+        <li><span class="pill industry">OpenAI Reinforcement Fine-Tuning (RFT, GA May 2025)</span> — Customer-supplied grader + GRPO; <strong>10–40% accuracy lifts</strong>.</li>
+        <li><span class="pill paper">Self-Rewarding Language Models (Yuan et al., 2025)</span> — Bootstrap a cheap judge from meta-judge preferences.</li>
+      </ul>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <span class="pill standard">FOCUS 1.2</span>
+      <span class="pill standard">OTel GenAI semconv</span>
+      <span class="pill standard">HF AI Energy Score</span>
+      <span class="pill oss">CodeCarbon 3.0</span>
+      <span class="pill oss">LiteLLM Proxy</span>
+      <span class="pill oss">Helicone</span>
+      <span class="pill oss">Kong AI Gateway</span>
+      <span class="pill industry">Datadog / Grafana / Honeycomb / New Relic LLM observability</span>
+      <span class="pill industry">Azure FinOps Toolkit</span>
+      <span class="pill industry">NCC H100 v5 / Blackwell CC / Nitro Enclaves</span>
+      <span class="pill industry">Klarna / Notion / Shopify / AgentForce</span>
+      <span class="pill industry">Mistral LCA study (2025)</span>
+      <a class="pill internal" href="../06_finops_ai/findings.md">06_finops_ai §1.1–7.4</a>
+      <a class="pill internal" href="../07_novel/findings.md">07_novel §3.1–3.3, §4.1–4.3, §6.1–6.3</a>
+    </div>
+  </article>
+
+  <!-- Approach 8 -->
+  <article id="a8" class="approach">
+    <header>
+      <div class="num-circle">8</div>
+      <h3 class="title">Bonus: Embedding &amp; retrieval modernization</h3>
+      <div class="badges">
+        <span class="badge reduction">10–100× retrieval cost cut</span>
+        <span class="badge eff-M">Effort: M</span>
+      </div>
+    </header>
+    <p class="summary">Folded under Approaches 2 + 5 but worth its own anchor for engineering planning. Matryoshka + cascade retrieval, late-interaction visual retrieval, Text2Cypher.</p>
+
+    <details>
+      <summary>2025 embedding landscape</summary>
+      <ul class="tight">
+        <li><span class="pill industry">Cohere Embed v4 (128k, multimodal, int8/binary)</span>, Voyage-3-large, Snowflake Arctic-Embed-L-v2.0, NV-Embed-v2, Stella-1.5B-v5, BGE-Gemma2, GritLM, Mistral-Embed. 2025 MTEB v2 leaders dominated by Matryoshka-trained, LLM-distilled encoders.</li>
+        <li><strong>Matryoshka Representation Learning + cascade retrieval</strong> — Cascade pattern (binary 64-dim ANN → 256/512-dim → 1536/3072-dim rerank); <strong>10–100× cost cut at &lt;1% recall loss</strong>.</li>
+        <li><span class="pill oss">ColPali + PLAID-X 2025</span> — Late-interaction visual retrieval; Grafana/Prometheus screenshots become retrievable without OCR. Enables Phase 3 to cite "the CPU spike at t=12s" with image grounding.</li>
+        <li><span class="pill industry">Text2Cypher 2.0 (Neo4j fine-tuned 8B/70B Llama, 2025)</span> — Fine-tuned 8B beats GPT-4 zero-shot on NL→Cypher.</li>
+        <li><span class="pill oss">LangChain GraphCypherQAChain (2025)</span> — Schema-aware few-shot reduces Cypher hallucination ~30%.</li>
+      </ul>
+    </details>
+
+    <div class="grounding">
+      <strong>Grounding:</strong>
+      <span class="pill industry">Cohere Embed v4</span>
+      <span class="pill industry">Voyage-3-large</span>
+      <span class="pill oss">Arctic-Embed-L-v2</span>
+      <span class="pill oss">ColPali / PLAID-X</span>
+      <span class="pill oss">Text2Cypher 2.0</span>
+      <a class="pill internal" href="../04_graphrag_kg/findings.md">04_graphrag_kg §4.1–4.2</a>
+      <a class="pill internal" href="../05_langfuse_embeddings/findings.md">05_langfuse_embeddings §D.15–D.17</a>
+    </div>
+  </article>
+
+</section>
+
+<section id="phase-matrix">
+  <h2 class="section-title">Phase-by-Phase Adoption Matrix</h2>
+  <p>Consolidated map of which sources to wire where, drawn from all eight findings files.</p>
+
+  <h3>Phase 0 — Fault Bucketing (<code>fault_analyzer/</code>)</h3>
+  <table>
+    <thead><tr><th>Source</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>OTel GenAI semconv 1.42.0</td><td>Adopt schema URL constant in <code>utils/</code></td></tr>
+      <tr><td>GenAI agent-spans spec</td><td>Hybrid: deterministic grouping by <code>gen_ai.agent.id</code> + <code>gen_ai.tool.name</code>; LLM only for ambiguous events</td></tr>
+      <tr><td>Langfuse v3 OTel ingestion</td><td>Switch chaos agent to OTel exporter; SDK-less ingest</td></tr>
+      <tr><td>OpenLLMetry 2025</td><td>One-line instrumentation for 30+ LLM/vector/agent libs</td></tr>
+      <tr><td>HippoRAG-2 / HybridRAG / LightRAG / nano-graphrag</td><td>PPR-based subgraph retrieval per trace; incremental updates</td></tr>
+      <tr><td>Provence / CPC / MicroRCA-Agent</td><td>Event-level + sentence-level pre-pruning before LLM</td></tr>
+      <tr><td>RouteLLM v2</td><td>Easy/hard router; cheap model for short traces</td></tr>
+      <tr><td>Phi-4-Reasoning / Qwen3 / QwQ-32B / Gemma 3 (128k)</td><td>On-prem reasoning candidates for sensitive K8s traces</td></tr>
+      <tr><td>kubernetes-mcp-server</td><td>Live cluster grounding</td></tr>
+      <tr><td>LLM-MAS-CE fault taxonomy (Owotogbe 2025)</td><td>Replace ad-hoc bucket taxonomy</td></tr>
+      <tr><td>OpenRCA benchmark</td><td>External accuracy reference (best agent ~57% top-1)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Phase 1 — Metrics Extraction (<code>metrics_extractor/</code>)</h3>
+  <table>
+    <thead><tr><th>Source</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>LILAC-2 / DivLog-2 / LogGenius</td><td>Adaptive ICL log parsing; JSON-schema-constrained decoding</td></tr>
+      <tr><td>AutoRCA verifier</td><td>RL-trained evidence verifier on numeric fields (TTD/TTR)</td></tr>
+      <tr><td>500xCompressor</td><td>KV-pair encoding of fault bucket; reuse across ~6 qualitative fields</td></tr>
+      <tr><td>Hybrid LLM router</td><td>Per-metric routing; up to 40% fewer big-model calls</td></tr>
+      <tr><td>Flow-of-Action SOPs</td><td>YAML SOPs in <code>metrics_extractor/config/sops/</code></td></tr>
+      <tr><td>RCACopilot</td><td>Embedding-retrieved template per service for qualitative metrics</td></tr>
+      <tr><td>ErrorPrism backward walk</td><td>New "first-cause span" field per bucket</td></tr>
+      <tr><td>FOCUS 1.2</td><td>Emit FOCUS-compliant cost rows (<code>x_ai_model</code>, <code>x_ai_token_input</code>, ...)</td></tr>
+      <tr><td>OTel <code>gen_ai.usage.*</code></td><td>Key extractors off standardized attrs, not Langfuse-specific JSON</td></tr>
+      <tr><td>Prometheus MCP Server</td><td>Live PromQL for ground-truth TTD/TTR</td></tr>
+      <tr><td>XGrammar / OpenAI Structured Outputs</td><td>Eliminate JSON repair retries</td></tr>
+      <tr><td>OpenAI RFT (GA May 2025)</td><td>Train on (bucket → ground-truth metrics) pairs</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Phase 2 — Aggregation / LLM Council (<code>aggregator/</code>)</h3>
+  <table>
+    <thead><tr><th>Source</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://arxiv.org/abs/2404.12135">mABC v3 · arXiv:2404.12135</a></td><td>Weighted multi-agent consensus (+12–18 F1 on AIOps22)</td></tr>
+      <tr><td>RCLAgent</td><td>Recursion-of-thought termination criterion for meta-judge</td></tr>
+      <tr><td>KnowledgeMind MCTS</td><td>Early-stop; 90% context reduction</td></tr>
+      <tr><td>Mixture-of-Agents (MoA)</td><td>Layered proposers → aggregator for meta-judge</td></tr>
+      <tr><td>Anthropic Extended Thinking</td><td><code>thinking.budget_tokens</code> 1024–64000; cacheable signed blocks</td></tr>
+      <tr><td>o3-mini <code>reasoning_effort</code></td><td>Easy faults <code>low</code>, contested <code>high</code></td></tr>
+      <tr><td>Gemini 2.5 Flash Thinking</td><td><code>budget=0</code> first-pass, escalate to <code>8192</code> on guardrail fail</td></tr>
+      <tr><td>OpenAI Agents SDK handoff</td><td>Skip meta-judge when judges agree</td></tr>
+      <tr><td>AutoGen v0.4 / CrewAI Flows</td><td>Actor-model judges; state checkpointing</td></tr>
+      <tr><td><a href="https://arxiv.org/abs/2404.18796">PoLL · arXiv:2404.18796</a> + 2025 bias studies</td><td>Cross-family panel + swap-order debias + length-normalized scoring</td></tr>
+      <tr><td><a href="https://arxiv.org/abs/2410.12784">JudgeBench · arXiv:2410.12784</a> + <a href="https://arxiv.org/abs/2506.01937">RewardBench-2 · arXiv:2506.01937</a></td><td>Gate Council promotions; per-dimension weighting</td></tr>
+      <tr><td>Patronus Glider (3.8B) / Galileo Luna-2</td><td>Local OSS judges to replace one Azure-OpenAI council member</td></tr>
+      <tr><td>Self-Rewarding LM</td><td>Bootstrap domain-tuned cheap judge from meta-judge preferences</td></tr>
+      <tr><td>GALA causal inference</td><td>Do-calculus "would TTR drop if hallucinations were 0" per fault</td></tr>
+      <tr><td>LiteLLM Proxy virtual keys</td><td>Per-judge virtual key for $ accounting</td></tr>
+      <tr><td>Anthropic prompt caching</td><td>Shared (trace + fault bucket) prefix; 90% input cost drop across k judges</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Phase 3 — Certification Narrative (<code>cert_builder/</code>)</h3>
+  <table>
+    <thead><tr><th>Source</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>RESIN-2 schema (impact/cause/mitigation)</td><td>Template for qualitative fields + narrative builders</td></tr>
+      <tr><td>LinkedIn IncidentCopilot role-conditioning</td><td>Investigator / Communicator / Scribe roles</td></tr>
+      <tr><td>LLM Runbooks (Bansal FSE'25)</td><td>Executable-DSL constraints in recommendations builder</td></tr>
+      <tr><td>Google SRE Copilot guardrails</td><td>Require-evidence prompts; blocked actions</td></tr>
+      <tr><td>ChaosEater-Plus predicate DSL</td><td>Section 8/9 hypothesis verification becomes machine-checkable</td></tr>
+      <tr><td>LLM-MAS-CE resilience scoring</td><td>Phase 3 Section 8/9 formula</td></tr>
+      <tr><td>Claude Haiku 4.5 + prompt caching</td><td>5 concurrent narrative builders</td></tr>
+      <tr><td>EAGLE-3 batched spec-dec</td><td>1.38× throughput at batch=64 in SGLang</td></tr>
+      <tr><td>OpenAI Usage API</td><td>Embed authoritative spend in final report</td></tr>
+      <tr><td>CodeCarbon 3.0 + AI Energy Score</td><td>Section 13 sustainability</td></tr>
+      <tr><td>Mistral LCA per-prompt numbers (1.14 gCO2 + 45 mL water / 400 tokens)</td><td>Reference baseline for per-call disclosure</td></tr>
+      <tr><td>Inspect AI log format</td><td>Regulator-tooling compatibility</td></tr>
+      <tr><td>NIST AI RMF + EU AI Act articles</td><td>Report-section headers</td></tr>
+      <tr><td>Confidential Inference attestation token</td><td>Embed in report for finance regulators</td></tr>
+      <tr><td>TauBench <code>pass^k</code> metric / SWE-bench Verified rubric</td><td>Per-fault stability; graded scoring reference</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="roadmap">
+  <h2 class="section-title">90-Day Roadmap</h2>
+
+  <div class="roadmap-grid">
+    <article class="sprint">
+      <h4>Sprint 1–2</h4>
+      <div class="when">Weeks 1–4 · Quick wins</div>
+      <ul>
+        <li>Anthropic prompt caching on Phase 2 shared prefix (≈90% input cost drop)</li>
+        <li>Wrap <code>AzureLLMClient</code> with OTel <code>gen_ai.usage.*</code> + CodeCarbon <code>@track_emissions</code></li>
+        <li>LILAC-2 + Drain3 templating in front of LLM classifier (~70% fewer LLM calls on Phase 1 extractive)</li>
+        <li>Switch Langfuse to v3 + OTel <code>/api/public/otel</code>; normalize Phase 0 events to <code>gen_ai.*</code> (30–50% Phase 0)</li>
+        <li>Enable XGrammar / OpenAI Structured Outputs for Pydantic schemas (eliminate Phase 3 re-runs)</li>
+      </ul>
+    </article>
+    <article class="sprint s2">
+      <h4>Sprint 3–4</h4>
+      <div class="when">Weeks 5–8 · GraphRAG + cascade</div>
+      <ul>
+        <li>PoC: nano-graphrag + Neo4j (or FalkorDB) + HippoRAG-2; validate on Nezha benchmark (50–70% Phase 0)</li>
+        <li>Train RouteLLM v2 on labeled AgentCert traces; route easy half to Phi-4-Reasoning / o3-mini / Haiku 4.5 (&gt;2× cost reduction at ≥95% quality)</li>
+        <li>Phase 2 cascade: GPT-4o-mini → escalate on low-confidence (FrugalGPT pattern; up to 98% cut on cleanly-classified faults)</li>
+        <li>PoLL bias mitigations: swap-order voting, cross-family panel (GPT-4 + Claude + Gemini), length-normalized scoring</li>
+        <li>Provence event-level pre-pruning on Phase 0 prompts (20–50% cut at negligible quality drop)</li>
+      </ul>
+    </article>
+    <article class="sprint s3">
+      <h4>Sprint 5–6</h4>
+      <div class="when">Weeks 9–12 · MCP + FinOps + Confidential Inference</div>
+      <ul>
+        <li>Stand up Grafana + Prometheus + Kubernetes MCP servers; let Phase 0 ground hypotheses live</li>
+        <li>Adopt LitmusChaos MCP server as <code>chaos_driver/</code>; ChaosEater-Plus predicate DSL in <code>cert_builder/</code> Section 8/9 (machine-checkable hypotheses)</li>
+        <li>Emit FOCUS 1.2 cost rows from Phase 1; add CertificationReport Section 13 "Cost &amp; Sustainability"</li>
+        <li>Confidential Inference pilot: NCC H100 v5 for one council judge; embed attestation token (regulated-finance unlock)</li>
+        <li>LiteLLM Proxy with per-phase virtual keys + Prometheus cost metrics</li>
+        <li>Replace ada-002 with Cohere Embed v4 or Voyage-3-large + MRL cascade (10–100× retrieval cost cut)</li>
+      </ul>
+    </article>
+  </div>
+
+  <h3>Stretch items beyond 90 days</h3>
+  <ul class="tight">
+    <li>LoRA hot-swap per fault family (vLLM Multi-LoRA / Lorax)</li>
+    <li>OpenAI RFT on a metrics-extractor</li>
+    <li>ColPali for Grafana dashboard ingestion</li>
+    <li>Mixture-of-Agents layered meta-judge</li>
+    <li>GALA causal "what-if" over N runs in Phase 2</li>
+    <li>KnowledgeMind MCTS-bounded LLM Council</li>
+  </ul>
+</section>
+
+<section id="borrow">
+  <h2 class="section-title">Borrow Checklist + Threat Watch</h2>
+
+  <h3>Borrow checklist (lift from competitors to widen the moat)</h3>
+  <ul class="tight">
+    <li><strong>Inspect AI log format</strong> — adopt so reports can be ingested by AISI-compatible tooling; upward compatibility with regulator tooling.</li>
+    <li><strong>TauBench <code>pass^k</code> metric</strong> for repeated-run stability — directly relevant to AgentCert's 30-runs-per-fault.</li>
+    <li><strong>SWE-bench Verified task-grading rubric</strong> — reference for graded patch scoring.</li>
+    <li><strong>OSWorld VM-snapshot determinism</strong> — reference pattern for reproducibility.</li>
+    <li><strong>DeepEval 40+ pre-built metric implementations</strong> (G-Eval, faithfulness, answer-relevancy) — drop-in.</li>
+    <li><strong>Galileo Luna-2 / Patronus Glider (3.8B) / Lynx</strong> as cheaper local Council judges.</li>
+    <li><strong>garak / PyRIT</strong> probe/detector/generator architecture maps onto AgentCert's fault/metric/judge.</li>
+    <li><strong>NIST AI RMF risk taxonomy + EU AI Act articles</strong> as report-section headers.</li>
+    <li><strong>ISO/IEC 42001 compliance mapping</strong> from Mindgard / CalypsoAI framing.</li>
+    <li><strong>Harness verification gate pattern</strong> — block promotion on regression.</li>
+    <li><strong>Steadybit objective-based experiment structure</strong> (via Reliably) — maps to per-fault success criteria.</li>
+  </ul>
+
+  <h3>Threat watch</h3>
+  <ul class="tight">
+    <li><strong>Harness</strong> — already owns ChaosNative <em>and</em> AI Test Automation; product fusion would be a direct competitor.</li>
+    <li><strong>Patronus Percival</strong> — failure taxonomy is the closest analog to AgentCert's fault buckets; could grow into the eval half of a Harness partnership.</li>
+    <li><strong>UK AISI (Inspect AI)</strong> — could add a chaos extension "in one quarter of work" per the competitor doc.</li>
+    <li><strong>NVIDIA NeMo Evaluator</strong> — K8s-native LLM eval microservice on the same substrate.</li>
+  </ul>
+
+  <h3>Recommended moats</h3>
+  <ol>
+    <li><strong>Ship the 12-section report schema as an open standard</strong> so it becomes the lingua franca.</li>
+    <li><strong>Integrate Inspect AI's log format</strong> for upward compatibility with regulator tooling.</li>
+    <li><strong>Publish reference fault libraries keyed to NIST AI RMF and EU AI Act articles</strong> to become the "compliance-grade" option.</li>
+  </ol>
+
+  <p><strong>Customer base:</strong> K8sGPT, HolmesGPT, Komodor Klaudia, Datadog Bits AI, Causely, Dynatrace Davis CoPilot, ServiceNow Now Assist are <strong>AgentCert's primary customer base, not competitors</strong> — they are the agents that <em>need</em> to be certified.</p>
+</section>
+
+<section id="open">
+  <h2 class="section-title">Open Questions / Pilots Needed</h2>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">1. JudgeBench vs RewardBench-2 for Phase 2 calibration?</h3>
+    <ul class="tight">
+      <li><a href="https://arxiv.org/abs/2410.12784">JudgeBench · arXiv:2410.12784</a> — 350-pair benchmark of objectively-verifiable responses. GPT-4o ~57% on hard pairs; o1-preview ~75%. <strong>Gate model upgrades on JudgeBench delta.</strong></li>
+      <li><a href="https://arxiv.org/abs/2506.01937">RewardBench 2 · arXiv:2506.01937</a> — Multi-skill (factuality, IF, safety, math, ties); best-of-4 format; demonstrates persistent format/verbosity bias. Use categories to <strong>weight Council judges per dimension</strong>.</li>
+      <li>2025 bias findings: (a) judges prefer their own family even after blinding; (b) verbosity correlates 0.3–0.5 with win-rate; (c) position bias persists at 5–15% even with swap-debiasing.</li>
+    </ul>
+    <p><strong>Pilot:</strong> Run candidate council members against both; JudgeBench for promotion gating, RewardBench-2 for per-dimension weighting. PoLL (arXiv:2404.18796) panel-of-judges pattern directly validates the existing Council design.</p>
+  </article>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">2. Confidential Inference TCO break-even?</h3>
+    <ul class="tight">
+      <li>NCC H100 v5 (Azure) vs HGX B200 (Blackwell CC) vs AWS Nitro Enclaves — TCO crossover per certification run?</li>
+      <li>Does FP4 on Blackwell CC (3× cost cut vs FP8 H100) flip the math?</li>
+      <li>For finance customers banned from Azure, what is the marginal cost of swapping the council backend to Bedrock Claude in Nitro Enclaves?</li>
+    </ul>
+    <p><strong>Pilot:</strong> Host one council judge on NCC H100 v5; A/B against current council on agreement-with-meta-judge and on per-run $.</p>
+  </article>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">3. Fork HolmesGPT, or build native via MCP?</h3>
+    <p>HolmesGPT 2025 added toolset plugins for Prometheus, Loki, OpenSearch, K8s events. But HolmesGPT is also a primary customer (AgentCert certifies it). Forking risks a vendor/competitor conflict.</p>
+    <p><strong>Pilot:</strong> Use kubernetes-mcp-server, prometheus-mcp-server, grafana-mcp-server (Approach 6) as the tool layer; treat HolmesGPT as a certifiable agent under test rather than a dependency.</p>
+  </article>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">4. Which observability stack survives consolidation?</h3>
+    <p>Langfuse v3, Phoenix v5, Comet Opik, W&amp;B Weave 2.0, plus OpenLIT/Helicone/Lunary/Laminar/Langtrace all ship OSS with similar 2025 surface area. Should AgentCert maintain second-source compatibility?</p>
+    <p><strong>Pilot:</strong> Maintain Langfuse as primary; emit OTel GenAI semconv (Approach 1) so any other platform can ingest in parallel.</p>
+  </article>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">5. Benchmark against OpenRCA?</h3>
+    <p><a href="https://arxiv.org/abs/2407.05940">OpenRCA · ICLR 2025 · arXiv:2407.05940</a> — 335 failures from 3 enterprise deployments; best agent ~57% top-1.</p>
+    <p><strong>Pilot:</strong> Run AgentCert's Phase 0+1 in OpenRCA-compatible mode; publish the delta as an external accuracy reference.</p>
+  </article>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">6. Is OpsBench-1M suitable for an AgentCert-tuned tokenizer?</h3>
+    <p>FM4Ops (FSE'25) releases <strong>OpsBench-1M</strong>, 1M anonymized incident summaries, and argues incident telemetry needs telemetry-aware tokenizers + LoRA adapters. Open: does a telemetry-aware tokenizer materially shrink Phase 0 input lengths on Langfuse traces?</p>
+  </article>
+
+  <article class="approach">
+    <h3 class="title" style="font-size:16px;">7. mABC v3 weighted consensus vs current LLM Council?</h3>
+    <p><a href="https://arxiv.org/abs/2404.12135">mABC v3 · arXiv:2404.12135</a> — 6-agent role decomposition + DAG-of-Thought + weighted majority voting; outperforms single-agent baselines by 12–18 F1 on AIOps22. Direct precedent for AgentCert's k-judge + meta-judge.</p>
+    <p><strong>Pilot:</strong> Shadow-run mABC v3 weighted consensus against current meta-judge on the same scorecard; report F1 + cost delta.</p>
+  </article>
+</section>
+
+<section id="risks">
+  <h2 class="section-title">Risk Register (R1–R15)</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Risk</th><th>Phase(s)</th><th>Mitigation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>R1</td><td>Vendor lock-in on Langfuse SDK → can't move to Phoenix/Opik</td><td>All</td><td>Adopt OTel GenAI semconv exporter; SDK-less ingest via <code>/api/public/otel</code></td></tr>
+      <tr><td>R2</td><td>LLM judge self-preference bias (~5–15% on long context) inflates Council scores</td><td>Phase 2</td><td>Cross-family panel + swap-order debias + length-normalized scoring; gate on JudgeBench/RewardBench-2</td></tr>
+      <tr><td>R3</td><td>Phase 0 cost dominates pipeline; chaos traces can exceed 100k events / fault</td><td>Phase 0</td><td>Drain3 / LILAC-2 templating → Provence/500xCompressor → GraphRAG retrieval before any LLM call</td></tr>
+      <tr><td>R4</td><td>Reasoning-model latency tail blows <code>asyncio.gather</code> window in Phase 3</td><td>Phase 3</td><td>EAGLE-3 spec-dec on Claude Haiku 4.5 batched; prompt caching on shared trace prefix</td></tr>
+      <tr><td>R5</td><td>Schema-validation failures force Phase 3 re-runs</td><td>Phase 3</td><td>XGrammar (vLLM) + OpenAI Structured Outputs at decode time</td></tr>
+      <tr><td>R6</td><td>Finance / regulated customers cannot send prompts to Azure OpenAI</td><td>Phase 2</td><td>Confidential Compute: NCC H100 v5 OR Nitro Enclaves; attestation in report</td></tr>
+      <tr><td>R7</td><td>OpenRCA shows best-known LLM-RCA agent at ~57% top-1 — accuracy ceiling exists</td><td>Phase 0/1</td><td>Benchmark AgentCert against OpenRCA 335-failure corpus; publish delta</td></tr>
+      <tr><td>R8</td><td>Harness (owns ChaosNative + AI Test Automation) could fuse products into direct competitor</td><td>Strategic</td><td>Open-standardize the 12-section report schema; preempt the lingua franca slot</td></tr>
+      <tr><td>R9</td><td>UK AISI extends Inspect AI with one chaos plugin → free competitor</td><td>Strategic</td><td>Adopt Inspect log format; ship as Inspect-compatible solver from day 1</td></tr>
+      <tr><td>R10</td><td>EU AI Act conformity-assessment regime emerging, requirements still drifting</td><td>Strategic</td><td>Pre-map report sections to NIST AI RMF + ISO/IEC 42001 + EU AI Act articles</td></tr>
+      <tr><td>R11</td><td>Token-spend explosion when customers run AgentCert in CI nightly</td><td>Cost</td><td>LiteLLM virtual key per phase with <code>max_budget</code> cap; per-run budget circuit-breaker</td></tr>
+      <tr><td>R12</td><td>Self-rewarding / RFT-trained judges drift from human preference over time</td><td>Phase 2</td><td>Periodic re-calibration against JudgeBench + held-out human-labeled set</td></tr>
+      <tr><td>R13</td><td>ColPali / visual evidence ingestion balloons embedding store</td><td>Phase 0</td><td>MRL cascade: binary-quantized 64-dim first stage; full-precision only on top-50</td></tr>
+      <tr><td>R14</td><td>Sustainability disclosures become mandatory before AgentCert reports them</td><td>Phase 3</td><td>Ship Section 13 "Environmental Cost" in v1 of the report schema</td></tr>
+      <tr><td>R15</td><td>Chaos-experiment LLM agents (ChaosEater / LLM-MAS-CE) emerge as alternative product</td><td>Strategic</td><td>Position AgentCert <em>above</em> the chaos-experimenter — certify them, don't replace them</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="sources">
+  <h2 class="section-title">Appendix: Source Map</h2>
+  <p>All numbered citations in this synthesis refer to the eight findings files. Click to open the source:</p>
+  <table>
+    <thead><tr><th>Tag</th><th>File</th></tr></thead>
+    <tbody>
+      <tr><td><code>[01_llmops_cost §X]</code></td><td><a href="../01_llmops_cost/findings.md">research/v2_2025_2026/01_llmops_cost/findings.md</a></td></tr>
+      <tr><td><code>[02_aiops_itops §X]</code></td><td><a href="../02_aiops_itops/findings.md">research/v2_2025_2026/02_aiops_itops/findings.md</a></td></tr>
+      <tr><td><code>[03_trace_chaos §X]</code></td><td><a href="../03_trace_chaos/findings.md">research/v2_2025_2026/03_trace_chaos/findings.md</a></td></tr>
+      <tr><td><code>[04_graphrag_kg §X]</code></td><td><a href="../04_graphrag_kg/findings.md">research/v2_2025_2026/04_graphrag_kg/findings.md</a></td></tr>
+      <tr><td><code>[05_langfuse_embeddings §X]</code></td><td><a href="../05_langfuse_embeddings/findings.md">research/v2_2025_2026/05_langfuse_embeddings/findings.md</a></td></tr>
+      <tr><td><code>[06_finops_ai §X]</code></td><td><a href="../06_finops_ai/findings.md">research/v2_2025_2026/06_finops_ai/findings.md</a></td></tr>
+      <tr><td><code>[07_novel §X]</code></td><td><a href="../07_novel/findings.md">research/v2_2025_2026/07_novel/findings.md</a></td></tr>
+      <tr><td><code>[08_competitors §X]</code></td><td><a href="../08_competitors/findings.md">research/v2_2025_2026/08_competitors/findings.md</a></td></tr>
+      <tr><td><code>Full synthesis</code></td><td><a href="../09_synthesis/00-top-approaches-v2.md">research/v2_2025_2026/09_synthesis/00-top-approaches-v2.md</a></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Legend</h3>
+  <p>
+    <span class="pill paper">paper</span> arXiv / venue paper &nbsp;
+    <span class="pill industry">industry</span> commercial product / case study &nbsp;
+    <span class="pill oss">OSS</span> open-source project &nbsp;
+    <span class="pill standard">standard</span> open standard / framework &nbsp;
+    <span class="pill internal">internal</span> findings reference
+  </p>
+
+  <p style="margin-top:18px;font-size:13px;color:var(--ink-soft);">Compiled 2026-06-02. All arXiv IDs, venues, and version numbers carry through from the source findings files unchanged.</p>
+</section>
+
+<footer>
+  Generated 2026-06-02 · Sources: 100+ items across 8 thematic dirs · AgentCert v2 research synthesis
+</footer>
+
+</main>
+</div>
+</body>
+</html>
