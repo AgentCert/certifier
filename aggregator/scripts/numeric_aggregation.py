@@ -288,7 +288,6 @@ def _agg_category_grain(
     pool = [o for o in obs if o["status"] != "NO_SLA"]
     n_obs = len(pool)
     n_runs = len({o["run_id"] for o in pool})
-    n_runs_all = len({o["run_id"] for o in obs})
     n_sub_faults = len({o["sub_fault"] for o in pool})
     detected = [
         o for o in pool
@@ -317,7 +316,7 @@ def _agg_category_grain(
         "n_sub_faults": n_sub_faults,
         "n_attempted": n_runs,
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_runs_all, precision) if n_runs_all > 0 else None,
+        "sla_compliance": round(n_compliant / n_obs, precision) if n_obs > 0 else None,
         "category_score": round(category_score, precision),
         "mean": round(statistics.mean(scores_cat), precision) if scores_cat else None,
         "median": round(statistics.median(scores_cat), precision) if scores_cat else None,
@@ -333,7 +332,6 @@ def _agg_cumulative_grain(
     pool = [o for o in obs if o["status"] != "NO_SLA"]
     n_obs = len(pool)
     n_runs = len({o["run_id"] for o in pool})
-    n_runs_all = len({o["run_id"] for o in obs})
     n_no_sla = sum(1 for o in obs if o["status"] == "NO_SLA")
     detected_sorted = sorted(
         o["normalized_score"]
@@ -362,7 +360,7 @@ def _agg_cumulative_grain(
     return {
         "cumulative_score": round(headline, precision),
         "detection_rate": round(det_rate, precision),
-        "sla_compliance": round(n_compliant / n_runs_all, precision) if n_runs_all > 0 else None,
+        "sla_compliance": round(n_compliant / n_obs, precision) if n_obs > 0 else None,
         "n_attempted": n_runs,
         "quality_flags": flags,
     }
@@ -436,6 +434,24 @@ def compute_numeric_aggregates(
     if agg:
         agg["scale"] = "0-1"
     results["reasoning_score"] = agg
+
+    # Reasoning sub-dimensions: mean per dimension so the cert builder can
+    # surface the strongest / weakest aspect of reasoning quality (e.g.
+    # "explanation clarity is strong (0.85) but diagnostic depth is weak
+    # (0.47)") instead of only the overall composite. Skips silently when
+    # the per-run extractor does not emit these fields.
+    for sub in (
+        "reasoning_logical_coherence",
+        "reasoning_diagnostic_depth",
+        "reasoning_tool_usage_relevance",
+        "reasoning_explanation_clarity",
+    ):
+        sub_vals = _extract_numeric_values(docs, "qualitative", sub)
+        sub_vals = [v / 10.0 if v > 1.0 else v for v in sub_vals]
+        sub_agg = compute_stats(sub_vals, ["mean"])
+        if sub_agg:
+            sub_agg["scale"] = "0-1"
+            results[sub] = sub_agg
 
     # Hallucination score — pooled ratio avoids mean-of-ratios dilution.
     # Individual per-run ratios (h_i/t_i) are biased when denominators differ;

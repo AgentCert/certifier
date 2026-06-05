@@ -21,6 +21,8 @@ CAT_LABELS = {
 NUMERIC_FIELDS = [
     "time_to_detect", "time_to_mitigate", "action_correctness",
     "reasoning_score", "hallucination_score",
+    "reasoning_logical_coherence", "reasoning_diagnostic_depth",
+    "reasoning_tool_usage_relevance", "reasoning_explanation_clarity",
     "input_tokens", "output_tokens",
 ]
 
