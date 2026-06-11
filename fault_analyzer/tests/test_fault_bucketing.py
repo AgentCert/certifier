@@ -1,639 +1,631 @@
-"""
-Unit tests for the Fault Bucketing module.
+"""Unit tests for the deterministic parts of fault_analyzer.scripts.fault_bucketing.
 
-Tests cover:
-  - schema/data_models.py: Pydantic models, FaultBucket dataclass, parsing helpers
-  - scripts/classifier.py: user message building, fallback classification, config/prompt loading
-  - scripts/fault_bucketing.py: pipeline helper methods (event sorting, batching, ground truth, etc.)
+The FaultBucketingPipeline constructs a FaultEventClassifier (which would create
+an Azure LLM client lazily). We patch FaultEventClassifier so no network/config
+is touched, then exercise the deterministic span-scanning, metadata-extraction,
+temporal-filtering, bucket-creation, detection-recording, and event-placement
+logic in code.
 """
 
-import json
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fault_analyzer.schema.data_models import (
-    BatchClassificationResult,
-    EventClassification,
-    FaultBucket,
-    parse_iso_timestamp,
-    safe_parse_json,
-    safe_parse_python_literal,
-)
-from fault_analyzer.scripts.classifier import (
-    FaultEventClassifier,
-    _load_prompt,
-    _load_module_config,
-)
+from fault_analyzer.schema.data_models import EventClassification, FaultBucket
 from fault_analyzer.scripts.fault_bucketing import FaultBucketingPipeline
 
 
-# ============================================================================
-# schema/data_models.py — Pydantic Models
-# ============================================================================
-
-class TestEventClassification:
-    """Tests for EventClassification Pydantic model."""
-
-    def test_minimal_creation(self):
-        ec = EventClassification(event_id="evt-1")
-        assert ec.event_id == "evt-1"
-        assert ec.related_faults == []
-        assert ec.fault_detected is None
-        assert ec.fault_mitigated is None
-        assert ec.confidence == 0.0
-        assert ec.has_quantitative_value is False
-        assert ec.has_qualitative_value is False
-        assert ec.has_cost_token_details is False
-
-    def test_full_creation(self):
-        ec = EventClassification(
-            event_id="evt-2",
-            related_faults=["pod-delete", "disk-fill"],
-            fault_detected="pod-delete",
-            detected_fault_severity="critical",
-            detected_fault_target_pod="my-pod",
-            detected_fault_namespace="default",
-            detected_fault_signals=["CrashLoopBackOff"],
-            fault_mitigated=None,
-            has_quantitative_value=True,
-            has_qualitative_value=True,
-            has_cost_token_details=False,
-            confidence=0.95,
+@pytest.fixture
+def pipeline(tmp_path):
+    """A pipeline with a stubbed classifier and no real config/LLM."""
+    with patch(
+        "fault_analyzer.scripts.fault_bucketing.FaultEventClassifier"
+    ) as MockCls:
+        MockCls.return_value = MagicMock()
+        p = FaultBucketingPipeline(
+            trace_file_path=str(tmp_path / "trace.json"),
+            output_dir=str(tmp_path / "out"),
+            config={},
+            batch_size=5,
+            debug=False,
         )
-        assert ec.event_id == "evt-2"
-        assert len(ec.related_faults) == 2
-        assert ec.fault_detected == "pod-delete"
-        assert ec.detected_fault_severity == "critical"
-        assert ec.detected_fault_target_pod == "my-pod"
-        assert ec.detected_fault_namespace == "default"
-        assert ec.detected_fault_signals == ["CrashLoopBackOff"]
-        assert ec.confidence == 0.95
-
-    def test_model_validate_from_dict(self):
-        data = {
-            "event_id": "evt-3",
-            "related_faults": ["f1"],
-            "confidence": 0.8,
-        }
-        ec = EventClassification.model_validate(data)
-        assert ec.event_id == "evt-3"
-        assert ec.related_faults == ["f1"]
-        assert ec.confidence == 0.8
+    return p
 
 
-class TestBatchClassificationResult:
-    """Tests for BatchClassificationResult Pydantic model."""
+# ---------------------------------------------------------------------------
+# _is_fault_name_span / _extract_fault_name_from_span (static)
+# ---------------------------------------------------------------------------
 
-    def test_creation(self):
-        classifications = [
-            EventClassification(event_id="e1", confidence=0.9),
-            EventClassification(event_id="e2", confidence=0.7),
-        ]
-        batch = BatchClassificationResult(classifications=classifications)
-        assert len(batch.classifications) == 2
-        assert batch.classifications[0].event_id == "e1"
-
-    def test_empty_classifications(self):
-        batch = BatchClassificationResult(classifications=[])
-        assert batch.classifications == []
-
-
-# ============================================================================
-# schema/data_models.py — FaultBucket dataclass
-# ============================================================================
-
-class TestFaultBucket:
-    """Tests for FaultBucket dataclass."""
-
-    def test_minimal_creation(self):
-        bucket = FaultBucket(fault_id="f1", fault_name="pod-delete")
-        assert bucket.fault_id == "f1"
-        assert bucket.fault_name == "pod-delete"
-        assert bucket.status == "active"
-        assert bucket.events == []
-        assert bucket.severity is None
-        assert bucket.ground_truth is None
-
-    def test_to_dict(self):
-        bucket = FaultBucket(
-            fault_id="f1",
-            fault_name="pod-delete",
-            severity="critical",
-            target_pod="my-pod",
-            namespace="default",
-            detection_signals=["CrashLoopBackOff"],
-            events=[{"id": "e1"}, {"id": "e2"}],
-            status="closed",
-            detected_at="2025-01-01T10:00:00Z",
-            mitigated_at="2025-01-01T10:15:00Z",
-            ground_truth={"symptoms": ["pod crash"]},
+class TestFaultSpanIdentification:
+    def test_is_fault_name_span_positive(self):
+        assert FaultBucketingPipeline._is_fault_name_span(
+            {"name": "fault: pod-delete"}
         )
-        d = bucket.to_dict()
-        assert d["fault_id"] == "f1"
-        assert d["fault_name"] == "pod-delete"
-        assert d["severity"] == "critical"
-        assert d["event_count"] == 2
-        assert d["status"] == "closed"
-        assert d["ground_truth"] == {"symptoms": ["pod crash"]}
-        assert len(d["events"]) == 2
 
-    def test_to_dict_empty_events(self):
-        bucket = FaultBucket(fault_id="f1", fault_name="test")
-        d = bucket.to_dict()
-        assert d["event_count"] == 0
-        assert d["events"] == []
+    def test_is_fault_name_span_empty_after_prefix(self):
+        assert FaultBucketingPipeline._is_fault_name_span({"name": "fault:"}) is False
+        assert FaultBucketingPipeline._is_fault_name_span({"name": "fault:   "}) is False
 
+    def test_is_fault_name_span_non_fault(self):
+        assert FaultBucketingPipeline._is_fault_name_span({"name": "agent-step"}) is False
+        assert FaultBucketingPipeline._is_fault_name_span({}) is False
 
-# ============================================================================
-# schema/data_models.py — Parsing Helpers
-# ============================================================================
-
-class TestSafeParseJson:
-    """Tests for safe_parse_json helper."""
-
-    def test_valid_json_string(self):
-        result = safe_parse_json('{"key": "value"}')
-        assert result == {"key": "value"}
-
-    def test_invalid_json_string(self):
-        result = safe_parse_json("not json")
-        assert result == "not json"
-
-    def test_already_parsed_dict(self):
-        original = {"key": "value"}
-        result = safe_parse_json(original)
-        assert result is original
-
-    def test_none_input(self):
-        result = safe_parse_json(None)
-        assert result is None
-
-    def test_integer_input(self):
-        result = safe_parse_json(42)
-        assert result == 42
-
-    def test_json_array(self):
-        result = safe_parse_json('[1, 2, 3]')
-        assert result == [1, 2, 3]
-
-
-class TestSafeParsePythonLiteral:
-    """Tests for safe_parse_python_literal helper."""
-
-    def test_dict_passthrough(self):
-        original = {"key": "value"}
-        result = safe_parse_python_literal(original)
-        assert result is original
-
-    def test_python_literal_string(self):
-        result = safe_parse_python_literal("{'key': 'value'}")
-        assert result == {"key": "value"}
-
-    def test_json_string_fallback(self):
-        result = safe_parse_python_literal('{"key": "value"}')
-        assert result == {"key": "value"}
-
-    def test_unparseable_string(self):
-        result = safe_parse_python_literal("definitely not parseable %%")
-        assert result == "definitely not parseable %%"
-
-    def test_none_input(self):
-        result = safe_parse_python_literal(None)
-        assert result is None
-
-    def test_list_literal(self):
-        result = safe_parse_python_literal("[1, 2, 3]")
-        assert result == [1, 2, 3]
-
-
-class TestParseIsoTimestamp:
-    """Tests for parse_iso_timestamp helper."""
-
-    def test_valid_iso_timestamp(self):
-        result = parse_iso_timestamp("2025-01-15T10:30:00")
-        assert isinstance(result, datetime)
-        assert result.year == 2025
-        assert result.month == 1
-        assert result.day == 15
-        assert result.hour == 10
-        assert result.minute == 30
-
-    def test_timestamp_with_z_suffix(self):
-        result = parse_iso_timestamp("2025-01-15T10:30:00Z")
-        assert isinstance(result, datetime)
-        assert result.year == 2025
-
-    def test_timestamp_with_offset(self):
-        result = parse_iso_timestamp("2025-01-15T10:30:00+05:30")
-        assert isinstance(result, datetime)
-
-    def test_none_input(self):
-        result = parse_iso_timestamp(None)
-        assert result is None
-
-    def test_empty_string(self):
-        result = parse_iso_timestamp("")
-        assert result is None
-
-    def test_invalid_string(self):
-        result = parse_iso_timestamp("not-a-timestamp")
-        assert result is None
-
-
-# ============================================================================
-# scripts/classifier.py — Config and Prompt Loading
-# ============================================================================
-
-class TestConfigAndPromptLoading:
-    """Tests for module config and prompt YAML loading."""
-
-    def test_load_module_config(self):
-        config = _load_module_config()
-        assert "classifier" in config
-        assert "pipeline" in config
-        assert config["classifier"]["model_name"] == "gpt-4o"
-        assert config["classifier"]["temperature"] == 0.1
-        assert config["classifier"]["max_tokens"] == 4000
-        assert config["classifier"]["fallback_confidence"] == 0.3
-        assert config["pipeline"]["default_batch_size"] == 1
-        assert config["pipeline"]["max_filename_stem_length"] == 80
-
-    def test_load_prompt(self):
-        from pathlib import Path
-        default_path = Path(__file__).resolve().parent.parent / "prompt" / "v2" / "prompt.yml"
-        prompt = _load_prompt(default_path)
-        assert isinstance(prompt, str)
-        assert "fault-event classifier" in prompt
-
-
-# ============================================================================
-# scripts/classifier.py — FaultEventClassifier
-# ============================================================================
-
-class TestFaultEventClassifier:
-    """Tests for FaultEventClassifier."""
-
-    def _make_classifier(self):
-        return FaultEventClassifier(config={})
-
-    def test_init_loads_config(self):
-        classifier = self._make_classifier()
-        assert classifier._model_name == "gpt-4o"
-        assert classifier._temperature == 0.1
-        assert classifier._max_tokens == 4000
-        assert classifier._fallback_confidence == 0.3
-        assert classifier.total_input_tokens == 0
-        assert classifier.total_output_tokens == 0
-
-    def test_build_user_message_no_faults(self):
-        classifier = self._make_classifier()
-        batch = [
-            {"id": "e1", "type": "SPAN", "name": "scan", "startTime": "2025-01-01T10:00:00Z"},
-        ]
-        msg = classifier.build_user_message(batch, {})
-        assert "Known Faults" in msg
-        assert "No faults have been identified yet" in msg
-        assert "Event Batch" in msg
-        assert "e1" in msg
-
-    def test_build_user_message_with_known_faults(self):
-        # This test asserts on the COMPACT (pruned) ## Known Faults schema,
-        # so it pins fault_pruning=True regardless of the config default.
-        classifier = FaultEventClassifier(config={}, fault_pruning=True)
-        known = {
-            "pod-delete": FaultBucket(
-                fault_id="pod-delete",
-                fault_name="pod-delete",
-                severity="critical",
-                target_pod="my-pod",
-                namespace="default",
-            ),
-        }
-        batch = [{"id": "e1", "type": "SPAN", "name": "investigate"}]
-        msg = classifier.build_user_message(batch, known)
-        assert "pod-delete" in msg
-        # target.label (=target_pod) and target.namespace are kept; severity is
-        # intentionally dropped from the pruned LLM context (not used for
-        # classification).
-        assert "my-pod" in msg
-        assert "default" in msg
-        assert "critical" not in msg
-
-    def test_fallback_classify(self):
-        classifier = self._make_classifier()
-        batch = [
-            {"id": "e1"},
-            {"id": "e2"},
-            {"id": "e3"},
-        ]
-        known = {
-            "f1": FaultBucket(fault_id="f1", fault_name="fault-1"),
-            "f2": FaultBucket(fault_id="f2", fault_name="fault-2"),
-        }
-        results = classifier.fallback_classify(batch, known)
-        assert len(results) == 3
-        for r in results:
-            assert set(r.related_faults) == {"f1", "f2"}
-            assert r.confidence == 0.3
-
-    def test_fallback_classify_no_known_faults(self):
-        classifier = self._make_classifier()
-        batch = [{"id": "e1"}]
-        results = classifier.fallback_classify(batch, {})
-        assert len(results) == 1
-        assert results[0].related_faults == []
-        assert results[0].confidence == 0.3
-
-    def test_fallback_classify_missing_id(self):
-        classifier = self._make_classifier()
-        batch = [{}]
-        results = classifier.fallback_classify(batch, {})
-        assert len(results) == 1
-        assert results[0].event_id == "unknown"
-
-
-# ============================================================================
-# scripts/fault_bucketing.py — FaultBucketingPipeline helpers
-# ============================================================================
-
-class TestFaultBucketingPipelineHelpers:
-    """Tests for FaultBucketingPipeline static/instance helper methods."""
-
-    # --- _sort_events_chronologically ---
-
-    def test_sort_events_chronologically(self):
-        events = [
-            {"id": "e3", "startTime": "2025-01-01T12:00:00Z"},
-            {"id": "e1", "startTime": "2025-01-01T10:00:00Z"},
-            {"id": "e2", "startTime": "2025-01-01T11:00:00Z"},
-        ]
-        sorted_events = FaultBucketingPipeline._sort_events_chronologically(events)
-        assert [e["id"] for e in sorted_events] == ["e1", "e2", "e3"]
-
-    def test_sort_events_missing_start_time_sorts_last(self):
-        events = [
-            {"id": "e2", "startTime": "2025-01-01T11:00:00Z"},
-            {"id": "e_none"},  # no startTime at all
-            {"id": "e1", "startTime": "2025-01-01T10:00:00Z"},
-            {"id": "e_null", "startTime": None},  # explicit None
-        ]
-        sorted_events = FaultBucketingPipeline._sort_events_chronologically(events)
-        assert [e["id"] for e in sorted_events[:2]] == ["e1", "e2"]
-        assert {e["id"] for e in sorted_events[2:]} == {"e_none", "e_null"}
-
-    # --- _create_event_batches ---
-
-    def test_create_event_batches(self):
-        events = [{"id": f"e{i}"} for i in range(25)]
-        batches = FaultBucketingPipeline._create_event_batches(events, 10)
-        assert len(batches) == 3
-        assert len(batches[0]) == 10
-        assert len(batches[1]) == 10
-        assert len(batches[2]) == 5
-
-    def test_create_event_batches_exact_fit(self):
-        events = [{"id": f"e{i}"} for i in range(20)]
-        batches = FaultBucketingPipeline._create_event_batches(events, 10)
-        assert len(batches) == 2
-        assert all(len(b) == 10 for b in batches)
-
-    def test_create_event_batches_smaller_than_batch(self):
-        events = [{"id": "e1"}, {"id": "e2"}]
-        batches = FaultBucketingPipeline._create_event_batches(events, 10)
-        assert len(batches) == 1
-        assert len(batches[0]) == 2
-
-    def test_create_event_batches_empty(self):
-        batches = FaultBucketingPipeline._create_event_batches([], 10)
-        assert batches == []
-
-    # --- _is_fault_name_span ---
-
-    def test_is_fault_name_span_true(self):
-        event = {"name": "fault: pod-delete"}
-        assert FaultBucketingPipeline._is_fault_name_span(event) is True
-
-    def test_is_fault_name_span_false(self):
-        event = {"name": "experiment-run"}
-        assert FaultBucketingPipeline._is_fault_name_span(event) is False
-
-    def test_is_fault_name_span_no_space_after_colon(self):
-        event = {"name": "fault:pod-delete"}  # no space after colon — still valid
-        assert FaultBucketingPipeline._is_fault_name_span(event) is True
-
-    def test_is_fault_name_span_missing_name(self):
-        event = {"type": "SPAN"}
-        assert FaultBucketingPipeline._is_fault_name_span(event) is False
-
-    # --- _extract_fault_name_from_span ---
+    def test_is_fault_name_span_non_string(self):
+        assert FaultBucketingPipeline._is_fault_name_span({"name": 123}) is False
 
     def test_extract_fault_name(self):
-        event = {"name": "fault: pod-delete"}
-        assert FaultBucketingPipeline._extract_fault_name_from_span(event) == "pod-delete"
-
-    def test_extract_fault_name_with_spaces(self):
-        event = {"name": "fault:  disk-fill "}
-        assert FaultBucketingPipeline._extract_fault_name_from_span(event) == "disk-fill"
-
-    def test_extract_fault_name_empty_after_prefix(self):
-        event = {"name": "fault: "}
-        assert FaultBucketingPipeline._extract_fault_name_from_span(event) is None
-
-    def test_extract_fault_name_no_match(self):
-        event = {"name": "experiment-run"}
-        assert FaultBucketingPipeline._extract_fault_name_from_span(event) is None
-
-    # --- _extract_metadata_dict ---
-
-    def test_extract_metadata_dict_json_string(self):
-        event = {"metadata": '{"attributes": {"fault.name": "pod-delete"}}'}
-        result = FaultBucketingPipeline._extract_metadata_dict(event)
-        assert result == {"attributes": {"fault.name": "pod-delete"}}
-
-    def test_extract_metadata_dict_already_dict(self):
-        event = {"metadata": {"key": "value"}}
-        result = FaultBucketingPipeline._extract_metadata_dict(event)
-        assert result == {"key": "value"}
-
-    def test_extract_metadata_dict_missing(self):
-        event = {"name": "test"}
-        result = FaultBucketingPipeline._extract_metadata_dict(event)
-        assert result == {}
-
-    def test_extract_metadata_dict_invalid_json(self):
-        event = {"metadata": "not json"}
-        result = FaultBucketingPipeline._extract_metadata_dict(event)
-        assert result == {}
-
-    # --- _place_event_in_buckets ---
-
-    def test_place_event_in_matching_bucket(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.active_faults = {
-            "f1": FaultBucket(fault_id="f1", fault_name="fault-1"),
-        }
-        pipeline.closed_faults = {}
-        pipeline.unclassified_events = []
-
-        event = {"id": "e1"}
-        classification = EventClassification(
-            event_id="e1", related_faults=["f1"], confidence=0.9
+        assert (
+            FaultBucketingPipeline._extract_fault_name_from_span(
+                {"name": "fault: disk-fill"}
+            )
+            == "disk-fill"
         )
-        pipeline._place_event_in_buckets(event, classification)
 
-        assert len(pipeline.active_faults["f1"].events) == 1
-        assert pipeline.unclassified_events == []
-
-    def test_place_event_unclassified(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.active_faults = {}
-        pipeline.closed_faults = {}
-        pipeline.unclassified_events = []
-
-        event = {"id": "e1"}
-        classification = EventClassification(
-            event_id="e1", related_faults=["nonexistent"], confidence=0.5
+    def test_extract_fault_name_strips_whitespace(self):
+        assert (
+            FaultBucketingPipeline._extract_fault_name_from_span(
+                {"name": "fault:   pod-delete  "}
+            )
+            == "pod-delete"
         )
-        pipeline._place_event_in_buckets(event, classification)
 
-        assert len(pipeline.unclassified_events) == 1
-
-    def test_place_event_in_closed_bucket(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.active_faults = {}
-        pipeline.closed_faults = {
-            "f1": FaultBucket(fault_id="f1", fault_name="fault-1", status="closed"),
-        }
-        pipeline.unclassified_events = []
-
-        event = {"id": "e1"}
-        classification = EventClassification(
-            event_id="e1", related_faults=["f1"], confidence=0.8
+    def test_extract_fault_name_none_for_non_fault(self):
+        assert (
+            FaultBucketingPipeline._extract_fault_name_from_span({"name": "other"})
+            is None
         )
-        pipeline._place_event_in_buckets(event, classification)
+        assert (
+            FaultBucketingPipeline._extract_fault_name_from_span({"name": "fault:"})
+            is None
+        )
 
-        assert len(pipeline.closed_faults["f1"].events) == 1
 
-    # --- _create_fault_bucket_from_span ---
+# ---------------------------------------------------------------------------
+# _extract_metadata_dict (static)
+# ---------------------------------------------------------------------------
 
-    def test_create_fault_bucket_from_span_basic(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.active_faults = {}
-        pipeline.closed_faults = {}
-        pipeline.agent_id = None
-        pipeline.agent_name = None
-        pipeline.agent_version = None
-        pipeline.experiment_id = None
-        pipeline.run_id = None
+class TestExtractMetadataDict:
+    def test_dict_metadata(self):
+        assert FaultBucketingPipeline._extract_metadata_dict(
+            {"metadata": {"a": 1}}
+        ) == {"a": 1}
 
+    def test_json_string_metadata(self):
+        assert FaultBucketingPipeline._extract_metadata_dict(
+            {"metadata": '{"a": 1}'}
+        ) == {"a": 1}
+
+    def test_invalid_string_metadata(self):
+        assert FaultBucketingPipeline._extract_metadata_dict(
+            {"metadata": "not json"}
+        ) == {}
+
+    def test_missing_metadata(self):
+        assert FaultBucketingPipeline._extract_metadata_dict({}) == {}
+
+
+# ---------------------------------------------------------------------------
+# _extract_injection_metadata (static)
+# ---------------------------------------------------------------------------
+
+class TestExtractInjectionMetadata:
+    def test_empty_event_has_status_only(self):
+        result = FaultBucketingPipeline._extract_injection_metadata({})
+        assert result == {"status": "injected"}
+
+    def test_basic_fields(self):
         event = {
-            "name": "fault: pod-delete",
-            "startTime": "2025-01-01T10:00:00Z",
-            "endTime": "2025-01-01T10:15:00Z",
-            "metadata": json.dumps({
+            "metadata": {
                 "attributes": {
-                    "fault.target_label": "name=catalogue",
+                    "fault.name": "pod-delete",
+                    "fault.engine_name": "litmus",
+                    "fault.namespace": "litmus",
+                    "fault.injection_timestamp": "2024-01-01T00:00:00Z",
+                    "fault.injection_end_timestamp": "2024-01-01T00:05:00Z",
+                }
+            }
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["name"] == "pod-delete"
+        assert result["engine_name"] == "litmus"
+        assert result["namespace"] == "litmus"
+        assert result["status"] == "injected"
+        assert result["injection_timestamp"] == "2024-01-01T00:00:00Z"
+        assert result["injection_end_timestamp"] == "2024-01-01T00:05:00Z"
+
+    def test_target_block_degraded_true(self):
+        # target_namespace == namespace and no target_label => degraded True
+        event = {
+            "metadata": {
+                "attributes": {
                     "fault.target_namespace": "sock-shop",
-                    "fault.status": "completed",
+                    "fault.namespace": "sock-shop",
+                }
+            }
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["target"]["namespace"] == "sock-shop"
+        assert result["target"]["degraded"] is True
+
+    def test_target_block_degraded_false_with_label(self):
+        event = {
+            "metadata": {
+                "attributes": {
+                    "fault.target_namespace": "sock-shop",
+                    "fault.namespace": "sock-shop",
+                    "fault.target_label": "app=cart",
+                    "fault.target_kind": "DEPLOYMENT",
+                }
+            }
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["target"]["label"] == "app=cart"
+        assert result["target"]["kind"] == "deployment"  # lowercased
+        assert result["target"]["degraded"] is False
+
+    def test_timing_block_int_coercion(self):
+        event = {
+            "metadata": {
+                "attributes": {
+                    "fault.timing.total_chaos_duration_sec": "300",
+                    "fault.timing.ramp_time_sec": "30",
+                    "fault.timing.sequence": "PARALLEL",
+                }
+            }
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["timing"]["total_chaos_duration_sec"] == 300
+        assert result["timing"]["ramp_time_sec"] == 30
+        assert result["timing"]["sequence"] == "parallel"  # lowercased
+
+    def test_injection_phase_space_replaced(self):
+        event = {
+            "metadata": {
+                "attributes": {
+                    "fault.injection.verdict": "Pass",
+                    "fault.injection.phase": "Chaos Injected",
+                    "fault.injection.probe_success_pct": 100,
+                }
+            }
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["injection"]["verdict"] == "Pass"
+        assert result["injection"]["phase"] == "Chaos_Injected"
+        assert result["injection"]["probe_success_pct"] == "100"  # stringified
+
+    def test_workflow_cohort_faults_csv_split(self):
+        event = {
+            "metadata": {
+                "attributes": {
+                    "fault.workflow.sequence_mode": "SERIAL",
+                    "fault.workflow.cohort_faults": "a, b , c",
+                }
+            }
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["workflow"]["sequence_mode"] == "serial"
+        assert result["workflow"]["cohort_faults"] == ["a", "b", "c"]
+
+    def test_metadata_as_json_string(self):
+        event = {
+            "metadata": '{"attributes": {"fault.name": "disk-fill"}}'
+        }
+        result = FaultBucketingPipeline._extract_injection_metadata(event)
+        assert result["name"] == "disk-fill"
+
+
+# ---------------------------------------------------------------------------
+# _sort_events_chronologically (static)
+# ---------------------------------------------------------------------------
+
+class TestSortEvents:
+    def test_sorted_by_start_time(self):
+        events = [
+            {"id": "c", "startTime": "2024-01-01T00:00:03Z"},
+            {"id": "a", "startTime": "2024-01-01T00:00:01Z"},
+            {"id": "b", "startTime": "2024-01-01T00:00:02Z"},
+        ]
+        out = FaultBucketingPipeline._sort_events_chronologically(events)
+        assert [e["id"] for e in out] == ["a", "b", "c"]
+
+    def test_null_start_time_sorts_last(self):
+        events = [
+            {"id": "no-ts"},
+            {"id": "a", "startTime": "2024-01-01T00:00:01Z"},
+        ]
+        out = FaultBucketingPipeline._sort_events_chronologically(events)
+        assert [e["id"] for e in out] == ["a", "no-ts"]
+
+
+# ---------------------------------------------------------------------------
+# _create_event_batches (static)
+# ---------------------------------------------------------------------------
+
+class TestCreateEventBatches:
+    def test_exact_split(self):
+        events = [{"id": str(i)} for i in range(6)]
+        batches = FaultBucketingPipeline._create_event_batches(events, 3)
+        assert len(batches) == 2
+        assert [e["id"] for e in batches[0]] == ["0", "1", "2"]
+
+    def test_remainder_batch(self):
+        events = [{"id": str(i)} for i in range(5)]
+        batches = FaultBucketingPipeline._create_event_batches(events, 2)
+        assert [len(b) for b in batches] == [2, 2, 1]
+
+    def test_empty(self):
+        assert FaultBucketingPipeline._create_event_batches([], 3) == []
+
+
+# ---------------------------------------------------------------------------
+# _extract_tokens_from_trace
+# ---------------------------------------------------------------------------
+
+class TestExtractTokensFromTrace:
+    def test_sums_usage_strings_and_dicts(self, pipeline):
+        events = [
+            {"id": "1", "usage": '{"input": 100, "output": 20}'},
+            {"id": "2", "usage": {"input": 50, "output": 5}},
+            {"id": "3"},  # no usage
+            {"id": "4", "usage": "garbage"},  # unparseable -> skipped
+        ]
+        pipeline._extract_tokens_from_trace(events)
+        assert pipeline.trace_input_tokens == 150
+        assert pipeline.trace_output_tokens == 25
+
+    def test_none_values_treated_as_zero(self, pipeline):
+        pipeline._extract_tokens_from_trace(
+            [{"id": "1", "usage": {"input": None, "output": None}}]
+        )
+        assert pipeline.trace_input_tokens == 0
+        assert pipeline.trace_output_tokens == 0
+
+
+# ---------------------------------------------------------------------------
+# _extract_agent_metadata
+# ---------------------------------------------------------------------------
+
+class TestExtractAgentMetadata:
+    def test_extracts_from_input_field(self, pipeline):
+        events = [
+            {
+                "id": "1",
+                "name": "init",
+                "input": {
+                    "agent_id": "agent-7",
+                    "agent_name": "ops-agent",
+                    "agent_version": "1.0",
+                    "experiment_id": "exp-1",
+                    "run_id": "run-1",
                 },
-            }),
+            }
+        ]
+        pipeline._extract_agent_metadata(events)
+        assert pipeline.agent_id == "agent-7"
+        assert pipeline.agent_name == "ops-agent"
+        assert pipeline.run_id == "run-1"
+
+    def test_stops_at_fault_span(self, pipeline):
+        events = [
+            {"id": "1", "name": "fault: pod-delete", "input": {"agent_id": "should-not-read"}},
+            {"id": "2", "name": "later", "input": {"agent_id": "later"}},
+        ]
+        pipeline._extract_agent_metadata(events)
+        assert pipeline.agent_id is None
+
+    def test_reads_nested_attributes_and_alt_keys(self, pipeline):
+        events = [
+            {
+                "id": "1",
+                "name": "init",
+                "metadata": {
+                    "attributes": {
+                        "agentid": "a1",
+                        "experiment.id": "e1",
+                        "experiment.run_id": "r1",
+                    }
+                },
+            }
+        ]
+        pipeline._extract_agent_metadata(events)
+        assert pipeline.agent_id == "a1"
+        assert pipeline.experiment_id == "e1"
+        assert pipeline.run_id == "r1"
+
+    def test_empty_events_no_error(self, pipeline):
+        pipeline._extract_agent_metadata([])
+        assert pipeline.agent_id is None
+
+
+# ---------------------------------------------------------------------------
+# _extract_ground_truth_from_metadata
+# ---------------------------------------------------------------------------
+
+class TestExtractGroundTruth:
+    def test_top_level_metadata(self, pipeline):
+        event = {"metadata": {"ground_truth": {"sla": {"ttd": 60}}}}
+        gt = pipeline._extract_ground_truth_from_metadata(event)
+        assert gt == {"sla": {"ttd": 60}}
+
+    def test_nested_attributes(self, pipeline):
+        event = {"metadata": {"attributes": {"ground_truth": {"x": 1}}}}
+        assert pipeline._extract_ground_truth_from_metadata(event) == {"x": 1}
+
+    def test_from_input_field(self, pipeline):
+        event = {"input": {"ground_truth": {"y": 2}}}
+        assert pipeline._extract_ground_truth_from_metadata(event) == {"y": 2}
+
+    def test_ground_truth_as_string_parsed(self, pipeline):
+        event = {"metadata": {"ground_truth": "{'z': 3}"}}
+        assert pipeline._extract_ground_truth_from_metadata(event) == {"z": 3}
+
+    def test_no_ground_truth(self, pipeline):
+        assert pipeline._extract_ground_truth_from_metadata({"metadata": {}}) is None
+
+
+# ---------------------------------------------------------------------------
+# _temporally_active_faults
+# ---------------------------------------------------------------------------
+
+def _ts(s):
+    return datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
+class TestTemporallyActiveFaults:
+    def test_none_event_ts_returns_all(self, pipeline):
+        faults = {"a": FaultBucket(fault_id="a", fault_name="a")}
+        result = pipeline._temporally_active_faults(faults, None)
+        assert set(result.keys()) == {"a"}
+
+    def test_no_injection_ts_included_defensively(self, pipeline):
+        faults = {"a": FaultBucket(fault_id="a", fault_name="a", injection_timestamp=None)}
+        result = pipeline._temporally_active_faults(faults, _ts("2024-01-01T00:00:00Z"))
+        assert "a" in result
+
+    def test_open_ended_window_after_start(self, pipeline):
+        faults = {
+            "a": FaultBucket(
+                fault_id="a", fault_name="a",
+                injection_timestamp="2024-01-01T00:00:00Z",
+            )
+        }
+        # event after start, no end timestamp => included
+        assert "a" in pipeline._temporally_active_faults(
+            faults, _ts("2024-01-01T00:10:00Z")
+        )
+        # event before start => excluded
+        assert "a" not in pipeline._temporally_active_faults(
+            faults, _ts("2023-12-31T23:00:00Z")
+        )
+
+    def test_closed_window_inside_and_outside(self, pipeline):
+        faults = {
+            "a": FaultBucket(
+                fault_id="a", fault_name="a",
+                injection_timestamp="2024-01-01T00:00:00Z",
+                injection_end_timestamp="2024-01-01T00:05:00Z",
+            )
+        }
+        assert "a" in pipeline._temporally_active_faults(
+            faults, _ts("2024-01-01T00:02:00Z")
+        )
+        assert "a" not in pipeline._temporally_active_faults(
+            faults, _ts("2024-01-01T00:10:00Z")
+        )
+
+    def test_ramp_widens_window(self, pipeline):
+        faults = {
+            "a": FaultBucket(
+                fault_id="a", fault_name="a",
+                injection_timestamp="2024-01-01T00:00:00Z",
+                injection_end_timestamp="2024-01-01T00:05:00Z",
+                injection_metadata={"timing": {"ramp_time_sec": 60}},
+            )
+        }
+        # 30s before injection start: inside ramp window
+        assert "a" in pipeline._temporally_active_faults(
+            faults, _ts("2023-12-31T23:59:30Z")
+        )
+        # ramp excluded -> outside
+        assert "a" not in pipeline._temporally_active_faults(
+            faults, _ts("2023-12-31T23:59:30Z"), include_ramp=False
+        )
+
+
+# ---------------------------------------------------------------------------
+# _create_fault_bucket_from_span
+# ---------------------------------------------------------------------------
+
+class TestCreateFaultBucket:
+    def test_creates_bucket_with_metadata(self, pipeline):
+        event = {
+            "name": "fault: pod-delete",
+            "startTime": "2024-01-01T00:00:00Z",
+            "metadata": {
+                "attributes": {
+                    "fault.target_label": "app=cart",
+                    "fault.target_namespace": "sock-shop",
+                    "fault.injection_end_timestamp": "2024-01-01T00:05:00Z",
+                }
+            },
         }
         pipeline._create_fault_bucket_from_span(event)
-
-        # Bucket stays active — only the classifier should close it
         assert "pod-delete" in pipeline.active_faults
-        assert "pod-delete" not in pipeline.closed_faults
-        bucket = pipeline.active_faults["pod-delete"]
-        assert bucket.fault_name == "pod-delete"
-        assert bucket.namespace == "sock-shop"
-        assert bucket.status == "active"
-        # Injection span must NOT be included in events
-        assert bucket.events == []
-        assert bucket.mitigated_at is None
-        assert bucket.injection_timestamp == "2025-01-01T10:00:00Z"
+        b = pipeline.active_faults["pod-delete"]
+        assert b.fault_name == "pod-delete"
+        assert b.target_pod == "app=cart"
+        assert b.namespace == "sock-shop"
+        assert b.injection_timestamp == "2024-01-01T00:00:00Z"
+        assert b.injection_end_timestamp == "2024-01-01T00:05:00Z"
+        assert b.status == "active"
+        assert b.events == []  # injection span not added to events
 
-    def test_create_fault_bucket_dedup_active(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        existing = FaultBucket(
-            fault_id="pod-delete", fault_name="pod-delete", status="active"
-        )
-        pipeline.active_faults = {"pod-delete": existing}
-        pipeline.closed_faults = {}
-        pipeline.agent_id = None
-        pipeline.agent_name = None
-        pipeline.agent_version = None
-        pipeline.experiment_id = None
-        pipeline.run_id = None
-
-        event = {
-            "name": "fault: pod-delete",
-            "startTime": "2025-01-01T10:00:00Z",
-            "metadata": "{}",
-        }
+    def test_duplicate_active_skipped(self, pipeline):
+        event = {"name": "fault: pod-delete", "startTime": "2024-01-01T00:00:00Z"}
         pipeline._create_fault_bucket_from_span(event)
-
-        # Should NOT create a new bucket and should NOT append injection span
+        pipeline._create_fault_bucket_from_span(event)
         assert len(pipeline.active_faults) == 1
-        assert len(pipeline.active_faults["pod-delete"].events) == 0
 
-    def test_create_fault_bucket_new_after_closed(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        closed = FaultBucket(
-            fault_id="pod-delete", fault_name="pod-delete", status="closed"
-        )
-        pipeline.active_faults = {}
-        pipeline.closed_faults = {"pod-delete": closed}
-        pipeline.agent_id = None
-        pipeline.agent_name = None
-        pipeline.agent_version = None
-        pipeline.experiment_id = None
-        pipeline.run_id = None
+    def test_new_bucket_after_close_gets_suffix(self, pipeline):
+        event = {"name": "fault: pod-delete", "startTime": "2024-01-01T00:00:00Z"}
+        pipeline._create_fault_bucket_from_span(event)
+        # close it
+        pipeline._close_fault("pod-delete", mitigated_at="2024-01-01T00:05:00Z")
+        assert "pod-delete" in pipeline.closed_faults
+        # second injection of same fault -> new bucket with suffix
+        pipeline._create_fault_bucket_from_span(event)
+        assert "pod-delete_2" in pipeline.active_faults
 
+    def test_ground_truth_fields_extracted(self, pipeline):
         event = {
             "name": "fault: pod-delete",
-            "startTime": "2025-01-01T11:00:00Z",
-            "endTime": "2025-01-01T11:15:00Z",
-            "metadata": json.dumps({
-                "attributes": {"fault.status": "completed"},
-            }),
+            "startTime": "2024-01-01T00:00:00Z",
+            "metadata": {
+                "ground_truth": {
+                    "sla": {"ttd": 60},
+                    "ideal_course_of_action": [{"action": "restart"}],
+                    "ideal_tool_usage_trajectory": [{"command": "kubectl"}],
+                }
+            },
         }
         pipeline._create_fault_bucket_from_span(event)
+        b = pipeline.active_faults["pod-delete"]
+        assert b.sla == {"ttd": 60}
+        assert b.ideal_course_of_action == [{"action": "restart"}]
+        assert b.ideal_tool_usage_trajectory == [{"command": "kubectl"}]
 
-        # New bucket with suffix, stays active with no events
-        assert "pod-delete_2" in pipeline.active_faults
-        bucket = pipeline.active_faults["pod-delete_2"]
-        assert bucket.fault_name == "pod-delete"
-        assert bucket.events == []
-        assert bucket.mitigated_at is None
+    def test_empty_fault_name_no_bucket(self, pipeline):
+        pipeline._create_fault_bucket_from_span({"name": "fault:"})
+        assert pipeline.active_faults == {}
 
-    # --- _close_fault ---
 
-    def test_close_fault(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.active_faults = {
-            "f1": FaultBucket(
-                fault_id="f1", fault_name="fault-1",
-                events=[{"id": "e1"}, {"id": "e2"}],
-            ),
-        }
-        pipeline.closed_faults = {}
+# ---------------------------------------------------------------------------
+# _close_fault
+# ---------------------------------------------------------------------------
 
-        pipeline._close_fault("f1", mitigated_at="2025-01-01T10:15:00Z")
+class TestCloseFault:
+    def test_moves_active_to_closed(self, pipeline):
+        pipeline.active_faults["a"] = FaultBucket(fault_id="a", fault_name="a")
+        pipeline._close_fault("a", mitigated_at="2024-01-01T00:05:00Z")
+        assert "a" not in pipeline.active_faults
+        assert pipeline.closed_faults["a"].status == "closed"
+        assert pipeline.closed_faults["a"].mitigated_at == "2024-01-01T00:05:00Z"
 
-        assert "f1" not in pipeline.active_faults
-        assert "f1" in pipeline.closed_faults
-        assert pipeline.closed_faults["f1"].status == "closed"
-        assert pipeline.closed_faults["f1"].mitigated_at == "2025-01-01T10:15:00Z"
-
-    def test_close_fault_not_active(self):
-        pipeline = FaultBucketingPipeline.__new__(FaultBucketingPipeline)
-        pipeline.active_faults = {}
-        pipeline.closed_faults = {}
-
-        # Should not raise
-        pipeline._close_fault("nonexistent")
+    def test_close_unknown_noop(self, pipeline):
+        pipeline._close_fault("missing")
         assert pipeline.closed_faults == {}
 
 
+# ---------------------------------------------------------------------------
+# _place_event_in_buckets
+# ---------------------------------------------------------------------------
+
+class TestPlaceEvent:
+    def test_places_into_related_buckets(self, pipeline):
+        pipeline.active_faults["a"] = FaultBucket(fault_id="a", fault_name="a")
+        pipeline.active_faults["b"] = FaultBucket(fault_id="b", fault_name="b")
+        event = {"id": "e1"}
+        cls = EventClassification(event_id="e1", related_faults=["a", "b"])
+        pipeline._place_event_in_buckets(event, cls)
+        assert pipeline.active_faults["a"].events == [event]
+        assert pipeline.active_faults["b"].events == [event]
+        assert pipeline.unclassified_events == []
+
+    def test_unmatched_goes_to_unclassified(self, pipeline):
+        event = {"id": "e1"}
+        cls = EventClassification(event_id="e1", related_faults=["nonexistent"])
+        pipeline._place_event_in_buckets(event, cls)
+        assert pipeline.unclassified_events == [event]
+
+    def test_empty_related_goes_to_unclassified(self, pipeline):
+        event = {"id": "e1"}
+        cls = EventClassification(event_id="e1", related_faults=[])
+        pipeline._place_event_in_buckets(event, cls)
+        assert pipeline.unclassified_events == [event]
+
+
+# ---------------------------------------------------------------------------
+# _record_fault_detection
+# ---------------------------------------------------------------------------
+
+class TestRecordFaultDetection:
+    def test_updates_matching_bucket(self, pipeline):
+        pipeline.active_faults["pod-delete"] = FaultBucket(
+            fault_id="pod-delete", fault_name="pod-delete",
+            injection_timestamp="2024-01-01T00:00:00Z",
+        )
+        cls = EventClassification(
+            event_id="e1",
+            fault_detected="pod-delete",
+            detected_fault_severity="critical",
+            detected_fault_target_pod="cart",
+            detected_fault_namespace="sock-shop",
+            detected_fault_signals=["CrashLoopBackOff"],
+        )
+        pipeline._record_fault_detection(cls, detection_ts="2024-01-01T00:00:30Z")
+        b = pipeline.active_faults["pod-delete"]
+        assert b.detected_at == "2024-01-01T00:00:30Z"
+        assert b.severity == "critical"
+        assert b.target_pod == "cart"
+        assert b.namespace == "sock-shop"
+        assert b.detection_signals == ["CrashLoopBackOff"]
+
+    def test_no_fault_detected_noop(self, pipeline):
+        cls = EventClassification(event_id="e1", fault_detected=None)
+        pipeline._record_fault_detection(cls, detection_ts="2024-01-01T00:00:30Z")
+        assert pipeline.other_detected_faults == []
+
+    def test_unmatched_detection_goes_to_other(self, pipeline):
+        cls = EventClassification(
+            event_id="e1",
+            fault_detected="mystery-fault",
+            detected_fault_severity="high",
+        )
+        pipeline._record_fault_detection(cls, detection_ts="2024-01-01T00:00:30Z")
+        assert len(pipeline.other_detected_faults) == 1
+        assert pipeline.other_detected_faults[0]["fault_name"] == "mystery-fault"
+        assert pipeline.other_detected_faults[0]["detected_at"] == "2024-01-01T00:00:30Z"
+
+    def test_existing_detection_not_overwritten(self, pipeline):
+        pipeline.active_faults["a"] = FaultBucket(
+            fault_id="a", fault_name="a",
+            detected_at="2024-01-01T00:00:01Z",
+            severity="low",
+        )
+        cls = EventClassification(
+            event_id="e1", fault_detected="a",
+            detected_fault_severity="critical",
+        )
+        pipeline._record_fault_detection(cls, detection_ts="2024-01-01T00:00:99Z")
+        b = pipeline.active_faults["a"]
+        # detected_at already set (and != injection_timestamp) -> not overwritten
+        assert b.detected_at == "2024-01-01T00:00:01Z"
+        # severity already set -> not overwritten
+        assert b.severity == "low"
+
+
+# ---------------------------------------------------------------------------
+# _all_agent_metadata_found
+# ---------------------------------------------------------------------------
+
+class TestAllAgentMetadataFound:
+    def test_false_when_partial(self, pipeline):
+        pipeline.agent_id = "x"
+        assert pipeline._all_agent_metadata_found() is False
+
+    def test_true_when_all_present(self, pipeline):
+        pipeline.agent_id = "a"
+        pipeline.agent_name = "b"
+        pipeline.agent_version = "c"
+        pipeline.experiment_id = "d"
+        pipeline.run_id = "e"
+        assert pipeline._all_agent_metadata_found() is True
+
+
+# ---------------------------------------------------------------------------
+# _timestamp_fallback_buckets (deprecated; always [])
+# ---------------------------------------------------------------------------
+
+def test_timestamp_fallback_buckets_always_empty(pipeline):
+    assert pipeline._timestamp_fallback_buckets({"id": "x"}) == []
