@@ -131,8 +131,11 @@ class AzureLLMClient:
         """
         cache_key = f"{model_name}_{hash(system_prompt)}"
 
-        if model_name in self._clients:
-            client = self._clients.get(model_name)
+        # Strip variant suffixes (e.g. "_structured") so the cache key stays
+        # unique per prompt variant while the client lookup hits the base model.
+        client_key = model_name.removesuffix("_structured")
+        if client_key in self._clients:
+            client = self._clients.get(client_key)
         else:
             logger.warning(
                 f"No specific client found for model '{model_name}'. Using default client."
