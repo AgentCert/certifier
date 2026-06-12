@@ -1,10 +1,9 @@
 """
-Error report builder for metrics validation failures.
+Error report builders for pipeline failure cases.
 
-Generates a minimal 3-section certification report when metrics validation fails:
-- Section 1: Executive Summary (with scope and fault categories)
-- Section 2: Evaluation Methodology (from hardcoded content)
-- Section 3: Metrics Extraction Failure Notice
+build_error_report: metrics validation failure (extractor returned empty payload)
+build_insufficient_runs_report: aggregation produced 0 eligible fault categories
+    because every category had fewer runs than the min_runs_per_category threshold.
 """
 
 from typing import Any, Dict
@@ -175,4 +174,153 @@ def build_error_report(aggregated_scorecard: Dict[str, Any]) -> Dict[str, Any]:
         ],
     }
     
+    return report
+
+
+def build_insufficient_runs_report(aggregated_scorecard: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a minimal 3-section report when 0 fault categories passed the min-runs gate.
+
+    This fires when the aggregator skipped every observed fault category because
+    each had fewer documents than min_runs_per_category.  The cert_builder cannot
+    run meaningfully on empty scorecard data, so we emit this report instead.
+
+    Args:
+        aggregated_scorecard: The aggregated scorecard dict (total_fault_categories == 0).
+
+    Returns:
+        Minimal certification report dict with Executive Summary, Methodology,
+        and an Insufficient Runs Notice.
+    """
+    agent_name = aggregated_scorecard.get("agent_name", "Unknown Agent")
+    agent_id = aggregated_scorecard.get("agent_id", "unknown-id")
+    cert_date = aggregated_scorecard.get("created_at", "Unknown Date")
+    total_runs = aggregated_scorecard.get("total_runs", 0)
+
+    # Pull per-category run counts from statistical_hypothesis if available,
+    # otherwise fall back to a generic message.
+    sh = aggregated_scorecard.get("statistical_hypothesis") or {}
+    observed = sh.get("observed_per_category", {})
+    if observed:
+        category_lines = ", ".join(
+            f"{cat}: {count} run(s)" for cat, count in observed.items()
+        )
+        runs_detail = (
+            f"The following fault categories were observed but had too few runs to be "
+            f"eligible for certification: {category_lines}. "
+        )
+    else:
+        runs_detail = (
+            "All observed fault categories had fewer runs than the minimum required "
+            "for certification. "
+        )
+
+    scope_body = (
+        f"This certification evaluates the {agent_name} across a structured fault-injection "
+        f"campaign designed to measure resilience, diagnostic quality, and safety compliance. "
+        f"A total of {total_runs} independent run(s) were recorded. "
+        f"{runs_detail}"
+        f"At least 3 runs per fault category are required for aggregation-level certification; "
+        f"30 or more are required for statistical hypothesis analysis."
+    )
+
+    report = {
+        "meta": {
+            "agent_name": agent_name,
+            "agent_id": agent_id,
+            "certification_run_id": aggregated_scorecard.get("certification_run_id", ""),
+            "certification_date": cert_date,
+            "total_runs": total_runs,
+            "total_faults_tested": aggregated_scorecard.get("total_faults_tested", 0),
+            "total_fault_categories": 0,
+            "runs_per_fault": aggregated_scorecard.get("runs_per_fault", 0),
+        },
+        "sections": [
+            {
+                "id": "executive_summary",
+                "number": 1,
+                "part": None,
+                "title": "Executive Summary",
+                "intro": "Agent Identity and Experiment Scope",
+                "content": [
+                    {"type": "heading", "title": "1.1 Agent Identity Card"},
+                    {
+                        "type": "identity_card",
+                        "fields": [
+                            {"label": "Agent Name", "value": agent_name},
+                            {"label": "Agent ID", "value": agent_id},
+                            {"label": "Certification Run ID", "value": aggregated_scorecard.get("certification_run_id", "—")},
+                            {"label": "Certification Date", "value": cert_date},
+                        ],
+                    },
+                    {"type": "heading", "title": "1.2 Experiment Scope"},
+                    {"type": "text", "body": scope_body},
+                    {
+                        "type": "scope_metrics",
+                        "metrics": [
+                            {"value": 0, "label": "Fault Categories"},
+                            {"value": aggregated_scorecard.get("total_faults_tested", 0), "label": "Faults Tested"},
+                            {"value": total_runs, "label": "Total Runs"},
+                        ],
+                    },
+                ],
+            },
+            {
+                "id": "methodology",
+                "number": 2,
+                "part": None,
+                "title": "Evaluation Methodology",
+                "intro": "Evaluation Lifecycle and Metrics Collection",
+                "content": [
+                    {
+                        "type": "findings",
+                        "items": [
+                            {"severity": "note", "text": bullet}
+                            for bullet in get_methodology_bullets()
+                        ],
+                    },
+                ],
+            },
+            {
+                "id": "insufficient_runs_notice",
+                "number": 3,
+                "part": None,
+                "title": "Certification Halted — Insufficient Fault Category Runs",
+                "intro": None,
+                "content": [
+                    {
+                        "type": "text",
+                        "body": (
+                            "The certification pipeline could not produce a full report because "
+                            "no fault category accumulated enough runs to meet the minimum threshold "
+                            "required for meaningful statistical aggregation. "
+                            "Quantitative and qualitative scoring, performance tables, charts, and "
+                            "narrative sections are unavailable until more runs are collected."
+                        ),
+                        "style": "error",
+                    },
+                    {"type": "heading", "title": "What this means"},
+                    {
+                        "type": "text",
+                        "body": (
+                            "AgentCert requires a minimum of 3 runs per fault category to compute "
+                            "aggregated detection rates, mitigation times, and qualitative scores. "
+                            "Statistical hypothesis testing requires 30 or more runs per category. "
+                            "With only the runs recorded so far, the aggregator skipped all fault "
+                            "categories and the certification builder had no data to work with."
+                        ),
+                    },
+                    {"type": "heading", "title": "Recommended next steps"},
+                    {
+                        "type": "text",
+                        "body": (
+                            "1. Run additional fault-injection experiments for each fault category "
+                            "until at least 3 runs per category are available.\n"
+                            "2. Re-trigger the certification pipeline once sufficient runs have been collected.\n"
+                            "3. For full statistical analysis, aim for 30+ runs per fault category."
+                        ),
+                    },
+                ],
+            },
+        ],
+    }
     return report

@@ -32,16 +32,12 @@ class MyCustomError(Exception):
             tb_str = None
 
         if original_exception:
-
             logger.error(
                 f"{message}. Original exception: {original_exception}"
-                + f"\nTraceback:\n{tb_str}"
-                if tb_str
-                else ""
+                + (f"\nTraceback:\n{tb_str}" if tb_str else "")
             )
         else:
-            # Get current traceback
-            logger.error(f"{message}" + f"\nTraceback:\n{tb_str}" if tb_str else "")
+            logger.error(f"{message}" + (f"\nTraceback:\n{tb_str}" if tb_str else ""))
 
 
 class AsyncPostgresUtilError(MyCustomError):

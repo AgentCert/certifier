@@ -34,6 +34,10 @@ class AggregationCertificationRequest(BaseModel):
     certification_run_id: str = Field(default="", max_length=128)
     # Expected number of runs per fault; used for statistical significance in the aggregator
     runs_per_fault: int = Field(default=30, ge=1, le=1000)
+    # Minimum docs per fault category to be included in aggregation.
+    # Default 1 allows single-run certification. Raise to 3+ in production
+    # multi-run campaigns to filter LLM-misclassification singletons.
+    min_runs_per_category: int = Field(default=1, ge=1, le=1000)
     storage_config: CertStorageConfig = Field(default_factory=CertStorageConfig)
 
     @field_validator("agent_id", "experiment_id")

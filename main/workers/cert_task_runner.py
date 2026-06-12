@@ -15,7 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from main.config.settings import Settings
 from main.models.cert_requests import AggregationCertificationRequest
-from main.services.pipeline_service import CertPipelineService, generate_cert_report_documents
+from main.services.pipeline_service import AnalysisOptions, CertPipelineService, generate_cert_report_documents
 from main.services.session_service import CertSessionService
 
 
@@ -203,6 +203,9 @@ async def run_cert_task(
                 runs_per_fault=request.runs_per_fault,
                 config=app_config,
                 storage_type=request.storage_config.type,
+                analysis_options=AnalysisOptions(
+                    min_runs_per_category=request.min_runs_per_category,
+                ),
             )
 
             # An empty result means no metrics were found — bail before report gen

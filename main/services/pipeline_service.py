@@ -1,6 +1,7 @@
 import json
 import logging
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,7 +29,7 @@ try:
 except ImportError:
     MongoDBClient = None
 from cert_builder.scripts.certification_pipeline import CertificationPipeline
-from cert_builder.scripts.error_report_builder import build_error_report
+from cert_builder.scripts.error_report_builder import build_error_report, build_insufficient_runs_report
 
 
 # Default location of the fault categories config used to map sub-fault →
@@ -97,6 +98,40 @@ _NARRATIVE_FALLBACKS: Dict[str, Any] = {
 
 _PLACEHOLDER_FINDING = {"severity": "note", "text": "No findings available for this section."}
 
+# Maps LLM-produced severity synonyms to the three valid FindingSeverity enum values.
+_FINDING_SEVERITY_MAP: Dict[str, str] = {
+    "concern": "concern", "good": "good", "note": "note",
+    "warning": "concern", "warn": "concern", "error": "concern",
+    "high": "concern", "medium": "note", "low": "note",
+    "info": "note", "information": "note", "informational": "note",
+    "pass": "good", "ok": "good", "success": "good", "positive": "good",
+}
+
+
+def _normalize_finding_severities(report_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Coerce any non-standard severity values in findings blocks to valid enum literals.
+
+    The LLM sometimes returns synonyms ('warning', 'high', 'info') that are not in
+    FindingSeverity ('concern', 'good', 'note'). Walk all findings items in sections
+    and the report header and remap to the closest valid value, falling back to 'note'.
+    """
+    def _fix_items(items: list) -> None:
+        for item in items:
+            if isinstance(item, dict) and "severity" in item:
+                raw = str(item["severity"]).lower()
+                item["severity"] = _FINDING_SEVERITY_MAP.get(raw, "note")
+
+    header = report_dict.get("header", {})
+    if "findings" in header:
+        _fix_items(header["findings"])
+
+    for section in report_dict.get("sections", []):
+        for block in section.get("content", []):
+            if isinstance(block, dict) and block.get("type") == "findings":
+                _fix_items(block.get("items", []))
+
+    return report_dict
+
 
 def _patch_empty_findings(report_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Ensure no findings list is empty in the report dict before Pydantic validation.
@@ -151,6 +186,7 @@ class _SafeCertificationPipeline(CertificationPipeline):
 
             def _validate_with_fix(data, **kwargs):
                 data = _patch_empty_findings(data)
+                data = _normalize_finding_severities(data)
                 return _orig_validate(data, **kwargs)
 
             ra_module.CertificationReport.model_validate = staticmethod(_validate_with_fix)
@@ -765,6 +801,29 @@ class BucketPipelineService:
         return results
 
 
+@dataclass
+class AnalysisOptions:
+    """Optional tuning knobs for the statistical-analysis and aggregation steps.
+
+    Passed as a single object to ``execute_pipeline`` so the method stays
+    within the parameter-count limit and callers only need to supply what they
+    actually want to change.
+    """
+    advanced_analysis: bool = True
+    ground_truth_dir: Optional[str] = None
+    fault_categories_config: Optional[str] = None
+    # Minimum total runs per category for the H01-H09 hypothesis gate
+    min_runs: int = 30
+    # Minimum docs a category must have to be included in aggregation at all.
+    # Default 1 means single-run experiments are certified without needing 3+
+    # runs. Raise to 3+ to filter out LLM-misclassification singletons in
+    # production multi-run campaigns.
+    min_runs_per_category: int = 1
+    alpha: float = 0.05
+    n_resamples: int = 10000
+    random_state: Optional[int] = None
+
+
 class CertPipelineService:
     async def execute_pipeline(
         self,
@@ -777,13 +836,7 @@ class CertPipelineService:
         debug: bool = False,
         config: Optional[Dict[str, Any]] = None,
         storage_type: str = "local",
-        advanced_analysis: bool = True,
-        ground_truth_dir: Optional[str] = None,
-        fault_categories_config: Optional[str] = None,
-        min_runs: int = 30,
-        alpha: float = 0.05,
-        n_resamples: int = 10000,
-        random_state: Optional[int] = None,
+        analysis_options: Optional[AnalysisOptions] = None,
     ) -> Dict[str, Any]:
         """Run aggregation then (optional, gated) statistical hypothesis then certification.
 
@@ -802,24 +855,14 @@ class CertPipelineService:
             storage_type:         ``"local"`` reads ``*metrics.json`` files from
                                   *metrics_dir*; ``"mongodb"`` queries MongoDB via
                                   ``MetricsQueryService``.
-            advanced_analysis:    When True, evaluate the per-category min-runs gate
-                                  and (if it passes) run the H01–H09 hypothesis
-                                  framework, merging the result into the scorecard
-                                  under ``statistical_hypothesis``.
-            ground_truth_dir:     Optional ground-truth directory for SLA-aware
-                                  hypothesis tests (H06, H07). When absent those
-                                  tests skip gracefully; other tests still run.
-            fault_categories_config: Override path to the fault-categories JSON;
-                                  defaults to ``configs/fault_categories.json``.
-            min_runs:             Minimum total runs per fault category required for
-                                  the hypothesis gate (default 30).
-            alpha:                Significance level for hypothesis tests.
-            n_resamples:          Bootstrap resamples for hypothesis tests.
-            random_state:         Optional seed for hypothesis bootstrap reproducibility.
+            analysis_options:     Optional tuning for statistical analysis and
+                                  aggregation gates; defaults to ``AnalysisOptions()``.
 
         Returns:
             The certification report dict, or an empty dict if no metric docs were found.
         """
+        opts = analysis_options or AnalysisOptions()
+
         if config is None and ConfigLoader:
             try:
                 config = ConfigLoader.load_config()
@@ -869,8 +912,8 @@ class CertPipelineService:
             # This normalizes sub-fault names to canonical category buckets and
             # filters out any docs whose fault_name is not in the config.
             cfg_path = (
-                Path(fault_categories_config)
-                if fault_categories_config
+                Path(opts.fault_categories_config)
+                if opts.fault_categories_config
                 else _DEFAULT_FAULT_CATEGORIES_CONFIG
             )
             fault_cats = _load_fault_categories_config(cfg_path)
@@ -905,6 +948,7 @@ class CertPipelineService:
                 # run — including those whose fault_name didn't map to any
                 # canonical category (e.g. unclassified / single_fault folders).
                 total_input_runs=len(_distinct_run_ids(agent_docs)),
+                min_runs_per_category=opts.min_runs_per_category,
             )
 
             _print_aggregation_summary(aggregated_scorecard, agent_id, agent_name)
@@ -948,7 +992,7 @@ class CertPipelineService:
                     "total_documents": len(agent_docs),
                     "total_fault_categories": len(categories),
                     "fault_categories": categories,
-                    "advanced_analysis": advanced_analysis,
+                    "advanced_analysis": opts.advanced_analysis,
                     "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                     "statistical_hypothesis_reason": sh.get("reason"),
                     "aggregated_scorecard_path": str(scorecard_path),
@@ -968,26 +1012,82 @@ class CertPipelineService:
                 logger.info(f"  Error report     : {report_path.name}")
                 return report
 
+            # ── Early exit: no fault categories passed the min-runs gate ─────────
+            # cert_builder cannot build charts/tables/scorecard from empty data.
+            # Emit a structured "insufficient runs" report instead of crashing.
+            if aggregated_scorecard.get("total_fault_categories", 0) == 0:
+                logger.warning(
+                    "Aggregation produced 0 eligible fault categories. "
+                    "Skipping cert_builder and generating insufficient-runs report."
+                )
+                try:
+                    _save_json(aggregated_scorecard, scorecard_path)
+                    logger.info(f"Aggregated scorecard written to {scorecard_path}")
+
+                    report = build_insufficient_runs_report(aggregated_scorecard)
+                    _save_json(report, report_path)
+                    logger.info(f"Insufficient-runs report written to {report_path}")
+                except MyCustomError:
+                    raise
+                except Exception as exc:
+                    logger.error(
+                        f"Failed to build/write insufficient-runs report: {exc}",
+                        exc_info=True,
+                    )
+                    raise OrchestratorError(
+                        "Failed to build insufficient-runs report",
+                        original_exception=exc,
+                    ) from exc
+
+                sh = aggregated_scorecard.get("statistical_hypothesis", {}) or {}
+                summary = {
+                    "agent_id": agent_id,
+                    "agent_name": agent_name,
+                    "certification_run_id": certification_run_id,
+                    "metrics_source": f"mongodb:{agent_id}" if storage_type == "mongodb" else str(Path(metrics_dir).resolve()),
+                    "total_documents": len(agent_docs),
+                    "total_fault_categories": 0,
+                    "fault_categories": categories,
+                    "advanced_analysis": opts.advanced_analysis,
+                    "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
+                    "statistical_hypothesis_reason": sh.get("reason"),
+                    "aggregated_scorecard_path": str(scorecard_path),
+                    "certification_report_path": str(report_path),
+                    "insufficient_runs": True,
+                }
+                summary_path = output_path / "pipeline_summary.json"
+                _save_json(summary, summary_path)
+
+                logger.info("=" * 60)
+                logger.info("Pipeline Complete (Insufficient Runs)")
+                logger.info("=" * 60)
+                logger.info(f"  Agent            : {agent_name} ({agent_id})")
+                logger.info(f"  Total runs       : {aggregated_scorecard.get('total_runs', 0)}")
+                logger.info(f"  Eligible cats    : 0")
+                logger.info(f"  Output directory : {output_path}")
+                logger.info(f"  Insufficient-runs report: {report_path.name}")
+                return report
+
             # Normalize LLM-generated severity labels to valid Rating enum values
             aggregated_scorecard = _normalize_severity_labels(aggregated_scorecard)
 
             # ── Optional: statistical hypothesis with per-category min-runs gate ─
-            if advanced_analysis:
+            if opts.advanced_analysis:
                 logger.info("=" * 60)
                 logger.info("STEP 2: Statistical Hypothesis Analysis (gated)")
                 logger.info("=" * 60)
                 try:
                     # Reuse fault_categories config and grouped_runs already loaded
                     # during the aggregation step (no need to reload).
-                    gt_path = Path(ground_truth_dir) if ground_truth_dir else None
+                    gt_path = Path(opts.ground_truth_dir) if opts.ground_truth_dir else None
 
                     hypothesis_block = _run_hypothesis_with_gate(
                         grouped_runs=grouped_runs,
                         gt_dir=gt_path,
-                        min_runs=min_runs,
-                        alpha=alpha,
-                        n_resamples=n_resamples,
-                        random_state=random_state,
+                        min_runs=opts.min_runs,
+                        alpha=opts.alpha,
+                        n_resamples=opts.n_resamples,
+                        random_state=opts.random_state,
                         metrics_dir=Path(metrics_dir),
                     )
                     aggregated_scorecard["statistical_hypothesis"] = hypothesis_block
@@ -1015,7 +1115,7 @@ class CertPipelineService:
             logger.info(f"Aggregated scorecard written to {scorecard_path}")
 
             logger.info("=" * 60)
-            logger.info("STEP 3: Certification" if advanced_analysis else "STEP 2: Certification")
+            logger.info("STEP 3: Certification" if opts.advanced_analysis else "STEP 2: Certification")
             logger.info("=" * 60)
 
             cert_pipeline = _SafeCertificationPipeline(
@@ -1037,7 +1137,7 @@ class CertPipelineService:
                 "total_documents": len(agent_docs),
                 "total_fault_categories": len(categories),
                 "fault_categories": categories,
-                "advanced_analysis": advanced_analysis,
+                "advanced_analysis": opts.advanced_analysis,
                 "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                 "statistical_hypothesis_reason": sh.get("reason"),
                 "aggregated_scorecard_path": str(scorecard_path),
@@ -1052,7 +1152,7 @@ class CertPipelineService:
             logger.info(f"  Agent            : {agent_name} ({agent_id})")
             logger.info(f"  Fault categories : {len(categories)}")
             logger.info(f"  Per-run documents: {len(agent_docs)}")
-            logger.info(f"  Advanced analysis: {advanced_analysis}")
+            logger.info(f"  Advanced analysis: {opts.advanced_analysis}")
             logger.info(f"  Hypothesis status: {summary['statistical_hypothesis_status']}")
             logger.info(f"  Output directory : {output_path}")
             logger.info(f"  Summary file     : {summary_path.name}")
