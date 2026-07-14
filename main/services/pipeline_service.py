@@ -38,6 +38,47 @@ _DEFAULT_FAULT_CATEGORIES_CONFIG: Path = (
     Path(__file__).resolve().parent.parent.parent / "configs" / "fault_categories.json"
 )
 
+# Categories excluded from a certification run unless include_ciso_finops=True.
+# ciso_fault never has real data today (no chaos-charts fault bundle or Argo
+# workflow implements any CISO scenario), but is still excluded defensively
+# for symmetry and in case that changes. finops_fault does have real data
+# (ITBench scenario 38, the misconfigured-kubernetes-horizontal-pod-autoscaler
+# fault) and is excluded by default so a standard SRE certification run
+# doesn't silently fold FinOps-framed runs into its scorecard.
+_CISO_FINOPS_CATEGORIES = {"ciso_fault", "finops_fault"}
+
+
+def _add_ciso_not_implemented_note(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Make the CISO gap explicit in the Limitations section rather than
+    silently omitting any mention of it. CISO has no execution path in ACE
+    today -- no chaos-charts fault bundle or Argo workflow exists for any
+    CISO scenario type -- so it can never contribute real data to a run.
+    Called only when include_ciso_finops=True, since that's the point at
+    which a caller has explicitly asked for CISO to be a tested dimension."""
+    for section in report.get("sections", []):
+        if section.get("id") != "limitations":
+            continue
+        content = section.setdefault("content", [])
+        next_idx = max((item.get("index", 0) for item in content), default=0) + 1
+        content.append({
+            "type": "enumerated_item",
+            "kind": "limitation",
+            "index": next_idx,
+            "severity": "Medium",
+            "scope": "CISO",
+            "body": (
+                "CISO compliance scenarios (CIS Benchmark policy generation/remediation via "
+                "Kyverno, OPA, or Ansible) were requested as a tested dimension for this "
+                "certification but have no execution path in ACE today -- no chaos-charts "
+                "fault bundle or Argo workflow exists for this task type. No CISO trace data "
+                "could be collected or scored; this dimension is entirely absent from every "
+                "metric above, not merely filtered out."
+            ),
+            "tags": ["CISO", "Not Implemented"],
+        })
+        break
+    return report
+
 
 # ── Narrative fallback defaults ───────────────────────────────────────────────
 # Required keys in the Phase 3 narratives output. If the LLM call for any of
@@ -837,6 +878,7 @@ class CertPipelineService:
         config: Optional[Dict[str, Any]] = None,
         storage_type: str = "local",
         analysis_options: Optional[AnalysisOptions] = None,
+        include_ciso_finops: bool = False,
     ) -> Dict[str, Any]:
         """Run aggregation then (optional, gated) statistical hypothesis then certification.
 
@@ -850,6 +892,15 @@ class CertPipelineService:
                                   significance checks in the aggregator.
             debug:                When True, the cert pipeline retains intermediate
                                   outputs for post-mortem inspection.
+            include_ciso_finops:  Default False. When True, includes the FinOps
+                                  dimension (real data, from ITBench scenario 38's
+                                  HPA-misconfig runs) in the scorecard/report, and
+                                  adds an explicit Limitations note that CISO has
+                                  no execution path in ACE and contributed no data.
+                                  When False (default), any runs categorized as
+                                  ciso_fault/finops_fault are excluded from the
+                                  scorecard entirely (still counted in Total Runs,
+                                  same as any other unclassified doc).
             config:               App config dict; loaded from ``configs/configs.json``
                                   if not provided.
             storage_type:         ``"local"`` reads ``*metrics.json`` files from
@@ -918,6 +969,22 @@ class CertPipelineService:
             )
             fault_cats = _load_fault_categories_config(cfg_path)
             grouped_runs = _group_docs_by_category(agent_docs, fault_cats)
+
+            if not include_ciso_finops:
+                excluded = {
+                    cat: len(docs) for cat, docs in grouped_runs.items()
+                    if cat in _CISO_FINOPS_CATEGORIES
+                }
+                if excluded:
+                    logger.info(
+                        f"include_ciso_finops=False; excluding categories from this "
+                        f"certification's scorecard: {excluded} (docs still count "
+                        "toward Total Runs, same as any unclassified doc)."
+                    )
+                grouped_runs = {
+                    cat: docs for cat, docs in grouped_runs.items()
+                    if cat not in _CISO_FINOPS_CATEGORIES
+                }
 
             # Use grouped docs as the query service for canonical fault categories
             grouped_query_service = GroupedDocsQueryService(grouped_runs)
@@ -992,6 +1059,7 @@ class CertPipelineService:
                     "total_documents": len(agent_docs),
                     "total_fault_categories": len(categories),
                     "fault_categories": categories,
+                    "include_ciso_finops": include_ciso_finops,
                     "advanced_analysis": opts.advanced_analysis,
                     "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                     "statistical_hypothesis_reason": sh.get("reason"),
@@ -1048,6 +1116,7 @@ class CertPipelineService:
                     "total_documents": len(agent_docs),
                     "total_fault_categories": 0,
                     "fault_categories": categories,
+                    "include_ciso_finops": include_ciso_finops,
                     "advanced_analysis": opts.advanced_analysis,
                     "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                     "statistical_hypothesis_reason": sh.get("reason"),
@@ -1127,6 +1196,14 @@ class CertPipelineService:
 
             logger.info(f"Certification report written to {report_path}")
 
+            if include_ciso_finops:
+                report = _add_ciso_not_implemented_note(report)
+                _save_json(report, report_path)
+                logger.info(
+                    "include_ciso_finops=True; added CISO 'not implemented' note to "
+                    "the Limitations section and re-saved the certification report."
+                )
+
             # Write a lightweight summary alongside the full report for quick inspection
             sh = aggregated_scorecard.get("statistical_hypothesis", {}) or {}
             summary = {
@@ -1137,6 +1214,7 @@ class CertPipelineService:
                 "total_documents": len(agent_docs),
                 "total_fault_categories": len(categories),
                 "fault_categories": categories,
+                "include_ciso_finops": include_ciso_finops,
                 "advanced_analysis": opts.advanced_analysis,
                 "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                 "statistical_hypothesis_reason": sh.get("reason"),
