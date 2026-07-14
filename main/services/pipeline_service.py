@@ -1196,12 +1196,20 @@ class CertPipelineService:
 
             logger.info(f"Certification report written to {report_path}")
 
-            if include_ciso_finops:
+            # Only add the "not implemented" note when CISO truly contributed no
+            # data (still the common case -- most callers have no CISO execution
+            # harness yet). If ciso_fault docs WERE supplied (e.g. via
+            # metrics_extractor.build_ciso_metrics_doc feeding a real CISO run),
+            # "ciso_fault" is already in `categories` and was scored normally
+            # through aggregate_fault_category's CISO-shaped branch -- adding a
+            # blanket "not implemented" note in that case would be actively wrong.
+            if include_ciso_finops and "ciso_fault" not in categories:
                 report = _add_ciso_not_implemented_note(report)
                 _save_json(report, report_path)
                 logger.info(
-                    "include_ciso_finops=True; added CISO 'not implemented' note to "
-                    "the Limitations section and re-saved the certification report."
+                    "include_ciso_finops=True but no ciso_fault data was found; added "
+                    "CISO 'not implemented' note to the Limitations section and "
+                    "re-saved the certification report."
                 )
 
             # Write a lightweight summary alongside the full report for quick inspection

@@ -167,3 +167,83 @@ scorecard_synthesis:
         ]
       }}
     }}
+
+# CISO-shaped variant of scorecard_synthesis, used only for the ciso_fault
+# category. CISO scenarios (compliance-as-code policy generation/remediation
+# via Kyverno/OPA/Ansible against a CIS Benchmark control) have no
+# fault-injection timeline -- there is no alert to detect and no live
+# incident to mitigate, just a policy artifact that either satisfies the
+# control or doesn't. Reusing the generic prompt's framing and signal-area
+# list ("detects, diagnoses, and remediates infrastructure faults";
+# "Collateral damage: ... killing pods") would bias the LLM toward inventing
+# fault-injection-style narrative that the CISO data cannot support.
+scorecard_synthesis_ciso:
+  system_prompt: >
+    You are an expert evaluator of AI agent performance metrics.
+    Always respond with valid JSON only.
+
+  prompt: |
+    You are an expert evaluator producing a certification scorecard for an AI agent that autonomously authors or remediates compliance-as-code policies (Kyverno ClusterPolicies, OPA Rego rules, or Ansible playbooks) to satisfy CIS Benchmark controls on Kubernetes clusters or RHEL9 hosts.
+
+    You are analysing the "{fault_category}" category based on data from {distinct_runs} successful agent runs (covering these CISO scenario types: {faults_tested}).
+
+    Unlike fault-injection categories, there is no alert for the agent to detect and no live incident to mitigate here — each run is graded by ITBench's own evaluation tooling re-querying the live cluster/host (Kyverno PolicyReport, or OPA Rego evaluation against collected state) for a single pass/fail verdict.
+
+    Below are the aggregated metrics computed across all observations:
+
+    ## Numeric Metrics
+    {numeric_metrics}
+
+    ## Derived Rates
+    {derived_rates}
+
+    ## Boolean / Status Metrics
+    {boolean_metrics}
+
+    ## Textual Summaries (LLM-synthesized consensus from per-run observations)
+    {textual_summaries}
+
+    Using ONLY the evidence above, produce:
+
+    1. **known_limitations**: A ranked list of the agent's weaknesses and failure patterns observed in this category. Each limitation should be:
+       - Specific and actionable (not vague)
+       - Grounded in the metrics (cite ciso_task_pass_rate, ciso_time_to_resolve, unchanged-policy-preservation rate, reasoning scores, or textual findings)
+       - Ranked by severity (High > Medium > Low) and estimated frequency across runs
+
+       Consider all of the following signal areas when identifying limitations:
+       - Policy/compliance correctness: low ciso_task_pass_rate, or a pattern of failures concentrated in specific scenario types
+       - Unintended side effects: did the agent's remediation break or alter OTHER, unrelated existing policies it was not asked to touch (low ciso_unchanged_policy_preservation_rate) — this is the CISO analog of collateral damage, not physical infrastructure disruption
+       - Reasoning quality: low reasoning scores, weak or inconsistent policy-authoring logic
+       - Hallucination: non-zero hallucination scores, fabricated CIS control references or tool outputs not grounded in the actual cluster/host state
+       - Tool usage: poor tool selection accuracy (e.g. reaching for kubectl when opa/ansible was needed, or vice versa), excessive or insufficient tool calls
+       - Time to resolve: unusually high ciso_time_to_resolve relative to other runs, suggesting the agent struggled to converge on a correct policy
+       - Token efficiency: unusually high token consumption indicating verbose or repetitive policy iteration
+
+       Do NOT reference fault detection, mitigation timing, SLA breaches, or physical collateral damage (e.g. "killing pods") — those concepts do not apply to this category. Only include a limitation if the metrics evidence supports it. Do not invent issues that are not reflected in the data.
+
+    2. **recommendations**: A prioritized list of improvements for the agent. Each should:
+       - Directly address one or more of the identified limitations
+       - Be technically actionable (e.g., "validate generated Kyverno policies against a dry-run admission check before finalizing", "verify unrelated PolicyReports are unchanged before reporting completion")
+       - Be ranked by priority (Critical > High > Medium > Low) and estimated frequency
+
+    Respond with a JSON object exactly matching this schema:
+    {{
+      "known_limitations": {{
+        "ranked_items": [
+          {{
+            "limitation": "<specific description grounded in metrics>",
+            "frequency": <estimated count out of {distinct_runs} successful runs>,
+            "severity": "<High|Medium|Low>"
+          }}
+        ]
+      }},
+      "recommendations": {{
+        "prioritized_items": [
+          {{
+            "recommendation": "<actionable improvement>",
+            "priority": "<Critical|High|Medium|Low>",
+            "frequency": <estimated count of runs that would benefit>
+          }}
+        ]
+      }}
+    }}

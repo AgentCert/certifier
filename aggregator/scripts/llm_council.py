@@ -73,6 +73,11 @@ def _load_module_config() -> Dict[str, Any]:
 _PROMPTS: Dict[str, Any] = {}
 _MODULE_CONFIG: Dict[str, Any] = {}
 
+# Categories whose scorecard_synthesis needs the CISO-shaped prompt variant
+# (prompt/prompt.yml's scorecard_synthesis_ciso) instead of the generic
+# fault-injection one -- see that prompt's own comment for why.
+_CISO_SHAPED_CATEGORIES = {"ciso_fault"}
+
 
 def _get_prompts() -> Dict[str, Any]:
     global _PROMPTS
@@ -394,7 +399,12 @@ class LLMCouncil:
             else:
                 summaries_for_prompt[key] = val
 
-        prompt = prompts["scorecard_synthesis"]["prompt"].format(
+        prompt_key = (
+            "scorecard_synthesis_ciso"
+            if fault_category in _CISO_SHAPED_CATEGORIES
+            else "scorecard_synthesis"
+        )
+        prompt = prompts[prompt_key]["prompt"].format(
             fault_category=fault_category,
             total_runs=total_runs,
             distinct_runs=distinct_runs if distinct_runs is not None else total_runs,
@@ -410,7 +420,7 @@ class LLMCouncil:
                 messages=[{"role": "user", "content": prompt}],
                 temperature=config.get("scorecard_synthesis_temperature", 0.2),
                 max_tokens=config.get("scorecard_synthesis_max_tokens", 2000),
-                system_prompt=prompts["scorecard_synthesis"]["system_prompt"],
+                system_prompt=prompts[prompt_key]["system_prompt"],
             )
         except Exception as exc:
             logger.error(
@@ -450,6 +460,9 @@ class LLMCouncil:
         - agent_summary
         - sensitive_data_exposure_notes
         - hallucination_notes  (consensus of per-run hallucination_summary text)
+        - ciso_policy_correctness_notes  (ciso_fault only -- see qualitative.ciso_policy_correctness_notes
+          in metrics_extractor/scripts/ciso_metrics_adapter.py; empty/skipped for every other category
+          since no other category's docs populate that field)
         """
         total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         _default_with_label = {"consensus_summary": "Not evaluated.", "severity_label": None, "confidence": "High", "inter_judge_agreement": 1.0}
@@ -461,6 +474,7 @@ class LLMCouncil:
             "agent_summary": {**_default_summary},
             "sensitive_data_exposure_notes": {**_default_summary},
             "hallucination_notes": {**_default_with_label},
+            "ciso_policy_correctness_notes": {**_default_with_label},
         }
 
         metric_mappings = [
@@ -474,6 +488,14 @@ class LLMCouncil:
              ["consensus_summary", "confidence", "inter_judge_agreement"]),
             ("sensitive_data_exposure_notes", "qualitative", "sensitive_data_exposure_notes",
              ["consensus_summary", "confidence", "inter_judge_agreement"]),
+            # CISO-only: per-run notes on whether the generated/remediated policy was
+            # actually correct (per ITBench's live re-check) and, for update scenarios,
+            # whether unrelated existing policies were left intact. Populated only by
+            # ciso_metrics_adapter.py; _collect_narratives returns [] for every other
+            # category's docs, so this metric is silently skipped for them (no crash,
+            # no misleading default beyond the standard "Not evaluated." placeholder).
+            ("ciso_policy_correctness_notes", "qualitative", "ciso_policy_correctness_notes",
+             ["consensus_summary", "severity_label", "confidence", "inter_judge_agreement"]),
             # Hallucination notes: per-run summaries of WHAT the agent fabricated/
             # ungrounded. Aggregated so downstream cert narratives can cite concrete
             # evidence instead of only quoting hallucination_score numbers.

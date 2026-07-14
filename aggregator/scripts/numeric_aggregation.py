@@ -695,6 +695,100 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
 
 
 # ---------------------------------------------------------------------------
+# CISO-specific aggregates
+#
+# CISO scenarios (compliance-as-code policy generation/remediation) have no
+# fault-injection timeline -- there's no alert to detect and no live incident
+# to mitigate, just a policy artifact that either satisfies the CIS Benchmark
+# control or doesn't (ITBench's own evaluation tooling reduces this to a
+# single boolean `pass`; see metrics_extractor/scripts/ciso_metrics_adapter.py).
+# compute_numeric_aggregates/compute_derived_rates above are keyed on
+# agent_fault_detection_time/agent_fault_mitigation_time, which will never be
+# present on a CISO doc -- reusing them would silently report 0% detection/
+# mitigation for a task type where "detection" isn't a meaningful concept.
+# These functions are the CISO-shaped equivalents, called instead of (not in
+# addition to) the generic ones for fault_category == "ciso_fault".
+# ---------------------------------------------------------------------------
+
+def compute_ciso_numeric_aggregates(
+    docs: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """CISO equivalent of compute_numeric_aggregates.
+
+    - ciso_time_to_resolve: mirrors ITBench's own leaderboard "Time To Resolve"
+      / "Mean Agent Execution Duration" metric (measured by the harness, not
+      by evaluate.yml/evaluation.py -- see the adapter module docstring).
+    - action_correctness / input_tokens / output_tokens: reused unchanged from
+      the generic path when the harness supplies them, since "did the agent
+      invoke kubectl/opa/kyverno/ansible appropriately" and token usage are
+      just as meaningful for a CISO task as for a fault-injection one.
+    """
+    results: Dict[str, Dict[str, Any]] = {}
+
+    vals = _extract_numeric_values(docs, "quantitative", "ciso_time_to_resolve")
+    results["ciso_time_to_resolve"] = compute_stats(vals, ["mean", "median", "p95", "min", "max"])
+
+    vals = _extract_numeric_values(docs, "quantitative", "tool_selection_accuracy")
+    results["action_correctness"] = compute_stats(vals, ["mean", "median", "std_dev"])
+
+    for metric in ["input_tokens", "output_tokens"]:
+        vals = _extract_numeric_values(docs, "quantitative", metric)
+        results[metric] = compute_stats(vals, ["mean", "median", "sum"])
+
+    return {k: v for k, v in results.items() if v}
+
+
+def compute_ciso_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[float]]:
+    """CISO equivalent of compute_derived_rates, at distinct-run grain.
+
+    - ciso_task_pass_rate: fraction of runs where the agent's policy
+      submission satisfied ITBench's live re-check (Kyverno PolicyReport
+      query, or OPA Rego evaluation against collected state) for every CISO
+      fault evaluation in that run. This is the direct analog of ITBench's
+      own leaderboard "Score" (mean of per-scenario pass/fail).
+    - ciso_unchanged_policy_preservation_rate: only meaningful for
+      Upd-CIS-b-K8s-Kyverno runs (ITBench's check_unchanged_policies) --
+      None when no run in this set ever exercised that check, rather than
+      a misleading 0%/100%.
+    """
+    precision = _precision()
+
+    if not docs:
+        return {
+            "ciso_task_pass_rate": None,
+            "ciso_unchanged_policy_preservation_rate": None,
+        }
+
+    groups = _group_docs_by_run(docs)
+    total_runs = len(groups)
+
+    passed_runs = 0
+    preservation_checked = 0
+    preservation_ok = 0
+
+    for run_docs in groups.values():
+        # AND across docs, same convention as fault_detection_success_rate:
+        # a run only counts as passed if every CISO evaluation in it passed.
+        if all(d.get("quantitative", {}).get("ciso_task_passed") is True for d in run_docs):
+            passed_runs += 1
+
+        for d in run_docs:
+            preserved = d.get("quantitative", {}).get("ciso_unchanged_policies_preserved")
+            if preserved is not None:
+                preservation_checked += 1
+                if preserved is True:
+                    preservation_ok += 1
+
+    return {
+        "ciso_task_pass_rate": round(passed_runs / total_runs, precision) if total_runs > 0 else None,
+        "ciso_unchanged_policy_preservation_rate": (
+            round(preservation_ok / preservation_checked, precision)
+            if preservation_checked > 0 else None
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Boolean / status aggregates
 # ---------------------------------------------------------------------------
 

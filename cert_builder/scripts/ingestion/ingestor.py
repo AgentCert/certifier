@@ -24,6 +24,10 @@ NUMERIC_FIELDS = [
     "reasoning_logical_coherence", "reasoning_diagnostic_depth",
     "reasoning_tool_usage_relevance", "reasoning_explanation_clarity",
     "input_tokens", "output_tokens",
+    # ciso_fault-only (aggregator/scripts/numeric_aggregation.py's
+    # compute_ciso_numeric_aggregates) -- without this, ingest() silently
+    # drops it and _build_ciso_category_context always renders "N/A".
+    "ciso_time_to_resolve",
 ]
 
 # Map raw field names to clean output keys
