@@ -1,21 +1,44 @@
 {
     "_description": "Mapping of fault_category to its sub-fault names. Used by the aggregation+hypothesis pipeline to group flat per-run metrics files by category when fault_category is missing from a document. Sub-fault values must match the 'injected_fault_name' / 'fault_name' field in per-run metric documents.",
+    "_known_collisions": "misconfigured-kubernetes-horizontal-pod-autoscaler appears in both application_fault and finops_fault below. It is the same ITBench mechanism reused under two different framings (SRE availability vs. FinOps cost scenario, ITBench scenario index 38) and shares one fault_name. Because subfault_to_category is a flat fault_name-keyed dict, only the category processed last wins for this fault_name at runtime -- the two entries are not both honored simultaneously. See docs/Methodologies/02-Experiment-Design/2.3-Fault-Taxonomy.md section 3 for details.",
     "categories": {
         "application_fault": [
             "node-restart",
-            "pod-delete"
+            "pod-delete",
+            "scaled-to-zero-kubernetes-workload",
+            "nonexistent-kubernetes-workload-container-image",
+            "misconfigured-kubernetes-workload-container-readiness-probe",
+            "misconfigured-kubernetes-horizontal-pod-autoscaler"
         ],
         "network_fault": [
             "pod-dns-error",
             "pod-network-corruption",
             "pod-network-loss",
-            "pod-network-rate-limit"
+            "pod-network-rate-limit",
+            "modified-target-port-kubernetes-service",
+            "invalid-kubernetes-service-selector"
         ],
         "resource_fault": [
             "disk-fill",
             "pod-autoscaler",
             "pod-cpu-hog",
-            "pod-memory-hog"
+            "pod-memory-hog",
+            "valkey-workload-out-of-memory"
+        ],
+        "database_storage_fault": [
+            "nonexistent-kubernetes-workload-persistent-volume-claim"
+        ],
+        "security_fault": [
+            "valkey-workload-changed-password"
+        ],
+        "ciso_fault": [
+            "Gen-CIS-b-K8s-Kyverno",
+            "Gen-CIS-b-K8s-Kubectl-OPA",
+            "Gen-CIS-b-RHEL9-Ansible-OPA",
+            "Upd-CIS-b-K8s-Kyverno"
+        ],
+        "finops_fault": [
+            "misconfigured-kubernetes-horizontal-pod-autoscaler"
         ]
     }
 }
