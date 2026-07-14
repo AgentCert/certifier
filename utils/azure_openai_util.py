@@ -10,17 +10,52 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Type, Union
 import openai
 from agent_framework import ChatAgent, ChatMessage
 from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework.openai import OpenAIChatClient
 from utils import custom_errors
 from utils.load_config import ConfigLoader
 from utils.setup_logging import logger
 
 
+def _build_chat_client(model_config: dict):
+    """Build the right agent_framework chat client for a model config entry.
+
+    Most deployments use Azure OpenAI (the historical default -- see the
+    endpoint/api_key/deployment_name branch below). When a model config sets
+    ``"provider": "openai_compatible"``, build a plain OpenAIChatClient
+    against ``base_url``/``api_key``/``model_id`` instead -- this is what
+    lets AzureLLMClient (despite its name) run against any OpenAI-compatible
+    endpoint, including a local Ollama server, without needing real Azure
+    credentials. (agent_framework also ships an Ollama-specific client
+    package, agent-framework-ollama, but as of 1.0.0b260130 it has a version
+    skew against agent-framework-core==1.0.0b251223 -- it imports a `Content`
+    symbol that core renamed to `Contents` -- so this uses the plain OpenAI
+    client against Ollama's own OpenAI-compatible /v1 endpoint instead.)
+    """
+    if model_config.get("provider") == "openai_compatible":
+        return OpenAIChatClient(
+            base_url=model_config.get("base_url", os.getenv("OPENAI_COMPATIBLE_BASE_URL")),
+            api_key=model_config.get("api_key", os.getenv("OPENAI_COMPATIBLE_API_KEY", "not-needed")),
+            model_id=model_config.get("model_id"),
+        )
+    return AzureOpenAIChatClient(
+        endpoint=model_config.get("endpoint", os.getenv("AZURE_OPENAI_ENDPOINT")),
+        api_key=model_config.get("api_key", os.getenv("AZURE_OPENAI_API_KEY")),
+        deployment_name=model_config.get("deployment_name", os.getenv("AZURE_OPENAI_DEPLOYMENT")),
+        api_version=model_config.get("api_version", "2023-05-15"),
+    )
+
+
 class AzureLLMClient:
-    """A client for interacting with Azure OpenAI services using agent_framework's AzureOpenAIChatClient."""
+    """A client for interacting with Azure OpenAI services using agent_framework's AzureOpenAIChatClient.
+
+    Despite the name (kept for backward compatibility), this also supports
+    any OpenAI-compatible backend (e.g. a local Ollama server) per model via
+    ``_build_chat_client`` -- see that function's docstring.
+    """
 
     # Shared client instance (singleton pattern)
-    _shared_client: Optional[AzureOpenAIChatClient] = None
-    _shared_clients: Dict[str, AzureOpenAIChatClient] = {}
+    _shared_client: Optional[Any] = None
+    _shared_clients: Dict[str, Any] = {}
     _model_types: Dict[str, str] = {}
 
     def __init__(self, config: Optional[dict] = {}):
@@ -52,33 +87,21 @@ class AzureLLMClient:
             ) from e
 
     @classmethod
-    def get_client(cls, config: dict) -> AzureOpenAIChatClient:
-        """Get or create shared AzureOpenAIChatClient instance."""
+    def get_client(cls, config: dict) -> Any:
+        """Get or create shared chat client instance (Azure or OpenAI-compatible, see _build_chat_client)."""
         if cls._shared_client is None:
-            cls._shared_client = AzureOpenAIChatClient(
-                endpoint=config.get("gpt-4o", {}).get(
-                    "endpoint", os.getenv("AZURE_OPENAI_ENDPOINT")
-                ),
-                api_key=config.get("gpt-4o", {}).get(
-                    "api_key", os.getenv("AZURE_OPENAI_API_KEY")
-                ),
-                deployment_name=config.get("gpt-4o", {}).get(
-                    "deployment_name", os.getenv("AZURE_OPENAI_DEPLOYMENT")
-                ),
-                api_version=config.get("gpt-4o", {}).get(
-                    "api_version", "2023-05-15"
-                ),
-            )
+            cls._shared_client = _build_chat_client(config.get("gpt-4o", {}))
         return cls._shared_client
 
     @classmethod
-    def get_clients(cls, config: dict) -> Dict[str, AzureOpenAIChatClient]:
+    def get_clients(cls, config: dict) -> Dict[str, Any]:
         """
-        Get or create shared AzureOpenAIChatClient instances for all models in config.
+        Get or create shared chat client instances for all models in config
+        (Azure or OpenAI-compatible per model -- see _build_chat_client).
         Args:
             config: Configuration dictionary containing model settings
         Returns:
-            Dictionary of model_name -> AzureOpenAIChatClient instances
+            Dictionary of model_name -> chat client instances
         """
         for model_name, model_config in config.items():
             # Skip if client already exists for this model
@@ -86,29 +109,26 @@ class AzureLLMClient:
                 continue
 
             try:
-                # Create a new client for this model
-                client = AzureOpenAIChatClient(
-                    endpoint=model_config.get(
-                        "endpoint", os.getenv("AZURE_OPENAI_ENDPOINT")
-                    ),
-                    api_key=model_config.get(
-                        "api_key", os.getenv("AZURE_OPENAI_API_KEY")
-                    ),
-                    deployment_name=model_config.get(
-                        "deployment_name", os.getenv("AZURE_OPENAI_DEPLOYMENT")
-                    ),
-                    api_version=model_config.get("api_version", "2023-05-15"),
-                )
+                client = _build_chat_client(model_config)
                 cls._shared_clients[model_name] = client
-                logger.info(f"Created Azure OpenAI client for model: {model_name}")
-            except Exception as e:
-                logger.error(
-                    f"Failed to create client for model {model_name}: {str(e)}"
+                logger.info(
+                    f"Created {'OpenAI-compatible' if model_config.get('provider') == 'openai_compatible' else 'Azure OpenAI'} "
+                    f"client for model: {model_name}"
                 )
-                raise custom_errors.LLMError(
-                    f"Error creating client for model {model_name}: {str(e)}",
-                    e,
-                ) from e
+            except Exception as e:
+                # Don't let one misconfigured/unused model entry (e.g. an
+                # embedding_model still pointing at unset Azure env vars)
+                # crash construction for every OTHER correctly-configured
+                # model. The failure resurfaces later, with clear
+                # attribution, only if this specific model_name is actually
+                # requested via call_llm -- _get_or_create_agent already
+                # falls back to get_client()'s default when a model has no
+                # client, so a genuinely unused entry never causes trouble.
+                logger.warning(
+                    f"Skipping client creation for model '{model_name}' "
+                    f"(will fail later if this model is actually requested): {e}"
+                )
+                continue
 
         return cls._shared_clients
 
