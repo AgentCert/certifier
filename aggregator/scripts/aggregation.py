@@ -522,6 +522,7 @@ class ScorecardAssembler:
             "total_failed_runs": total_failed_runs,
             "total_faults_tested": len(all_faults),
             "total_fault_categories": len(category_scorecards),
+            "runs_per_fault": runs_per_fault,
             "fault_category_scorecards": category_scorecards,
         }
 

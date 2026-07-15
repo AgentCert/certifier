@@ -119,16 +119,26 @@ _NARRATIVE_FALLBACKS: Dict[str, Any] = {
         "tokens_used": 0,
     },
     "limitations_enriched": {
+        # Shape must match what report_assembler._section_limitations reads
+        # from each item: severity, category, limitation, label (optional),
+        # frequency (optional) -- NOT the generic severity/headline/detail
+        # shape used elsewhere, or it crashes with KeyError instead of
+        # falling back.
         "items": [
-            {"severity": "note", "headline": "Limitations unavailable", "detail": "LLM narrative call did not return results."}
+            {"severity": "Medium", "category": "—", "label": None,
+             "frequency": "N/A", "limitation": "LLM narrative call did not return results for this run."}
         ],
         "source": "fallback",
         "model": None,
         "tokens_used": 0,
     },
     "recommendations_enriched": {
+        # Shape must match report_assembler._section_recommendations: priority,
+        # category, recommendation, label (optional) -- see limitations_enriched
+        # note above.
         "items": [
-            {"severity": "note", "headline": "Recommendations unavailable", "detail": "LLM narrative call did not return results."}
+            {"priority": "Medium", "category": "—", "label": None,
+             "recommendation": "LLM narrative call did not return results for this run."}
         ],
         "source": "fallback",
         "model": None,

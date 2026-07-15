@@ -193,11 +193,14 @@ def build_ciso_metrics_doc(
         "fault_category": "ciso_fault",
         "quantitative": quantitative,
         "qualitative": qualitative,
-        "agent": {
-            "agent_id": agent_id,
-            "agent_name": agent_name,
-            "agent_version": None,
-        },
+        # Top-level, not nested under "agent" -- aggregator/scripts/aggregation.py's
+        # _extract_agent_id()/_extract_agent_name() only check doc["agent_id"] /
+        # doc["quantitative"]["agent_id"] (matching every other category's per-run
+        # doc shape), so nesting these under "agent" silently dropped agent_id/
+        # agent_name from every CISO doc and broke query_runs_by_agent() filtering.
+        "agent_id": agent_id,
+        "agent_name": agent_name,
+        "agent_version": None,
         "experiment_id": experiment_id,
     }
 

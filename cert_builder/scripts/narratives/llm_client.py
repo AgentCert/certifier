@@ -15,7 +15,7 @@ import os
 import time
 from typing import Type
 
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel
 
 # Azure returns these fragments when a reasoning model rejects legacy params.
@@ -24,12 +24,28 @@ _MAX_TOKENS_UNSUPPORTED = "max_tokens"
 _TEMPERATURE_UNSUPPORTED = "temperature"
 
 
-def get_client() -> AzureOpenAI:
-    """Create and return an Azure OpenAI client from env vars."""
-    return AzureOpenAI(
-        api_key=os.environ["AZURE_OPENAI_API_KEY"],
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+def get_client() -> AzureOpenAI | OpenAI:
+    """Create and return an LLM client from env vars.
+
+    Uses real Azure OpenAI when AZURE_OPENAI_ENDPOINT has been filled in.
+    Otherwise falls back to a local OpenAI-compatible endpoint (Ollama's own
+    /v1 API) -- the same backend Phase 0-2 already use successfully via
+    utils/azure_openai_util.py's "openai_compatible" provider branch (see
+    configs/configs.json's "gpt-4o" entry). Phase 3's narrative builders
+    never got that same treatment, so with an unfilled .env.example
+    placeholder endpoint they failed with a real connection error instead
+    of reaching the local model.
+    """
+    azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    if azure_endpoint and "YOUR_RESOURCE" not in azure_endpoint:
+        return AzureOpenAI(
+            api_key=os.environ["AZURE_OPENAI_API_KEY"],
+            azure_endpoint=azure_endpoint,
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+        )
+    return OpenAI(
+        base_url=os.getenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:11434/v1"),
+        api_key=os.getenv("OPENAI_COMPATIBLE_API_KEY", "ollama"),
     )
 
 
@@ -101,7 +117,13 @@ def call_llm(
     Raises:
         RuntimeError: If all retries are exhausted.
     """
-    deployment = deployment or os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o")
+    if deployment is None:
+        if isinstance(client, AzureOpenAI):
+            deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o")
+        else:
+            # Local OpenAI-compatible client -- use Ollama's real model name,
+            # matching configs/configs.json's "gpt-4o" entry's model_id.
+            deployment = os.getenv("OPENAI_COMPATIBLE_MODEL_ID", "qwen2.5:7b-instruct")
 
     messages = [
         {"role": "system", "content": system_prompt},

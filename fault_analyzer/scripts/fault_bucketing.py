@@ -234,7 +234,7 @@ class FaultBucketingPipeline:
                         if not self.experiment_id:
                             self.experiment_id = d.get("experiment_id") or d.get("experiment.id")
                         if not self.run_id:
-                            self.run_id = d.get("run_id") or d.get("experiment.run_id")
+                            self.run_id = d.get("run_id") or d.get("experiment_run_id")
 
             # Stop early if all fields are populated
             if self._all_agent_metadata_found():
