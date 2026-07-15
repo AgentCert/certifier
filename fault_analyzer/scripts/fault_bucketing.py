@@ -208,6 +208,21 @@ class FaultBucketingPipeline:
                     search_dicts = [parsed]
                     if isinstance(parsed.get("attributes"), dict):
                         search_dicts.append(parsed["attributes"])
+                    # LiteLLM's Langfuse integration logs custom request metadata
+                    # on each GENERATION observation nested three levels deep --
+                    # metadata.requester_metadata.trace_metadata.{agent_id,
+                    # experiment_id, experiment_run_id} -- distinct from the
+                    # top-level Trace object's own (flatter) metadata, which is
+                    # NOT what ends up in this per-event raw_trace.json. Without
+                    # this, agent_id/experiment_id/run_id were never found here,
+                    # and the single-fault fallback silently fell back to
+                    # fault_name="unknown", breaking Phase 2's fault_category
+                    # grouping downstream. Confirmed against a real trace.
+                    requester_md = parsed.get("requester_metadata")
+                    if isinstance(requester_md, dict):
+                        trace_md = requester_md.get("trace_metadata")
+                        if isinstance(trace_md, dict):
+                            search_dicts.append(trace_md)
 
                     for d in search_dicts:
                         if not self.agent_id:
@@ -1196,7 +1211,14 @@ class FaultBucketingPipeline:
                 )
                 single_bucket = FaultBucket(
                     fault_id="single_fault",
-                    fault_name="unknown",
+                    # experiment_id (below) already carries the real fault name for
+                    # non-OTel-instrumented agent traces (e.g. flash-agent, which
+                    # emits only chat-completion spans, never `fault: *` spans) --
+                    # hardcoding "unknown" here discarded that and broke Phase 2's
+                    # fault_category grouping downstream ("Could not determine
+                    # fault_category for doc with fault_name='unknown'"),
+                    # reproduced on a real 5-run aggregation that came back empty.
+                    fault_name=self.experiment_id or "unknown",
                     events=sorted_events,
                     status="closed",
                     detected_at=(
