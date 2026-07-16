@@ -336,9 +336,10 @@ def main():
     )
     parser.add_argument(
         "--evaluator-name",
-        default=None,
-        help="Name of the Langfuse score config (LLM judge) to trigger. "
-             "If omitted, stops after metadata injection.",
+        default="fault-event-classifier-lf",
+        help="Name of the Langfuse score config (LLM judge) to trigger "
+             "(default: fault-event-classifier-lf). Pass an empty string to "
+             "stop after metadata injection without triggering the evaluator.",
     )
     parser.add_argument(
         "--output-dir",
@@ -398,8 +399,9 @@ def main():
                 sys.exit(1)
         else:
             logger.info(
-                "No --evaluator-name given — metadata injected, evaluator not triggered. "
-                "Re-run with --evaluator-name <name> or trigger from the Langfuse UI."
+                "Empty --evaluator-name — metadata injected, evaluator not triggered. "
+                "Re-run without --evaluator-name (defaults to fault-event-classifier-lf) "
+                "or trigger from the Langfuse UI."
             )
 
 
