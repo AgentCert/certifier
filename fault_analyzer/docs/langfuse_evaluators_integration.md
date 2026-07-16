@@ -64,13 +64,52 @@ CLI orchestrator for the full Langfuse evaluator loop. Steps:
 | Inject `known_faults_context` on ALL GENERATION observations | `inject_context_all_generations` | ✅ done |
 | Trigger `fault-event-classifier-lf` on every GENERATION observation | `trigger_evaluator` | ✅ done |
 
+### Trigger mechanism — how it actually works
+
+The Langfuse public API does **not** expose an endpoint to trigger evaluators on demand (no `/api/public/evals/*` in Langfuse 3.x). The evaluation rule fires only at first ingestion of an observation, **not** on `ObservationUpdate` events. Re-ingesting existing observations does not re-queue evaluations in the Langfuse worker.
+
+`trigger_evaluator` therefore replicates the Langfuse evaluator behaviour directly, without going through the Langfuse worker:
+
+1. Fetches the evaluator prompt from `/api/public/unstable/evaluators`
+2. Calls `AzureLLMClient` (same Azure deployment as the main pipeline) for each GENERATION observation that has `known_faults_context` in its metadata, substituting `{{metadata}}`, `{{input}}`, `{{output}}` from the observation fields
+3. Parses the JSON response (`related_faults`, `confidence`, `reasoning`)
+4. Creates one Langfuse score per observation via `client.create_score()` (value=confidence, comment=reasoning)
+
+This is synchronous from the caller's perspective: scores appear in the Langfuse UI as soon as the function returns, without depending on the worker queue.
+
+### Evaluator lookup — `unstable` API
+
+LLM-as-judge evaluators are **not** returned by `/api/public/score-configs` — score configs and evaluator configs are distinct entities in Langfuse. Evaluators are accessible at:
+
+```
+GET /api/public/unstable/evaluators
+```
+
+This endpoint is marked unstable by Langfuse (no backwards-compatibility guarantee) but is the only public API that lists evaluator configs and their prompts. `trigger_evaluator` uses it to fetch the prompt template before running the LLM calls.
+
+---
+
+## Partial exploitation of the Langfuse evaluator
+
+The secondary pipeline does not fully exploit the Langfuse evaluator tool. What is used: the prompt (fetched via `/api/public/unstable/evaluators`) and score storage (`client.create_score()`). What is bypassed:
+
+| Langfuse feature | What the pipeline does instead |
+|---|---|
+| Automatic triggering via evaluation rule + worker | Direct Azure OpenAI call in `trigger_evaluator` |
+| LLM connection managed in the Langfuse UI | Certifier credentials from `.env` |
+| Two-pass LLM post-processing (reasoning + score extraction) | Direct single-pass JSON parsing |
+
+**Root cause:** the Langfuse evaluator is designed for real-time traces. The evaluation rule only fires on first ingestion of an observation, not on `ObservationUpdate` events. For existing traces, no public API exists to replay the worker — the bypass is therefore unavoidable.
+
+**Ideal integration (live traces):** if the agent injected `needs_fault_classification: "true"` directly into observation metadata at creation time, the evaluator would run automatically on every new trace with no manual intervention. `evaluate_existing_trace.py` would then only serve to backfill historical traces that lacked context at ingestion time.
+
 ---
 
 ## What Is Left To Do
 
 ### 1. End-to-end test on a real trace
 
-`evaluate_existing_trace.py` has not yet been validated on a live Langfuse trace. A smoke test should verify:
+`evaluate_existing_trace.py` has not yet been fully validated on a live Langfuse trace. A smoke test should verify:
 - `fault: *` spans are correctly detected and fault metadata is extracted
 - `known_faults_context` appears in the metadata of GENERATION observations in the Langfuse UI
 - `fault-event-classifier-lf` scores appear on the trace with non-empty `related_faults` in the reasoning

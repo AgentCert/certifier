@@ -186,7 +186,7 @@ def inject_context_all_generations(trace_id: str, buckets: dict) -> int:
                 type="GENERATION",
                 metadata={
                     "known_faults_context": known_faults_context,
-                    "needs_fault_classification": True,
+                    "needs_fault_classification": "true",
                 },
             ),
         )
@@ -203,59 +203,158 @@ def inject_context_all_generations(trace_id: str, buckets: dict) -> int:
 # ---------------------------------------------------------------------------
 
 def trigger_evaluator(trace_id: str, evaluator_name: str) -> int:
-    """Trigger a named Langfuse evaluator on all GENERATION observations of the trace.
+    """Run the LLM-as-judge evaluator directly and push scores to Langfuse.
 
-    Finds the score config whose name matches *evaluator_name*, then creates
-    one evaluation log per GENERATION observation so the LLM judge runs on
-    each enriched span.
+    Langfuse v3 provides no public API to trigger evaluators on demand: the
+    evaluation rule only fires at first ingestion, not on ObservationUpdate
+    events. This function replicates the Langfuse evaluator behaviour directly:
+      1. Fetches the evaluator prompt from /api/public/unstable/evaluators
+      2. Calls AzureLLMClient for each GENERATION observation that has
+         known_faults_context in its metadata
+      3. Pushes a score (value=confidence, comment=reasoning) per observation
 
-    Returns the number of evaluation jobs created.
+    Returns the number of observations scored.
     """
+    import asyncio
+    import json as _json
+    import re
+    import httpx
     from langfuse import Langfuse
 
     base_url = os.environ.get("LANGFUSE_HOST", "").strip()
     public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "").strip()
     secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "").strip()
 
-    client = Langfuse(public_key=public_key, secret_key=secret_key, host=base_url, timeout=120)
-
-    # Find the evaluator config by name
-    configs = client.api.score_configs.get()
-    config_id = next(
-        (c.id for c in (configs.data or []) if c.name == evaluator_name),
-        None,
+    # 1. Fetch evaluator prompt from the unstable evaluators API.
+    resp = httpx.get(
+        f"{base_url}/api/public/unstable/evaluators",
+        auth=(public_key, secret_key),
+        timeout=30,
     )
-    if config_id is None:
-        available = [c.name for c in (configs.data or [])]
+    resp.raise_for_status()
+    evaluators = resp.json().get("data", [])
+    evaluator = next((e for e in evaluators if e["name"] == evaluator_name), None)
+    if evaluator is None:
+        available = [e["name"] for e in evaluators]
         raise ValueError(
             f"Evaluator {evaluator_name!r} not found in Langfuse. "
             f"Available: {available}"
         )
+    logger.info(f"Found evaluator: {evaluator_name} (id={evaluator['id']})")
 
-    logger.info(f"Found evaluator config: {evaluator_name} (id={config_id})")
+    # Langfuse stores the prompt as a JSON-encoded string (with wrapping quotes).
+    raw_prompt = evaluator.get("prompt", "")
+    try:
+        prompt_template = _json.loads(raw_prompt)
+    except (_json.JSONDecodeError, TypeError):
+        prompt_template = raw_prompt
 
-    # Fetch GENERATION observations for this trace
+    # 2. Fetch GENERATION observations that have known_faults_context injected.
+    client = Langfuse(public_key=public_key, secret_key=secret_key, host=base_url, timeout=120)
     full = client.api.trace.get(trace_id)
     generations = [
         o for o in (full.observations or [])
-        if (o.type if isinstance(o.type, str) else getattr(o, "type", "")) == "GENERATION"
+        if o.type == "GENERATION"
+        and isinstance(o.metadata, dict)
+        and "known_faults_context" in o.metadata
     ]
 
-    logger.info(f"Triggering evaluator on {len(generations)} GENERATION observations …")
+    if not generations:
+        logger.warning(
+            "No GENERATION observations with known_faults_context found. "
+            "Run step 2b (inject_context_all_generations) first."
+        )
+        return 0
+
+    logger.info(f"Running evaluator on {len(generations)} GENERATION observations ...")
+
+    # 3. Set up LLM client (same Azure deployment as the main pipeline).
+    try:
+        from utils.load_config import ConfigLoader
+        config = ConfigLoader.load_config()
+    except Exception:
+        config = {}
+    from utils.azure_openai_util import AzureLLMClient
+    from fault_analyzer.scripts.classifier import _load_module_config
+    model_name = _load_module_config().get("classifier", {}).get("model_name", "gpt-4o")
+    # Strip models with empty endpoints to avoid AzureLLMClient init failures
+    # (e.g. embedding_model when AZURE_EMBEDDING_ENDPOINT is not set).
+    valid_models = {
+        k: v for k, v in config.get("models", {}).items() if v.get("endpoint")
+    }
+    llm = AzureLLMClient(config={**config, "models": valid_models})
+
+    async def _score_one(obs) -> dict:
+        meta_str = _json.dumps(obs.metadata, ensure_ascii=False)
+        input_str = (
+            obs.input if isinstance(obs.input, str)
+            else _json.dumps(obs.input or "", ensure_ascii=False)
+        )
+        output_str = (
+            obs.output if isinstance(obs.output, str)
+            else _json.dumps(obs.output or "", ensure_ascii=False)
+        )
+        prompt = (
+            prompt_template
+            .replace("{{metadata}}", meta_str)
+            .replace("{{input}}", input_str)
+            .replace("{{output}}", output_str)
+        )
+        response, _ = await llm.call_llm(
+            model_name=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=500,
+        )
+        # call_llm already strips fences and parses JSON; fall back to regex.
+        if isinstance(response, dict) and "related_faults" in response:
+            parsed = response
+        else:
+            raw_text = response.get("response", "") if isinstance(response, dict) else str(response)
+            m = re.search(r"\{.*\}", raw_text, re.DOTALL)
+            parsed = _json.loads(m.group()) if m else {}
+
+        return {
+            "obs_id": obs.id,
+            "confidence": float(parsed.get("confidence", 0.0)),
+            "reasoning": str(parsed.get("reasoning", "")),
+            "related_faults": parsed.get("related_faults", []),
+        }
+
+    async def _run_all():
+        sem = asyncio.Semaphore(5)
+
+        async def _guarded(obs):
+            async with sem:
+                return await _score_one(obs)
+
+        return await asyncio.gather(*[_guarded(o) for o in generations], return_exceptions=True)
+
+    results = asyncio.run(_run_all())
+
+    # 4. Push one score per observation to Langfuse.
     count = 0
-    for obs in generations:
-        obs_id = obs.id if hasattr(obs, "id") else obs.get("id")
+    for obs, result in zip(generations, results):
+        if isinstance(result, Exception):
+            logger.warning(f"  Skipped {obs.id[:24]}: {result}")
+            continue
         try:
-            client.api.evals.create_log(
-                config_id=config_id,
+            client.create_score(
                 trace_id=trace_id,
-                observation_id=obs_id,
+                observation_id=result["obs_id"],
+                name=evaluator_name,
+                value=result["confidence"],
+                comment=result["reasoning"],
             )
             count += 1
+            logger.info(
+                f"  Scored {obs.id[:24]}… faults={result['related_faults']} "
+                f"conf={result['confidence']}"
+            )
         except Exception as exc:
-            logger.warning(f"  Skipped obs {obs_id}: {exc}")
+            logger.warning(f"  Failed to create score for {obs.id}: {exc}")
 
-    logger.info(f"Evaluation jobs created: {count}/{len(generations)}")
+    logger.info(f"Scores pushed: {count}/{len(generations)}")
     return count
 
 
