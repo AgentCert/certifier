@@ -68,20 +68,40 @@ CLI orchestrator for the full Langfuse evaluator loop. Steps:
 
 ## What Is Left To Do
 
-### 1. Score extraction and bucketing reconstruction (binôme)
-
-After `fault-event-classifier-lf` runs, its output is stored as Langfuse scores — one per GENERATION observation, with a numeric confidence value and a reasoning string. The `related_faults` list is embedded in the evaluator's raw JSON output.
-
-Reconstructing the bucketing result — the `event_id → [fault_id, ...]` mapping — requires:
-- Fetching scores from the Langfuse API for the evaluated trace
-- Parsing the evaluator's JSON output to extract `related_faults` and `confidence`
-- Producing the same format as the main pipeline's `batch_classification_trace.json` so both methods can be compared with the existing `evaluator.py` harness
-
-This is out of scope for this method and is handled by the metrics extraction module (binôme).
-
-### 2. End-to-end test on a real trace
+### 1. End-to-end test on a real trace
 
 `evaluate_existing_trace.py` has not yet been validated on a live Langfuse trace. A smoke test should verify:
 - `fault: *` spans are correctly detected and fault metadata is extracted
 - `known_faults_context` appears in the metadata of GENERATION observations in the Langfuse UI
 - `fault-event-classifier-lf` scores appear on the trace with non-empty `related_faults` in the reasoning
+
+### 2. Score extraction and bucketing output (this method's responsibility)
+
+After `fault-event-classifier-lf` runs, its output is stored as Langfuse scores — one per GENERATION observation, with a numeric confidence value and a reasoning string containing `related_faults`.
+
+To make this method's bucketing comparable to the main pipeline's output, a score extractor must be implemented in `evaluate_existing_trace.py` (or a dedicated module) that:
+
+1. Fetches `fault-event-classifier-lf` scores from the Langfuse API for the evaluated trace
+2. Parses each score's reasoning JSON to extract `related_faults` and `confidence`
+3. Writes a `batch_classification_trace.json` file in the same format as the main pipeline's output
+
+The expected format per entry (matching `load_predictions` in `fault_analyzer/tests/evaluation/evaluator.py`):
+```json
+{
+  "event_id": "<observation_id>",
+  "name": "<span name>",
+  "classification": {
+    "related_faults": ["fault_id_1"],
+    "confidence": 0.9
+  },
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "deterministic_assignment": false
+}
+```
+
+Once this file exists, the existing `evaluator.py` harness (`load_predictions` + `evaluate`) can compare the two bucketing methods directly against the same ground truth labels.
+
+### 3. Parallel metrics extraction from Langfuse (binôme)
+
+Once the bucketing output is available, the binôme handles extracting metrics (TTD, TTR, etc.) from the Langfuse scores and aggregating them in parallel with the main pipeline's metrics.
