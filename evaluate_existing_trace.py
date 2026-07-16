@@ -21,7 +21,6 @@ Steps performed:
 """
 
 import argparse
-import asyncio
 import json
 import logging
 import os
@@ -110,24 +109,17 @@ def fetch_trace_to_file(trace_id: str, dest: Path) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Step 2 — Run FaultBucketingPipeline (injects known_faults_context)
+# Step 2 — Extract fault metadata (deterministic, no LLM)
 # ---------------------------------------------------------------------------
 
-async def run_bucketing(trace_file: Path, output_dir: Path) -> dict:
-    from fault_analyzer.scripts.fault_bucketing import FaultBucketingPipeline
+def extract_fault_metadata(trace_file: Path) -> dict:
+    """Scan the trace for ``fault: *`` spans and return minimal FaultBucket
+    objects (metadata only, no event assignment, no LLM call).
 
-    try:
-        from utils.load_config import ConfigLoader
-        config = ConfigLoader.load_config()
-    except Exception:
-        config = {}
-
-    pipeline = FaultBucketingPipeline(
-        trace_file_path=str(trace_file),
-        output_dir=str(output_dir),
-        config=config,
-    )
-    return await pipeline.run()
+    Independent of the main pipeline — works without Azure OpenAI.
+    """
+    from fault_analyzer.scripts.langfuse_bucketing import extract_fault_metadata as _extract
+    return _extract(trace_file)
 
 
 # ---------------------------------------------------------------------------
@@ -375,12 +367,12 @@ def main():
             logger.error(f"Trace acquisition failed: {exc}")
             sys.exit(1)
 
-        # Step 2: bucket (injects known_faults_context on overlap observations)
+        # Step 2: extract fault metadata (deterministic, no LLM)
         try:
-            buckets = asyncio.run(run_bucketing(trace_file, output_dir / "buckets"))
-            logger.info(f"Bucketing complete: {len(buckets)} fault bucket(s)")
+            buckets = extract_fault_metadata(trace_file)
+            logger.info(f"Fault metadata extraction complete: {len(buckets)} bucket(s)")
         except Exception as exc:
-            logger.error(f"Bucketing failed: {exc}", exc_info=True)
+            logger.error(f"Fault metadata extraction failed: {exc}", exc_info=True)
             sys.exit(1)
 
         # Step 2b: inject known_faults_context on ALL remaining GENERATION observations

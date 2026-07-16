@@ -1,189 +1,96 @@
-# Langfuse LLM Evaluators — Fault Labeling Integration
+# Langfuse Evaluator — Integration & Status
 
-## What Langfuse LLM Evaluators Are
+## Overview
 
-Langfuse has a built-in **LLM-as-a-judge** feature. Instead of calling Azure GPT-4o directly in `FaultEventClassifier`, Langfuse runs a configured evaluator prompt against each observation (span) and stores the result as a **score** on that observation. You then read those scores back.
+The Langfuse evaluator method (`fault-event-classifier-lf`) is a **parallel, independent bucketing method** that runs alongside the main pipeline without depending on it. Instead of calling Azure GPT-4o directly in `FaultEventClassifier`, the Langfuse LLM-judge evaluator classifies each GENERATION observation and stores the result as a score on that observation.
 
----
-
-## Is It Possible?
-
-**Yes, but with one structural constraint to design around:**
-
-`FaultEventClassifier` is stateful — it passes a `known_faults` context block (all faults injected so far) into each LLM call. Langfuse evaluators are stateless per-observation — they only see that span's `input`/`output`. To replicate the current flow, inject the fault context via the evaluator's **variable mapping** before triggering it.
+For details on the evaluator configuration (prompt, score type, variable mapping), see [`langfuse-evaluator-config.md`](langfuse-evaluator-config.md).
 
 ---
 
-## Full Flow
-
-### Step 1: Design Your Evaluator Prompt in Langfuse UI
-
-In Langfuse, go to **Evaluations → Configure** and create an LLM evaluator.
-
-The prompt template uses variable placeholders that Langfuse fills from the observation:
+## Architecture — Two Parallel Methods
 
 ```
-You are a fault classifier for Kubernetes chaos engineering experiments.
-
-## Known Faults
-{{known_faults_context}}
-
-## Event to Classify
-Input: {{input}}
-Output: {{output}}
-Span Name: {{name}}
-
-Classify which fault(s) this event belongs to.
-Return JSON: {"related_faults": ["fault_id_1"], "fault_detected": null, "fault_mitigated": null, "confidence": 0.9}
+Raw Langfuse trace
+        │
+        ├── Main pipeline (fault_bucketing.py)
+        │       ├── Pass 1: deterministic fault detection (fault: * spans)
+        │       ├── Pass 2: LLM classifier (FaultEventClassifier / Azure GPT-4o)
+        │       │       └── side effect: inject known_faults_context on overlap observations
+        │       └── Output: per-fault bucket JSON files
+        │
+        └── Langfuse evaluator method (evaluate_existing_trace.py)
+                ├── Fault metadata extraction (deterministic, no LLM)  ← TO IMPLEMENT
+                ├── Inject known_faults_context on ALL GENERATION observations
+                ├── Trigger fault-event-classifier-lf on each observation
+                └── Output: scores on Langfuse trace (binôme extracts them)
 ```
 
-`{{known_faults_context}}` is injected per-observation at evaluation trigger time via the API (Step 5).
-
-Configure the evaluator to return a **categorical score** (the JSON string) plus a **comment** (reasoning).
+The two methods are **decoupled by design**: the Langfuse evaluator method must not use the main pipeline's classification result (that would be information leakage). Each method produces its own bucketing independently.
 
 ---
 
-### Step 2: Fetch the Trace (Same as Now)
+## Current State
 
-Nothing changes. Export the Langfuse trace as a flat JSON array of spans.
+### What is implemented
 
----
+**`fault_analyzer/scripts/fault_bucketing.py` — `_duplicate_to_langfuse_evaluator`**
 
-### Step 3: Pass 1 — Deterministic Bucket Creation (Same as Now)
+Called as a side effect during the main pipeline's LLM classification step (overlap region only — events with >1 fault in flight simultaneously). For each such observation, it injects a `known_faults_context` block into the observation's Langfuse metadata. This gives the Langfuse evaluator the fault context it needs to classify independently.
 
-Identical to current pipeline. Walk `fault: *` spans, create `FaultBucket` objects, extract `injection_metadata`. No LLM needed. This produces the list of known faults with their temporal windows.
+Note: this only covers the overlap region. Observations assigned deterministically (single fault in flight) are not enriched here.
 
----
+**`evaluate_existing_trace.py`**
 
-### Step 4: Inject `known_faults_context` into Each Span's Metadata
+Standalone CLI that orchestrates the full Langfuse evaluator loop on an existing trace:
 
-**This is the key new step** that makes evaluators work with the stateful pipeline.
+| Step | Function | Status |
+|---|---|---|
+| Load trace (local file or fetch from Langfuse) | `load_local_file_to_dest` / `fetch_trace_to_file` | ✅ done |
+| Fault metadata extraction + context injection on overlap observations | `run_bucketing` (full pipeline — temporary) | ⚠️ depends on main pipeline |
+| Inject context on ALL remaining GENERATION observations | `inject_context_all_generations` | ✅ done |
+| Trigger `fault-event-classifier-lf` on every GENERATION observation | `trigger_evaluator` | ✅ done |
 
-For each non-fault span needing classification, determine which faults were in flight at its timestamp using `_temporally_active_faults`, then build the compact fault context block using the same logic as `_compact_fault_context`.
+**`fault_analyzer/docs/langfuse-evaluator-config.md`**
 
-```python
-for event in non_scaffold_events:
-    eligible_faults = _temporally_active_faults(known_faults, event["startTime"])
-    # Pass context to evaluator trigger in Step 5
-    event["_eligible_faults"] = eligible_faults
-```
-
----
-
-### Step 5: Trigger Evaluations via Langfuse API
-
-For each observation to classify, trigger the evaluator with the fault context injected as a variable override:
-
-```python
-import langfuse
-
-client = langfuse.Langfuse()
-
-for event in ambiguous_events:  # only multi-fault-in-flight events
-    client.create_evaluation(
-        trace_id=trace_id,
-        observation_id=event["id"],
-        evaluator_id="your-fault-classifier-evaluator-id",
-        variables={
-            "known_faults_context": build_known_faults_block(event["_eligible_faults"])
-        }
-    )
-```
-
-For N observations this triggers N async evaluator jobs in Langfuse. Each calls the configured LLM and stores results as scores.
+Documents the evaluator prompt, variable mapping, and score configuration.
 
 ---
 
-### Step 6: Poll for Evaluation Completion
+## What Is Left To Implement
 
-Evaluations are async. Poll until all scores appear:
+### `fault_analyzer/scripts/langfuse_bucketing.py` — new file
 
-```python
-import time
+The main missing piece is a **lightweight, LLM-free fault metadata extractor** that replaces `run_bucketing` (currently the full `FaultBucketingPipeline`) in `evaluate_existing_trace.py`.
 
-def wait_for_scores(client, trace_id, observation_ids, evaluator_name, timeout=120):
-    deadline = time.time() + timeout
-    pending = set(observation_ids)
+Currently `evaluate_existing_trace.py` calls `run_bucketing`, which runs the entire main pipeline including the Azure GPT-4o LLM classifier. This creates a dependency on the main pipeline. If the main pipeline fails or is unavailable, `inject_context_all_generations` receives empty buckets and injects a useless empty context — the evaluator then classifies blind.
 
-    while pending and time.time() < deadline:
-        scores = client.get_scores(trace_id=trace_id, name=evaluator_name)
-        for score in scores:
-            pending.discard(score.observation_id)
-        if pending:
-            time.sleep(3)
+The new file should contain a single entry-point function, e.g. `extract_fault_metadata(trace_file, trace_id)`, which:
 
-    return scores
-```
+1. Loads and sorts the trace JSON chronologically
+2. Scans spans for the `fault: *` naming pattern (deterministic — no LLM)
+3. For each matching span, extracts fault metadata: name, timestamps, ground truth, injection metadata, target, SLA, ideal course of action
+4. Builds minimal `FaultBucket` objects (metadata only — no event assignment)
+5. Returns a `dict[fault_id, FaultBucket]` ready to feed `inject_context_all_generations`
 
----
+This replicates only Pass 1 of `FaultBucketingPipeline` (the deterministic part), with no dependency on `FaultEventClassifier`, Azure OpenAI, or any LLM infrastructure.
 
-### Step 7: Read Scores and Reconstruct Classifications
+Once implemented, `evaluate_existing_trace.py` replaces its `run_bucketing` call with `extract_fault_metadata`, making the Langfuse evaluator method fully independent.
 
-Scores come back as:
+### Score extraction (binôme)
 
-```json
-{
-  "observation_id": "evt_abc",
-  "name": "fault-classifier",
-  "value": "1.0",
-  "comment": "{\"related_faults\": [\"fault_1\"], \"fault_detected\": null, \"fault_mitigated\": null, \"confidence\": 0.88}"
-}
-```
+After `fault-event-classifier-lf` runs, its output is stored as scores on the Langfuse trace (one score per GENERATION observation, value = confidence, reasoning = justification sentence). The `related_faults` field is embedded in the LLM's raw JSON output.
 
-Parse the `comment` field back into the existing `EventClassification` Pydantic model:
-
-```python
-import json
-from fault_analyzer.schema import EventClassification
-
-classifications = {}
-for score in scores:
-    raw = json.loads(score.comment)
-    classifications[score.observation_id] = EventClassification(
-        event_id=score.observation_id,
-        **raw
-    )
-```
+Reconstructing the bucketing result — the `event_id → [fault_id, ...]` mapping — requires fetching these scores from the Langfuse API and parsing the evaluator's JSON output. This is out of scope for this method and is handled by the metrics extraction module (binôme).
 
 ---
 
-### Step 8: Pass 2 — Bucket Assignment (Same as Now)
+## File Map
 
-The same `EventClassification` objects the current pipeline produces are now available. Feed them into `_place_event_in_buckets`, `_record_fault_detection`, `_close_fault` — **zero changes needed** in the rest of the pipeline.
-
----
-
-## What Changes vs. What Stays the Same
-
-| Current | With Langfuse Evaluators |
+| File | Role |
 |---|---|
-| `FaultEventClassifier.classify_batch()` calls Azure GPT-4o directly | Langfuse calls GPT-4o on your behalf, stores score |
-| Prompt lives in `prompt/v1/prompt.yml` | Prompt lives in Langfuse UI (version-controlled there) |
-| Batch size = N events per call | 1 evaluation per observation (no batching) |
-| Synchronous (`await` in pipeline) | Async — must poll for results |
-| Token tracking via `total_input_tokens` | Token tracking via Langfuse's built-in cost tracking |
-| `fallback_classify` on error | Langfuse retries; fallback still needed for timeouts |
-
----
-
-## Key Limitation: No Native Batching
-
-Langfuse evaluators fire one LLM call per observation. For a trace with 200 spans, that is 200 LLM calls vs. the current batched approach — more expensive and slower.
-
-**Mitigation**: Keep the existing deterministic skip logic and only trigger evaluators for ambiguous multi-fault events (same condition that currently routes to `classify_batch`). This keeps the evaluator call count small, matching the current behavior.
-
----
-
-## Summary
-
-```
-Fetch trace
-    → Deterministic bucket creation from fault: * spans (unchanged)
-    → For each ambiguous span: inject fault context → trigger Langfuse evaluator
-    → Poll until all scores arrive
-    → Parse scores back to EventClassification
-    → Existing _place_event_in_buckets / _record_fault_detection / _close_fault (unchanged)
-    → Write output files (unchanged)
-```
-
-Prompt management and LLM cost visibility move into Langfuse. `FaultBucketingPipeline` orchestration logic stays intact. The main tradeoff is losing batching in exchange for centralized prompt versioning and cost tracking inside Langfuse.
+| `fault_analyzer/scripts/fault_bucketing.py` | Main pipeline — `_duplicate_to_langfuse_evaluator` injects context on overlap observations as a side effect |
+| `fault_analyzer/scripts/langfuse_bucketing.py` | **To implement** — lightweight fault metadata extractor (no LLM) |
+| `evaluate_existing_trace.py` | CLI orchestrating the full Langfuse evaluator loop |
+| `fault_analyzer/docs/langfuse-evaluator-config.md` | Evaluator prompt + score configuration reference |
+| `fault_analyzer/docs/langfuse_evaluators_integration.md` | This file |
