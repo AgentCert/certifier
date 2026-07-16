@@ -31,8 +31,6 @@ from typing import Any, Dict, List, Optional
 
 from utils.custom_errors import MyCustomError, FaultBucketingError
 
-from langfuse.api import ObservationBody, IngestionEvent_ObservationUpdate
-
 from fault_analyzer.scripts.classifier import FaultEventClassifier
 from fault_analyzer.schema.data_models import (
     EventClassification,
@@ -848,66 +846,6 @@ class FaultBucketingPipeline:
             )
 
     # ------------------------------------------------------------------
-    # Langfuse evaluator duplication (parallel comparison — no impact
-    # on classify_batch / _place_event_in_buckets / le pipeline principal)
-    # ------------------------------------------------------------------
-
-    def _duplicate_to_langfuse_evaluator(
-        self,
-        llm_batch: List[Dict[str, Any]],
-        eligible_by_event: Dict[str, List[str]],
-        all_known: Dict[str, FaultBucket],
-    ) -> None:
-        """Inject fault context onto ambiguous observations in Langfuse.
-
-        For each event in the overlap region (>1 fault in flight), enriches
-        the Langfuse observation's metadata with the known_faults_context so
-        that the Langfuse LLM-judge evaluator (fault-event-classifier-lf) has
-        the necessary context to classify independently.
-
-        No pipeline classification result is written here — the evaluator must
-        judge solely from the fault metadata, not from the main pipeline's output.
-        """
-        from langfuse import get_client
-        import uuid
-
-        lf_client = get_client()
-        ingestion_events = []
-
-        for evt in llm_batch:
-            eid = evt.get("id", "")
-            eligible_ids_for_this_event = eligible_by_event.get(eid, [])
-            eligible_known_for_event = {
-                fid: all_known[fid]
-                for fid in eligible_ids_for_this_event
-                if fid in all_known
-            }
-
-            known_faults_context = self._classifier.build_known_faults_block(
-                eligible_known_for_event
-            )
-
-            ingestion_events.append(
-                IngestionEvent_ObservationUpdate(
-                    id=str(uuid.uuid4()),
-                    timestamp=datetime.now(timezone.utc).isoformat(),
-                    body=ObservationBody(
-                        id=eid,
-                        type="GENERATION",
-                        metadata={
-                            "known_faults_context": known_faults_context,
-                            "needs_fault_classification": True,
-                        },
-                    ),
-                )
-            )
-
-        if ingestion_events:
-            ids_sent = [evt.get("id", "") for evt in llm_batch]
-            logger.info(f"Langfuse context injection: {len(ingestion_events)} observations enriched, ids = {ids_sent}")
-            lf_client.api.ingestion.batch(batch=ingestion_events)
-
-    # ------------------------------------------------------------------
     # Main orchestration
     # ------------------------------------------------------------------
 
@@ -1160,17 +1098,6 @@ class FaultBucketingPipeline:
                         llm_classifications = []
                     batch_in = self._classifier.total_input_tokens - tokens_in_before
                     batch_out = self._classifier.total_output_tokens - tokens_out_before
-
-                    # --- Parallel context injection for the Langfuse evaluator ---
-                    try:
-                        self._duplicate_to_langfuse_evaluator(
-                            llm_batch, eligible_by_event, all_known
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            f"Langfuse duplication failed for batch {batch_idx}: {exc}. "
-                            f"Main pipeline unaffected."
-                        )
 
                     # Divide batch tokens evenly among events
                     num_events = len(llm_batch)
