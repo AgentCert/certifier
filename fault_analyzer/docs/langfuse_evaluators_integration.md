@@ -63,6 +63,7 @@ CLI orchestrator for the full Langfuse evaluator loop. Steps:
 | Extract fault metadata (deterministic, no LLM) | `extract_fault_metadata` from `langfuse_bucketing.py` | ✅ done |
 | Inject `known_faults_context` on ALL GENERATION observations | `inject_context_all_generations` | ✅ done |
 | Trigger `fault-event-classifier-lf` on every GENERATION observation | `trigger_evaluator` | ✅ done |
+| Write `batch_classification_trace.json` (local file) | `trigger_evaluator` (via `output_dir` param) | ✅ done |
 
 ### Trigger mechanism — how it actually works
 
@@ -74,8 +75,30 @@ The Langfuse public API does **not** expose an endpoint to trigger evaluators on
 2. Calls `AzureLLMClient` (same Azure deployment as the main pipeline) for each GENERATION observation that has `known_faults_context` in its metadata, substituting `{{metadata}}`, `{{input}}`, `{{output}}` from the observation fields
 3. Parses the JSON response (`related_faults`, `confidence`, `reasoning`)
 4. Creates one Langfuse score per observation via `client.create_score()` (value=confidence, comment=reasoning)
+5. If `output_dir` is provided, writes a `batch_classification_trace.json` file (one entry per scored observation) in the same format as the main pipeline's debug output — consumable directly by `load_predictions()` in `evaluator.py`
 
-This is synchronous from the caller's perspective: scores appear in the Langfuse UI as soon as the function returns, without depending on the worker queue.
+This is synchronous from the caller's perspective: scores appear in the Langfuse UI and the local file is written as soon as the function returns, without depending on the worker queue.
+
+### Local output — `batch_classification_trace.json`
+
+`trigger_evaluator` writes one JSON entry per successfully scored observation:
+
+```json
+{
+  "event_id": "<observation_id>",
+  "name": "<span name>",
+  "classification": {
+    "related_faults": ["fault_id_1"],
+    "confidence": 0.9
+  },
+  "tokens_in": 120,
+  "tokens_out": 45,
+  "source": "llm",
+  "deterministic_assignment": false
+}
+```
+
+Token counts (`tokens_in` / `tokens_out`) are extracted from the `usage` dict returned by `AzureLLMClient.call_llm`. The file is written to `output_dir` passed to `trigger_evaluator`; when `--output-dir` is not provided on the CLI the file lands in a temporary directory and is deleted at process exit.
 
 ### Evaluator lookup — `unstable` API
 
@@ -113,34 +136,8 @@ The secondary pipeline does not fully exploit the Langfuse evaluator tool. What 
 - `fault: *` spans are correctly detected and fault metadata is extracted
 - `known_faults_context` appears in the metadata of GENERATION observations in the Langfuse UI
 - `fault-event-classifier-lf` scores appear on the trace with non-empty `related_faults` in the reasoning
+- `batch_classification_trace.json` is written to `--output-dir` with correct `related_faults` per entry
 
-### 2. Score extraction and bucketing output (this method's responsibility)
+### 2. Parallel metrics extraction from Langfuse (binôme)
 
-After `fault-event-classifier-lf` runs, its output is stored as Langfuse scores — one per GENERATION observation, with a numeric confidence value and a reasoning string containing `related_faults`.
-
-To make this method's bucketing comparable to the main pipeline's output, a score extractor must be implemented in `evaluate_existing_trace.py` (or a dedicated module) that:
-
-1. Fetches `fault-event-classifier-lf` scores from the Langfuse API for the evaluated trace
-2. Parses each score's reasoning JSON to extract `related_faults` and `confidence`
-3. Writes a `batch_classification_trace.json` file in the same format as the main pipeline's output
-
-The expected format per entry (matching `load_predictions` in `fault_analyzer/tests/evaluation/evaluator.py`):
-```json
-{
-  "event_id": "<observation_id>",
-  "name": "<span name>",
-  "classification": {
-    "related_faults": ["fault_id_1"],
-    "confidence": 0.9
-  },
-  "tokens_in": 0,
-  "tokens_out": 0,
-  "deterministic_assignment": false
-}
-```
-
-Once this file exists, the existing `evaluator.py` harness (`load_predictions` + `evaluate`) can compare the two bucketing methods directly against the same ground truth labels.
-
-### 3. Parallel metrics extraction from Langfuse (binôme)
-
-Once the bucketing output is available, the binôme handles extracting metrics (TTD, TTR, etc.) from the Langfuse scores and aggregating them in parallel with the main pipeline's metrics.
+Once the bucketing output (`batch_classification_trace.json`) is available, the binôme handles extracting metrics (TTD, TTR, etc.) from the Langfuse scores and aggregating them in parallel with the main pipeline's metrics.

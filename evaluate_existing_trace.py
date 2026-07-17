@@ -27,6 +27,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("evaluate_existing_trace")
@@ -202,7 +203,7 @@ def inject_context_all_generations(trace_id: str, buckets: dict) -> int:
 # Step 3 — Trigger the Langfuse LLM-judge evaluator on enriched observations
 # ---------------------------------------------------------------------------
 
-def trigger_evaluator(trace_id: str, evaluator_name: str) -> int:
+def trigger_evaluator(trace_id: str, evaluator_name: str, output_dir: Optional[Path] = None) -> int:
     """Run the LLM-as-judge evaluator directly and push scores to Langfuse.
 
     Langfuse v3 provides no public API to trigger evaluators on demand: the
@@ -300,7 +301,7 @@ def trigger_evaluator(trace_id: str, evaluator_name: str) -> int:
             .replace("{{input}}", input_str)
             .replace("{{output}}", output_str)
         )
-        response, _ = await llm.call_llm(
+        response, usage = await llm.call_llm(
             model_name=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
@@ -316,9 +317,12 @@ def trigger_evaluator(trace_id: str, evaluator_name: str) -> int:
 
         return {
             "obs_id": obs.id,
+            "obs_name": getattr(obs, "name", "") or "",
             "confidence": float(parsed.get("confidence", 0.0)),
             "reasoning": str(parsed.get("reasoning", "")),
             "related_faults": parsed.get("related_faults", []),
+            "tokens_in": int((usage or {}).get("input_tokens", 0)),
+            "tokens_out": int((usage or {}).get("output_tokens", 0)),
         }
 
     async def _run_all():
@@ -332,8 +336,9 @@ def trigger_evaluator(trace_id: str, evaluator_name: str) -> int:
 
     results = asyncio.run(_run_all())
 
-    # 4. Push one score per observation to Langfuse.
+    # 4. Push one score per observation to Langfuse; collect trace entries.
     count = 0
+    trace_entries = []
     for obs, result in zip(generations, results):
         if isinstance(result, Exception):
             logger.warning(f"  Skipped {obs.id[:24]}: {result}")
@@ -351,10 +356,30 @@ def trigger_evaluator(trace_id: str, evaluator_name: str) -> int:
                 f"  Scored {obs.id[:24]}… faults={result['related_faults']} "
                 f"conf={result['confidence']}"
             )
+            trace_entries.append({
+                "event_id": result["obs_id"],
+                "name": result["obs_name"],
+                "classification": {
+                    "related_faults": result["related_faults"],
+                    "confidence": result["confidence"],
+                },
+                "tokens_in": result["tokens_in"],
+                "tokens_out": result["tokens_out"],
+                "source": "llm",
+                "deterministic_assignment": False,
+            })
         except Exception as exc:
             logger.warning(f"  Failed to create score for {obs.id}: {exc}")
 
     logger.info(f"Scores pushed: {count}/{len(generations)}")
+
+    if output_dir is not None and trace_entries:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        trace_path = output_dir / "batch_classification_trace.json"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            _json.dump(trace_entries, f, indent=2, ensure_ascii=False)
+        logger.info(f"Wrote classification trace: {trace_path} ({len(trace_entries)} entries)")
+
     return count
 
 
@@ -484,7 +509,7 @@ def main():
         # Step 3: trigger evaluator (optional)
         if args.evaluator_name:
             try:
-                trigger_evaluator(trace_id, args.evaluator_name)
+                trigger_evaluator(trace_id, args.evaluator_name, output_dir=output_dir)
             except Exception as exc:
                 logger.error(f"Evaluator trigger failed: {exc}", exc_info=True)
                 sys.exit(1)
