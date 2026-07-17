@@ -203,16 +203,28 @@ def inject_context_all_generations(trace_id: str, buckets: dict) -> int:
 # Step 3 — Trigger the Langfuse LLM-judge evaluator on enriched observations
 # ---------------------------------------------------------------------------
 
-def trigger_evaluator(trace_id: str, evaluator_name: str, output_dir: Optional[Path] = None) -> int:
+def trigger_evaluator(
+    trace_id: str,
+    evaluator_name: str,
+    output_dir: Optional[Path] = None,
+    buckets: Optional[dict] = None,
+) -> int:
     """Run the LLM-as-judge evaluator directly and push scores to Langfuse.
 
     Langfuse v3 provides no public API to trigger evaluators on demand: the
     evaluation rule only fires at first ingestion, not on ObservationUpdate
     events. This function replicates the Langfuse evaluator behaviour directly:
       1. Fetches the evaluator prompt from /api/public/unstable/evaluators
-      2. Calls AzureLLMClient for each GENERATION observation that has
-         known_faults_context in its metadata
+      2. Calls AzureLLMClient for each GENERATION observation, building the
+         known_faults_context from buckets (when provided) to avoid a race
+         condition with Langfuse's async ingestion processing
       3. Pushes a score (value=confidence, comment=reasoning) per observation
+
+    buckets: FaultBucket dict from extract_fault_metadata. When provided, the
+    known_faults_context is built locally (no dependency on Langfuse having
+    processed the ObservationUpdate batch from inject_context_all_generations).
+    When None, falls back to reading known_faults_context from observation
+    metadata (requires the ingestion batch to have been processed).
 
     Returns the number of observations scored.
     """
@@ -250,24 +262,7 @@ def trigger_evaluator(trace_id: str, evaluator_name: str, output_dir: Optional[P
     except (_json.JSONDecodeError, TypeError):
         prompt_template = raw_prompt
 
-    # 2. Fetch GENERATION observations that have known_faults_context injected.
     client = Langfuse(public_key=public_key, secret_key=secret_key, host=base_url, timeout=120)
-    full = client.api.trace.get(trace_id)
-    generations = [
-        o for o in (full.observations or [])
-        if o.type == "GENERATION"
-        and isinstance(o.metadata, dict)
-        and "known_faults_context" in o.metadata
-    ]
-
-    if not generations:
-        logger.warning(
-            "No GENERATION observations with known_faults_context found. "
-            "Run step 2b (inject_context_all_generations) first."
-        )
-        return 0
-
-    logger.info(f"Running evaluator on {len(generations)} GENERATION observations ...")
 
     # 3. Set up LLM client (same Azure deployment as the main pipeline).
     try:
@@ -276,7 +271,7 @@ def trigger_evaluator(trace_id: str, evaluator_name: str, output_dir: Optional[P
     except Exception:
         config = {}
     from utils.azure_openai_util import AzureLLMClient
-    from fault_analyzer.scripts.classifier import _load_module_config
+    from fault_analyzer.scripts.classifier import _load_module_config, FaultEventClassifier
     model_name = _load_module_config().get("classifier", {}).get("model_name", "gpt-4o")
     # Strip models with empty endpoints to avoid AzureLLMClient init failures
     # (e.g. embedding_model when AZURE_EMBEDDING_ENDPOINT is not set).
@@ -285,8 +280,42 @@ def trigger_evaluator(trace_id: str, evaluator_name: str, output_dir: Optional[P
     }
     llm = AzureLLMClient(config={**config, "models": valid_models})
 
+    # Build known_faults_context locally when buckets are provided, to avoid
+    # depending on Langfuse having processed the async ObservationUpdate batch.
+    local_meta_str: Optional[str] = None
+    if buckets is not None:
+        classifier = FaultEventClassifier(config=config)
+        known_faults_context = classifier.build_known_faults_block(buckets)
+        local_meta_str = _json.dumps(
+            {"known_faults_context": known_faults_context}, ensure_ascii=False
+        )
+
+    # 2. Fetch GENERATION observations.
+    # When local context is available, evaluate all GENERATION observations.
+    # Otherwise, fall back to only those that already have known_faults_context
+    # in their Langfuse metadata (requires the ingestion batch to be processed).
+    full = client.api.trace.get(trace_id)
+    if local_meta_str is not None:
+        generations = [o for o in (full.observations or []) if o.type == "GENERATION"]
+    else:
+        generations = [
+            o for o in (full.observations or [])
+            if o.type == "GENERATION"
+            and isinstance(o.metadata, dict)
+            and "known_faults_context" in o.metadata
+        ]
+
+    if not generations:
+        logger.warning(
+            "No GENERATION observations found. "
+            "Run step 2b (inject_context_all_generations) first."
+        )
+        return 0
+
+    logger.info(f"Running evaluator on {len(generations)} GENERATION observations ...")
+
     async def _score_one(obs) -> dict:
-        meta_str = _json.dumps(obs.metadata, ensure_ascii=False)
+        meta_str = local_meta_str if local_meta_str is not None else _json.dumps(obs.metadata, ensure_ascii=False)
         input_str = (
             obs.input if isinstance(obs.input, str)
             else _json.dumps(obs.input or "", ensure_ascii=False)
@@ -509,7 +538,7 @@ def main():
         # Step 3: trigger evaluator (optional)
         if args.evaluator_name:
             try:
-                trigger_evaluator(trace_id, args.evaluator_name, output_dir=output_dir)
+                trigger_evaluator(trace_id, args.evaluator_name, output_dir=output_dir, buckets=buckets)
             except Exception as exc:
                 logger.error(f"Evaluator trigger failed: {exc}", exc_info=True)
                 sys.exit(1)

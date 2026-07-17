@@ -20,9 +20,9 @@ Raw Langfuse trace
         │
         └── Langfuse evaluator method (evaluate_existing_trace.py)
                 ├── Fault metadata extraction (langfuse_bucketing.py — deterministic, no LLM)
-                ├── Inject known_faults_context on ALL GENERATION observations
-                ├── Trigger fault-event-classifier-lf on each observation
-                └── Output: scores on Langfuse trace (binôme extracts them)
+                ├── Inject known_faults_context on GENERATION observations [UI only]
+                ├── Trigger fault-event-classifier-lf on each observation (context built locally)
+                └── Output: scores on Langfuse trace [UI] + batch_classification_trace.json [local]
 ```
 
 The two methods are **completely decoupled**: `fault_bucketing.py` has no Langfuse SDK dependency and is unaware of the secondary method. Each method produces its own bucketing independently.
@@ -72,12 +72,24 @@ The Langfuse public API does **not** expose an endpoint to trigger evaluators on
 `trigger_evaluator` therefore replicates the Langfuse evaluator behaviour directly, without going through the Langfuse worker:
 
 1. Fetches the evaluator prompt from `/api/public/unstable/evaluators`
-2. Calls `AzureLLMClient` (same Azure deployment as the main pipeline) for each GENERATION observation that has `known_faults_context` in its metadata, substituting `{{metadata}}`, `{{input}}`, `{{output}}` from the observation fields
-3. Parses the JSON response (`related_faults`, `confidence`, `reasoning`)
-4. Creates one Langfuse score per observation via `client.create_score()` (value=confidence, comment=reasoning)
-5. If `output_dir` is provided, writes a `batch_classification_trace.json` file (one entry per scored observation) in the same format as the main pipeline's debug output — consumable directly by `load_predictions()` in `evaluator.py`
+2. Fetches all GENERATION observations from Langfuse (for their `input` / `output` content)
+3. Builds `known_faults_context` locally from the `buckets` dict passed by the caller — **no dependency on `inject_context_all_generations` having been processed by Langfuse first**
+4. Calls `AzureLLMClient` for each GENERATION observation (max 5 concurrent via `asyncio.Semaphore`), substituting `{{metadata}}`, `{{input}}`, `{{output}}` in the prompt template
+5. Parses the JSON response (`related_faults`, `confidence`, `reasoning`)
+6. Creates one Langfuse score per observation via `client.create_score()` (value=confidence, comment=reasoning) — **UI visibility only**
+7. If `output_dir` is provided, writes `batch_classification_trace.json` — the functional output consumed by `load_predictions()` in `evaluator.py`
 
-This is synchronous from the caller's perspective: scores appear in the Langfuse UI and the local file is written as soon as the function returns, without depending on the worker queue.
+This is synchronous from the caller's perspective: scores appear in the Langfuse UI and the local file is written as soon as the function returns.
+
+### Role of Langfuse in the pipeline
+
+| Action | Direction | Purpose |
+|---|---|---|
+| `fetch_trace_to_file` / `client.api.trace.get` | Read | **Functional** — source of observation `input` / `output` data |
+| `inject_context_all_generations` | Write | **UI only** — injects `known_faults_context` on observations for visual inspection; not read back by `trigger_evaluator` |
+| `client.create_score` | Write | **UI only** — scores visible in the Langfuse trace view; functional output is the local file |
+
+`inject_context_all_generations` is therefore not on the critical path: removing it from `main()` would not affect the bucketing output. It is kept for observability in the Langfuse UI.
 
 ### Local output — `batch_classification_trace.json`
 
@@ -130,13 +142,13 @@ The secondary pipeline does not fully exploit the Langfuse evaluator tool. What 
 
 ## What Is Left To Do
 
-### 1. End-to-end test on a real trace
+### 1. ~~End-to-end test on a real trace~~ — ✅ done
 
-`evaluate_existing_trace.py` has not yet been fully validated on a live Langfuse trace. A smoke test should verify:
-- `fault: *` spans are correctly detected and fault metadata is extracted
-- `known_faults_context` appears in the metadata of GENERATION observations in the Langfuse UI
-- `fault-event-classifier-lf` scores appear on the trace with non-empty `related_faults` in the reasoning
-- `batch_classification_trace.json` is written to `--output-dir` with correct `related_faults` per entry
+Validated on experiment `a13d1e25-a26a-4808-9c4d-a6d66e46bb16` / run `76858965-6aea-401d-a4dc-5034c792da33` (trace `0dbce99a-d0a2-406c-8896-ea111c157f88`, 73 observations):
+- 3 fault buckets detected: `pod-cpu-hog`, `pod-network-loss`, `pod-memory-hog`
+- `known_faults_context` injected on 54 GENERATION observations in the Langfuse UI
+- 50/54 observations scored (4 skipped on rate limit); scores visible in Langfuse UI
+- `batch_classification_trace.json` written with 50 entries and correct `related_faults`
 
 ### 2. Parallel metrics extraction from Langfuse (binôme)
 
