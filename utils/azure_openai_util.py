@@ -7,6 +7,9 @@ import random
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, List, Optional, Type, Union
 
+import urllib.error
+import urllib.request
+
 import openai
 from agent_framework import ChatAgent, ChatMessage
 from agent_framework.azure import AzureOpenAIChatClient
@@ -15,21 +18,57 @@ from utils import custom_errors
 from utils.load_config import ConfigLoader
 from utils.setup_logging import logger
 
+_AZURE_PLACEHOLDER = "YOUR_RESOURCE"
+
+
+def _azure_creds_available() -> bool:
+    """True when AZURE_OPENAI_ENDPOINT looks like a real, filled-in endpoint."""
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+    return bool(endpoint) and _AZURE_PLACEHOLDER not in endpoint
+
+
+def _local_endpoint_reachable(base_url: str, timeout: float = 2.0) -> bool:
+    """True when *base_url* answers on the network within *timeout* seconds.
+
+    Any HTTP response (even 4xx/5xx) counts as reachable — it proves the
+    server is running. Only network-level failures (connection refused,
+    DNS error, timeout) return False.
+    """
+    try:
+        urllib.request.urlopen(base_url.rstrip("/"), timeout=timeout)
+        return True
+    except urllib.error.HTTPError:
+        return True  # server responded with an HTTP error code — it is up
+    except Exception:
+        return False
+
 
 def _build_chat_client(model_config: dict):
     """Build the right agent_framework chat client for a model config entry.
 
-    Most deployments use Azure OpenAI (the historical default -- see the
-    endpoint/api_key/deployment_name branch below). When a model config sets
-    ``"provider": "openai_compatible"``, build a plain OpenAIChatClient
-    against ``base_url``/``api_key``/``model_id`` instead -- this is what
-    lets AzureLLMClient (despite its name) run against any OpenAI-compatible
-    endpoint, including a local Ollama server, without needing real Azure
-    credentials. (agent_framework also ships an Ollama-specific client
-    package, agent-framework-ollama, but as of 1.0.0b260130 it has a version
-    skew against agent-framework-core==1.0.0b251223 -- it imports a `Content`
-    symbol that core renamed to `Contents` -- so this uses the plain OpenAI
-    client against Ollama's own OpenAI-compatible /v1 endpoint instead.)
+    Priority order:
+
+    1. ``"provider": "openai_compatible"`` in the config entry — explicit
+       opt-in, always routes to the local endpoint, no credential check.
+       Use this to pin a specific model to Ollama regardless of whether
+       Azure creds are present.
+
+    2. Azure credentials available (AZURE_OPENAI_ENDPOINT set and not the
+       ``YOUR_RESOURCE`` placeholder) — uses AzureOpenAIChatClient, the
+       historical default.
+
+    3. No Azure credentials — auto-falls back to a local OpenAI-compatible
+       endpoint (default ``http://127.0.0.1:11434/v1``, override via
+       ``OPENAI_COMPATIBLE_BASE_URL``). The model is read from the config
+       entry's ``model_id`` field, then ``OPENAI_COMPATIBLE_MODEL_ID``.
+       Raises ``RuntimeError`` if the local endpoint is also unreachable,
+       so callers get a clear diagnosis rather than a cryptic connection
+       error later.
+
+    (agent_framework ships an Ollama-specific package, agent-framework-ollama,
+    but as of 1.0.0b260130 it has a version skew against
+    agent-framework-core==1.0.0b251223 that breaks import. The plain
+    OpenAIChatClient against Ollama's /v1 endpoint works fine instead.)
     """
     if model_config.get("provider") == "openai_compatible":
         return OpenAIChatClient(
@@ -37,11 +76,39 @@ def _build_chat_client(model_config: dict):
             api_key=model_config.get("api_key", os.getenv("OPENAI_COMPATIBLE_API_KEY", "not-needed")),
             model_id=model_config.get("model_id"),
         )
-    return AzureOpenAIChatClient(
-        endpoint=model_config.get("endpoint", os.getenv("AZURE_OPENAI_ENDPOINT")),
-        api_key=model_config.get("api_key", os.getenv("AZURE_OPENAI_API_KEY")),
-        deployment_name=model_config.get("deployment_name", os.getenv("AZURE_OPENAI_DEPLOYMENT")),
-        api_version=model_config.get("api_version", "2023-05-15"),
+
+    if _azure_creds_available():
+        return AzureOpenAIChatClient(
+            endpoint=model_config.get("endpoint", os.getenv("AZURE_OPENAI_ENDPOINT")),
+            api_key=model_config.get("api_key", os.getenv("AZURE_OPENAI_API_KEY")),
+            deployment_name=model_config.get("deployment_name", os.getenv("AZURE_OPENAI_DEPLOYMENT")),
+            api_version=model_config.get("api_version", "2023-05-15"),
+        )
+
+    local_base_url = os.getenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:11434/v1")
+    model_id = model_config.get("model_id") or os.getenv("OPENAI_COMPATIBLE_MODEL_ID")
+
+    if not _local_endpoint_reachable(local_base_url):
+        raise RuntimeError(
+            f"AZURE_OPENAI_ENDPOINT is not configured (or still contains the "
+            f"'{_AZURE_PLACEHOLDER}' placeholder) and the local fallback endpoint "
+            f"is not reachable at {local_base_url}. "
+            f"Either set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or ensure "
+            f"Ollama is running at that address "
+            f"(override the address via OPENAI_COMPATIBLE_BASE_URL)."
+        )
+
+    logger.warning(
+        "AZURE_OPENAI_ENDPOINT is not configured — falling back to local "
+        "OpenAI-compatible endpoint at %s (model: %s). "
+        "Set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY to use Azure OpenAI instead.",
+        local_base_url,
+        model_id or "(none — set OPENAI_COMPATIBLE_MODEL_ID)",
+    )
+    return OpenAIChatClient(
+        base_url=local_base_url,
+        api_key=os.getenv("OPENAI_COMPATIBLE_API_KEY", "not-needed"),
+        model_id=model_id,
     )
 
 

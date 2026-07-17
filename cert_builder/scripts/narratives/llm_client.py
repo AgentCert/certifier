@@ -13,6 +13,9 @@ import copy
 import json
 import os
 import time
+import urllib.error
+import urllib.request
+import warnings
 from typing import Type
 
 from openai import AzureOpenAI, OpenAI
@@ -23,28 +26,71 @@ _UNSUPPORTED_PARAM_CODE = "unsupported_parameter"
 _MAX_TOKENS_UNSUPPORTED = "max_tokens"
 _TEMPERATURE_UNSUPPORTED = "temperature"
 
+_AZURE_PLACEHOLDER = "YOUR_RESOURCE"
+
+
+def _local_endpoint_reachable(base_url: str, timeout: float = 2.0) -> bool:
+    """True when *base_url* answers on the network within *timeout* seconds.
+
+    Any HTTP response (even 4xx/5xx) counts as reachable — it proves the
+    server is running. Only network-level failures (connection refused,
+    DNS error, timeout) return False.
+    """
+    try:
+        urllib.request.urlopen(base_url.rstrip("/"), timeout=timeout)
+        return True
+    except urllib.error.HTTPError:
+        return True  # server responded with an HTTP error code — it is up
+    except Exception:
+        return False
+
 
 def get_client() -> AzureOpenAI | OpenAI:
     """Create and return an LLM client from env vars.
 
-    Uses real Azure OpenAI when AZURE_OPENAI_ENDPOINT has been filled in.
-    Otherwise falls back to a local OpenAI-compatible endpoint (Ollama's own
-    /v1 API) -- the same backend Phase 0-2 already use successfully via
-    utils/azure_openai_util.py's "openai_compatible" provider branch (see
-    configs/configs.json's "gpt-4o" entry). Phase 3's narrative builders
-    never got that same treatment, so with an unfilled .env.example
-    placeholder endpoint they failed with a real connection error instead
-    of reaching the local model.
+    Priority order:
+
+    1. Azure credentials present (AZURE_OPENAI_ENDPOINT set and not the
+       ``YOUR_RESOURCE`` placeholder) — returns AzureOpenAI.
+
+    2. No Azure credentials — auto-falls back to a local OpenAI-compatible
+       endpoint (default ``http://127.0.0.1:11434/v1``, override via
+       ``OPENAI_COMPATIBLE_BASE_URL``). Emits a ``UserWarning`` so the
+       fallback is visible in logs without being fatal.
+
+    3. Neither Azure credentials nor a reachable local endpoint — raises
+       ``RuntimeError`` with a clear diagnosis rather than letting the
+       caller discover the problem on the first LLM call.
     """
     azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
-    if azure_endpoint and "YOUR_RESOURCE" not in azure_endpoint:
+    if azure_endpoint and _AZURE_PLACEHOLDER not in azure_endpoint:
         return AzureOpenAI(
             api_key=os.environ["AZURE_OPENAI_API_KEY"],
             azure_endpoint=azure_endpoint,
             api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
         )
+
+    local_base_url = os.getenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:11434/v1")
+
+    if not _local_endpoint_reachable(local_base_url):
+        raise RuntimeError(
+            f"AZURE_OPENAI_ENDPOINT is not configured (or still contains the "
+            f"'{_AZURE_PLACEHOLDER}' placeholder) and the local fallback endpoint "
+            f"is not reachable at {local_base_url}. "
+            f"Either set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or ensure "
+            f"Ollama is running at that address "
+            f"(override the address via OPENAI_COMPATIBLE_BASE_URL)."
+        )
+
+    warnings.warn(
+        f"AZURE_OPENAI_ENDPOINT is not configured — falling back to local "
+        f"OpenAI-compatible endpoint at {local_base_url}. "
+        f"Set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY to use Azure OpenAI instead.",
+        UserWarning,
+        stacklevel=2,
+    )
     return OpenAI(
-        base_url=os.getenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:11434/v1"),
+        base_url=local_base_url,
         api_key=os.getenv("OPENAI_COMPATIBLE_API_KEY", "ollama"),
     )
 

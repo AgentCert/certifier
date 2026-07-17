@@ -16,14 +16,21 @@ from utils.azure_openai_util import AzureLLMClient
 
 @pytest.fixture(autouse=True)
 def _reset_class_state(monkeypatch):
-    """Reset the singleton class-level caches and mock the chat client class."""
+    """Reset singleton caches and mock chat client classes.
+
+    Patches both AzureOpenAIChatClient (so tests never hit Azure) and
+    _azure_creds_available (so tests that don't care about the credential
+    check take the Azure path without needing real env vars or a local
+    Ollama server).  Tests that specifically exercise the fallback behaviour
+    override _azure_creds_available and _local_endpoint_reachable themselves.
+    """
     AzureLLMClient._shared_client = None
     AzureLLMClient._shared_clients = {}
     AzureLLMClient._model_types = {}
-    # Patch AzureOpenAIChatClient so construction never hits Azure.
     monkeypatch.setattr(
         aou, "AzureOpenAIChatClient", MagicMock(return_value=MagicMock(name="chat_client"))
     )
+    monkeypatch.setattr(aou, "_azure_creds_available", lambda: True)
     yield
     AzureLLMClient._shared_client = None
     AzureLLMClient._shared_clients = {}
@@ -58,12 +65,16 @@ class TestInitAndConfig:
         AzureLLMClient(config)
         assert set(AzureLLMClient._shared_clients.keys()) == {"gpt-4o", "o1"}
 
-    def test_init_wraps_client_creation_error(self, monkeypatch):
+    def test_init_skips_bad_model_entry_and_warns(self, monkeypatch):
+        # get_clients() is resilient: a bad individual entry is logged and
+        # skipped; __init__ still succeeds.  The failure only surfaces later
+        # if that specific model is actually requested via call_llm.
         monkeypatch.setattr(
             aou, "AzureOpenAIChatClient", MagicMock(side_effect=RuntimeError("bad"))
         )
-        with pytest.raises(custom_errors.LLMError):
-            AzureLLMClient({"models": {"gpt-4o": {}}})
+        client = AzureLLMClient({"models": {"gpt-4o": {}}})
+        assert "gpt-4o" not in AzureLLMClient._shared_clients
+        assert client is not None
 
 
 class TestIsReasoningModel:
@@ -335,3 +346,50 @@ class TestGetClient:
         c1 = AzureLLMClient.get_client({"gpt-4o": {}})
         c2 = AzureLLMClient.get_client({"gpt-4o": {}})
         assert c1 is c2
+
+
+class TestBuildChatClientFallback:
+    """Tests for the no-Azure-credentials auto-fallback logic in _build_chat_client."""
+
+    def test_explicit_openai_compatible_bypasses_credential_check(self, monkeypatch):
+        """'provider: openai_compatible' routes local without any credential check."""
+        monkeypatch.setattr(aou, "_azure_creds_available", lambda: False)
+        monkeypatch.setattr(aou, "OpenAIChatClient", MagicMock(return_value=MagicMock()))
+        aou._build_chat_client({
+            "provider": "openai_compatible",
+            "base_url": "http://localhost:11434/v1",
+            "model_id": "qwen2.5:7b",
+        })
+        aou.OpenAIChatClient.assert_called_once()
+
+    def test_azure_path_taken_when_creds_available(self, monkeypatch):
+        """Azure client is chosen when _azure_creds_available returns True."""
+        # autouse fixture already sets _azure_creds_available -> True
+        aou._build_chat_client({"deployment_name": "my-deploy"})
+        aou.AzureOpenAIChatClient.assert_called()
+
+    def test_auto_fallback_uses_model_id_from_config(self, monkeypatch):
+        """When falling back to local, model_id is read from the config entry."""
+        monkeypatch.setattr(aou, "_azure_creds_available", lambda: False)
+        monkeypatch.setattr(aou, "_local_endpoint_reachable", lambda url, **kw: True)
+        monkeypatch.setattr(aou, "OpenAIChatClient", MagicMock(return_value=MagicMock()))
+        aou._build_chat_client({"model_id": "qwen2.5:7b-instruct"})
+        call_kwargs = aou.OpenAIChatClient.call_args.kwargs
+        assert call_kwargs["model_id"] == "qwen2.5:7b-instruct"
+
+    def test_auto_fallback_raises_when_local_unreachable(self, monkeypatch):
+        """RuntimeError with a clear message when neither Azure nor Ollama is available."""
+        monkeypatch.setattr(aou, "_azure_creds_available", lambda: False)
+        monkeypatch.setattr(aou, "_local_endpoint_reachable", lambda url, **kw: False)
+        with pytest.raises(RuntimeError, match="AZURE_OPENAI_ENDPOINT"):
+            aou._build_chat_client({"model_id": "qwen2.5:7b-instruct"})
+
+    def test_auto_fallback_emits_logger_warning(self, monkeypatch, caplog):
+        """A warning is logged when the auto-fallback to local is taken."""
+        import logging
+        monkeypatch.setattr(aou, "_azure_creds_available", lambda: False)
+        monkeypatch.setattr(aou, "_local_endpoint_reachable", lambda url, **kw: True)
+        monkeypatch.setattr(aou, "OpenAIChatClient", MagicMock(return_value=MagicMock()))
+        with caplog.at_level(logging.WARNING):
+            aou._build_chat_client({"model_id": "qwen2.5:7b-instruct"})
+        assert any("AZURE_OPENAI_ENDPOINT" in r.message for r in caplog.records)
