@@ -102,13 +102,10 @@ class AzureLLMClient:
                 cls._shared_clients[model_name] = client
                 logger.info(f"Created Azure OpenAI client for model: {model_name}")
             except Exception as e:
-                logger.error(
-                    f"Failed to create client for model {model_name}: {str(e)}"
+                logger.warning(
+                    f"Skipping model {model_name}: {str(e)}"
                 )
-                raise custom_errors.LLMError(
-                    f"Error creating client for model {model_name}: {str(e)}",
-                    e,
-                ) from e
+                continue
 
         return cls._shared_clients
 

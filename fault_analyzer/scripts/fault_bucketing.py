@@ -100,6 +100,7 @@ class FaultBucketingPipeline:
         fault_pruning: Optional[bool] = None,
         cache_enabled: Optional[bool] = None,
         include_event_input: Optional[bool] = None,
+        langfuse_scoring: Optional[bool] = None,
     ):
         # Load module-level settings
         module_config = _load_module_config()
@@ -153,6 +154,36 @@ class FaultBucketingPipeline:
         # Per-run debug state — populated during run() when debug=True
         self._fault_span_event_ids: Dict[str, str] = {}   # event_id → fault_id
         self._event_outcomes: Dict[str, Dict[str, Any]] = {}  # event_id → outcome
+
+        # Optional Langfuse scoring — bucket_label + bucket_confidence per observation
+        self._score_data: Dict[str, Dict[str, Any]] = {}  # obs_id → score entry
+        self._langfuse_client = None
+        if langfuse_scoring is not False:
+            import os as _os
+            try:
+                from langfuse import Langfuse as _Langfuse
+                _host = _os.environ.get("LANGFUSE_HOST", "").strip()
+                _pub = _os.environ.get("LANGFUSE_PUBLIC_KEY", "").strip()
+                _sec = _os.environ.get("LANGFUSE_SECRET_KEY", "").strip()
+                if _host and _pub and _sec:
+                    self._langfuse_client = _Langfuse(
+                        public_key=_pub, secret_key=_sec, host=_host, timeout=120
+                    )
+                    logger.info(
+                        "Langfuse scoring enabled — bucket_label and "
+                        "bucket_confidence will be pushed per observation."
+                    )
+                elif langfuse_scoring is True:
+                    logger.warning(
+                        "Langfuse scoring requested but LANGFUSE_HOST / "
+                        "LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY are not all "
+                        "set — scoring disabled."
+                    )
+            except ImportError:
+                if langfuse_scoring is True:
+                    logger.warning(
+                        "langfuse package not installed — scoring disabled."
+                    )
 
         # Run-level token extraction from trace (before fault bucketing)
         # These are extracted ONCE from the trace to avoid double-counting
@@ -846,6 +877,77 @@ class FaultBucketingPipeline:
             )
 
     # ------------------------------------------------------------------
+    # Langfuse score collection + push
+    # ------------------------------------------------------------------
+
+    def _collect_score(
+        self,
+        event: Dict[str, Any],
+        label: str,
+        confidence: Optional[float] = None,
+    ) -> None:
+        """Record a (bucket_label, bucket_confidence) score entry for later push.
+
+        Uses obs_id as key so later calls overwrite earlier ones — needed for
+        the single-fault fallback which re-labels all events.
+        Pass confidence=None to push only the label (no bucket_confidence score).
+        """
+        trace_id = event.get("traceId")
+        obs_id = event.get("id")
+        if not trace_id or not obs_id:
+            return
+        self._score_data[obs_id] = {
+            "trace_id": trace_id,
+            "observation_id": obs_id,
+            "label": label,
+            "confidence": confidence,
+        }
+
+    async def _push_scores_to_langfuse(self) -> None:
+        """Push all collected bucket_label + bucket_confidence scores to Langfuse.
+
+        Runs the synchronous Langfuse SDK calls in a single background thread to
+        avoid blocking the event loop.
+        """
+        if not self._langfuse_client or not self._score_data:
+            return
+
+        entries = list(self._score_data.values())
+
+        def _push_all() -> int:
+            pushed = 0
+            for entry in entries:
+                try:
+                    self._langfuse_client.create_score(
+                        trace_id=entry["trace_id"],
+                        observation_id=entry["observation_id"],
+                        name="bucket_label",
+                        value=entry["label"],
+                        data_type="CATEGORICAL",
+                    )
+                    if entry["confidence"] is not None:
+                        self._langfuse_client.create_score(
+                            trace_id=entry["trace_id"],
+                            observation_id=entry["observation_id"],
+                            name="bucket_confidence",
+                            value=entry["confidence"],
+                            data_type="NUMERIC",
+                        )
+                    pushed += 1
+                except Exception as exc:
+                    logger.warning(
+                        f"Failed to push score for observation "
+                        f"{entry['observation_id']}: {exc}"
+                    )
+            return pushed
+
+        pushed = await asyncio.to_thread(_push_all)
+        logger.info(
+            f"Pushed {pushed}/{len(entries)} bucketing scores to Langfuse "
+            f"(bucket_label + bucket_confidence per observation)."
+        )
+
+    # ------------------------------------------------------------------
     # Main orchestration
     # ------------------------------------------------------------------
 
@@ -907,6 +1009,9 @@ class FaultBucketingPipeline:
                                 (k for k in self.active_faults if k.lower() in n), None
                             )
                         self._fault_span_event_ids[event.get("id", "")] = fid or ""
+                    if self._langfuse_client:
+                        fault_name = self._extract_fault_name_from_span(event) or "unknown"
+                        self._collect_score(event, label=fault_name, confidence=1.0)
                 else:
                     remaining_events.append(event)
 
@@ -940,11 +1045,10 @@ class FaultBucketingPipeline:
                 zero_candidate_count = 0
                 scaffolding_skips = 0
 
-                if self.debug:
-                    faults_injected_snapshot = [
-                        {"fault_id": fid, "injection_timestamp": b.injection_timestamp}
-                        for fid, b in all_known.items()
-                    ]
+                faults_injected_snapshot = [
+                    {"fault_id": fid, "injection_timestamp": b.injection_timestamp}
+                    for fid, b in all_known.items()
+                ]
 
                 for evt in batch:
                     # Opt #6: fault: * spans handled in Pass 1 — skip.
@@ -981,13 +1085,12 @@ class FaultBucketingPipeline:
                     evt_ts = parse_iso_timestamp(evt.get("startTime"))
                     in_flight = self._temporally_active_faults(all_known, evt_ts)
 
-                    if self.debug:
-                        eligible_list = list(in_flight.keys())
-                        filtered_out = {
-                            fid: b.injection_timestamp
-                            for fid, b in all_known.items()
-                            if fid not in in_flight
-                        }
+                    eligible_list = list(in_flight.keys())
+                    filtered_out = {
+                        fid: b.injection_timestamp
+                        for fid, b in all_known.items()
+                        if fid not in in_flight
+                    }
 
                     if len(in_flight) == 1:
                         (only_fid,) = in_flight.keys()
@@ -1134,6 +1237,8 @@ class FaultBucketingPipeline:
                         self.unclassified_events.append(event)
                         if self.debug and eid in self._event_outcomes:
                             self._event_outcomes[eid]["classification"] = "MISSING_FROM_LLM_RESPONSE"
+                        if self._langfuse_client:
+                            self._collect_score(event, label="error")
                         continue
 
                     # --- Handle fault detection/localization identified by LLM ---
@@ -1149,6 +1254,19 @@ class FaultBucketingPipeline:
                     pre_unclassified = len(self.unclassified_events)
                     self._place_event_in_buckets(event, classification)
                     was_placed = len(self.unclassified_events) == pre_unclassified
+
+                    if self._langfuse_client:
+                        _all_b = {**self.active_faults, **self.closed_faults}
+                        _names = [
+                            _all_b[fid].fault_name
+                            for fid in classification.related_faults
+                            if fid in _all_b
+                        ]
+                        self._collect_score(
+                            event,
+                            label=", ".join(_names) if _names else "unclassified",
+                            confidence=classification.confidence,
+                        )
 
                     # --- Handle fault mitigation identified by LLM ---
                     if classification.fault_mitigated:
@@ -1216,6 +1334,9 @@ class FaultBucketingPipeline:
                     run_id=self.run_id,
                 )
                 self.closed_faults["single_fault"] = single_bucket
+                if self._langfuse_client:
+                    for evt in sorted_events:
+                        self._collect_score(evt, label="unknown")
 
             # Re-sort events within each bucket to maintain chronological order
             all_buckets = {**self.active_faults, **self.closed_faults}
@@ -1235,6 +1356,7 @@ class FaultBucketingPipeline:
             self._write_ground_truth()
             if self.debug:
                 self._write_classification_trace(sorted_events)
+            await self._push_scores_to_langfuse()
             return all_buckets
 
         except MyCustomError:
@@ -1634,6 +1756,25 @@ def main():
         action="store_false",
         help="Render only event.output (cheaper but discards agent reasoning).",
     )
+    scoring_group = parser.add_mutually_exclusive_group()
+    scoring_group.add_argument(
+        "--langfuse-scoring",
+        dest="langfuse_scoring",
+        action="store_true",
+        default=None,
+        help=(
+            "Push bucket_label (CATEGORICAL) and bucket_confidence (NUMERIC) "
+            "scores to Langfuse for every observation after bucketing. "
+            "Auto-enabled when LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, and "
+            "LANGFUSE_SECRET_KEY are all set."
+        ),
+    )
+    scoring_group.add_argument(
+        "--no-langfuse-scoring",
+        dest="langfuse_scoring",
+        action="store_false",
+        help="Disable pushing bucketing scores to Langfuse.",
+    )
 
     args = parser.parse_args()
 
@@ -1656,6 +1797,7 @@ def main():
             fault_pruning=args.fault_pruning,
             cache_enabled=args.cache_enabled,
             include_event_input=args.include_event_input,
+            langfuse_scoring=args.langfuse_scoring,
         )
         result = asyncio.run(pipeline.run())
     except MyCustomError as exc:
