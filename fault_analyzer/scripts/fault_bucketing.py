@@ -685,7 +685,10 @@ class FaultBucketingPipeline:
 
         # Build rich injection metadata from span attributes
         injection_metadata = self._extract_injection_metadata(event)
-        injection_end_timestamp = attributes.get("fault.injection_end_timestamp")
+        injection_end_timestamp = (
+            attributes.get("fault.injection_end_timestamp")
+            or event.get("endTime")
+        )
 
         # Extract ground truth from metadata.ground_truth (authoritative location)
         # with fallback to input.ground_truth
@@ -906,6 +909,9 @@ class FaultBucketingPipeline:
     async def _push_scores_to_langfuse(self) -> None:
         """Push all collected bucket_label + bucket_confidence scores to Langfuse.
 
+        Also pushes a single trace-level fault_list score (CATEGORICAL) with
+        the comma-separated list of fault names found in this trace.
+
         Runs the synchronous Langfuse SDK calls in a single background thread to
         avoid blocking the event loop.
         """
@@ -913,6 +919,10 @@ class FaultBucketingPipeline:
             return
 
         entries = list(self._score_data.values())
+        all_buckets = {**self.active_faults, **self.closed_faults}
+        fault_names = ", ".join(
+            b.fault_name for b in all_buckets.values()
+        ) if all_buckets else "unknown"
 
         def _push_all() -> int:
             pushed = 0
@@ -939,12 +949,26 @@ class FaultBucketingPipeline:
                         f"Failed to push score for observation "
                         f"{entry['observation_id']}: {exc}"
                     )
+
+            # Trace-level score — no observation_id
+            trace_id = entries[0]["trace_id"]
+            try:
+                self._langfuse_client.create_score(
+                    trace_id=trace_id,
+                    name="fault_list",
+                    value=fault_names,
+                    data_type="CATEGORICAL",
+                )
+            except Exception as exc:
+                logger.warning(f"Failed to push trace-level fault_list score: {exc}")
+
             return pushed
 
         pushed = await asyncio.to_thread(_push_all)
         logger.info(
             f"Pushed {pushed}/{len(entries)} bucketing scores to Langfuse "
-            f"(bucket_label + bucket_confidence per observation)."
+            f"(bucket_label + bucket_confidence per observation) "
+            f"+ trace-level fault_list='{fault_names}'."
         )
 
     # ------------------------------------------------------------------
