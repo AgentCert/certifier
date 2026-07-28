@@ -235,8 +235,21 @@ def _extract_run_id(doc: Dict[str, Any]) -> Optional[str]:
 
 
 def _distinct_run_ids(docs: List[Dict[str, Any]]) -> set:
-    """Return the set of distinct, non-empty run_ids across docs."""
-    return {rid for rid in (_extract_run_id(d) for d in docs) if rid}
+    """Return the set of distinct run_ids across docs.
+
+    Docs without an extractable run_id each form their own pseudo-run
+    (consistent with _group_docs_by_run in numeric_aggregation.py).
+    """
+    result: set = set()
+    fallback_idx = 0
+    for doc in docs:
+        rid = _extract_run_id(doc)
+        if rid:
+            result.add(rid)
+        else:
+            result.add(f"__no_run_id_{fallback_idx}__")
+            fallback_idx += 1
+    return result
 
 
 class DirectoryQueryService:

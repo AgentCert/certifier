@@ -35,9 +35,14 @@ class TraceService:
 
         Args:
             trace_source:  A ``FileTraceSource`` or ``LangfuseTraceSource`` discriminated union.
+                           If it carries a non-empty ``trace_id``, that takes priority
+                           over ``experiment_id``/``run_id`` and is used for a direct
+                           point lookup instead of a metadata-filter search.
             dest_dir:      Directory where ``raw_trace.json`` will be written.
-            experiment_id: Used for Langfuse source — matched against trace metadata.
-            run_id:        Used for Langfuse source — matched against trace metadata.
+            experiment_id: Used for Langfuse source when ``trace_source.trace_id`` is
+                           empty — matched against trace metadata.
+            run_id:        Used for Langfuse source when ``trace_source.trace_id`` is
+                           empty — matched against trace metadata.
 
         Returns:
             ``(path_to_raw_trace, observation_count)``
@@ -88,7 +93,16 @@ class TraceService:
         Credentials are read from LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, and
         LANGFUSE_SECRET_KEY environment variables set at application launch.
         The Langfuse SDK is synchronous, so the entire fetch is offloaded to a thread.
+
+        Langfuse ClickHouse indexing has a delay of up to ~90s after a workflow
+        completes before metadata-filter searches return results. This method
+        retries TRACE_NOT_FOUND up to LANGFUSE_TRACE_RETRIES times with
+        LANGFUSE_TRACE_RETRY_DELAY seconds between attempts so that a
+        fast-triggered certifier task does not fail spuriously on indexing lag.
         """
+        _RETRY_COUNT = int(os.environ.get("LANGFUSE_TRACE_RETRIES", "5"))
+        _RETRY_DELAY = float(os.environ.get("LANGFUSE_TRACE_RETRY_DELAY", "30"))
+
         base_url = os.environ.get("LANGFUSE_HOST", "").strip()
         public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "").strip()
         secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "").strip()
@@ -104,26 +118,44 @@ class TraceService:
                 f"Missing required environment variable(s): {', '.join(missing)}",
             )
 
-        try:
-            observations = await asyncio.to_thread(
-                _fetch_langfuse_observations,
-                base_url=base_url,
-                public_key=public_key,
-                secret_key=secret_key,
-                experiment_id=experiment_id,
-                run_id=run_id,
-                page_size=source.page_size,
-                max_pages=source.max_pages,
-                include_observations=source.include_observations,
-            )
-        except TraceIngestionError:
-            raise
-        except Exception as exc:
-            raise TraceIngestionError(
-                "LANGFUSE_FETCH_ERROR", f"Langfuse fetch failed: {exc}"
-            )
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
 
-        await asyncio.to_thread(_write_json, observations, str(dest))
+        last_exc: TraceIngestionError | None = None
+        for attempt in range(1, _RETRY_COUNT + 1):
+            try:
+                observations = await asyncio.to_thread(
+                    _fetch_langfuse_observations,
+                    base_url=base_url,
+                    public_key=public_key,
+                    secret_key=secret_key,
+                    experiment_id=experiment_id,
+                    run_id=run_id,
+                    trace_id=getattr(source, "trace_id", "") or "",
+                    page_size=source.page_size,
+                    max_pages=source.max_pages,
+                    include_observations=source.include_observations,
+                )
+                await asyncio.to_thread(_write_json, observations, str(dest))
+                return
+            except TraceIngestionError as exc:
+                last_exc = exc
+                if exc.error_code != "TRACE_NOT_FOUND":
+                    raise
+                if attempt < _RETRY_COUNT:
+                    _log.warning(
+                        "Langfuse trace not found (attempt %d/%d, retrying in %.0fs) "
+                        "— experiment_id=%s run_id=%s",
+                        attempt, _RETRY_COUNT, _RETRY_DELAY,
+                        experiment_id, run_id,
+                    )
+                    await asyncio.sleep(_RETRY_DELAY)
+            except Exception as exc:
+                raise TraceIngestionError(
+                    "LANGFUSE_FETCH_ERROR", f"Langfuse fetch failed: {exc}"
+                )
+
+        raise last_exc
 
 
 # ── Langfuse fetch (runs in thread — Langfuse SDK is synchronous) ─────────────
@@ -134,14 +166,21 @@ def _fetch_langfuse_observations(
     secret_key: str,
     experiment_id: str,
     run_id: str,
+    trace_id: str,
     page_size: int,
     max_pages: int,
     include_observations: bool,
 ) -> List[Dict[str, Any]]:
     """Fetch all observations for the given experiment run from Langfuse.
 
-    Covers both chaos/OTel traces (metadata keys ``experiment.id`` / ``experiment.run_id``)
-    and LiteLLM/agent traces (metadata keys ``experiment_id`` / ``experiment_run_id``).
+    If ``trace_id`` is given, the trace is fetched by direct ID lookup (see
+    ``_get_full_trace``) -- this is the only reliable path for traces produced
+    by instrumentation that doesn't tag ``experiment_id``/``experiment_run_id``
+    metadata (e.g. ``agent-sidecar``, see ``LangfuseTraceSource.trace_id``).
+
+    Otherwise, falls back to a metadata-filter search covering both chaos/OTel
+    traces (metadata keys ``experiment.id`` / ``experiment.run_id``) and
+    LiteLLM/agent traces (metadata keys ``experiment_id`` / ``experiment_run_id``).
     Results are deduped by trace ID before observations are fetched.
 
     Returns observations normalised into the pipeline's expected flat-list format
@@ -157,6 +196,22 @@ def _fetch_langfuse_observations(
 
     # 120s timeout: 39+ traces × per-trace observation fetches can take a while
     client = Langfuse(public_key=public_key, secret_key=secret_key, host=base_url, timeout=120)
+
+    if trace_id:
+        full = _get_full_trace(client, trace_id)
+        if full is None:
+            raise TraceIngestionError(
+                "TRACE_NOT_FOUND", f"No trace found in Langfuse for trace_id={trace_id!r}"
+            )
+        raw_obs = []
+        if include_observations:
+            # langfuse SDK 3.x returns pydantic v1 models (.dict()); fall back to
+            # .model_dump() for any future v2 migration.
+            raw_obs = [
+                (o.model_dump() if hasattr(o, "model_dump") else o.dict())
+                for o in (full.observations or [])
+            ]
+        return _format_observations(raw_obs)
 
     raw_traces = _list_traces(client, experiment_id, run_id, page_size, max_pages)
 
@@ -185,6 +240,19 @@ def _fetch_langfuse_observations(
         all_observations.extend(_format_observations(raw_obs))
 
     return all_observations
+
+
+def _get_full_trace(client, trace_id: str):
+    """Point-fetch a single trace by its Langfuse trace ID.
+
+    Returns ``None`` on any failure (not-found or transient API error) rather
+    than raising, so the caller can emit a single normalised TRACE_NOT_FOUND
+    error regardless of the underlying cause.
+    """
+    try:
+        return client.api.trace.get(trace_id)
+    except Exception:
+        return None
 
 
 def _list_traces(

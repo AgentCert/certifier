@@ -35,7 +35,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /build
 COPY requirements.txt .
 
-# Upgrade pip first to avoid resolver quirks with older pip
+# Upgrade pip first, then install all Python dependencies.
+# requirements.txt pins agent-framework-core directly (not the umbrella
+# agent-framework[all] package) so the declarative-extras version conflict
+# is avoided entirely.
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 

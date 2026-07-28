@@ -590,12 +590,21 @@ def compute_derived_rates(docs: List[Dict[str, Any]]) -> Dict[str, Optional[floa
             detected_fault_type = quant.get("detected_fault_type")
             injected_fault_name = quant.get("injected_fault_name")
 
-            # AND: run only "detects all" if every fault was detected
+            # AND: run only "detects all" if every fault was detected.
+            # Fallback for SRE-agent docs (itbench_sre pipeline): those never
+            # carry agent_fault_detection_time; use sre_agent_task_passed
+            # (root-cause entity identification ≥ 0.5) as the detection signal.
             if agent_fault_detection_time is None:
-                run_detected_all = False
+                sre_passed = quant.get("sre_agent_task_passed")
+                if sre_passed is not True:
+                    run_detected_all = False
 
-            # OR: run has mitigation if any fault was mitigated
+            # OR: run has mitigation if any fault was mitigated.
+            # Same fallback: sre_agent_task_passed implies the agent both
+            # identified and acted on the root-cause entity.
             if quant.get("agent_fault_mitigation_time") is not None:
+                run_any_mitigation = True
+            elif quant.get("sre_agent_task_passed") is True:
                 run_any_mitigation = True
 
             # OR: run has false positive if any fault type mismatch

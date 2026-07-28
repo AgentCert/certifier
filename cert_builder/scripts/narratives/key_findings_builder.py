@@ -67,10 +67,19 @@ class KeyFindingsSynthesis(BaseModel):
 # Context assembly
 # ---------------------------------------------------------------------------
 
+_CISO_SHAPED_CATEGORIES = {"ciso_fault"}
+
+
+def _is_ciso(cat: dict) -> bool:
+    return cat.get("fault_category", "") in _CISO_SHAPED_CATEGORIES
+
+
 def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     """Build the context block and return (context_str, template_vars)."""
     meta = phase1["meta"]
     cats = phase1["categories"]
+    sre_cats = [c for c in cats if not _is_ciso(c)]
+    ciso_cats = [c for c in cats if _is_ciso(c)]
 
     # Scorecard
     dims = phase2["scorecard"]["dimensions"]
@@ -82,20 +91,21 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         f"    [{f['severity']:7s}] {f['text']}" for f in findings
     )
 
-    # Per-category metrics table
-    labels = [c["label"] for c in cats]
-    header = f"    {'':14s} " + "  ".join(f"{l:>8s}" for l in labels)
+    # Per-category metrics table — SRE categories only; CISO has different schema
+    labels = [c["label"] for c in sre_cats]
+    header = f"    {'':14s} " + "  ".join(f"{l:>8s}" for l in labels) if labels else ""
     rows = []
 
     def _row(name, values):
         vals = "  ".join(f"{v:>8s}" for v in values)
         return f"    {name:14s} {vals}"
 
-    for key, label, fmt in [
-        ("fault_detection_success_rate", "Detection %", lambda v: f"{v*100:.0f}%"),
-        ("fault_mitigation_success_rate", "Mitigation %", lambda v: f"{v*100:.0f}%"),
-    ]:
-        rows.append(_row(label, [fmt(c["derived"][key]) for c in cats]))
+    if sre_cats:
+        for key, label, fmt in [
+            ("fault_detection_success_rate", "Detection %", lambda v: f"{v*100:.0f}%"),
+            ("fault_mitigation_success_rate", "Mitigation %", lambda v: f"{v*100:.0f}%"),
+        ]:
+            rows.append(_row(label, [fmt(c["derived"][key]) for c in sre_cats]))
 
     def _safe(c, key, sub, fmt):
         # Aggregator omits whole metric blocks when no run produced the
@@ -104,35 +114,45 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
         v = (c.get("numeric", {}).get(key) or {}).get(sub)
         return fmt(v) if v is not None else "N/A"
 
-    for key, sub, label, fmt in [
-        ("time_to_detect", "median", "TTD median", lambda v: f"{v:.0f}s"),
-        ("time_to_mitigate", "median", "TTM median", lambda v: f"{v:.0f}s"),
-        ("reasoning_score", "mean", "Reasoning", lambda v: f"{v:.2f}"),
-        ("hallucination_score", "mean", "Halluc mean", lambda v: f"{v:.3f}"),
-        ("hallucination_score", "max", "Halluc max", lambda v: f"{v:.2f}"),
-    ]:
-        rows.append(_row(label, [_safe(c, key, sub, fmt) for c in cats]))
+    if sre_cats:
+        for key, sub, label, fmt in [
+            ("time_to_detect", "median", "TTD median", lambda v: f"{v:.0f}s"),
+            ("time_to_mitigate", "median", "TTM median", lambda v: f"{v:.0f}s"),
+            ("reasoning_score", "mean", "Reasoning", lambda v: f"{v:.2f}"),
+            ("hallucination_score", "mean", "Halluc mean", lambda v: f"{v:.3f}"),
+            ("hallucination_score", "max", "Halluc max", lambda v: f"{v:.2f}"),
+        ]:
+            rows.append(_row(label, [_safe(c, key, sub, fmt) for c in sre_cats]))
 
-    for key, sub, label in [
-        ("rai_compliance_rate", None, "Fairness pass-rate (NOT RAI score)"),
-        ("security_compliance_rate", None, "Security"),
-    ]:
-        rows.append(_row(label, [f"{c['derived'][key]*100:.0f}%" for c in cats]))
+        for key, sub, label in [
+            ("rai_compliance_rate", None, "Fairness pass-rate (NOT RAI score)"),
+            ("security_compliance_rate", None, "Security"),
+        ]:
+            rows.append(_row(label, [f"{c['derived'][key]*100:.0f}%" for c in sre_cats]))
 
-    # Real per-cat RAI (Privacy & Security) — the value that drives §6.3, radar, §6.4
-    rows.append(_row("Privacy & Security % (RAI per-cat)",
-                     [f"{privacy_security_for_category(c['derived'])*100:.0f}%" for c in cats]))
+        # Real per-cat RAI (Privacy & Security) — the value that drives §6.3, radar, §6.4
+        rows.append(_row("Privacy & Security % (RAI per-cat)",
+                         [f"{privacy_security_for_category(c['derived'])*100:.0f}%" for c in sre_cats]))
 
-    # PII and token rows
-    for key, sub, label, fmt in [
-        ("sensitive_exposure", "mean", "Sensitive exposure mean", lambda v: f"{v:.1f}"),
-        ("sensitive_exposure", "sum", "Sensitive exposure total", lambda v: f"{v:.0f}"),
-        ("input_tokens", "mean", "Inp tok mean", lambda v: f"{v:.0f}"),
-        ("output_tokens", "mean", "Out tok mean", lambda v: f"{v:.0f}"),
-    ]:
-        rows.append(_row(label, [_safe(c, key, sub, fmt) for c in cats]))
+        # PII and token rows
+        for key, sub, label, fmt in [
+            ("sensitive_exposure", "mean", "Sensitive exposure mean", lambda v: f"{v:.1f}"),
+            ("sensitive_exposure", "sum", "Sensitive exposure total", lambda v: f"{v:.0f}"),
+            ("input_tokens", "mean", "Inp tok mean", lambda v: f"{v:.0f}"),
+            ("output_tokens", "mean", "Out tok mean", lambda v: f"{v:.0f}"),
+        ]:
+            rows.append(_row(label, [_safe(c, key, sub, fmt) for c in sre_cats]))
 
-    table = "\n".join([header] + rows)
+    table_parts = ["\n".join([header] + rows)] if sre_cats else []
+    if ciso_cats:
+        ciso_lines = ["    CISO categories (compliance-as-code — no detection/mitigation timeline):"]
+        for c in ciso_cats:
+            d = c.get("derived") or {}
+            pass_rate = d.get("ciso_task_pass_rate")
+            rate_str = f"{pass_rate*100:.0f}%" if isinstance(pass_rate, (int, float)) else "N/A"
+            ciso_lines.append(f"      {c['label']}: policy pass rate={rate_str}")
+        table_parts.append("\n".join(ciso_lines))
+    table = "\n\n".join(table_parts) if table_parts else "(No category data)"
 
     # -- Subfault-level TTD/TTM breakdown --
     sf_lines = []
@@ -214,14 +234,12 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     actual_successful_runs = meta.get("successful_runs", 0)
     actual_failed_runs = meta.get("failed_runs", 0)
 
-    # Overall detection / mitigation rates are weighted by per-fault sample
-    # sizes (since rates are inherently per-fault), but we expose ONLY the
-    # percentage to the LLM and use {successful_runs} as the denominator
-    # framing.
-    eval_total = sum(c["total_runs"] for c in cats)
-    det_rates = [c["derived"]["fault_detection_success_rate"] for c in cats]
-    mit_rates = [c["derived"]["fault_mitigation_success_rate"] for c in cats]
-    runs_per = [c["total_runs"] for c in cats]
+    # Overall detection / mitigation rates — SRE categories only (CISO has no
+    # detection/mitigation timeline; it uses ciso_task_pass_rate instead).
+    eval_total = sum(c["total_runs"] for c in sre_cats)
+    det_rates = [c["derived"]["fault_detection_success_rate"] for c in sre_cats]
+    mit_rates = [c["derived"]["fault_mitigation_success_rate"] for c in sre_cats]
+    runs_per = [c["total_runs"] for c in sre_cats]
     detected_count = sum(int(r * n) for r, n in zip(det_rates, runs_per))
     mitigated_count = sum(int(r * n) for r, n in zip(mit_rates, runs_per))
     overall_det = (detected_count / eval_total * 100) if eval_total else 0
@@ -240,12 +258,20 @@ def _build_findings_context(phase1: dict, phase2: dict) -> tuple[str, dict]:
     breakdown_lines = []
     for c in cats:
         cat_distinct = c.get("distinct_runs", c["total_runs"])
-        det_pct = c["derived"]["fault_detection_success_rate"] * 100
-        mit_pct = c["derived"]["fault_mitigation_success_rate"] * 100
-        breakdown_lines.append(
-            f"  {c['label']:12s}: {cat_distinct} successful runs "
-            f"| detection={det_pct:.0f}% | mitigation={mit_pct:.0f}%"
-        )
+        if _is_ciso(c):
+            pass_rate = (c.get("derived") or {}).get("ciso_task_pass_rate")
+            rate_str = f"policy pass rate={pass_rate*100:.0f}%" if isinstance(pass_rate, (int, float)) else "policy pass rate=N/A"
+            breakdown_lines.append(
+                f"  {c['label']:12s}: {cat_distinct} successful runs "
+                f"| {rate_str} (CISO compliance — no detection/mitigation timeline)"
+            )
+        else:
+            det_pct = c["derived"]["fault_detection_success_rate"] * 100
+            mit_pct = c["derived"]["fault_mitigation_success_rate"] * 100
+            breakdown_lines.append(
+                f"  {c['label']:12s}: {cat_distinct} successful runs "
+                f"| detection={det_pct:.0f}% | mitigation={mit_pct:.0f}%"
+            )
     breakdown = "\n".join(breakdown_lines)
 
     failed_line = (

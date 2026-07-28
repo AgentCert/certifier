@@ -144,12 +144,28 @@ def build_ciso_metrics_doc(
     passed, failure_reason = _extract_pass_and_reason(evaluation_result)
     unchanged_preserved = _extract_unchanged_policy_preservation(evaluation_result)
 
+    # Extract per-task sub-check booleans (Scenario 1/4 shape only; None for others).
+    tasks: Optional[Dict[str, Any]] = evaluation_result.get("tasks")
+    execute_policy: Optional[bool] = None
+    generate_policy: Optional[bool] = None
+    evidence_available: Optional[bool] = None
+    if isinstance(tasks, dict):
+        execute_policy = tasks.get("generate_assessment_posture")
+        generate_policy = tasks.get("generate_policy")
+        evidence_available = tasks.get("evidence_available")
+
     quantitative: Dict[str, Any] = {
         "run_id": run_id,
         "injected_fault_name": scenario_type,
         "injected_fault_category": "ciso_fault",
         "ciso_task_passed": passed,
     }
+    if execute_policy is not None:
+        quantitative["ciso_execute_policy"] = execute_policy
+    if generate_policy is not None:
+        quantitative["ciso_generate_policy"] = generate_policy
+    if evidence_available is not None:
+        quantitative["ciso_evidence_available"] = evidence_available
     if duration_seconds is not None:
         quantitative["ciso_time_to_resolve"] = float(duration_seconds)
     if unchanged_preserved is not None:
@@ -185,6 +201,15 @@ def build_ciso_metrics_doc(
         correctness_note += " Unrelated existing policies were left unchanged."
     elif unchanged_preserved is False:
         correctness_note += " WARNING: one or more unrelated existing policies were altered."
+    if generate_policy is not None or evidence_available is not None:
+        sub = []
+        if execute_policy is not None:
+            sub.append(f"execute_policy={'yes' if execute_policy else 'no'}")
+        if generate_policy is not None:
+            sub.append(f"generate_policy={'yes' if generate_policy else 'no'}")
+        if evidence_available is not None:
+            sub.append(f"evidence_available={'yes' if evidence_available else 'no'}")
+        correctness_note += f" Sub-checks: {', '.join(sub)}."
     qualitative["ciso_policy_correctness_notes"] = correctness_note
 
     return {

@@ -16,12 +16,22 @@ class FileTraceSource(BaseModel):
 class LangfuseTraceSource(BaseModel):
     """Trace sourced by fetching observations directly from a Langfuse instance.
 
-    Traces are identified by matching the request's ``experiment_id`` and
-    ``run_id`` against trace metadata keys of the same name in Langfuse.
-    Langfuse credentials (LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY)
-    are loaded from environment variables at application launch.
+    If ``trace_id`` is supplied, the trace is fetched by direct ID lookup --
+    correct regardless of what metadata keys the instrumentation layer wrote.
+    This is the required path for agents instrumented via ``agent-sidecar``,
+    which sets Langfuse's own ``trace_id`` to the ChaosCenter ``NOTIFY_ID`` but
+    deliberately omits ``experiment_id``/``experiment_run_id`` from trace
+    metadata (to preserve blind-observer integrity), so the metadata-filter
+    search below can never match those traces.
+
+    Otherwise (``trace_id`` omitted), traces are identified by matching the
+    request's ``experiment_id`` and ``run_id`` against trace metadata keys of
+    the same name in Langfuse. Langfuse credentials (LANGFUSE_HOST,
+    LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY) are loaded from environment
+    variables at application launch.
     """
     type: Literal["langfuse"]
+    trace_id: str = Field(default="", max_length=128)
     page_size: int = Field(default=50, ge=1, le=500)
     max_pages: int = Field(default=10, ge=1, le=100)
     include_observations: bool = True

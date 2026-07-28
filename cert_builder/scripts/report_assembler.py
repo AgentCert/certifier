@@ -1993,16 +1993,29 @@ def _section_limitations(phase2, phase3,
         ))
         next_idx += 1
     
+    _VALID_SEVERITIES = {"High", "Medium", "Low", "Critical"}
+
+    def _coerce_severity(val, default="Medium"):
+        return val if val in _VALID_SEVERITIES else default
+
+    def _lim_body(item):
+        if isinstance(item, str):
+            return item or "—"
+        return item.get("limitation") or item.get("body") or "—"
+
+    def _lim_field(item, field, default=None):
+        return item.get(field, default) if isinstance(item, dict) else default
+
     # Add Council items, capped at 10 total limitations
     remaining_slots = 10 - len(stat_items)
     for item in council_items[:remaining_slots]:
         content.append(_enumerated_item(
             kind="limitation", index=next_idx,
-            severity=item.get("severity", "Medium"),
-            scope=item.get("category", "—"),
-            body=item["limitation"],
-            tags=[item["label"]] if item.get("label") else None,
-            frequency=item.get("frequency"),
+            severity=_coerce_severity(_lim_field(item, "severity")),
+            scope=_lim_field(item, "category", "—"),
+            body=_lim_body(item),
+            tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
+            frequency=_lim_field(item, "frequency"),
         ))
         next_idx += 1
 
@@ -2013,11 +2026,11 @@ def _section_limitations(phase2, phase3,
         for item in council_items[:10]:
             content.append(_enumerated_item(
                 kind="limitation", index=next_idx,
-                severity=item.get("severity", "Medium"),
-                scope=item.get("category", "—"),
-                body=item["limitation"],
-                tags=[item["label"]] if item.get("label") else None,
-                frequency=item.get("frequency"),
+                severity=_coerce_severity(_lim_field(item, "severity")),
+                scope=_lim_field(item, "category", "—"),
+                body=_lim_body(item),
+                tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
+                frequency=_lim_field(item, "frequency"),
             ))
             next_idx += 1
 
@@ -2063,15 +2076,28 @@ def _section_recommendations(phase2, phase3,
         ))
         next_idx += 1
     
+    _VALID_SEVER = {"High", "Medium", "Low", "Critical"}
+
+    def _coerce_sev(val, default="Medium"):
+        return val if val in _VALID_SEVER else default
+
+    def _rec_body(item):
+        if isinstance(item, str):
+            return item or "—"
+        return item.get("recommendation") or item.get("body") or "—"
+
+    def _rec_field(item, field, default=None):
+        return item.get(field, default) if isinstance(item, dict) else default
+
     # Add Council items, capped at 8 total recommendations
     remaining_slots = 8 - (1 if stat_item else 0)
     for item in council_items[:remaining_slots]:
         content.append(_enumerated_item(
             kind="recommendation", index=next_idx,
-            severity=item.get("priority", "Medium"),
-            scope=item.get("category", "—"),
-            body=item["recommendation"],
-            tags=[item["label"]] if item.get("label") else None,
+            severity=_coerce_sev(_rec_field(item, "priority")),
+            scope=_rec_field(item, "category", "—"),
+            body=_rec_body(item),
+            tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
         ))
         next_idx += 1
 
@@ -2082,10 +2108,10 @@ def _section_recommendations(phase2, phase3,
         for item in council_items[:8]:
             content.append(_enumerated_item(
                 kind="recommendation", index=next_idx,
-                severity=item.get("priority", "Medium"),
-                scope=item.get("category", "—"),
-                body=item["recommendation"],
-                tags=[item["label"]] if item.get("label") else None,
+                severity=_coerce_sev(_rec_field(item, "priority")),
+                scope=_rec_field(item, "category", "—"),
+                body=_rec_body(item),
+                tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
             ))
             next_idx += 1
 
