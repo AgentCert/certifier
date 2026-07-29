@@ -1021,8 +1021,7 @@ class FaultBucketingPipeline:
 
             for event in sorted_events:
                 if self._is_fault_name_span(event):
-                    if self.debug:
-                        pre_keys = set(self.active_faults.keys())
+                    pre_keys = set(self.active_faults.keys())
                     self._create_fault_bucket_from_span(event)
                     if self.debug:
                         new_keys = set(self.active_faults.keys()) - pre_keys
@@ -1034,8 +1033,11 @@ class FaultBucketingPipeline:
                             )
                         self._fault_span_event_ids[event.get("id", "")] = fid or ""
                     if self._langfuse_client:
-                        fault_name = self._extract_fault_name_from_span(event) or "unknown"
-                        self._collect_score(event, label=fault_name, confidence=1.0)
+                        _added = set(self.active_faults.keys()) - pre_keys
+                        inj_fid = next(iter(_added), None) or (
+                            self._extract_fault_name_from_span(event) or "unknown"
+                        )
+                        self._collect_score(event, label=inj_fid, confidence=1.0)
                 else:
                     remaining_events.append(event)
 
@@ -1281,14 +1283,14 @@ class FaultBucketingPipeline:
 
                     if self._langfuse_client:
                         _all_b = {**self.active_faults, **self.closed_faults}
-                        _names = [
-                            _all_b[fid].fault_name
+                        _ids = [
+                            fid
                             for fid in classification.related_faults
                             if fid in _all_b
                         ]
                         self._collect_score(
                             event,
-                            label=", ".join(_names) if _names else "unclassified",
+                            label=", ".join(_ids) if _ids else "unclassified",
                             confidence=classification.confidence,
                         )
 
@@ -1360,7 +1362,7 @@ class FaultBucketingPipeline:
                 self.closed_faults["single_fault"] = single_bucket
                 if self._langfuse_client:
                     for evt in sorted_events:
-                        self._collect_score(evt, label="unknown")
+                        self._collect_score(evt, label="single_fault")
 
             # Re-sort events within each bucket to maintain chronological order
             all_buckets = {**self.active_faults, **self.closed_faults}
