@@ -1219,6 +1219,115 @@ Create a comprehensive qualitative assessment by combining the narrative observa
         """Synchronous wrapper for extract_metrics_async."""
         return asyncio.run(self.extract_metrics_async(file_path, store_to_mongodb))
 
+    # ------------------------------------------------------------------
+    # In-memory dict variant (no temp file needed)
+    # ------------------------------------------------------------------
+
+    def load_trace_dict(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Accept an in-memory bucket dict instead of a file path.
+
+        Accepts the same two formats as load_trace_file:
+          - dict with an "events" key (bucket format): metadata is auto-loaded
+            into self.bucket_metadata when not already set.
+          - bare list of span dicts.
+        """
+        try:
+            if isinstance(data, dict) and "events" in data:
+                events = data["events"]
+                if not isinstance(events, list):
+                    raise MetricsExtractorError(
+                        f"Expected 'events' to be a list, got {type(events).__name__}"
+                    )
+                if events and not all(isinstance(e, dict) for e in events):
+                    raise MetricsExtractorError(
+                        "Expected all items in 'events' to be dicts (span objects)"
+                    )
+                if self.bucket_metadata is None:
+                    self.bucket_metadata = {k: v for k, v in data.items() if k != "events"}
+                    logger.info(
+                        f"Loaded bucket metadata from in-memory dict: "
+                        f"fault_id={self.bucket_metadata.get('fault_id')}, "
+                        f"fault_name={self.bucket_metadata.get('fault_name')}"
+                    )
+                return events
+            elif isinstance(data, list):
+                return data
+            else:
+                raise MetricsExtractorError(
+                    "Unsupported trace format: expected a list of spans "
+                    "or a dict with an 'events' key."
+                )
+        except MetricsExtractorError:
+            raise
+        except Exception as e:
+            raise MetricsExtractorError(
+                f"Failed to parse in-memory trace structure: {e}"
+            ) from e
+
+    async def extract_metrics_async_from_dict(
+        self, data: Dict[str, Any], store_to_mongodb: bool = False
+    ) -> ExtractionResult:
+        """Same as extract_metrics_async but accepts an in-memory bucket dict."""
+        try:
+            self.token_usage = TokenUsage()
+
+            spans = self.load_trace_dict(data)
+            logger.info(f"Loaded {len(spans)} spans from in-memory dict")
+
+            if self.bucket_metadata:
+                logger.info(
+                    f"Using bucket metadata: fault_id={self.bucket_metadata.get('fault_id')}, "
+                    f"fault_name={self.bucket_metadata.get('fault_name')}, "
+                    f"injection_timestamp={self.bucket_metadata.get('injection_timestamp')}"
+                )
+            else:
+                logger.info("No bucket metadata. Proceeding without ground truth context.")
+
+            logger.info("Extracting quantitative metrics using batched LLM processing...")
+            quantitative = await self.extract_quantitative_metrics(spans)
+
+            logger.info("Extracting qualitative metrics using batched LLM processing...")
+            qualitative = await self.extract_qualitative_metrics(spans)
+
+            logger.info(
+                f"Extraction complete. Token usage - Input: {self.token_usage.input_tokens}, "
+                f"Output: {self.token_usage.output_tokens}, Total: {self.token_usage.total_tokens}"
+            )
+
+            mongodb_document_id = None
+            if store_to_mongodb:
+                metadata = {
+                    "total_spans": len(spans),
+                    "extraction_token_usage": self.token_usage.to_dict(),
+                }
+                if self.bucket_metadata:
+                    metadata["bucket_metadata"] = {
+                        "fault_id": self.bucket_metadata.get("fault_id"),
+                        "fault_name": self.bucket_metadata.get("fault_name"),
+                        "severity": self.bucket_metadata.get("severity"),
+                        "injection_timestamp": self.bucket_metadata.get("injection_timestamp"),
+                    }
+                try:
+                    mongodb_document_id = self.store_metrics_to_mongodb(
+                        quantitative=quantitative,
+                        qualitative=qualitative,
+                        metadata=metadata,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to store metrics to MongoDB: {e}")
+
+            return ExtractionResult(
+                quantitative=quantitative,
+                qualitative=qualitative,
+                token_usage=self.token_usage,
+                mongodb_document_id=mongodb_document_id,
+            )
+        except MetricsExtractorError:
+            raise
+        except Exception as e:
+            logger.error(f"extract_metrics_async_from_dict failed: {e}", exc_info=True)
+            raise MetricsExtractorError(f"Metrics extraction failed: {e}") from e
+
 
 async def extract_metrics_from_trace_async(
     trace_file_path: str,
@@ -1264,6 +1373,30 @@ def extract_metrics_from_trace(
     """
     extractor = TraceMetricsExtractor(config, bucket_metadata=bucket_metadata)
     return extractor.extract_metrics(trace_file_path, store_to_mongodb)
+
+
+def extract_metrics_from_trace_dict(
+    data: Dict[str, Any],
+    config: Optional[Dict[str, Any]] = None,
+    store_to_mongodb: bool = False,
+) -> ExtractionResult:
+    """
+    Convenience function to extract metrics from an in-memory bucket dict.
+
+    Accepts the same two formats as ``TraceMetricsExtractor.load_trace_file``:
+    a bucket dict with an ``events`` key (bucket metadata auto-loaded) or a
+    bare list of span dicts.  No temp file is written.
+
+    Args:
+        data: In-memory bucket dict (``{"fault_id": ..., "events": [...]}``).
+        config: Optional config dictionary.
+        store_to_mongodb: If True, store extracted metrics to MongoDB.
+
+    Returns:
+        ExtractionResult containing quantitative, qualitative metrics and token usage.
+    """
+    extractor = TraceMetricsExtractor(config)
+    return asyncio.run(extractor.extract_metrics_async_from_dict(data, store_to_mongodb))
 
 
 def main(file_path: str, store=True):
