@@ -14,23 +14,44 @@ A single Langfuse trace may contain multiple overlapping faults.  One bucket
 dict — and one set of Phase 1 scores — is produced per (trace_id, fault_id)
 pair, mirroring the one-bucket-per-fault output of Phase 0.
 
-Per-observation fault filtering
---------------------------------
-To determine which observations belong to a given fault the bridge reads the
-colleague's fault-classification Langfuse scores.  Each agent-observation
-observation that Phase 0 would assign to a fault bucket must have had a score
-posted against it by the colleague's evaluator:
+Per-observation fault assignment: bucket_label scores
+------------------------------------------------------
+``FaultBucketingPipeline`` (Phase 0, fault_bucketing.py) posts one
+``bucket_label`` score per observation after it assigns each event to a fault
+bucket.  The score has:
 
-  Score name  : "fault_classification"        (constant below)
-  Data type   : CATEGORICAL
-  Value       : JSON-encoded list of fault IDs
-                e.g. '["pod-cpu-hog"]' or '["pod-cpu-hog", "pod-network-loss"]'
-  Scope       : observation-level — create_score must be called with
-                observation_id=<observation.id>
+  Score name   : "bucket_label"  (constant _BUCKET_LABEL_SCORE_NAME)
+  data_type    : CATEGORICAL
+  Value        : fault_id string (e.g. ``"pod-cpu-hog"`` or ``"pod-cpu-hog_2"``),
+                 or comma-separated fault_ids for events that overlap multiple
+                 active faults (e.g. ``"pod-cpu-hog, pod-network-loss"``)
+  Scope        : per-observation (observation_id is always set)
 
-This mirrors Phase 0's EventClassification.related_faults field exactly.
-If no such scores exist yet (colleague's evaluator has not run), all
-non-injection observations are included in the bucket and a warning is logged.
+A companion ``bucket_confidence`` NUMERIC score is pushed alongside each
+``bucket_label`` (1.0 for deterministic assignment, < 1.0 for LLM-resolved
+overlap), but it is not used by this bridge.
+
+A trace-level ``fault_list`` CATEGORICAL score (no observation_id) carries the
+comma-separated list of all fault **names** present in the trace (not fault_ids)
+and is used as a cross-check in ``list_fault_ids_in_trace``.
+
+fault_id vs fault_name
+-----------------------
+``FaultBucketingPipeline`` assigns a ``fault_id`` to each bucket:
+
+  - First occurrence of a fault named ``"pod-cpu-hog"``  → fault_id ``"pod-cpu-hog"``
+  - Second occurrence of the same fault                 → fault_id ``"pod-cpu-hog_2"``
+  - Third occurrence                                    → fault_id ``"pod-cpu-hog_3"``
+
+The injection span name (``"fault: pod-cpu-hog"``) is NEVER suffixed — all
+occurrences share the identical span name.  ``bucket_label`` values carry the
+suffixed fault_id directly, so filtering is a simple direct string match.
+
+Known limitation: if a second injection of the same fault name arrives while
+the first occurrence's bucket is still active, Phase 0 does not create a
+``_2`` bucket.  In that race condition ``bucket_label`` may still carry the
+bare fault_name.  This is a Phase 0 pre-condition — the bridge handles it
+gracefully via the None-fallback in ``_fetch_fault_observation_ids``.
 
 Score suffixing
 ---------------
@@ -64,12 +85,16 @@ from metrics_extractor.scripts.metrics_extractor_from_trace import (
 )
 
 # ---------------------------------------------------------------------------
-# Convention shared with the colleague's fault-classification evaluator
+# Phase 0 score names (fault_bucketing.py)
 # ---------------------------------------------------------------------------
 
-# Name of the per-observation Langfuse score that encodes fault membership.
-# Value must be a JSON-encoded list of fault IDs (CATEGORICAL data_type).
-_FAULT_CLASSIFICATION_SCORE_NAME = "fault_classification"
+# Per-observation fault-assignment score pushed by FaultBucketingPipeline.
+# Value is a fault_id string (suffixed when applicable) or comma-separated
+# fault_ids for overlap events.
+_BUCKET_LABEL_SCORE_NAME = "bucket_label"
+
+# Trace-level score listing all fault names present (comma-separated, no observation_id).
+_FAULT_LIST_SCORE_NAME = "fault_list"
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +171,7 @@ def _coerce(d: Dict[str, Any], *keys: str) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Internal: per-observation fault-classification score fetcher
+# Internal: per-fault observation ID resolution
 # ---------------------------------------------------------------------------
 
 def _fetch_fault_observation_ids(
@@ -154,61 +179,58 @@ def _fetch_fault_observation_ids(
     trace_id: str,
     fault_id: str,
 ) -> Optional[Set[str]]:
-    """Return the set of observation IDs classified as belonging to *fault_id*.
+    """Return the set of observation IDs that belong to *fault_id*, or None on error.
 
-    Reads per-observation ``fault_classification`` Langfuse scores posted by
-    the colleague's evaluator.  Each score's value is a JSON-encoded list of
-    fault IDs (e.g. ``'["pod-cpu-hog"]'``); the observation is included in
-    the returned set when *fault_id* appears in that list.
+    Uses ``bucket_label`` CATEGORICAL scores pushed by ``FaultBucketingPipeline``
+    (Phase 0).  Each score value is the fault_id string (suffixed when
+    applicable) or a comma-separated list of fault_ids for overlap events.
 
-    Returns ``None`` when no ``fault_classification`` scores are found, which
-    signals the caller to fall back to including all non-injection observations.
+    Matching is a direct string comparison: split each score value on ``","``
+    and check whether *fault_id* appears after stripping whitespace.  No suffix
+    parsing or timing-window filtering is needed.
+
+    Returns None when scores cannot be fetched or no ``bucket_label`` scores
+    exist (Phase 0 not yet run); the caller should then fall back to including
+    all non-injection observations.
     """
     try:
         scores_resp = client.api.score.get_many(trace_id=trace_id, limit=500)
     except Exception as exc:
         logger.warning(
-            "Could not fetch Langfuse scores for trace %s: %s. "
-            "Will include all observations in bucket for fault '%s'.",
-            trace_id, exc, fault_id,
+            "Could not fetch Langfuse scores for trace %s: %s.", trace_id, exc,
         )
         return None
 
-    matching_obs_ids: Set[str] = set()
-    seen_classification_score = False
+    bucket_label_scores = [
+        s for s in (scores_resp.data or [])
+        if s.name == _BUCKET_LABEL_SCORE_NAME and s.observation_id
+    ]
 
-    for score in (scores_resp.data or []):
-        if score.name != _FAULT_CLASSIFICATION_SCORE_NAME:
-            continue
-        if not score.observation_id:
-            continue  # skip trace-level scores; we only want per-observation ones
-
-        seen_classification_score = True
-
-        try:
-            related_faults = (
-                json.loads(score.value) if isinstance(score.value, str) else score.value
-            )
-        except (json.JSONDecodeError, TypeError):
-            related_faults = []
-
-        if isinstance(related_faults, list) and fault_id in related_faults:
-            matching_obs_ids.add(score.observation_id)
-
-    if not seen_classification_score:
+    if not bucket_label_scores:
         logger.warning(
-            "No '%s' scores found for trace %s. "
-            "The colleague's fault classifier may not have run yet. "
-            "All non-injection observations will be included in bucket for fault '%s'.",
-            _FAULT_CLASSIFICATION_SCORE_NAME, trace_id, fault_id,
+            "No '%s' scores found for trace %s — Phase 0 (FaultBucketingPipeline) "
+            "may not have run yet.",
+            _BUCKET_LABEL_SCORE_NAME, trace_id,
         )
         return None
+
+    matched: Set[str] = set()
+    for score in bucket_label_scores:
+        labels = [s.strip() for s in (score.value or "").split(",")]
+        if fault_id in labels:
+            matched.add(score.observation_id)
+
+    if not matched:
+        logger.warning(
+            "No observations matched fault_id '%s' via '%s' scores in trace %s.",
+            fault_id, _BUCKET_LABEL_SCORE_NAME, trace_id,
+        )
 
     logger.info(
-        "Found %d observation(s) classified as '%s' via Langfuse scores in trace %s.",
-        len(matching_obs_ids), fault_id, trace_id,
+        "fault_id '%s': %d observation(s) matched via '%s'.",
+        fault_id, len(matched), _BUCKET_LABEL_SCORE_NAME,
     )
-    return matching_obs_ids
+    return matched
 
 
 # ---------------------------------------------------------------------------
@@ -219,8 +241,23 @@ def list_fault_ids_in_trace(trace_id: str) -> List[str]:
     """Return all fault_ids present in a trace by scanning ``fault:*`` spans.
 
     The agent-sidecar logs one ``fault: <name>`` span per injected fault.
-    This function collects those span names, strips the ``"fault: "`` prefix,
-    and returns a deduplicated list of fault IDs in the order they appear.
+    Repeated faults produce multiple spans with the same name (injection span
+    names are never suffixed); this function counts occurrences in chronological
+    order to reconstruct ``FaultBucketingPipeline``'s fault_id convention:
+
+      first  ``"fault: pod-cpu-hog"`` span → ``"pod-cpu-hog"``
+      second ``"fault: pod-cpu-hog"`` span → ``"pod-cpu-hog_2"``
+      third  ``"fault: pod-cpu-hog"`` span → ``"pod-cpu-hog_3"``
+
+    Occurrence-counting is necessary because injection spans are never
+    suffixed — both occurrences of a repeated fault share the name
+    ``"fault: pod-cpu-hog"`` — so simple name deduplication would lose the
+    second occurrence.
+
+    Results are cross-checked against the trace-level ``fault_list`` score
+    (posted by Phase 0) when available; a warning is logged on mismatch.
+    Note: ``fault_list`` contains fault **names** (no suffix), not fault_ids,
+    so the cross-check compares name sets only.
 
     This is the recommended way to discover which fault_ids to pass to
     ``build_bucket_json_from_langfuse`` and ``run_phase1_on_langfuse_trace``.
@@ -247,21 +284,61 @@ def list_fault_ids_in_trace(trace_id: str) -> List[str]:
     ]
     events: List[Dict[str, Any]] = _format_observations(raw_dicts)
 
+    # Collect injection spans in chronological order — mirrors FaultBucketingPipeline.
+    injection_spans = sorted(
+        [
+            obs for obs in events
+            if isinstance(obs.get("name"), str) and obs["name"].startswith("fault:")
+        ],
+        key=lambda o: o.get("startTime") or "",
+    )
+
     fault_ids: List[str] = []
-    seen: Set[str] = set()
-    for obs in events:
-        name = obs.get("name") or ""
-        if not (isinstance(name, str) and name.startswith("fault:")):
+    name_counts: Dict[str, int] = {}
+    for obs in injection_spans:
+        fault_name = obs["name"][len("fault:"):].strip()
+        if not fault_name:
             continue
-        # "fault: pod-cpu-hog" → "pod-cpu-hog"
-        fault_id = name[len("fault:"):].strip()
-        if fault_id and fault_id not in seen:
-            fault_ids.append(fault_id)
-            seen.add(fault_id)
+        count = name_counts.get(fault_name, 0)
+        fault_ids.append(fault_name if count == 0 else f"{fault_name}_{count + 1}")
+        name_counts[fault_name] = count + 1
 
     logger.info(
-        "Found %d fault(s) in trace %s: %s", len(fault_ids), trace_id, fault_ids
+        "Found %d fault_id(s) in trace %s: %s", len(fault_ids), trace_id, fault_ids
     )
+
+    # Cross-check against the Phase 0 fault_list score (trace-level, no observation_id).
+    # fault_list carries fault names (no suffix), so compare name sets only.
+    try:
+        scores_resp = client.api.score.get_many(trace_id=trace_id, limit=500)
+        for score in (scores_resp.data or []):
+            if score.name == _FAULT_LIST_SCORE_NAME and not score.observation_id:
+                phase0_names = {
+                    s.strip() for s in (score.value or "").split(",") if s.strip()
+                }
+                # Strip _N suffix from fault_ids to get comparable fault names.
+                span_names = set()
+                for fid in fault_ids:
+                    parts = fid.rsplit("_", 1)
+                    span_names.add(parts[0] if len(parts) == 2 and parts[1].isdigit() else fid)
+                if phase0_names != span_names:
+                    logger.warning(
+                        "fault_list score for trace %s contains %s but injection spans "
+                        "yield fault names %s — Phase 0 and trace observations may be "
+                        "out of sync.",
+                        trace_id, sorted(phase0_names), sorted(span_names),
+                    )
+                else:
+                    logger.info(
+                        "fault_list cross-check passed for trace %s: %s.",
+                        trace_id, sorted(phase0_names),
+                    )
+                break
+    except Exception as exc:
+        logger.debug(
+            "Could not cross-check fault_list score for trace %s: %s.", trace_id, exc
+        )
+
     return fault_ids
 
 
@@ -275,13 +352,17 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
     Steps:
     1. Fetch all observations via ``_list_observations`` / ``_format_observations``
        (same helpers as the FastAPI pipeline — identical normalised shape).
-    2. Fetch per-observation ``fault_classification`` Langfuse scores (posted by
-       the colleague's evaluator) and use them to keep only the observations that
-       belong to *fault_id*.  When no scores exist, all non-injection observations
-       are included and a warning is emitted.
+    2. Fetch per-observation ``bucket_label`` Langfuse scores (posted by
+       ``FaultBucketingPipeline``) and keep observations whose score contains
+       *fault_id* (direct match, comma-split).  When ``bucket_label`` scores
+       are absent (Phase 0 not yet run), all non-injection observations are
+       included and a warning is emitted.
     3. Locate the ``"fault: <fault_id>"`` injection span to extract bucket
        metadata (fault_name, namespace, target_pod, injection_timestamp, …).
        The injection span itself is NOT placed in the ``"events"`` list.
+       Note: injection spans are never suffixed, so for repeated-fault
+       fault_ids (e.g. ``"pod-cpu-hog_2"``) no exact match will be found and
+       metadata will be minimal (fault_id only).
     4. Return a dict matching the format ``TraceMetricsExtractor.load_trace_dict``
        accepts: ``{fault_id, fault_name, ..., events: [...]}``.
 
@@ -291,7 +372,8 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
 
     Args:
         trace_id: Langfuse trace ID.
-        fault_id: Fault identifier to scope the bucket to (e.g. ``"pod-cpu-hog"``).
+        fault_id: Fault identifier to scope the bucket to (e.g. ``"pod-cpu-hog"``
+                  or ``"pod-cpu-hog_2"`` for the second occurrence).
 
     Returns:
         Bucket dict accepted by ``TraceMetricsExtractor.load_trace_dict``.
@@ -311,48 +393,40 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
     all_events: List[Dict[str, Any]] = _format_observations(raw_dicts)
 
     # ------------------------------------------------------------------
-    # Filter observations to those belonging to fault_id
+    # Resolve which observation IDs belong to this fault.
     # ------------------------------------------------------------------
-    matched_obs_ids: Optional[Set[str]] = _fetch_fault_observation_ids(
+    fault_obs_ids: Optional[Set[str]] = _fetch_fault_observation_ids(
         client, trace_id, fault_id
     )
 
-    if matched_obs_ids is not None:
-        # Colleague's scores are available — keep only the classified set.
-        # Injection spans (fault:*) are excluded: the colleague's classifier
-        # should not have scored them, and even if it did, they must not
-        # appear in bucket events (per Phase 0 semantics).
-        events = [
-            obs for obs in all_events
-            if obs.get("id") in matched_obs_ids
-            and not (
-                isinstance(obs.get("name"), str)
-                and obs["name"].startswith("fault:")
-            )
-        ]
-        logger.info(
-            "Filtered %d → %d observations for fault '%s' (trace %s).",
-            len(all_events), len(events), fault_id, trace_id,
+    if fault_obs_ids is None:
+        # Phase 0 scores unavailable — fall back to all non-injection observations.
+        logger.warning(
+            "'%s' scores unavailable for trace %s — including all non-injection "
+            "observations in bucket for fault '%s'.",
+            _BUCKET_LABEL_SCORE_NAME, trace_id, fault_id,
         )
-    else:
-        # Fallback: include all non-injection observations.
         events = [
             obs for obs in all_events
             if not (
-                isinstance(obs.get("name"), str)
-                and obs["name"].startswith("fault:")
+                isinstance(obs.get("name"), str) and obs["name"].startswith("fault:")
             )
         ]
-        logger.warning(
-            "Fault classification scores unavailable; using all %d "
-            "non-injection observations for fault '%s' (trace %s).",
-            len(events), fault_id, trace_id,
-        )
+    else:
+        events = [obs for obs in all_events if obs.get("id") in fault_obs_ids]
+
+    logger.info(
+        "Including %d observation(s) in bucket for fault '%s' (trace %s).",
+        len(events), fault_id, trace_id,
+    )
 
     # ------------------------------------------------------------------
-    # Locate the injection span for this specific fault_id
+    # Locate the injection span for this fault.
     # ------------------------------------------------------------------
     # The agent-sidecar names it "fault: <fault_id>" (colon + space).
+    # Injection spans are never suffixed — for repeated-fault fault_ids
+    # like "pod-cpu-hog_2" no match will be found and metadata falls back
+    # to fault_id only.
     injection_span_name = f"fault: {fault_id}"
     fault_obs: Optional[Dict[str, Any]] = None
 
@@ -374,7 +448,7 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
 
     if fault_obs is None:
         logger.warning(
-            "No injection span found for fault '%s' in trace %s. "
+            "No injection span found for fault_id '%s' in trace %s. "
             "Bucket metadata will be minimal (fault_id only).",
             fault_id, trace_id,
         )
@@ -390,11 +464,11 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
         span_input: Dict[str, Any] = _parse_json_field(fault_obs.get("input"))
         merged: Dict[str, Any] = {**span_input, **span_meta}  # span_meta wins
 
-        fault_name = _coerce(
+        extracted_fault_name = _coerce(
             merged, "fault_name", "faultName", "fault_type", "faultType"
         )
-        if fault_name is not None:
-            bucket_meta["fault_name"] = fault_name
+        if extracted_fault_name is not None:
+            bucket_meta["fault_name"] = extracted_fault_name
 
         namespace = _coerce(
             merged,
@@ -589,7 +663,8 @@ def run_phase1_on_langfuse_trace(trace_id: str, fault_id: str) -> None:
     """Fetch → extract → push for one (trace_id, fault_id) pair.
 
     1. Builds a fault-scoped bucket dict by fetching all observations for
-       *trace_id* and filtering to those belonging to *fault_id*.
+       *trace_id* and filtering to those belonging to *fault_id* via
+       ``bucket_label`` scores from Phase 0.
     2. Runs TraceMetricsExtractor on that dict (Phase 1).
     3. Pushes the resulting scores back to Langfuse, suffixed by *fault_id*.
 
@@ -600,7 +675,8 @@ def run_phase1_on_langfuse_trace(trace_id: str, fault_id: str) -> None:
 
     Args:
         trace_id: Langfuse trace ID to process.
-        fault_id: Specific fault to process (e.g. ``"pod-cpu-hog"``).
+        fault_id: Specific fault to process (e.g. ``"pod-cpu-hog"`` or
+                  ``"pod-cpu-hog_2"`` for the second occurrence).
     """
     logger.info(
         "Phase 1 bridge: fetching trace %s (fault='%s') from Langfuse.",
