@@ -171,6 +171,41 @@ def _coerce(d: Dict[str, Any], *keys: str) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Internal: score fetching (SDK-version-safe)
+# ---------------------------------------------------------------------------
+
+def _list_all_scores(client: Any, trace_id: str) -> List[Any]:
+    """Paginate all scores for *trace_id* using the Langfuse SDK ≥ 4.x endpoint.
+
+    Langfuse SDK 4.x renamed ``client.api.score`` to ``client.api.scores`` and
+    capped the per-page limit at 100.  CATEGORICAL score string values are in
+    ``score.string_value``, not ``score.value`` (which is always a float).
+    """
+    results = []
+    page = 1
+    while True:
+        resp = client.api.scores.get_many(trace_id=trace_id, limit=100, page=page)
+        results.extend(resp.data or [])
+        if not resp.data or page >= resp.meta.total_pages:
+            break
+        page += 1
+    return results
+
+
+def _score_string_value(score: Any) -> str:
+    """Return the string value of a score regardless of SDK version.
+
+    SDK ≥ 4.x stores CATEGORICAL values in ``string_value``; ``value`` is
+    always a float.  SDK 3.x stored the string directly in ``value``.
+    """
+    sv = getattr(score, "string_value", None)
+    if sv is not None:
+        return sv
+    v = getattr(score, "value", None)
+    return str(v) if v is not None else ""
+
+
+# ---------------------------------------------------------------------------
 # Internal: per-fault observation ID resolution
 # ---------------------------------------------------------------------------
 
@@ -194,7 +229,7 @@ def _fetch_fault_observation_ids(
     all non-injection observations.
     """
     try:
-        scores_resp = client.api.score.get_many(trace_id=trace_id, limit=500)
+        all_scores = _list_all_scores(client, trace_id)
     except Exception as exc:
         logger.warning(
             "Could not fetch Langfuse scores for trace %s: %s.", trace_id, exc,
@@ -202,7 +237,7 @@ def _fetch_fault_observation_ids(
         return None
 
     bucket_label_scores = [
-        s for s in (scores_resp.data or [])
+        s for s in all_scores
         if s.name == _BUCKET_LABEL_SCORE_NAME and s.observation_id
     ]
 
@@ -216,7 +251,7 @@ def _fetch_fault_observation_ids(
 
     matched: Set[str] = set()
     for score in bucket_label_scores:
-        labels = [s.strip() for s in (score.value or "").split(",")]
+        labels = [s.strip() for s in _score_string_value(score).split(",")]
         if fault_id in labels:
             matched.add(score.observation_id)
 
@@ -310,11 +345,11 @@ def list_fault_ids_in_trace(trace_id: str) -> List[str]:
     # Cross-check against the Phase 0 fault_list score (trace-level, no observation_id).
     # fault_list carries fault names (no suffix), so compare name sets only.
     try:
-        scores_resp = client.api.score.get_many(trace_id=trace_id, limit=500)
-        for score in (scores_resp.data or []):
+        all_scores = _list_all_scores(client, trace_id)
+        for score in all_scores:
             if score.name == _FAULT_LIST_SCORE_NAME and not score.observation_id:
                 phase0_names = {
-                    s.strip() for s in (score.value or "").split(",") if s.strip()
+                    s.strip() for s in _score_string_value(score).split(",") if s.strip()
                 }
                 # Strip _N suffix from fault_ids to get comparable fault names.
                 span_names = set()
@@ -470,11 +505,19 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
         if extracted_fault_name is not None:
             bucket_meta["fault_name"] = extracted_fault_name
 
+        # The chaos harness stores target metadata one level deeper under an
+        # "attributes" sub-dict with dotted OTel-style key names.  Try the flat
+        # merged dict first (for traces produced by other exporters), then fall
+        # back to attributes.  Note: "fault.namespace" in attributes is the
+        # chaos-engine namespace (e.g. "litmus"), NOT the application target
+        # namespace — use "fault.target_namespace" for the latter.
+        attrs: Dict[str, Any] = merged.get("attributes") or {}
+
         namespace = _coerce(
             merged,
             "namespace", "fault_namespace", "faultNamespace",
             "target_namespace", "targetNamespace",
-        )
+        ) or _coerce(attrs, "fault.target_namespace")
         if namespace is not None:
             bucket_meta["namespace"] = namespace
 
@@ -482,7 +525,7 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
             merged,
             "target_pod", "targetPod", "pod",
             "target_service", "targetService", "service",
-        )
+        ) or _coerce(attrs, "fault.target_label", "fault.target.workload_ref")
         if target_pod is not None:
             bucket_meta["target_pod"] = target_pod
 
