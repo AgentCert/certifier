@@ -72,7 +72,7 @@ def _build_chat_client(model_config: dict):
     """
     if model_config.get("provider") == "openai_compatible":
         return OpenAIChatClient(
-            base_url=model_config.get("base_url", os.getenv("OPENAI_COMPATIBLE_BASE_URL")),
+            base_url=model_config.get("base_url") or os.getenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:11434/v1"),
             api_key=model_config.get("api_key", os.getenv("OPENAI_COMPATIBLE_API_KEY", "not-needed")),
             model_id=model_config.get("model_id"),
         )
