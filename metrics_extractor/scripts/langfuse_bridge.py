@@ -1,12 +1,13 @@
 """
 Langfuse ↔ Phase 1 bridge.
 
-Four public entry points:
+Five public entry points:
 
   list_fault_ids_in_trace(trace_id)                        → List[str]
   build_bucket_json_from_langfuse(trace_id, fault_id)      → bucket dict
   push_extraction_result_to_langfuse(trace_id, fault_id, result)  → None
   run_phase1_on_langfuse_trace(trace_id, fault_id)         → None
+  run_phase0_then_phase1(trace_id)                         → Dict[str, ExtractionResult]
 
 Multi-fault design
 ------------------
@@ -742,3 +743,135 @@ def run_phase1_on_langfuse_trace(trace_id: str, fault_id: str) -> None:
     logger.info(
         "Phase 1 bridge: complete for trace %s, fault '%s'.", trace_id, fault_id
     )
+
+
+# ---------------------------------------------------------------------------
+# 5. run_phase0_then_phase1 — chained, single Langfuse fetch
+# ---------------------------------------------------------------------------
+
+def run_phase0_then_phase1(trace_id: str) -> Dict[str, ExtractionResult]:
+    """Chain Phase 0 → Phase 1 in one pass, reusing the in-memory FaultBucket objects.
+
+    Compared with running Phase 0 and then calling run_phase1_on_langfuse_trace
+    per fault, this function skips the per-fault Langfuse re-fetch and
+    bucket_label score re-filter that the bridge otherwise performs.
+
+    Sequence:
+      1. Fetch all observations for *trace_id* from Langfuse — one round-trip,
+         using the same paginated _list_observations helper as the bridge.
+      2. Write them to a temporary file and run FaultBucketingPipeline.  Phase 0
+         pushes bucket_label / bucket_confidence / fault_list scores to Langfuse
+         as usual — that step is not shortened.
+      3. For each FaultBucket in the result, call
+         extract_metrics_from_trace_dict(bucket.to_dict()) directly — no second
+         Langfuse fetch or score-filter step.
+      4. Push Phase 1 scores via push_extraction_result_to_langfuse.
+
+    FaultBucket.to_dict() is a strict superset of the bucket dict that
+    build_bucket_json_from_langfuse produces: all fields consumed by
+    load_trace_dict (fault_id, fault_name, injection_timestamp, namespace,
+    target_pod, events, ground_truth, …) are present under the same keys.
+
+    Args:
+        trace_id: Langfuse trace ID to process.
+
+    Returns:
+        Mapping of fault_id → ExtractionResult for every non-empty bucket.
+        Buckets with zero events are logged and skipped.
+
+    Raises:
+        RuntimeError: Langfuse env vars missing or package not installed.
+        FaultBucketingError: Phase 0 pipeline failure.
+        MetricsExtractorError: Phase 1 extraction failure for a fault (logged,
+            remaining faults still processed).
+    """
+    import asyncio
+    import json as _json
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from fault_analyzer.scripts.fault_bucketing import FaultBucketingPipeline
+    from main.services.trace_service import _list_observations, _format_observations
+
+    # ------------------------------------------------------------------
+    # Step 1 — fetch observations once
+    # ------------------------------------------------------------------
+    client = _get_langfuse_client()
+
+    logger.info("Phase 0+1: fetching observations for trace %s.", trace_id)
+    raw_obs: List[Any] = _list_observations(client, trace_id)
+    if not raw_obs:
+        logger.warning("No observations found for trace %s — nothing to process.", trace_id)
+        return {}
+
+    raw_dicts: List[Dict[str, Any]] = [
+        (o.model_dump() if hasattr(o, "model_dump") else o.dict())
+        for o in raw_obs
+    ]
+    all_events: List[Dict[str, Any]] = _format_observations(raw_dicts)
+    logger.info("Phase 0+1: %d observations fetched.", len(all_events))
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="phase01_"))
+    try:
+        # Write to a temp file — FaultBucketingPipeline requires a file path.
+        trace_path = tmp_dir / f"{trace_id}.json"
+        with open(trace_path, "w", encoding="utf-8") as fh:
+            _json.dump(all_events, fh)
+
+        # ------------------------------------------------------------------
+        # Step 2 — Phase 0: bucket + score push (langfuse_scoring auto from env)
+        # ------------------------------------------------------------------
+        bucket_out = tmp_dir / "buckets"
+        pipeline = FaultBucketingPipeline(
+            trace_file_path=str(trace_path),
+            output_dir=str(bucket_out),
+        )
+        buckets: Dict[str, Any] = asyncio.run(pipeline.run())
+        logger.info(
+            "Phase 0+1: Phase 0 complete — %d bucket(s) for trace %s.",
+            len(buckets), trace_id,
+        )
+
+        # ------------------------------------------------------------------
+        # Steps 3+4 — Phase 1 per bucket, score push per fault
+        # ------------------------------------------------------------------
+        results: Dict[str, ExtractionResult] = {}
+        for fault_id, bucket in buckets.items():
+            bucket_dict = bucket.to_dict()
+            n_events = len(bucket_dict.get("events", []))
+            if not n_events:
+                logger.warning(
+                    "Phase 0+1: bucket '%s' has no events — skipping Phase 1.",
+                    fault_id,
+                )
+                continue
+
+            logger.info(
+                "Phase 0+1: extracting Phase 1 metrics for fault '%s' (%d events).",
+                fault_id, n_events,
+            )
+            try:
+                result: ExtractionResult = extract_metrics_from_trace_dict(bucket_dict)
+            except Exception as exc:
+                logger.error(
+                    "Phase 0+1: Phase 1 extraction failed for fault '%s': %s — skipping.",
+                    fault_id, exc, exc_info=True,
+                )
+                continue
+
+            logger.info(
+                "Phase 0+1: pushing Phase 1 scores for trace %s, fault '%s'.",
+                trace_id, fault_id,
+            )
+            push_extraction_result_to_langfuse(trace_id, fault_id, result)
+            results[fault_id] = result
+
+        logger.info(
+            "Phase 0+1: complete for trace %s — %d/%d fault(s) extracted.",
+            trace_id, len(results), len(buckets),
+        )
+        return results
+
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
