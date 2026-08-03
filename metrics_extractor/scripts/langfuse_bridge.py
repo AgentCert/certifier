@@ -1,11 +1,12 @@
 """
 Langfuse ↔ Phase 1 bridge.
 
-Five public entry points:
+Six public entry points:
 
   list_fault_ids_in_trace(trace_id)                        → List[str]
   build_bucket_json_from_langfuse(trace_id, fault_id)      → bucket dict
   push_extraction_result_to_langfuse(trace_id, fault_id, result)  → None
+  clear_existing_evaluation_scores(trace_id, fault_ids)    → int
   run_phase1_on_langfuse_trace(trace_id, fault_id)         → None
   run_phase0_then_phase1(trace_id)                         → Dict[str, ExtractionResult]
 
@@ -72,6 +73,8 @@ Scores are pushed via ``Langfuse.create_score()`` which accepts
 import json
 import logging
 import os
+import re
+import subprocess
 from typing import Any, Dict, List, Optional, Set
 
 try:
@@ -94,8 +97,30 @@ from metrics_extractor.scripts.metrics_extractor_from_trace import (
 # fault_ids for overlap events.
 _BUCKET_LABEL_SCORE_NAME = "bucket_label"
 
+# Per-observation confidence score companion to bucket_label.
+_BUCKET_CONFIDENCE_SCORE_NAME = "bucket_confidence"
+
 # Trace-level score listing all fault names present (comma-separated, no observation_id).
 _FAULT_LIST_SCORE_NAME = "fault_list"
+
+# All Phase 0 score names — exact match, no suffix.
+_PHASE0_SCORE_NAMES: frozenset = frozenset({
+    _BUCKET_LABEL_SCORE_NAME,
+    _BUCKET_CONFIDENCE_SCORE_NAME,
+    _FAULT_LIST_SCORE_NAME,
+})
+
+# Phase 1 score base names (before the "_<fault_id>" suffix).
+# Full score name = f"{base}_{fault_id}", e.g. "ttd_pod-cpu-hog".
+# These are exactly the names pushed by push_extraction_result_to_langfuse.
+_PHASE1_SCORE_BASE_NAMES: frozenset = frozenset({
+    "ttd", "ttr",
+    "input_tokens", "output_tokens", "tool_call_count",
+    "hallucination_score", "reasoning_quality_score", "tool_selection_accuracy",
+    "detection_success", "mitigation_success",
+    "unsafe_action_detected", "personal_pii_detected",
+    "security_compliance_status",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -700,10 +725,203 @@ def push_extraction_result_to_langfuse(
 
 
 # ---------------------------------------------------------------------------
-# 3. Orchestrator
+# 3. Score cleanup — direct ClickHouse deletion
 # ---------------------------------------------------------------------------
 
-def run_phase1_on_langfuse_trace(trace_id: str, fault_id: str) -> None:
+# Regex that safe IDs (trace_id, fault_id, project_id, container name) must match.
+# Allows hex digits, letters, digits, hyphens, underscores, dots, colons, slashes.
+# Forbids single quotes, backslashes, semicolons, and other SQL-injection chars.
+_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_.:/\-]+$")
+
+
+def _assert_safe(value: str, label: str) -> None:
+    if not _SAFE_ID_RE.match(value):
+        raise ValueError(
+            f"Unsafe {label} value {value!r} — contains characters not allowed "
+            f"in SQL identifiers.  Only alphanumerics, hyphens, underscores, "
+            f"dots, colons, and slashes are permitted."
+        )
+
+
+def _ch_query(container: str, user: str, password: str, query: str) -> str:
+    """Run *query* against the ClickHouse container and return stdout."""
+    result = subprocess.run(
+        ["docker", "exec", container,
+         "clickhouse-client", "--user", user, "--password", password,
+         "--query", query],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ClickHouse query failed (exit {result.returncode}): "
+            f"{result.stderr.strip()}"
+        )
+    return result.stdout.strip()
+
+
+def clear_existing_evaluation_scores(
+    trace_id: str,
+    fault_ids: Optional[List[str]] = None,
+    *,
+    clickhouse_container: Optional[str] = None,
+    project_id: Optional[str] = None,
+    clickhouse_user: Optional[str] = None,
+    clickhouse_password: Optional[str] = None,
+) -> int:
+    """Delete pipeline evaluation scores for *trace_id* directly in ClickHouse.
+
+    Scoping rules
+    -------------
+    ``fault_ids=None``
+        Full reset: deletes all Phase 0 scores (``bucket_label``,
+        ``bucket_confidence``, ``fault_list``) **and** all Phase 1 scores for
+        every fault present on this trace (matched with ``LIKE`` patterns).
+        Use this before re-running Phase 0 from scratch.
+
+    ``fault_ids=[...]``
+        Partial reset: deletes Phase 1 scores for the listed fault IDs only
+        (exact names, e.g. ``ttd_pod-cpu-hog``).  Phase 0 scores are **not
+        touched** — use this when re-running Phase 1 alone for specific faults.
+
+    Safety guarantee
+    ----------------
+    Only score names in ``_PHASE0_SCORE_NAMES`` (3 names) or names matching
+    ``<base>_<fault_id>`` for bases in ``_PHASE1_SCORE_BASE_NAMES`` (13 bases)
+    are ever deleted.  Anything else is left completely untouched.
+
+    Credentials / container resolution
+    ------------------------------------
+    Arguments take precedence over environment variables.  Required env vars:
+
+      ``LANGFUSE_CLICKHOUSE_CONTAINER``   — e.g. ``lucien-langfuse-lucien-clickhouse-1``
+      ``LANGFUSE_PROJECT_ID``             — e.g. ``lucien-project``
+
+    Optional (default ``"clickhouse"`` for both):
+
+      ``LANGFUSE_CLICKHOUSE_USER``
+      ``LANGFUSE_CLICKHOUSE_PASSWORD``
+
+    Args:
+        trace_id: Langfuse trace ID whose scores should be cleaned.
+        fault_ids: If provided, restrict Phase 1 deletion to these fault IDs.
+                   If ``None``, delete Phase 0 scores + all Phase 1 scores.
+
+    Returns:
+        Total number of score rows deleted.
+
+    Raises:
+        RuntimeError: Container or project_id not configured, or ClickHouse
+            query fails.
+        ValueError: ``trace_id`` or a ``fault_id`` contains unsafe characters.
+    """
+    container = clickhouse_container or os.environ.get("LANGFUSE_CLICKHOUSE_CONTAINER", "")
+    proj_id   = project_id          or os.environ.get("LANGFUSE_PROJECT_ID",             "")
+    ch_user   = clickhouse_user     or os.environ.get("LANGFUSE_CLICKHOUSE_USER",    "clickhouse")
+    ch_pass   = clickhouse_password or os.environ.get("LANGFUSE_CLICKHOUSE_PASSWORD", "clickhouse")
+
+    if not container:
+        raise RuntimeError(
+            "ClickHouse container not specified.  Set LANGFUSE_CLICKHOUSE_CONTAINER "
+            "or pass clickhouse_container=... to clear_existing_evaluation_scores()."
+        )
+    if not proj_id:
+        raise RuntimeError(
+            "Langfuse project ID not specified.  Set LANGFUSE_PROJECT_ID "
+            "or pass project_id=... to clear_existing_evaluation_scores()."
+        )
+
+    _assert_safe(trace_id, "trace_id")
+    _assert_safe(container, "clickhouse_container")
+    _assert_safe(proj_id, "project_id")
+
+    # ------------------------------------------------------------------
+    # Build the name filter — never touches names outside our universe.
+    # ------------------------------------------------------------------
+    name_clauses: List[str] = []
+
+    if fault_ids is None:
+        # Full reset: Phase 0 (exact) + Phase 1 (LIKE patterns per base name).
+        p0_sql = ", ".join(f"'{n}'" for n in sorted(_PHASE0_SCORE_NAMES))
+        name_clauses.append(f"name IN ({p0_sql})")
+        for base in sorted(_PHASE1_SCORE_BASE_NAMES):
+            # LIKE pattern: '<base>\_%' — ClickHouse treats \ as default escape,
+            # so \_ matches a literal underscore, then % matches the fault_id suffix.
+            name_clauses.append(f"name LIKE '{base}\\_%'")
+    else:
+        if not fault_ids:
+            logger.info(
+                "clear_existing_evaluation_scores: fault_ids=[] — nothing to delete "
+                "for trace %s.", trace_id,
+            )
+            return 0
+        # Partial reset: exact Phase 1 names for the listed fault IDs only.
+        for fid in fault_ids:
+            _assert_safe(fid, "fault_id")
+        exact_names = sorted(
+            f"{base}_{fid}"
+            for fid in fault_ids
+            for base in _PHASE1_SCORE_BASE_NAMES
+        )
+        name_clauses.append("name IN ({})".format(
+            ", ".join(f"'{n}'" for n in exact_names)
+        ))
+
+    name_filter = " OR ".join(name_clauses)
+    where = (
+        f"project_id = '{proj_id}' AND trace_id = '{trace_id}'"
+        f" AND ({name_filter})"
+    )
+
+    # ------------------------------------------------------------------
+    # SELECT first — log what will be deleted, bail early if nothing.
+    # ------------------------------------------------------------------
+    counts_raw = _ch_query(
+        container, ch_user, ch_pass,
+        f"SELECT name, count() AS cnt FROM default.scores "
+        f"WHERE {where} GROUP BY name ORDER BY name",
+    )
+    if not counts_raw:
+        logger.info(
+            "clear_existing_evaluation_scores: nothing to delete for trace %s "
+            "(no matching scores found).", trace_id,
+        )
+        return 0
+
+    total = 0
+    for line in counts_raw.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 2:
+            name, cnt_str = parts
+            cnt = int(cnt_str)
+            total += cnt
+            logger.info(
+                "  [cleanup] deleting %d × '%s'  (trace %s)", cnt, name, trace_id,
+            )
+
+    # ------------------------------------------------------------------
+    # DELETE — lightweight synchronous delete (ClickHouse ≥ 22.8).
+    # ------------------------------------------------------------------
+    _ch_query(
+        container, ch_user, ch_pass,
+        f"DELETE FROM default.scores WHERE {where}",
+    )
+    logger.info(
+        "clear_existing_evaluation_scores: deleted %d row(s) for trace %s.",
+        total, trace_id,
+    )
+    return total
+
+
+# ---------------------------------------------------------------------------
+# 4. Orchestrator
+# ---------------------------------------------------------------------------
+
+def run_phase1_on_langfuse_trace(
+    trace_id: str,
+    fault_id: str,
+    *,
+    delete_existing: bool = True,
+) -> None:
     """Fetch → extract → push for one (trace_id, fault_id) pair.
 
     1. Builds a fault-scoped bucket dict by fetching all observations for
@@ -721,7 +939,21 @@ def run_phase1_on_langfuse_trace(trace_id: str, fault_id: str) -> None:
         trace_id: Langfuse trace ID to process.
         fault_id: Specific fault to process (e.g. ``"pod-cpu-hog"`` or
                   ``"pod-cpu-hog_2"`` for the second occurrence).
+        delete_existing: When ``True`` (default), deletes any existing Phase 1
+            scores for *fault_id* on this trace before pushing new ones.
+            Set to ``False`` to accumulate scores across runs (not recommended
+            for production — makes the trace ambiguous).
     """
+    if delete_existing:
+        try:
+            clear_existing_evaluation_scores(trace_id, fault_ids=[fault_id])
+        except Exception as exc:
+            logger.warning(
+                "Phase 1 bridge: could not clear existing scores for fault '%s' "
+                "on trace %s: %s — proceeding without cleanup.",
+                fault_id, trace_id, exc,
+            )
+
     logger.info(
         "Phase 1 bridge: fetching trace %s (fault='%s') from Langfuse.",
         trace_id, fault_id,
@@ -749,7 +981,11 @@ def run_phase1_on_langfuse_trace(trace_id: str, fault_id: str) -> None:
 # 5. run_phase0_then_phase1 — chained, single Langfuse fetch
 # ---------------------------------------------------------------------------
 
-def run_phase0_then_phase1(trace_id: str) -> Dict[str, ExtractionResult]:
+def run_phase0_then_phase1(
+    trace_id: str,
+    *,
+    delete_existing: bool = True,
+) -> Dict[str, ExtractionResult]:
     """Chain Phase 0 → Phase 1 in one pass, reusing the in-memory FaultBucket objects.
 
     Compared with running Phase 0 and then calling run_phase1_on_langfuse_trace
@@ -761,7 +997,9 @@ def run_phase0_then_phase1(trace_id: str) -> Dict[str, ExtractionResult]:
          using the same paginated _list_observations helper as the bridge.
       2. Write them to a temporary file and run FaultBucketingPipeline.  Phase 0
          pushes bucket_label / bucket_confidence / fault_list scores to Langfuse
-         as usual — that step is not shortened.
+         as usual — that step is not shortened.  When *delete_existing* is True,
+         Phase 0's push step first deletes all existing Phase 0 + Phase 1 scores
+         before pushing fresh ones (full reset).
       3. For each FaultBucket in the result, call
          extract_metrics_from_trace_dict(bucket.to_dict()) directly — no second
          Langfuse fetch or score-filter step.
@@ -774,6 +1012,10 @@ def run_phase0_then_phase1(trace_id: str) -> Dict[str, ExtractionResult]:
 
     Args:
         trace_id: Langfuse trace ID to process.
+        delete_existing: When ``True`` (default), deletes all existing Phase 0
+            and Phase 1 scores for this trace before pushing fresh ones.
+            Passed through to ``FaultBucketingPipeline`` which performs the
+            cleanup inside its own score-push step.
 
     Returns:
         Mapping of fault_id → ExtractionResult for every non-empty bucket.
@@ -826,6 +1068,7 @@ def run_phase0_then_phase1(trace_id: str) -> Dict[str, ExtractionResult]:
         pipeline = FaultBucketingPipeline(
             trace_file_path=str(trace_path),
             output_dir=str(bucket_out),
+            delete_existing=delete_existing,
         )
         buckets: Dict[str, Any] = asyncio.run(pipeline.run())
         logger.info(

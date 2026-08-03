@@ -101,6 +101,7 @@ class FaultBucketingPipeline:
         cache_enabled: Optional[bool] = None,
         include_event_input: Optional[bool] = None,
         langfuse_scoring: Optional[bool] = None,
+        delete_existing: bool = True,
     ):
         # Load module-level settings
         module_config = _load_module_config()
@@ -154,6 +155,10 @@ class FaultBucketingPipeline:
         # Per-run debug state — populated during run() when debug=True
         self._fault_span_event_ids: Dict[str, str] = {}   # event_id → fault_id
         self._event_outcomes: Dict[str, Dict[str, Any]] = {}  # event_id → outcome
+
+        # When True, existing evaluation scores are deleted from ClickHouse before
+        # new Phase 0 scores are pushed, preventing accumulation across re-runs.
+        self._delete_existing = delete_existing
 
         # Optional Langfuse scoring — bucket_label + bucket_confidence per observation
         self._score_data: Dict[str, Dict[str, Any]] = {}  # obs_id → score entry
@@ -925,6 +930,27 @@ class FaultBucketingPipeline:
         ) if all_buckets else "unknown"
 
         def _push_all() -> int:
+            # Delete stale scores before pushing fresh ones so repeated runs
+            # don't accumulate duplicate values in Langfuse.
+            if self._delete_existing:
+                trace_id_for_cleanup = entries[0]["trace_id"]
+                try:
+                    from metrics_extractor.scripts.langfuse_bridge import (
+                        clear_existing_evaluation_scores,
+                    )
+                    clear_existing_evaluation_scores(trace_id_for_cleanup)
+                except ImportError:
+                    logger.debug(
+                        "langfuse_bridge not importable — skipping pre-push "
+                        "score cleanup for trace %s.", trace_id_for_cleanup,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Could not clear existing evaluation scores for trace %s "
+                        "before push: %s — proceeding without cleanup.",
+                        trace_id_for_cleanup, exc,
+                    )
+
             pushed = 0
             for entry in entries:
                 try:
