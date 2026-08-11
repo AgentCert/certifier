@@ -17,16 +17,13 @@
 # ── Stage 1: builder ─────────────────────────────────────────────────────────
 FROM python:3.11-slim AS builder
 
-# System libraries required by some Python packages:
-#   portaudio19-dev  → PyAudio
-#   libxml2-dev + libxslt-dev → lxml (C extension)
-#   build-essential  → generic C/C++ build tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        portaudio19-dev \
-        libxml2-dev \
-        libxslt-dev \
-    && rm -rf /var/lib/apt/lists/*
+# No system build dependencies needed: every package in requirements.txt
+# (including lxml, whose manylinux wheel statically bundles libxml2/libxslt)
+# resolves to a prebuilt wheel on this base image/Python version — verified via
+# an isolated build of the full dependency tree with zero apt packages present.
+# PyAudio was the only package that needed portaudio19-dev + a C compiler
+# (no Linux wheel exists for it at all); removed from requirements.txt as
+# unused (zero imports anywhere in this codebase).
 
 # Create a virtual environment so we can copy it cleanly into the runtime stage
 RUN python -m venv /opt/venv
@@ -52,15 +49,14 @@ RUN playwright install chromium && chmod -R a+rX /opt/playwright-browsers
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
 
-# Runtime system libraries:
-#   libportaudio2 / libxml2 / libxslt1.1 → carried over from previous build
-#   The chromium libs are required by playwright's bundled browser for PDF
-#   rendering (cert_reporter pipeline). Without these, `pw.chromium.launch()`
-#   fails with a missing-shared-library error at runtime.
+# Runtime system libraries — all required by playwright's bundled Chromium
+# browser for PDF rendering (cert_reporter pipeline). Without these,
+# `pw.chromium.launch()` fails with a missing-shared-library error at runtime.
+# (lxml's wheel statically bundles its own libxml2/libxslt, so those aren't
+# needed here; libportaudio2 was PyAudio-only and PyAudio is no longer a
+# dependency — both verified via a from-scratch build with these apt packages
+# absent: full pip install + every top-level import succeeded.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libportaudio2 \
-        libxml2 \
-        libxslt1.1 \
         libnss3 \
         libnspr4 \
         libatk1.0-0 \
