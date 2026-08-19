@@ -101,6 +101,7 @@ async def run_task(
                 store_to_mongodb=(storage_type in ("mongodb", "hybrid")),
                 agent_id=request.agent_id,
                 config=app_config,
+                fault_windows=[w.model_dump() for w in request.fault_windows],
             )
             elapsed = time.monotonic() - start
     except Exception as exc:

@@ -50,6 +50,24 @@ class StorageConfig(BaseModel):
     container_name: str = ""     # Used only for blob_storage / hybrid
 
 
+class FaultWindow(BaseModel):
+    """One externally-known fault's active time window, supplied out-of-band
+    by the caller (e.g. derived from Argo Workflow step start/end timestamps)
+    so Phase 0 can split a trace into per-fault buckets even when the trace
+    itself carries no `fault: *` spans to split on natively -- e.g. agents
+    like flash-agent that are deliberately kept blind to fault identity, so
+    nothing in their own trace ever names which fault is active.
+
+    This is supplied entirely after the run completes, from the orchestration
+    layer that injected the faults (which already knows this ground truth
+    authoritatively) -- it never touches anything the agent's own LLM context
+    saw, so it doesn't compromise blind-observer integrity.
+    """
+    fault_name: str = Field(..., min_length=1, max_length=200)
+    start_time: str = Field(..., description="ISO-8601 timestamp")
+    end_time: str = Field(..., description="ISO-8601 timestamp")
+
+
 class BucketingExtractionRequest(BaseModel):
     """Request body for ``POST /api/v1/bucketing-extraction``."""
     agent_id: str = Field(..., min_length=1, max_length=128)
@@ -60,6 +78,10 @@ class BucketingExtractionRequest(BaseModel):
     # Controls LLM call batching during Phase 0 fault bucketing
     llm_batch_size: int = Field(default=5, ge=1, le=50)
     storage_config: StorageConfig = Field(default_factory=StorageConfig)
+    # Optional ground-truth fault windows (see FaultWindow docstring). Empty
+    # by default -- fully backward compatible; Phase 0 falls back to its
+    # existing in-trace-span-based / single-fault-bucket behavior when absent.
+    fault_windows: list[FaultWindow] = Field(default_factory=list)
 
     @field_validator("agent_id", "experiment_id", "run_id")
     @classmethod
