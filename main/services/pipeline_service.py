@@ -431,20 +431,28 @@ def _group_docs_by_category(
             subfault_to_category[s] = cat
 
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    skipped = 0
+    unclassified = 0
     for doc in docs:
         cat = _doc_fault_category(doc, subfault_to_category)
         if cat:
             grouped[cat].append(doc)
         else:
-            skipped += 1
+            unclassified += 1
+            # Don't drop the doc: Phase 0 bucketing can legitimately produce a
+            # fault_name of "unknown" (e.g. a run's fault(s) collapsed into one
+            # generic bucket). Route it to a catch-all category so it still
+            # counts toward the scorecard rather than silently vanishing and
+            # potentially leaving zero categories (which hard-fails the whole
+            # certification even when metrics were successfully extracted).
+            grouped["unclassified"].append(doc)
             logger.warning(
                 "Could not determine fault_category for doc with "
-                f"fault_name={_doc_fault_name(doc)!r}; skipping."
+                f"fault_name={_doc_fault_name(doc)!r}; routed to 'unclassified'."
             )
-    if skipped:
+    if unclassified:
         logger.warning(
-            f"{skipped} metric docs could not be mapped to a fault_category."
+            f"{unclassified} metric docs could not be mapped to a canonical "
+            "fault_category and were grouped under 'unclassified'."
         )
     logger.info(
         "Grouped docs into categories: "
@@ -666,6 +674,7 @@ class BucketPipelineService:
         store_to_mongodb: bool,
         agent_id: str = "",
         config: Optional[Dict[str, Any]] = None,
+        fault_windows: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """Run fault bucketing then per-bucket metric extraction (Phase 0+1).
 
@@ -678,6 +687,12 @@ class BucketPipelineService:
                               so the aggregation phase can filter by agent.
             config:           App config dict; loaded from ``configs/configs.json``
                               if not provided.
+            fault_windows:    Optional externally-known ground-truth fault time
+                              windows (see ``FaultWindow`` in
+                              ``main/models/bucket_requests.py``), used by Phase 0
+                              to split a trace into per-fault buckets when it
+                              carries no `fault: *` spans of its own. Empty/None
+                              preserves existing single-bucket-fallback behavior.
 
         Returns:
             List of per-fault result dicts, each containing ``quantitative``,
@@ -705,6 +720,7 @@ class BucketPipelineService:
             output_dir=str(buckets_dir),
             config=config,
             batch_size=batch_size,
+            fault_windows=fault_windows,
         )
         buckets = await pipeline.run()
 

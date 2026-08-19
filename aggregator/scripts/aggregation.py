@@ -289,7 +289,16 @@ class DirectoryQueryService:
     def _filter_by_agent(self, docs: List[Dict[str, Any]], agent_id: Optional[str]) -> List[Dict[str, Any]]:
         if not agent_id:
             return docs
-        return [d for d in docs if _extract_agent_id(d) == agent_id]
+        matched = [d for d in docs if _extract_agent_id(d) == agent_id]
+        if matched:
+            return matched
+        # Some extraction paths (e.g. trace-based flash-agent metrics) stamp
+        # agent_id with the trace/workflow id rather than the requested
+        # agent_id, while agent_name is still correctly populated. Only fall
+        # back to agent_name when the strict agent_id match found nothing, so
+        # directories that legitimately mix multiple agents (agent_id set
+        # correctly) keep exact agent_id filtering.
+        return [d for d in docs if _extract_agent_name(d) == agent_id]
 
     def query_runs_by_agent(self, agent_id: str) -> List[Dict[str, Any]]:
         docs = self._filter_by_agent(self._load_all_docs(), agent_id)

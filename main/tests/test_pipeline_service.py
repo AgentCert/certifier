@@ -120,7 +120,7 @@ class TestDocFaultHelpers:
 # ── _group_docs_by_category ────────────────────────────────────────────────
 
 class TestGroupDocs:
-    def test_groups_and_skips_unmapped(self):
+    def test_groups_and_routes_unmapped_to_unclassified(self):
         docs = [
             {"fault_name": "PodKill"},
             {"fault_name": "NetLoss"},
@@ -128,9 +128,14 @@ class TestGroupDocs:
         ]
         cats = {"resource": ["PodKill"], "network": ["NetLoss"]}
         grouped = _group_docs_by_category(docs, cats)
-        assert set(grouped.keys()) == {"resource", "network"}
+        # Unmapped docs (e.g. Phase 0 bucketing that only produced a generic
+        # fault_name) are routed to "unclassified" rather than dropped, so
+        # they still count toward the certification instead of silently
+        # vanishing (and potentially leaving zero categories).
+        assert set(grouped.keys()) == {"resource", "network", "unclassified"}
         assert len(grouped["resource"]) == 1
-        assert "Unmapped" not in str(grouped.keys())
+        assert len(grouped["unclassified"]) == 1
+        assert grouped["unclassified"][0]["fault_name"] == "Unmapped"
 
     def test_empty(self):
         assert _group_docs_by_category([], {}) == {}
