@@ -100,6 +100,7 @@ class FaultBucketingPipeline:
         fault_pruning: Optional[bool] = None,
         cache_enabled: Optional[bool] = None,
         include_event_input: Optional[bool] = None,
+        fault_windows: Optional[List[Dict[str, Any]]] = None,
     ):
         # Load module-level settings
         module_config = _load_module_config()
@@ -148,6 +149,15 @@ class FaultBucketingPipeline:
         self.agent_version: Optional[str] = None
         self.experiment_id: Optional[str] = None
         self.run_id: Optional[str] = None
+
+        # Externally supplied ground-truth fault time windows (e.g. derived from
+        # Argo Workflow step start/end timestamps by the caller), used to split
+        # events by fault when the trace itself carries no `fault: *` spans to
+        # split on natively. This never touches anything the agent's own LLM
+        # context sees -- it's supplied out-of-band, after the run, purely for
+        # Phase 0 analysis -- so it doesn't compromise blind-observer integrity.
+        # Each entry: {"fault_name": str, "start_time": iso8601, "end_time": iso8601}.
+        self.fault_windows: List[Dict[str, Any]] = fault_windows or []
 
         self.debug = debug
         # Per-run debug state — populated during run() when debug=True
@@ -246,6 +256,101 @@ class FaultBucketingPipeline:
                 f"name={self.agent_name}, version={self.agent_version}, "
                 f"experiment_id={self.experiment_id}, run_id={self.run_id}"
             )
+
+    # ------------------------------------------------------------------
+    # Ground-truth fault-window splitting (for traces with no `fault: *` spans)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_window_timestamp(ts: Any) -> Optional[datetime]:
+        if not ts:
+            return None
+        try:
+            return datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    def _split_events_by_fault_windows(
+        self, sorted_events: List[Dict[str, Any]]
+    ) -> bool:
+        """Split events into per-fault buckets using externally supplied
+        ground-truth time windows (e.g. Argo Workflow step start/end
+        timestamps), for traces that carry no `fault: *` spans to split on
+        natively -- e.g. flash-agent, which is deliberately kept blind to
+        fault identity (see ``BucketingExtractionRequest.fault_windows``).
+
+        This is supplied out-of-band by the caller, entirely after the run
+        completes, so it never touches anything the agent's own LLM context
+        saw -- it doesn't compromise blind-observer integrity, unlike
+        stamping fault identity into the trace itself would.
+
+        Returns True if at least one window-based bucket was created (in
+        which case the caller should NOT also create the single-fault
+        fallback bucket); False if no window had parseable timestamps, in
+        which case the caller should fall back to the single-fault bucket.
+        """
+        windows = []
+        for w in self.fault_windows:
+            start = self._parse_window_timestamp(w.get("start_time"))
+            end = self._parse_window_timestamp(w.get("end_time"))
+            if start and end:
+                windows.append((start, end, w.get("fault_name") or "unclassified"))
+
+        if not windows:
+            logger.warning(
+                "fault_windows was supplied but none had parseable "
+                "start_time/end_time; falling back to single-fault bucket."
+            )
+            return False
+
+        events_by_fault: Dict[str, List[Dict[str, Any]]] = {}
+        leftover: List[Dict[str, Any]] = []
+        for event in sorted_events:
+            ts = self._parse_window_timestamp(event.get("startTime"))
+            matched_name = None
+            if ts:
+                for start, end, name in windows:
+                    if start <= ts <= end:
+                        matched_name = name
+                        break
+            if matched_name:
+                events_by_fault.setdefault(matched_name, []).append(event)
+            else:
+                leftover.append(event)
+
+        if not events_by_fault:
+            logger.warning(
+                "fault_windows had parseable timestamps but no trace events "
+                "fell inside any window; falling back to single-fault bucket."
+            )
+            return False
+
+        def _make_bucket(fault_id: str, fault_name: str, events: List[Dict[str, Any]]) -> FaultBucket:
+            return FaultBucket(
+                fault_id=fault_id,
+                fault_name=fault_name,
+                events=events,
+                status="closed",
+                detected_at=events[0].get("startTime") if events else None,
+                mitigated_at=events[-1].get("endTime") if events else None,
+                agent_id=self.agent_id,
+                agent_name=self.agent_name,
+                agent_version=self.agent_version,
+                experiment_id=self.experiment_id,
+                run_id=self.run_id,
+            )
+
+        for name, events in events_by_fault.items():
+            self.closed_faults[f"fault_{name}"] = _make_bucket(f"fault_{name}", name, events)
+        if leftover:
+            self.closed_faults["unclassified"] = _make_bucket("unclassified", "unclassified", leftover)
+
+        logger.info(
+            f"Split {len(sorted_events)} events into {len(events_by_fault)} "
+            f"ground-truth fault-window bucket(s) ({len(leftover)} events "
+            "outside all windows, routed to 'unclassified')."
+        )
+        return True
 
     # ------------------------------------------------------------------
     # Fault span identification (deterministic bucketing)
@@ -612,6 +717,185 @@ class FaultBucketingPipeline:
         return gt if isinstance(gt, dict) else None
 
     # ------------------------------------------------------------------
+    # Deterministic fault bucket creation from sidecar-stamped
+    # `current_fault_name` (ground truth — takes priority over spans)
+    # ------------------------------------------------------------------
+
+    # Sentinel distinguishing "this event's metadata has no
+    # current_fault_name key at all" (never sidecar-tagged — legacy trace,
+    # workflow-step/fault:* scaffolding spans, or a workflow that doesn't
+    # bracket faults this way) from an explicit empty string, which means
+    # the sidecar *did* tag it and no fault happened to be active at call
+    # time. Both look like "nothing" superficially but only the latter is a
+    # real state transition the bucketer must act on.
+    _NO_FAULT_TAG = object()
+
+    @staticmethod
+    def _extract_current_fault_name(event: Dict[str, Any]):
+        """Read the fault window an LLM call fell in, if the sidecar stamped it.
+
+        Written by agent-sidecar's proxy.py from a ConfigMap the fault-
+        injection step patches in place (see agent-charts flash-agent
+        configmap.yaml / CURRENT_FAULT_NAME). This is ground truth about
+        which fault was active at call time, not an inference — unlike the
+        `fault: *` span heuristic below, it doesn't depend on the
+        observability tracer's span emission succeeding.
+
+        Returns ``_NO_FAULT_TAG`` when the key is absent, ``""`` when the
+        sidecar explicitly saw no fault active, or the fault name string.
+        """
+        metadata = FaultBucketingPipeline._extract_metadata_dict(event)
+        if "current_fault_name" not in metadata:
+            return FaultBucketingPipeline._NO_FAULT_TAG
+        val = metadata.get("current_fault_name")
+        if isinstance(val, str):
+            return val.strip()
+        return FaultBucketingPipeline._NO_FAULT_TAG
+
+    def _enrich_buckets_from_span(
+        self, base_name: str, event: Dict[str, Any]
+    ) -> None:
+        """Backfill ground_truth/sla/target fields from a `fault: *` span
+        onto every bucket already created for ``base_name`` by
+        ``_bucket_by_current_fault_name``, without creating a new bucket —
+        identity is already resolved; the span only adds enrichment data.
+        Only fills fields still unset, so it never overwrites real values.
+        """
+        metadata = self._extract_metadata_dict(event)
+        attributes = metadata.get("attributes", {})
+        ground_truth = self._extract_ground_truth_from_metadata(event)
+        sla = ground_truth.get("sla") if ground_truth else None
+        ideal_coa = ground_truth.get("ideal_course_of_action") if ground_truth else None
+        ideal_traj = ground_truth.get("ideal_tool_usage_trajectory") if ground_truth else None
+        injection_metadata = self._extract_injection_metadata(event)
+        target_pod = attributes.get("fault.target_label")
+        namespace = attributes.get("fault.target_namespace")
+
+        all_buckets = {**self.active_faults, **self.closed_faults}
+        for bucket in all_buckets.values():
+            if bucket.fault_name != base_name:
+                continue
+            if bucket.ground_truth is None:
+                bucket.ground_truth = ground_truth
+            if bucket.sla is None:
+                bucket.sla = sla
+            if bucket.ideal_course_of_action is None:
+                bucket.ideal_course_of_action = ideal_coa
+            if bucket.ideal_tool_usage_trajectory is None:
+                bucket.ideal_tool_usage_trajectory = ideal_traj
+            if bucket.injection_metadata is None:
+                bucket.injection_metadata = injection_metadata
+            if bucket.target_pod is None:
+                bucket.target_pod = target_pod
+            if bucket.namespace is None:
+                bucket.namespace = namespace
+
+    def _bucket_by_current_fault_name(
+        self, sorted_events: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Split the trace into per-fault buckets from `current_fault_name`
+        transitions on LLM-call events, when the workflow tagged any.
+
+        No-op on a trace that carries no such tag anywhere (older
+        workflows, or ones that don't bracket faults this way yet): returns
+        ``sorted_events`` unchanged and Pass 1 (`fault: *` spans) + Pass 2
+        (LLM/temporal routing) run exactly as they did before this method
+        existed. This is what keeps the change backward compatible.
+
+        When at least one event *is* tagged, every LLM-call event with a
+        non-empty tag is assigned directly (ground truth, no LLM
+        classification needed) and removed from what Pass 1/2 see. An
+        explicit empty tag closes whichever bucket was open without being
+        consumed itself — it isn't part of any fault, so it's left for
+        Pass 1/2 to classify exactly as before (normally landing in
+        ``unclassified_events``, unchanged from today's behaviour).
+        Repeated occurrences of the *same* fault name (e.g. 5 sequential
+        runs of one scenario in a comprehensive workflow) become 5 distinct
+        buckets, not one — the closing transition in between is what makes
+        that possible, which is why the empty tag matters and simply
+        stopping at "name didn't change" would silently merge them. Matching
+        `fault: *` injection spans are also removed from Pass 1 — their
+        identity is already resolved here — but still consulted once per
+        fault name to backfill ground_truth/sla/target metadata.
+        """
+        tagged_names = {
+            name
+            for e in sorted_events
+            for name in [self._extract_current_fault_name(e)]
+            if name is not self._NO_FAULT_TAG and name
+        }
+        any_tag_present = any(
+            self._extract_current_fault_name(e) is not self._NO_FAULT_TAG
+            for e in sorted_events
+        )
+        if not any_tag_present:
+            return sorted_events
+
+        consumed = [False] * len(sorted_events)
+        active_name: str = ""
+        active_fault_id: Optional[str] = None
+
+        for idx, event in enumerate(sorted_events):
+            fname = self._extract_current_fault_name(event)
+            if fname is self._NO_FAULT_TAG:
+                continue  # never sidecar-tagged; leave for Pass 1/2 untouched
+
+            if fname != active_name:
+                if active_fault_id is not None:
+                    self._close_fault(
+                        active_fault_id, mitigated_at=event.get("startTime")
+                    )
+                    active_fault_id = None
+                active_name = fname
+
+                if fname:  # non-empty: a new fault window is starting
+                    fault_id = fname
+                    counter = 1
+                    while (
+                        fault_id in self.closed_faults
+                        or fault_id in self.active_faults
+                    ):
+                        counter += 1
+                        fault_id = f"{fname}_{counter}"
+
+                    bucket = FaultBucket(
+                        fault_id=fault_id,
+                        fault_name=fname,
+                        events=[],
+                        status="active",
+                        injection_timestamp=event.get("startTime"),
+                        detected_at=event.get("startTime"),
+                        agent_id=self.agent_id,
+                        agent_name=self.agent_name,
+                        agent_version=self.agent_version,
+                        experiment_id=self.experiment_id,
+                        run_id=self.run_id,
+                    )
+                    self.active_faults[fault_id] = bucket
+                    logger.info(
+                        f"Fault bucket created from current_fault_name: {fault_id}"
+                    )
+                    active_fault_id = fault_id
+
+            if fname and active_fault_id is not None:
+                consumed[idx] = True
+                self.active_faults[active_fault_id].events.append(event)
+
+        # Enrichment pass: matching fault:* spans add ground_truth/sla/target
+        # data but must not spawn duplicate buckets for identity already
+        # resolved above.
+        for idx, event in enumerate(sorted_events):
+            if consumed[idx] or not self._is_fault_name_span(event):
+                continue
+            span_name = self._extract_fault_name_from_span(event)
+            if span_name not in tagged_names:
+                continue
+            consumed[idx] = True
+            self._enrich_buckets_from_span(span_name, event)
+
+        return [e for e, was in zip(sorted_events, consumed) if not was]
+
+    # ------------------------------------------------------------------
     # Deterministic fault bucket creation from "fault: *" spans
     # ------------------------------------------------------------------
 
@@ -901,6 +1185,12 @@ class FaultBucketingPipeline:
             # ----------------------------------------------------------
             self._extract_agent_metadata(sorted_events)
 
+            # ----------------------------------------------------------
+            # Pass 0: Split on sidecar-stamped current_fault_name, when
+            #         present (ground truth — see _bucket_by_current_fault_name).
+            #         No-op on traces that don't carry this tag.
+            # ----------------------------------------------------------
+            sorted_events = self._bucket_by_current_fault_name(sorted_events)
 
             # ----------------------------------------------------------
             # Pass 1: Create fault buckets from "fault: *" spans
@@ -1205,39 +1495,42 @@ class FaultBucketingPipeline:
         # Fallback: if no faults were discovered → single-fault trace
         # ----------------------------------------------------------
             if not self.active_faults and not self.closed_faults:
-                logger.info(
-                    "No 'fault: *' spans found. "
-                    "Treating as single-fault trace (one bucket)."
-                )
-                single_bucket = FaultBucket(
-                    fault_id="single_fault",
-                    # experiment_id (below) already carries the real fault name for
-                    # non-OTel-instrumented agent traces (e.g. flash-agent, which
-                    # emits only chat-completion spans, never `fault: *` spans) --
-                    # hardcoding "unknown" here discarded that and broke Phase 2's
-                    # fault_category grouping downstream ("Could not determine
-                    # fault_category for doc with fault_name='unknown'"),
-                    # reproduced on a real 5-run aggregation that came back empty.
-                    fault_name=self.experiment_id or "unknown",
-                    events=sorted_events,
-                    status="closed",
-                    detected_at=(
-                        sorted_events[0].get("startTime")
-                        if sorted_events
-                        else None
-                    ),
-                    mitigated_at=(
-                        sorted_events[-1].get("endTime")
-                        if sorted_events
-                        else None
-                    ),
-                    agent_id=self.agent_id,
-                    agent_name=self.agent_name,
-                    agent_version=self.agent_version,
-                    experiment_id=self.experiment_id,
-                    run_id=self.run_id,
-                )
-                self.closed_faults["single_fault"] = single_bucket
+                if self.fault_windows and self._split_events_by_fault_windows(sorted_events):
+                    pass
+                else:
+                    logger.info(
+                        "No 'fault: *' spans found and no usable fault_windows "
+                        "supplied. Treating as single-fault trace (one bucket)."
+                    )
+                    single_bucket = FaultBucket(
+                        fault_id="single_fault",
+                        # experiment_id (below) already carries the real fault name for
+                        # non-OTel-instrumented agent traces (e.g. flash-agent, which
+                        # emits only chat-completion spans, never `fault: *` spans) --
+                        # hardcoding "unknown" here discarded that and broke Phase 2's
+                        # fault_category grouping downstream ("Could not determine
+                        # fault_category for doc with fault_name='unknown'"),
+                        # reproduced on a real 5-run aggregation that came back empty.
+                        fault_name=self.experiment_id or "unknown",
+                        events=sorted_events,
+                        status="closed",
+                        detected_at=(
+                            sorted_events[0].get("startTime")
+                            if sorted_events
+                            else None
+                        ),
+                        mitigated_at=(
+                            sorted_events[-1].get("endTime")
+                            if sorted_events
+                            else None
+                        ),
+                        agent_id=self.agent_id,
+                        agent_name=self.agent_name,
+                        agent_version=self.agent_version,
+                        experiment_id=self.experiment_id,
+                        run_id=self.run_id,
+                    )
+                    self.closed_faults["single_fault"] = single_bucket
 
             # Re-sort events within each bucket to maintain chronological order
             all_buckets = {**self.active_faults, **self.closed_faults}
