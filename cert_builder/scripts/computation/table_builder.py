@@ -8,7 +8,8 @@ What this script does:
      Tables 12-13 merge items across all categories and sort them.
 
 Tables produced:
-  1. judge_models       -- Static LLM Council judges (from config)
+  1. judge_models       -- Actual LLM Council judges (from meta["llm_council"];
+                           falls back to static config for pre-capture runs)
   2. ttd_stats          -- Time-to-Detect statistics per category
   3. ttm_stats          -- Time-to-Mitigate statistics per category
   4. detection_rates    -- Detection/mitigation rates per category
@@ -124,8 +125,43 @@ def _fmt_score(val, decimals=2):
 
 # -- Individual table builders ------------------------------------------------
 
-def _build_judge_models():
-    return CONFIG["judge_models"]
+def _build_judge_models(llm_council=None):
+    """Build the judge-models table from the pipeline's actual LLM Council
+    composition (recorded per-run in meta["llm_council"] by
+    aggregator/scripts/llm_council.py:get_council_model_info()).
+
+    Falls back to the static config only for older cert runs whose Phase 1
+    output predates llm_council capture.
+    """
+    llm_council = llm_council or {}
+    member_keys = sorted(
+        (k for k in llm_council if k.startswith("member_")),
+        key=lambda k: int(k.split("_")[1]),
+    )
+    if not member_keys:
+        return CONFIG["judge_models"]
+
+    headers = ["Judge", "Model", "Deployment", "Role"]
+    rows = []
+    for i, key in enumerate(member_keys, start=1):
+        info = llm_council.get(key, {})
+        rows.append([
+            f"Judge {i}",
+            info.get("model_name", "unknown"),
+            info.get("deployment_name", "unknown"),
+            "Independent evaluator",
+        ])
+
+    meta_info = llm_council.get("meta_model")
+    if meta_info:
+        rows.append([
+            "Meta-Reconciler",
+            meta_info.get("model_name", "unknown"),
+            meta_info.get("deployment_name", "unknown"),
+            "Consensus synthesis — aggregates judge outputs into final summaries",
+        ])
+
+    return {"headers": headers, "rows": rows}
 
 
 def _build_ttd_category_stats(categories, sh=None):
@@ -680,7 +716,7 @@ def _build_framework_coverage(responsible_ai: dict | None) -> dict:
     return {"headers": headers, "rows": rows}
 
 
-def build_all_tables(categories, sh=None, responsible_ai=None):
+def build_all_tables(categories, sh=None, responsible_ai=None, llm_council=None):
     """Build all 18 tables from categories list.
 
     When ``sh`` (statistical_hypothesis dict from parsed_context) is provided
@@ -690,10 +726,14 @@ def build_all_tables(categories, sh=None, responsible_ai=None):
 
     ``responsible_ai`` is the gate-based RAI block from Phase 2 scorecard;
     when provided, three additional RAI tables are populated.
+
+    ``llm_council`` is meta["llm_council"] from parsed_context — the actual
+    per-run judge/meta-judge model composition; when provided, the judge_models
+    table reflects it instead of the static config fallback.
     """
     result = TablesResult.model_validate({
         "tables": {
-            "judge_models": _build_judge_models(),
+            "judge_models": _build_judge_models(llm_council),
             "ttd_category_stats": _build_ttd_category_stats(categories, sh),
             "ttm_category_stats": _build_ttm_category_stats(categories, sh),
             "ttd_stats": _build_ttd_stats(categories, sh),
@@ -720,4 +760,5 @@ def build_from_file(path):
     """Load Phase 1 output and build all tables."""
     ctx = json.loads(Path(path).read_text(encoding="utf-8"))
     responsible_ai = ctx.get("meta", {}).get("responsible_ai")
-    return build_all_tables(ctx["categories"], ctx.get("statistical_hypothesis"), responsible_ai)
+    llm_council = ctx.get("meta", {}).get("llm_council")
+    return build_all_tables(ctx["categories"], ctx.get("statistical_hypothesis"), responsible_ai, llm_council)

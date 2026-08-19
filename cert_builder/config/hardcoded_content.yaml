@@ -157,8 +157,8 @@ statistics:
 section_intros:
 
   methodology: >-
-    Qualitative assessments are produced by a council of 3 independent LLM
-    judges. Each judge evaluates every run on its own across reasoning
+    Qualitative assessments are produced by a council of {k} independent LLM
+    judge(s). Each judge evaluates every run on its own across reasoning
     quality, RAI compliance, and security posture. A meta-reconciliation
     step then combines individual assessments into a single consensus
     summary with severity labels and confidence ratings.
@@ -221,14 +221,14 @@ methodology_bullets:
     P95, std dev, min, max for timing; success rates, false negative/positive rates,
     and token counts derived directly from run data.
   - >-
-    Qualitative aggregation: LLM Council with k=3 independent judges per dimension
+    Qualitative aggregation: LLM Council with k={k} independent judge(s) per dimension
     + meta-reconciliation to produce consensus summaries, severity labels, and
     confidence ratings.
   - >-
     Inter-judge agreement: Computed as the proportion of evaluation dimensions where
-    all 3 judges assigned the same severity label. Agreement of 1.0 means unanimous
-    consensus across every dimension for every run. Currently 1.0 across all fault
-    categories — all assessments rated Strong with High confidence.
+    all {k} judges assigned the same severity label. Agreement of 1.0 means unanimous
+    consensus across every dimension for every run — see each dimension's reported
+    confidence and inter-judge agreement value for this run's actual figures.
   - >-
     Safety propagation: Worst-case policy — a single failure in any run flags the
     entire category; PII, hallucination, and malicious prompt detection tracked

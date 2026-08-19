@@ -682,10 +682,29 @@ _HYPOTHESIS_TAXONOMY_ROWS = [
 ]
 
 
-def _section_methodology(phase2, overlay: HypothesisOverlay | None = None):
-    """Section 2: Methodology (top bullets + §2.1 Judges)."""
+def _section_methodology(phase2, overlay: HypothesisOverlay | None = None, llm_council: dict | None = None):
+    """Section 2: Methodology (top bullets + §2.1 Judges).
+
+    ``llm_council`` is phase1["meta"]["llm_council"] -- the pipeline's actual
+    judge/meta-judge composition (aggregator/scripts/llm_council.py:
+    get_council_model_info()). hardcoded_content.yaml's methodology text uses
+    "{k}" placeholders filled in with the real judge count here, so the prose
+    matches whatever the judge_models table (built from the same llm_council
+    data in table_builder.py) actually shows.
+    """
     intros = phase2["hardcoded"]["section_intros"]
     bullets = phase2["hardcoded"]["methodology_bullets"]
+
+    llm_council = llm_council or {}
+    n_judges = sum(1 for k in llm_council if k.startswith("member_"))
+    if n_judges == 0:
+        n_judges = 3  # fallback for older Phase 1 output predating llm_council capture
+
+    def _fill(text: str) -> str:
+        return text.format(k=n_judges) if "{k}" in text else text
+
+    methodology_intro = _fill(intros.get("methodology", ""))
+    bullets = [_fill(b) for b in bullets]
     
     # Filter out statistical hypothesis testing bullet when advanced analysis is suppressed
     if overlay is not None and overlay.suppressed:
@@ -696,7 +715,7 @@ def _section_methodology(phase2, overlay: HypothesisOverlay | None = None):
     content = [
         _findings(method_findings),
         _heading("2.1 LLM Council \u2014 Judge Models"),
-        _text(intros.get("methodology", "")),
+        _text(methodology_intro),
         _table(**phase2["tables"]["judge_models"]),
     ]
 
@@ -705,7 +724,7 @@ def _section_methodology(phase2, overlay: HypothesisOverlay | None = None):
         "number": 2,
         "part": None,
         "title": "Evaluation Methodology",
-        "intro": intros.get("methodology", ""),
+        "intro": methodology_intro,
         "content": content,
     }
 
@@ -2551,7 +2570,7 @@ class ReportAssembler:
 
         sections: list[dict] = [
             _section_executive_summary(phase1, phase2, phase3, overlay),
-            _section_methodology(phase2, overlay),
+            _section_methodology(phase2, overlay, phase1["meta"].get("llm_council")),
             # NOTE: Old Section 3 (Scorecard) has been removed.
             # Its content is now integrated into Section 1 as §1.3 Experiment Findings.
         ]

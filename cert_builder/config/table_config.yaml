@@ -1,6 +1,12 @@
 # Table builder configuration
 # Static data that doesn't come from Phase 1 output.
 
+# judge_models: fallback ONLY, used by table_builder.py's _build_judge_models()
+# when Phase 1 output has no meta["llm_council"] (older cert runs predating
+# council-composition capture). For any current run, the report's actual
+# judge/model table is built from the real aggregator/scripts/llm_council.py
+# get_council_model_info() data, NOT from this static list -- do not treat
+# these rows as reflecting what any given certification run actually used.
 judge_models:
   headers: ["Judge", "Model", "Provider", "Role"]
   rows:

@@ -82,6 +82,26 @@ def test_judge_models_from_config():
     assert len(jm["rows"]) >= 1
 
 
+def test_judge_models_from_real_llm_council():
+    llm_council = {
+        "member_1": {"model_name": "gpt-4o", "deployment_name": "gpt4o-deploy", "api_version": "2024-12-01-preview"},
+        "meta_model": {"model_name": "gpt-4o", "deployment_name": "gpt4o-deploy", "api_version": "2024-12-01-preview"},
+    }
+    jm = tb._build_judge_models(llm_council)
+    assert jm["headers"] == ["Judge", "Model", "Deployment", "Role"]
+    assert jm["rows"] == [
+        ["Judge 1", "gpt-4o", "gpt4o-deploy", "Independent evaluator"],
+        ["Meta-Reconciler", "gpt-4o", "gpt4o-deploy",
+         "Consensus synthesis — aggregates judge outputs into final summaries"],
+    ]
+
+
+def test_judge_models_empty_llm_council_falls_back_to_config():
+    jm = tb._build_judge_models({})
+    assert jm == tb._build_judge_models(None)
+    assert jm["headers"] == ["Judge", "Model", "Provider", "Role"]
+
+
 def test_ttd_category_stats_basic():
     out = tb._build_ttd_category_stats([make_category()])
     assert out["headers"] == ["Category", "Sub-Faults", "Runs", "SLA Compliance", "Detection Rate"]
