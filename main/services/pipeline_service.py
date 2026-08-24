@@ -22,6 +22,7 @@ from utils.custom_errors import MyCustomError, OrchestratorError
 
 from fault_analyzer import FaultBucketingPipeline
 from metrics_extractor import ExtractionResult, TraceMetricsExtractor
+from metrics_extractor.scripts.metric_groups import run_extraction
 from aggregator.scripts.aggregation import AggregationOrchestrator, DirectoryQueryService, MetricsQueryService, _distinct_run_ids
 
 try:
@@ -615,6 +616,7 @@ class BucketPipelineService:
         store_to_mongodb: bool,
         agent_id: str = "",
         config: Optional[Dict[str, Any]] = None,
+        requested_metrics: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """Run fault bucketing then per-bucket metric extraction (Phase 0+1).
 
@@ -719,16 +721,40 @@ class BucketPipelineService:
             with open(fault_cfg_tmp, "w", encoding="utf-8") as f:
                 json.dump(fault_cfg, f, indent=2, default=str)
 
-            extractor = TraceMetricsExtractor(
-                config=config,
-                bucket_metadata=fault_cfg,
-            )
+            # Build the bucket dict that run_extraction expects:
+            # events list + all fault_cfg fields as bucket metadata.
+            trace_data = {**fault_cfg, "events": events}
             try:
-                extraction_result: ExtractionResult = (
-                    await extractor.extract_metrics_async(
-                        str(trace_tmp), store_to_mongodb=store_to_mongodb
-                    )
+                extraction_result: ExtractionResult = await run_extraction(
+                    data=trace_data,
+                    config=config,
+                    requested=requested_metrics,
+                    bucket_metadata=fault_cfg,
                 )
+                if store_to_mongodb:
+                    _extractor = TraceMetricsExtractor(config=config, bucket_metadata=fault_cfg)
+                    _extractor.token_usage = extraction_result.token_usage
+                    try:
+                        mongodb_document_id = _extractor.store_metrics_to_mongodb(
+                            quantitative=extraction_result.quantitative,
+                            qualitative=extraction_result.qualitative,
+                            metadata={
+                                "total_spans": len(events),
+                                "extraction_token_usage": extraction_result.token_usage.to_dict(),
+                                "bucket_metadata": {
+                                    "fault_id": fault_cfg.get("fault_id"),
+                                    "fault_name": fault_cfg.get("fault_name"),
+                                },
+                            },
+                        )
+                        extraction_result = ExtractionResult(
+                            quantitative=extraction_result.quantitative,
+                            qualitative=extraction_result.qualitative,
+                            token_usage=extraction_result.token_usage,
+                            mongodb_document_id=mongodb_document_id,
+                        )
+                    except Exception as mongo_exc:
+                        logger.error(f"Failed to store metrics to MongoDB: {mongo_exc}")
             except Exception as exc:
                 logger.error(f"Metric extraction failed for '{fault_id}': {exc}")
                 continue

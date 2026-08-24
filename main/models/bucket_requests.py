@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Union
+from typing import Annotated, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -50,6 +50,15 @@ class BucketingExtractionRequest(BaseModel):
     # Controls LLM call batching during Phase 0 fault bucketing
     llm_batch_size: int = Field(default=5, ge=1, le=50)
     storage_config: StorageConfig = Field(default_factory=StorageConfig)
+    # Optional subset of metric names to extract in Phase 1.
+    # When None (the default) all metric groups run and all metrics are returned.
+    requested_metrics: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Metric names to extract. Use list_available_metrics() to enumerate valid names. "
+            "Omit or set null to run all groups."
+        ),
+    )
 
     @field_validator("agent_id", "experiment_id", "run_id")
     @classmethod

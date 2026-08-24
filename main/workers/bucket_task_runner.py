@@ -100,6 +100,7 @@ async def run_task(
                 batch_size=request.llm_batch_size,
                 store_to_mongodb=(storage_type in ("mongodb", "hybrid")),
                 agent_id=request.agent_id,
+                requested_metrics=request.requested_metrics,
                 config=app_config,
             )
             elapsed = time.monotonic() - start
