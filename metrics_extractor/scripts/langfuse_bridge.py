@@ -339,11 +339,7 @@ def list_fault_ids_in_trace(trace_id: str) -> List[str]:
         logger.warning("No observations found for trace %s", trace_id)
         return []
 
-    raw_dicts: List[Dict[str, Any]] = [
-        (o.model_dump() if hasattr(o, "model_dump") else o.dict())
-        for o in raw_obs
-    ]
-    events: List[Dict[str, Any]] = _format_observations(raw_dicts)
+    events: List[Dict[str, Any]] = _format_observations(raw_obs)
 
     # Collect injection spans in chronological order — mirrors FaultBucketingPipeline.
     injection_spans = sorted(
@@ -447,11 +443,7 @@ def build_bucket_json_from_langfuse(trace_id: str, fault_id: str) -> Dict[str, A
     if not raw_obs:
         logger.warning("No observations found for trace %s", trace_id)
 
-    raw_dicts: List[Dict[str, Any]] = [
-        (o.model_dump() if hasattr(o, "model_dump") else o.dict())
-        for o in raw_obs
-    ]
-    all_events: List[Dict[str, Any]] = _format_observations(raw_dicts)
+    all_events: List[Dict[str, Any]] = _format_observations(raw_obs)
 
     # ------------------------------------------------------------------
     # Resolve which observation IDs belong to this fault.
@@ -1047,11 +1039,7 @@ def run_phase0_then_phase1(
         logger.warning("No observations found for trace %s — nothing to process.", trace_id)
         return {}
 
-    raw_dicts: List[Dict[str, Any]] = [
-        (o.model_dump() if hasattr(o, "model_dump") else o.dict())
-        for o in raw_obs
-    ]
-    all_events: List[Dict[str, Any]] = _format_observations(raw_dicts)
+    all_events: List[Dict[str, Any]] = _format_observations(raw_obs)
     logger.info("Phase 0+1: %d observations fetched.", len(all_events))
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="phase01_"))

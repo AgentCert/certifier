@@ -226,10 +226,13 @@ def _list_observations(client, trace_id: str) -> List[Any]:
     results = []
     page = 1
     while True:
-        resp = client.api.legacy.observations_v1.get_many(
+        resp = client.api.observations.get_many(
             trace_id=trace_id, limit=100, page=page
         )
-        results.extend(resp.data)
+        results.extend(
+            o.model_dump() if hasattr(o, "model_dump") else o.dict()
+            for o in resp.data
+        )
         if not resp.data or page >= resp.meta.total_pages:
             break
         page += 1
