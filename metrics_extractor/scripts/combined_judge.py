@@ -28,7 +28,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 import yaml
 
@@ -45,7 +45,25 @@ except ImportError:
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompt" / "prompts.yml"
 _PROMPTS = yaml.safe_load(_PROMPT_PATH.read_text(encoding="utf-8"))
-_JUDGE_PROMPT: str = _PROMPTS["hallucination_reasoning_judge"]
+_JUDGE_PROMPT_TEMPLATE: str = _PROMPTS["hallucination_reasoning_judge"]
+
+# Domain-specific vocabulary substituted into %%KEY%% placeholders in the template.
+# Swap this out to port the judge to a non-Kubernetes domain.
+KUBERNETES_JUDGE_DOMAIN_VOCABULARY: Dict[str, str] = {
+    "domain": "Kubernetes",
+    "domain_scope": "cluster",
+}
+
+
+def _render_judge_prompt(vocabulary: Dict[str, str]) -> str:
+    """Fill %%KEY%% placeholders in the judge prompt template."""
+    prompt = _JUDGE_PROMPT_TEMPLATE
+    for key, value in vocabulary.items():
+        prompt = prompt.replace(f"%%{key.upper()}%%", value)
+    return prompt
+
+
+_JUDGE_PROMPT: str = _render_judge_prompt(KUBERNETES_JUDGE_DOMAIN_VOCABULARY)
 
 
 def _parse(raw: Any) -> Any:
@@ -111,7 +129,7 @@ def _truncate(content: Any, max_chars: int = 2000) -> str:
     return text[:max_chars] + ("…" if len(text) > max_chars else "")
 
 
-async def _judge_step(client, step: dict, model: str) -> CombinedStepJudgment:
+async def _judge_step(client, step: dict, model: str, system_prompt: str) -> CombinedStepJudgment:
     tool_block = "\n".join(
         f"[{r['tool_name']}]: {r['response']}"
         for r in step["tool_responses"]
@@ -128,7 +146,7 @@ async def _judge_step(client, step: dict, model: str) -> CombinedStepJudgment:
             model_name=model,
             messages=user_msg,
             output_format=CombinedStepJudgment,
-            system_prompt=_JUDGE_PROMPT,
+            system_prompt=system_prompt,
             temperature=0.0,
             max_tokens=2500,
         )
@@ -155,12 +173,17 @@ async def judge_combined(
     trace: dict,
     model: str = "gpt-4o",
     max_concurrency: int = 4,
+    domain_vocabulary: Optional[Dict[str, str]] = None,
 ) -> CombinedJudgeResponse:
     """
     Run the consolidated hallucination + reasoning judge over a trace.
 
     Returns a CombinedJudgeResponse with both hallucination and reasoning fields.
     On failure returns a zero-valued response.
+
+    ``domain_vocabulary`` overrides the default Kubernetes vocabulary used to
+    fill domain-specific placeholders in the judge prompt template.  Pass
+    ``None`` to use ``KUBERNETES_JUDGE_DOMAIN_VOCABULARY``.
     """
     if not isinstance(trace, dict):
         return CombinedJudgeResponse()
@@ -169,11 +192,16 @@ async def judge_combined(
     if not steps:
         return CombinedJudgeResponse()
 
+    rendered_prompt = (
+        _render_judge_prompt(domain_vocabulary)
+        if domain_vocabulary is not None
+        else _JUDGE_PROMPT
+    )
     sem = asyncio.Semaphore(max(1, max_concurrency))
 
     async def _bounded(step: dict) -> CombinedStepJudgment:
         async with sem:
-            return await _judge_step(client, step, model)
+            return await _judge_step(client, step, model, rendered_prompt)
 
     results = await asyncio.gather(*[_bounded(s) for s in steps])
 
