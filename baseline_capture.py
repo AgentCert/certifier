@@ -56,6 +56,7 @@ from fault_analyzer import FaultBucketingPipeline
 from metrics_extractor.scripts.metrics_extractor_from_trace import (
     extract_metrics_from_trace_dict,
 )
+from metrics_extractor.scripts.metric_groups import run_extraction as _mg_run_extraction
 from metrics_extractor.schema.data_models import ExtractionResult
 from utils.load_config import ConfigLoader
 
@@ -268,6 +269,7 @@ def _run_phase1_for_fault(
     n_runs: int,
     out_dir: Path,
     log: logging.Logger,
+    use_metric_groups: bool = False,
 ) -> Dict[str, Any]:
     raw_dir = out_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -288,7 +290,10 @@ def _run_phase1_for_fault(
         )
         t0 = time.monotonic()
         try:
-            result: ExtractionResult = extract_metrics_from_trace_dict(bucket)
+            if use_metric_groups:
+                result: ExtractionResult = asyncio.run(_mg_run_extraction(bucket))
+            else:
+                result: ExtractionResult = extract_metrics_from_trace_dict(bucket)
         except Exception as exc:
             log.error(
                 "[%s / %s]  run %d FAILED: %s",
@@ -396,6 +401,27 @@ def main() -> None:
         "--log-file", default=None, metavar="FILE",
         help="Log file path (default: <output-dir>/baseline.log).",
     )
+    parser.add_argument(
+        "--use-metric-groups",
+        action="store_true",
+        help=(
+            "Use the MetricGroup abstraction (run_extraction) instead of "
+            "extract_metrics_from_trace_dict. Output-dir defaults to "
+            "baseline_output_metricgroups/ and bucket cache defaults to "
+            "baseline_output/buckets/ (the existing Phase 0 cache is shared, "
+            "never re-run)."
+        ),
+    )
+    parser.add_argument(
+        "--bucket-cache-dir",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Override the bucket cache directory. "
+            "Default: <output-dir>/buckets, or baseline_output/buckets/ "
+            "when --use-metric-groups is set."
+        ),
+    )
     args = parser.parse_args()
 
     # Resolve trace file list
@@ -411,12 +437,24 @@ def main() -> None:
     else:
         trace_files = [Path(p) for p in DEFAULT_TRACE_FILES]
 
+    # When --use-metric-groups is set, default to a separate output dir so the
+    # two baselines sit side by side and neither overwrites the other.
+    if args.use_metric_groups and args.output_dir == "baseline_output":
+        args.output_dir = "baseline_output_metricgroups"
+
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     log_path = Path(args.log_file) if args.log_file else out_dir / "baseline.log"
     log = _setup_logging(log_path)
 
-    bucket_cache_dir = out_dir / "buckets"
+    # Bucket cache directory: shared with the original baseline when using
+    # metric groups (all 14 Phase 0 results are already cached there).
+    if args.bucket_cache_dir:
+        bucket_cache_dir = Path(args.bucket_cache_dir)
+    elif args.use_metric_groups:
+        bucket_cache_dir = _CERTIFIER_DIR / "baseline_output" / "buckets"
+    else:
+        bucket_cache_dir = out_dir / "buckets"
     bucket_cache_dir.mkdir(parents=True, exist_ok=True)
 
     log.info("=" * 70)
@@ -501,7 +539,8 @@ def main() -> None:
 
             try:
                 report = _run_phase1_for_fault(
-                    trace_id, fault_id, bucket_dict, args.runs, out_dir, log
+                    trace_id, fault_id, bucket_dict, args.runs, out_dir, log,
+                    use_metric_groups=args.use_metric_groups,
                 )
                 summary.append({
                     "trace_id": trace_id,
