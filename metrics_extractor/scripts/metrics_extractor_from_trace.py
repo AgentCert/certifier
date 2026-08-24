@@ -99,6 +99,33 @@ def _load_prompts() -> Dict[str, str]:
 PROMPTS = _load_prompts()
 MODULE_CONFIG = _load_module_config()
 
+# ── Quantitative batch prompt vocabulary ─────────────────────────────────────
+_QUANTITATIVE_BATCH_TEMPLATE: str = PROMPTS["quantitative_batch_extraction"]
+
+KUBERNETES_QUANTITATIVE_VOCABULARY: Dict[str, str] = {
+    "incident_domain": "KUBERNETES",
+    "incident_terms": ", ".join([
+        "OOMKilling", "CrashLoopBackOff", "Evicted", "ImagePullBackOff",
+        "DeadlineExceeded", "ContainerCannotRun", "MemoryPressure", "BackOff",
+    ]),
+    "incident_prose_1": "Pod restart counts, CPU/memory threshold violations, liveness probe failures",
+    "incident_prose_2": "Node eviction messages, image pull errors, resource quota exhaustion",
+    "incident_domain_label": "Kubernetes operational signals",
+}
+
+
+def _render_quantitative_batch_prompt(vocabulary: Dict[str, str]) -> str:
+    """Fill %%KEY%% placeholders in the quantitative batch prompt template."""
+    prompt = _QUANTITATIVE_BATCH_TEMPLATE
+    for key, value in vocabulary.items():
+        prompt = prompt.replace(f"%%{key.upper()}%%", value)
+    return prompt
+
+
+_QUANTITATIVE_BATCH_PROMPT: str = _render_quantitative_batch_prompt(
+    KUBERNETES_QUANTITATIVE_VOCABULARY
+)
+
 
 class TraceMetricsExtractor:
     """
@@ -197,7 +224,8 @@ class TraceMetricsExtractor:
         return bucket_context
 
     def _build_quantitative_batch_prompt(
-        self, batch_number: int, total_batches: int
+        self, batch_number: int, total_batches: int,
+        *, domain_vocabulary: Optional[Dict[str, str]] = None,
     ) -> str:
         """Build the quantitative batch extraction prompt with ground truth context."""
         ground_truth = self._get_ground_truth()
@@ -232,7 +260,12 @@ class TraceMetricsExtractor:
                 context_parts.append(f"- **Target service**: {target_svc}")
             bucket_context = "\n".join(context_parts)
 
-        prompt = PROMPTS["quantitative_batch_extraction"].replace(
+        base = (
+            _render_quantitative_batch_prompt(domain_vocabulary)
+            if domain_vocabulary is not None
+            else _QUANTITATIVE_BATCH_PROMPT
+        )
+        prompt = base.replace(
             "{{batch_number}}", str(batch_number)
         ).replace("{{total_batches}}", str(total_batches))
 
@@ -799,6 +832,8 @@ class TraceMetricsExtractor:
         batch: List[Dict[str, Any]],
         batch_number: int,
         total_batches: int,
+        *,
+        domain_vocabulary: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Extract partial quantitative metrics from a single batch."""
         prepared_spans = [self._prepare_span_for_llm(span) for span in batch]
@@ -816,7 +851,9 @@ Trace spans:
 
 Extract all quantitative metrics from this batch as a JSON object. Parse every span's input, output, metadata, and usage JSON strings to find timestamps, token counts, tool calls, and fault information."""
 
-        prompt = self._build_quantitative_batch_prompt(batch_number, total_batches)
+        prompt = self._build_quantitative_batch_prompt(
+            batch_number, total_batches, domain_vocabulary=domain_vocabulary
+        )
 
         try:
             result, token_usage = await self.llm_client.with_structured_output(
@@ -843,16 +880,22 @@ Extract all quantitative metrics from this batch as a JSON object. Parse every s
         partial_metrics: List[Dict[str, Any]],
         total_spans: int,
         spans: List[Dict[str, Any]],
+        *,
+        precomputed_span_times: Optional[Dict[str, Optional[str]]] = None,
     ) -> LLMQuantitativeExtraction:
         """Aggregate partial metrics from all batches into final quantitative metrics."""
-        # Step 0: Identify detection/mitigation spans using LLM
-        logger.info("Identifying detection and mitigation spans using LLM...")
-        span_times = await self._identify_detection_mitigation_spans(spans)
+        if precomputed_span_times is not None:
+            span_times: Dict[str, Optional[str]] = dict(precomputed_span_times)
+            logger.info("Using precomputed span times (skipping LLM span identification).")
+        else:
+            # Step 0: Identify detection/mitigation spans using LLM
+            logger.info("Identifying detection and mitigation spans using LLM...")
+            span_times = await self._identify_detection_mitigation_spans(spans)
 
-        # Step 0b: Validate bucket timestamps
-        logger.info("Validating bucket timestamps...")
-        validated_timestamps = await self._validate_bucket_timestamps_with_llm(spans)
-        span_times.update(validated_timestamps)
+            # Step 0b: Validate bucket timestamps
+            logger.info("Validating bucket timestamps...")
+            validated_timestamps = await self._validate_bucket_timestamps_with_llm(spans)
+            span_times.update(validated_timestamps)
 
         # Step 1: Aggregate all numeric fields in code
         prescan = self.quant_aggregator.prescan_spans_for_sensitive_data(spans)
@@ -991,6 +1034,8 @@ Extract any qualitative observations you can make from this batch."""
         partial_observations: List[Dict[str, Any]],
         total_spans: int,
         spans: Optional[List[Dict[str, Any]]] = None,
+        *,
+        precomputed_judge_result=None,
     ) -> LLMQualitativeExtraction:
         """Aggregate partial observations from all batches into final qualitative metrics."""
         # Step 1: Pre-compute numeric values in code
@@ -1007,11 +1052,15 @@ Extract any qualitative observations you can make from this batch."""
         # Step 1b: combined per-step hallucination + reasoning judge.
         # A single LLM call per trace step produces both claim-grounding classifications
         # AND four-dimension reasoning quality scores, halving LLM calls vs two separate judges.
-        if spans:
+        if spans or precomputed_judge_result is not None:
             try:
                 self._init_llm_client()
-                trace_dict = {"events": spans}
-                cj = await judge_combined(self.llm_client, trace_dict, model="gpt-4o")
+                if precomputed_judge_result is not None:
+                    cj = precomputed_judge_result
+                    logger.info("Using precomputed judge result (skipping judge_combined call).")
+                else:
+                    trace_dict = {"events": spans}
+                    cj = await judge_combined(self.llm_client, trace_dict, model="gpt-4o")
 
                 # Hallucination signals
                 if cj.total_response_count > 0:

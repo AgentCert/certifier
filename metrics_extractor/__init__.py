@@ -9,6 +9,12 @@ from metrics_extractor.scripts.metrics_extractor_from_trace import (
     extract_metrics_from_trace,
     extract_metrics_from_trace_async,
 )
+from metrics_extractor.scripts.metric_groups import (
+    ExtractionContext,
+    MetricGroup,
+    list_available_metrics,
+    run_extraction,
+)
 
 __all__ = [
     "TraceMetricsExtractor",
@@ -16,4 +22,9 @@ __all__ = [
     "extract_metrics_from_trace_async",
     "ExtractionResult",
     "TokenUsage",
+    # MetricGroup abstraction
+    "ExtractionContext",
+    "MetricGroup",
+    "list_available_metrics",
+    "run_extraction",
 ]
