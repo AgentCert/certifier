@@ -63,6 +63,32 @@ class TestBuildResult:
         assert out["faults"][0]["status"] == "open"
         assert out["faults"][0]["fault_name"] == "f1"  # falls back to fault_id
 
+    def test_detection_success_is_authoritative(self, tmp_path):
+        results = [{
+            "fault_id": "f1",
+            "quantitative": {
+                "fault_detected": "Detailed diagnosis, not a literal Yes value",
+                "detection_success": 1,
+            },
+        }]
+        out = _build_result(results, {}, 1, tmp_path, 0.0)
+        assert out["faults"][0]["status"] == "closed"
+        assert out["total_faults_detected"] == 1
+
+    def test_missing_telemetry_is_inconclusive_not_detection_failure(self, tmp_path):
+        results = [{
+            "fault_id": "f1",
+            "fault_name": "pod-delete",
+            "telemetry_status": "missing",
+            "quantitative": {"detection_success": None},
+        }]
+        out = _build_result(results, {}, 0, tmp_path, 0.0)
+        assert out["total_faults_accounted"] == 1
+        assert out["total_faults_detected"] == 0
+        assert out["telemetry_gaps"] == 1
+        assert out["faults"][0]["status"] == "inconclusive"
+
+
 
 # ── run_task ───────────────────────────────────────────────────────────────
 

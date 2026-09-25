@@ -156,14 +156,24 @@ def _build_result(
     faults = []
     for r in results:
         q = r.get("quantitative", {})
+        if r.get("telemetry_status") == "missing" or q.get("detection_success") is None:
+            status = "inconclusive"
+        elif q.get("detection_success") == 1:
+            status = "closed"
+        else:
+            status = "open"
+        # Backward compatibility for metric documents created before the
+        # detection_success field became authoritative.
+        if "detection_success" not in q and r.get("telemetry_status") != "missing":
+            status = "closed" if q.get("fault_detected") == "Yes" else "open"
         faults.append({
             "fault_id": r["fault_id"],
             "fault_name": r.get("fault_name", r["fault_id"]),
             "severity": q.get("injected_fault_category"),
-            # Treat "detected" as closed; anything else (including None) as open
-            "status": "closed" if q.get("fault_detected") == "Yes" else "open",
+            "status": status,
             "detected_at": q.get("agent_fault_detection_time"),
             "mitigated_at": q.get("agent_fault_mitigation_time"),
+            "telemetry_status": r.get("telemetry_status", "available"),
         })
 
     bucketing = summary.get("bucketing_tokens", {})
@@ -171,7 +181,9 @@ def _build_result(
 
     return {
         "total_observations": total_observations,
-        "total_faults_detected": len(results),
+        "total_faults_accounted": len(faults),
+        "total_faults_detected": sum(fault["status"] == "closed" for fault in faults),
+        "telemetry_gaps": sum(fault["status"] == "inconclusive" for fault in faults),
         "faults": faults,
         "storage_paths": {
             "traces_dir": str(run_dir / "traces") + "/",

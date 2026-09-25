@@ -16,6 +16,7 @@ from main.services import pipeline_service as ps
 from main.services.pipeline_service import (
     GroupedDocsQueryService,
     _build_fault_config_from_bucket,
+    _build_telemetry_gap_result,
     _build_skip_block,
     _doc_fault_category,
     _doc_fault_name,
@@ -68,6 +69,24 @@ class TestBuildFaultConfig:
         cfg = _build_fault_config_from_bucket({"ground_truth": {"foo": "bar"}})
         assert cfg["ground_truth"]["foo"] == "bar"
 
+
+class TestTelemetryGapResult:
+    def test_preserves_fault_identity_without_claiming_detection(self):
+        result = _build_telemetry_gap_result(
+            "fault-1",
+            {
+                "fault_name": "pod-delete",
+                "severity": "resource",
+                "run_id": "run-1",
+                "namespace": "sock-shop",
+            },
+            agent_id="agent-1",
+        )
+        assert result["fault_name"] == "pod-delete"
+        assert result["telemetry_status"] == "missing"
+        assert result["evaluation_status"] == "inconclusive"
+        assert result["quantitative"]["detection_success"] is None
+        assert result["quantitative"]["agent_id"] == "agent-1"
 
 # ── _normalize_severity_labels ─────────────────────────────────────────────
 

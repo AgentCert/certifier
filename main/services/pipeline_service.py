@@ -296,6 +296,46 @@ def _build_fault_config_from_bucket(bucket_data: Dict[str, Any]) -> Dict[str, An
     }
 
 
+
+
+def _build_telemetry_gap_result(
+    fault_id: str,
+    bucket_data: Dict[str, Any],
+    agent_id: str = "",
+) -> Dict[str, Any]:
+    """Represent an injected fault with no agent events without scoring it as a miss."""
+    resolved_agent_id = bucket_data.get("agent_id") or agent_id or ""
+    return {
+        "fault_id": fault_id,
+        "run_id": bucket_data.get("run_id", ""),
+        "agent_id": resolved_agent_id,
+        "agent_name": bucket_data.get("agent_name") or "",
+        "experiment_id": bucket_data.get("experiment_id") or "",
+        "fault_name": bucket_data.get("fault_name") or fault_id,
+        "evaluation_status": "inconclusive",
+        "telemetry_status": "missing",
+        "quantitative": {
+            "agent_id": resolved_agent_id,
+            "agent_name": bucket_data.get("agent_name") or "",
+            "experiment_id": bucket_data.get("experiment_id") or "",
+            "run_id": bucket_data.get("run_id") or "",
+            "injected_fault_name": bucket_data.get("fault_name") or fault_id,
+            "injected_fault_category": bucket_data.get("severity"),
+            "fault_namespace": bucket_data.get("namespace"),
+            "fault_target_service": bucket_data.get("target_pod"),
+            "fault_injection_time": bucket_data.get("injection_timestamp"),
+            "fault_detected": "Unknown - no agent telemetry in fault window",
+            "detection_success": None,
+        },
+        "qualitative": {
+            "evaluation_status": "inconclusive",
+            "reason": "No agent telemetry was captured during the injected fault window.",
+        },
+        "token_usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        "trace_tokens": {},
+        "phase_0_tokens": {},
+    }
+
 # ── Aggregation / Certification helpers ───────────────────────────────────────
 
 def _save_json(data: dict, path: Path) -> None:
@@ -758,11 +798,6 @@ class BucketPipelineService:
             logger.info(f"--- Extracting metrics for fault: {fault_id} ---")
             bucket_dict = bucket.to_dict()
             events = bucket_dict.get("events", [])
-
-            if not events:
-                logger.warning(f"Bucket '{fault_id}' has no events, skipping.")
-                continue
-
             run_id = bucket_dict.get("run_id", "")
             # Build a filesystem-safe filename prefix from the fault + run identifiers
             safe_name = (
@@ -770,6 +805,21 @@ class BucketPipelineService:
                 if run_id
                 else fault_id.replace("/", "_").replace(" ", "_")
             )
+
+            if not events:
+                logger.warning(
+                    "Bucket '%s' has no agent events; recording an inconclusive "
+                    "telemetry gap instead of dropping the injected fault.",
+                    fault_id,
+                )
+                gap_result = _build_telemetry_gap_result(
+                    fault_id, bucket_dict, agent_id=agent_id or "",
+                )
+                metrics_file = metrics_dir / f"{safe_name}_metrics.json"
+                with open(metrics_file, "w", encoding="utf-8") as f:
+                    json.dump(gap_result, f, indent=2, default=str)
+                results.append(gap_result)
+                continue
 
             # Write the bucket's events to a temp file so TraceMetricsExtractor
             # can consume them via its standard file-based interface
@@ -834,7 +884,9 @@ class BucketPipelineService:
             "trace_file": str(Path(trace_file).name),
             "run_id": results[0].get("run_id", "") if results else "",
             "total_faults": len(buckets),
-            "faults_extracted": len(results),
+            "faults_accounted": len(results),
+            "faults_extracted": sum(r.get("telemetry_status") != "missing" for r in results),
+            "telemetry_gaps": sum(r.get("telemetry_status") == "missing" for r in results),
             "bucketing_tokens": {
                 "input": pipeline.total_input_tokens,
                 "output": pipeline.total_output_tokens,
@@ -861,7 +913,8 @@ class BucketPipelineService:
         logger.info("Pipeline Complete")
         logger.info("=" * 60)
         logger.info(f"  Faults bucketed : {len(buckets)}")
-        logger.info(f"  Metrics extracted: {len(results)}")
+        logger.info(f"  Faults accounted: {len(results)}")
+        logger.info(f"  Telemetry gaps: {sum(r.get('telemetry_status') == 'missing' for r in results)}")
         logger.info(f"  Output directory : {output_path}")
         logger.info(f"  Summary file     : {summary_file.name}")
 
