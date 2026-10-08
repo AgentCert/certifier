@@ -15,7 +15,11 @@
 
 
 # ── Stage 1: builder ─────────────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+# Base images: upstream names by default (plain `docker build` works anywhere).
+# scripts/build-and-push.sh, setup.sh and prepare-images.sh pass the copy from
+# IMAGE_REGISTRY / the frozen agentcert/ Docker Hub copies (scripts/lib/registry.sh).
+ARG PYTHON_IMAGE=python:3.11-slim
+FROM ${PYTHON_IMAGE} AS builder
 
 # No system build dependencies needed: every package in requirements.txt
 # (including lxml, whose manylinux wheel statically bundles libxml2/libxslt)
@@ -47,7 +51,7 @@ RUN playwright install chromium && chmod -R a+rX /opt/playwright-browsers
 
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+FROM ${PYTHON_IMAGE} AS runtime
 
 # Runtime system libraries — all required by playwright's bundled Chromium
 # browser for PDF rendering (cert_reporter pipeline). Without these,
