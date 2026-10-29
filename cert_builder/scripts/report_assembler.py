@@ -682,10 +682,29 @@ _HYPOTHESIS_TAXONOMY_ROWS = [
 ]
 
 
-def _section_methodology(phase2, overlay: HypothesisOverlay | None = None):
-    """Section 2: Methodology (top bullets + §2.1 Judges)."""
+def _section_methodology(phase2, overlay: HypothesisOverlay | None = None, llm_council: dict | None = None):
+    """Section 2: Methodology (top bullets + §2.1 Judges).
+
+    ``llm_council`` is phase1["meta"]["llm_council"] -- the pipeline's actual
+    judge/meta-judge composition (aggregator/scripts/llm_council.py:
+    get_council_model_info()). hardcoded_content.yaml's methodology text uses
+    "{k}" placeholders filled in with the real judge count here, so the prose
+    matches whatever the judge_models table (built from the same llm_council
+    data in table_builder.py) actually shows.
+    """
     intros = phase2["hardcoded"]["section_intros"]
     bullets = phase2["hardcoded"]["methodology_bullets"]
+
+    llm_council = llm_council or {}
+    n_judges = sum(1 for k in llm_council if k.startswith("member_"))
+    if n_judges == 0:
+        n_judges = 3  # fallback for older Phase 1 output predating llm_council capture
+
+    def _fill(text: str) -> str:
+        return text.format(k=n_judges) if "{k}" in text else text
+
+    methodology_intro = _fill(intros.get("methodology", ""))
+    bullets = [_fill(b) for b in bullets]
     
     # Filter out statistical hypothesis testing bullet when advanced analysis is suppressed
     if overlay is not None and overlay.suppressed:
@@ -696,7 +715,7 @@ def _section_methodology(phase2, overlay: HypothesisOverlay | None = None):
     content = [
         _findings(method_findings),
         _heading("2.1 LLM Council \u2014 Judge Models"),
-        _text(intros.get("methodology", "")),
+        _text(methodology_intro),
         _table(**phase2["tables"]["judge_models"]),
     ]
 
@@ -705,7 +724,7 @@ def _section_methodology(phase2, overlay: HypothesisOverlay | None = None):
         "number": 2,
         "part": None,
         "title": "Evaluation Methodology",
-        "intro": intros.get("methodology", ""),
+        "intro": methodology_intro,
         "content": content,
     }
 
@@ -1993,16 +2012,29 @@ def _section_limitations(phase2, phase3,
         ))
         next_idx += 1
     
+    _VALID_SEVERITIES = {"High", "Medium", "Low", "Critical"}
+
+    def _coerce_severity(val, default="Medium"):
+        return val if val in _VALID_SEVERITIES else default
+
+    def _lim_body(item):
+        if isinstance(item, str):
+            return item or "—"
+        return item.get("limitation") or item.get("body") or "—"
+
+    def _lim_field(item, field, default=None):
+        return item.get(field, default) if isinstance(item, dict) else default
+
     # Add Council items, capped at 10 total limitations
     remaining_slots = 10 - len(stat_items)
     for item in council_items[:remaining_slots]:
         content.append(_enumerated_item(
             kind="limitation", index=next_idx,
-            severity=item.get("severity", "Medium"),
-            scope=item.get("category", "—"),
-            body=item["limitation"],
-            tags=[item["label"]] if item.get("label") else None,
-            frequency=item.get("frequency"),
+            severity=_coerce_severity(_lim_field(item, "severity")),
+            scope=_lim_field(item, "category", "—"),
+            body=_lim_body(item),
+            tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
+            frequency=_lim_field(item, "frequency"),
         ))
         next_idx += 1
 
@@ -2013,11 +2045,11 @@ def _section_limitations(phase2, phase3,
         for item in council_items[:10]:
             content.append(_enumerated_item(
                 kind="limitation", index=next_idx,
-                severity=item.get("severity", "Medium"),
-                scope=item.get("category", "—"),
-                body=item["limitation"],
-                tags=[item["label"]] if item.get("label") else None,
-                frequency=item.get("frequency"),
+                severity=_coerce_severity(_lim_field(item, "severity")),
+                scope=_lim_field(item, "category", "—"),
+                body=_lim_body(item),
+                tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
+                frequency=_lim_field(item, "frequency"),
             ))
             next_idx += 1
 
@@ -2063,15 +2095,28 @@ def _section_recommendations(phase2, phase3,
         ))
         next_idx += 1
     
+    _VALID_SEVER = {"High", "Medium", "Low", "Critical"}
+
+    def _coerce_sev(val, default="Medium"):
+        return val if val in _VALID_SEVER else default
+
+    def _rec_body(item):
+        if isinstance(item, str):
+            return item or "—"
+        return item.get("recommendation") or item.get("body") or "—"
+
+    def _rec_field(item, field, default=None):
+        return item.get(field, default) if isinstance(item, dict) else default
+
     # Add Council items, capped at 8 total recommendations
     remaining_slots = 8 - (1 if stat_item else 0)
     for item in council_items[:remaining_slots]:
         content.append(_enumerated_item(
             kind="recommendation", index=next_idx,
-            severity=item.get("priority", "Medium"),
-            scope=item.get("category", "—"),
-            body=item["recommendation"],
-            tags=[item["label"]] if item.get("label") else None,
+            severity=_coerce_sev(_rec_field(item, "priority")),
+            scope=_rec_field(item, "category", "—"),
+            body=_rec_body(item),
+            tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
         ))
         next_idx += 1
 
@@ -2082,10 +2127,10 @@ def _section_recommendations(phase2, phase3,
         for item in council_items[:8]:
             content.append(_enumerated_item(
                 kind="recommendation", index=next_idx,
-                severity=item.get("priority", "Medium"),
-                scope=item.get("category", "—"),
-                body=item["recommendation"],
-                tags=[item["label"]] if item.get("label") else None,
+                severity=_coerce_sev(_rec_field(item, "priority")),
+                scope=_rec_field(item, "category", "—"),
+                body=_rec_body(item),
+                tags=[item["label"]] if isinstance(item, dict) and item.get("label") else None,
             ))
             next_idx += 1
 
@@ -2525,7 +2570,7 @@ class ReportAssembler:
 
         sections: list[dict] = [
             _section_executive_summary(phase1, phase2, phase3, overlay),
-            _section_methodology(phase2, overlay),
+            _section_methodology(phase2, overlay, phase1["meta"].get("llm_council")),
             # NOTE: Old Section 3 (Scorecard) has been removed.
             # Its content is now integrated into Section 1 as §1.3 Experiment Findings.
         ]

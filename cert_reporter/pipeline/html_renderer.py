@@ -270,22 +270,45 @@ def _effective_sections(state: GraphState) -> list[dict[str, Any]]:
     return result
 
 
-def _make_doc_id(state: GraphState) -> str:
-    """Build a document ID from meta fields (filesystem-safe)."""
+def _slugify(value: str) -> str:
+    """Filesystem- and Content-Disposition-safe slug (lowercase, [a-z0-9._-])."""
     import re
+    return re.sub(r"[^a-zA-Z0-9._-]", "_", value).strip("_").lower()
+
+
+def _make_doc_id(state: GraphState) -> str:
+    """Build a human-readable document ID from meta fields.
+
+    Format: {agent_slug}_{certification_date}_{run_id8}, e.g.
+    ``flash-agent_2026-08-13_a1b2c3d4``. This is the literal on-disk filename,
+    the GridFS ``filename``, and (via Content-Disposition) the browser
+    download name — there's no separate rename step anywhere downstream, so
+    it needs to be readable here.
+    """
     meta = state.get("meta", {})
+    agent_name = meta.get("agent_name", "")
+    date = meta.get("certification_date", "")
     run_id = meta.get("certification_run_id", "")
+
+    if agent_name:
+        parts = [_slugify(agent_name)]
+        if date:
+            parts.append(_slugify(date))
+        if run_id:
+            parts.append(_slugify(str(run_id))[:8])
+        return "_".join(p for p in parts if p) or "cert-report"
+
+    # Fallbacks below are effectively unreachable given Meta schema guarantees
+    # (agent_name is required, min_length=1) but kept for robustness.
     if run_id:
         raw = f"cert-{run_id}"
     else:
         agent_id = meta.get("agent_id", "")
-        date = meta.get("certification_date", "")
         if agent_id:
             raw = f"cert-{agent_id}-{date}" if date else f"cert-{agent_id}"
         else:
             raw = "cert-report"
-    # Sanitise for filesystem: replace spaces and special chars
-    return re.sub(r"[^a-zA-Z0-9._-]", "_", raw).strip("_")
+    return _slugify(raw)
 
 
 def html_renderer_node(state: GraphState) -> GraphState:

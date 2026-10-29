@@ -136,8 +136,52 @@ def test_call_llm_retries_then_raises(monkeypatch):
 
 
 def test_call_llm_uses_default_deployment(monkeypatch):
+    # Spec as AzureOpenAI so isinstance() picks the Azure deployment-name branch.
     monkeypatch.delenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", raising=False)
-    client = _client_returning(_fake_response("ok", model=None))
+    client = MagicMock(spec=lc.AzureOpenAI)
+    client.chat.completions.create.return_value = _fake_response("ok", model=None)
     out = lc.call_llm(client, "sys", "user", expect_json=False)
-    # model falls back to deployment name when response.model is None
+    # response.model is None → falls back to the deployment name "gpt-4o"
     assert out["model"] == "gpt-4o"
+
+
+# ── get_client fallback behaviour ────────────────────────────────────
+
+def test_get_client_fallback_when_ollama_reachable(monkeypatch):
+    """No Azure creds + reachable local endpoint → returns OpenAI client + warns."""
+    monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+    with patch.object(lc, "_local_endpoint_reachable", return_value=True), \
+         patch.object(lc, "OpenAI") as MockOpenAI:
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            lc.get_client()
+        MockOpenAI.assert_called_once()
+        assert any("AZURE_OPENAI_ENDPOINT" in str(warning.message) for warning in w)
+
+
+def test_get_client_fallback_uses_env_base_url(monkeypatch):
+    """OPENAI_COMPATIBLE_BASE_URL is forwarded to the OpenAI client."""
+    monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://myhost:11434/v1")
+    with patch.object(lc, "_local_endpoint_reachable", return_value=True), \
+         patch.object(lc, "OpenAI") as MockOpenAI:
+        lc.get_client()
+    kwargs = MockOpenAI.call_args.kwargs
+    assert kwargs["base_url"] == "http://myhost:11434/v1"
+
+
+def test_get_client_raises_when_no_azure_and_no_local(monkeypatch):
+    """No Azure creds + unreachable local endpoint → RuntimeError with clear message."""
+    monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+    with patch.object(lc, "_local_endpoint_reachable", return_value=False):
+        with pytest.raises(RuntimeError, match="AZURE_OPENAI_ENDPOINT"):
+            lc.get_client()
+
+
+def test_get_client_placeholder_endpoint_treated_as_missing(monkeypatch):
+    """An endpoint that still contains YOUR_RESOURCE is treated as unconfigured."""
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://YOUR_RESOURCE.openai.azure.com")
+    with patch.object(lc, "_local_endpoint_reachable", return_value=False):
+        with pytest.raises(RuntimeError, match="AZURE_OPENAI_ENDPOINT"):
+            lc.get_client()

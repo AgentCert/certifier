@@ -68,8 +68,105 @@ class FaultCategoryAnalysisResult(BaseModel):
 # Context assembly
 # ---------------------------------------------------------------------------
 
+# Categories whose derived_metrics have no fault-injection timeline
+# (no detection_rate/mitigation_rate/etc.) -- see
+# aggregator/scripts/numeric_aggregation.py's compute_ciso_derived_rates.
+# _build_category_context's generic KEY_METRICS block directly indexes
+# d['fault_detection_success_rate'] and friends (no .get()), which would
+# KeyError against a CISO-shaped derived_metrics dict, so these categories
+# get their own context builder instead.
+_CISO_SHAPED_CATEGORIES = {"ciso_fault"}
+
+
+def _build_ciso_category_context(cat: dict, phase2: dict) -> str:
+    """CISO-shaped equivalent of _build_category_context.
+
+    Renders ciso_task_pass_rate / ciso_time_to_resolve / unchanged-policy
+    preservation instead of detection/mitigation rates, TTD/TTM, and RAI
+    fairness pass-rate -- none of which are meaningful for a compliance-as-code
+    policy-generation task. LLM Council assessments and limitations/
+    recommendations rendering are unchanged since those are generic.
+    """
+    label = cat["label"]
+    faults = cat["faults_tested"]
+    fault_str = ", ".join(faults)
+    distinct_runs = cat.get("distinct_runs", cat.get("total_runs", 0))
+    run_str = f"{distinct_runs} successful runs"
+    n = cat["numeric"]
+    d = cat["derived"]
+    t = cat["textual"]
+
+    def _ns(metric: str, sub: str, fmt: str = "{}", default: str = "N/A") -> str:
+        v = (n.get(metric) or {}).get(sub)
+        return fmt.format(v) if isinstance(v, (int, float)) else default
+
+    def _rate(key: str, default: str = "N/A") -> str:
+        v = d.get(key)
+        return f"{v * 100:.0f}%" if isinstance(v, (int, float)) else default
+
+    lines = [
+        f"=== {label.upper()} ===",
+        f"Category:    {label}",
+        f"Scenario types: {fault_str}",
+        f"Runs:        {run_str}",
+        "",
+        "KEY METRICS (compliance-as-code policy generation/remediation — no detection/mitigation timeline applies):",
+        f"  Policy pass rate:              {_rate('ciso_task_pass_rate')}",
+        f"  Unchanged-policy preservation: {_rate('ciso_unchanged_policy_preservation_rate', default='N/A (not applicable to these scenario types)')}",
+        f"  Time to resolve (median):      {_ns('ciso_time_to_resolve', 'median', '{:.1f}s')}",
+        f"  Time to resolve (p95):         {_ns('ciso_time_to_resolve', 'p95', '{:.1f}s')}",
+        f"  Action correctness:            {_ns('action_correctness', 'mean', '{:.2f}')}",
+    ]
+
+    inp_tok = (n.get("input_tokens") or {}).get("mean")
+    out_tok = (n.get("output_tokens") or {}).get("mean")
+    if isinstance(inp_tok, (int, float)) or isinstance(out_tok, (int, float)):
+        lines.append(f"  Input tokens mean:    {inp_tok:.0f}" if isinstance(inp_tok, (int, float)) else "  Input tokens mean:    N/A")
+        lines.append(f"  Output tokens mean:   {out_tok:.0f}" if isinstance(out_tok, (int, float)) else "  Output tokens mean:   N/A")
+
+    lines.append("")
+    lines.append("LLM COUNCIL ASSESSMENTS:")
+    for key, heading in [
+        ("agent_summary", "Agent Summary"),
+        ("ciso_policy_correctness_notes", "Policy Correctness"),
+        ("overall_response_and_reasoning_quality", "Response & Reasoning Quality"),
+    ]:
+        block = t.get(key)
+        if not block:
+            continue
+        lines.append(f"  {heading}:")
+        if "severity_label" in block and block["severity_label"]:
+            lines.append(f"    Rating: {block['severity_label']}")
+        lines.append(f"    Confidence: {block['confidence']}, Agreement: {block['inter_judge_agreement']}")
+        summary = block["consensus_summary"]
+        if len(summary) > 300:
+            summary = summary[:297] + "..."
+        lines.append(f"    \"{summary}\"")
+
+    lim_rows = phase2.get("tables", {}).get("limitations", {}).get("rows", [])
+    cat_lims = [r for r in lim_rows if r[2] == label]
+    if cat_lims:
+        lines.append("")
+        lines.append("LIMITATIONS:")
+        for r in cat_lims:
+            lines.append(f"  - [{r[3]}] {r[1]}")
+
+    rec_rows = phase2.get("tables", {}).get("recommendations", {}).get("rows", [])
+    cat_recs = [r for r in rec_rows if r[3] == label]
+    if cat_recs:
+        lines.append("")
+        lines.append("RECOMMENDATIONS:")
+        for r in cat_recs:
+            lines.append(f"  - [{r[1]}] {r[2]}")
+
+    return "\n".join(lines)
+
+
 def _build_category_context(cat: dict, phase2: dict) -> str:
     """Build context block for a single category."""
+    if cat.get("fault_category") in _CISO_SHAPED_CATEGORIES:
+        return _build_ciso_category_context(cat, phase2)
+
     label = cat["label"]
     faults = cat["faults_tested"]
     fault_str = ", ".join(faults)

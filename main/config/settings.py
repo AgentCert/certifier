@@ -34,6 +34,17 @@ class Settings:
     workspace_dir: Path = field(
         default_factory=lambda: Path(os.getenv("WORKSPACE_DIR", "workspace")).resolve()
     )
+    # Optional second directory, bridged out to the real host filesystem by the
+    # Compose/Helm deploy config (see docker-compose.yml / deploy/helm/ace), that
+    # finished certification reports are additionally copied into for easy
+    # discovery outside the container. Unset in local non-Docker dev and in
+    # CLUSTER_MODE=cloud/local deploys — cert_task_runner.py treats None as a
+    # no-op, not an error.
+    cert_host_export_dir: Path | None = field(
+        default_factory=lambda: (
+            Path(v).resolve() if (v := os.getenv("CERT_HOST_EXPORT_DIR")) else None
+        )
+    )
 
     # ── Concurrency ───────────────────────────────────────────────────────────
     # Maximum simultaneous bucketing-extraction pipeline executions

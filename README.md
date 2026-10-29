@@ -275,6 +275,61 @@ AZURE_EMBEDDING_MODEL       = text-embedding-3-small
 > URI works inside and outside the container. Override with `CERTIFIER_MONGODB_URI` to
 > point at a different cluster (e.g. Atlas).
 
+##### Using a non-Azure backend for the LLM judges (e.g. a local open-weight model)
+
+Azure OpenAI is the **default** for the two chat models `configs/configs.json` defines
+(`gpt-4o` — extraction/judge; `gpt-5.2` — reasoning/meta-judge). `AzureLLMClient`
+(`utils/azure_openai_util.py`) also supports any OpenAI-compatible backend per model —
+useful for running the LLM Council (judges + meta-judge + narrative synthesis) against a
+locally-hosted open-weight model (e.g. via [Ollama](https://ollama.com)) without any Azure
+credentials at all, for local dev/testing or when Azure access isn't available.
+
+Set `"provider": "openai_compatible"` on a model entry in `configs/configs.json` instead of
+the Azure `endpoint`/`api_key`/`deployment_name` fields:
+
+```jsonc
+"models": {
+  "gpt-4o": {
+    "provider": "openai_compatible",
+    "base_url": "http://127.0.0.1:11434/v1",   // Ollama's OpenAI-compatible endpoint
+    "api_key": "ollama",                        // any non-empty string — Ollama doesn't check it
+    "model_id": "qwen2.5:7b-instruct",           // any locally-pulled model with tool/JSON support
+    "model_type": "standard"
+  },
+  "gpt-5.2": {
+    "provider": "openai_compatible",
+    "base_url": "http://127.0.0.1:11434/v1",
+    "api_key": "ollama",
+    "model_id": "qwen2.5:7b-instruct",
+    "model_type": "standard"
+  }
+}
+```
+
+Mix and match freely — e.g. keep `gpt-4o` on real Azure while pointing `gpt-5.2` (or
+`embedding_model`) at a local model, or vice versa; each of the three model entries is
+resolved independently. Omitting `"provider"` (or setting anything other than
+`"openai_compatible"`) keeps the original Azure OpenAI path — **no code change is required
+to keep using Azure**, this is purely additive.
+
+A model entry that fails to build a client (e.g. `embedding_model` left pointing at unset
+Azure env vars while only the two chat models are configured for local use) no longer
+crashes `AzureLLMClient` construction for the *other* models — it logs a warning and is
+skipped, surfacing only if that specific model is actually requested later.
+
+Two things worth knowing if you go this route:
+- `agent_framework` also ships an Ollama-specific client package
+  (`agent-framework-ollama`), but as of `1.0.0b260130` it has a version skew against the
+  pinned `agent-framework-core==1.0.0b251223` (it imports a `Content` symbol the core
+  package renamed to `Contents`) and fails to import. `provider: "openai_compatible"` uses
+  `agent_framework.openai.OpenAIChatClient` against Ollama's own `/v1` endpoint instead,
+  sidestepping that broken integration entirely — same technique flash-agent already uses
+  for the agent-under-test's own LLM calls (`OPENAI_BASE_URL`/`OPENAI_API_KEY`/`MODEL_ALIAS`
+  in `flash-agent/.env`).
+- A 7-8B open-weight model run on CPU is meaningfully less reliable at structured-JSON
+  judge output than GPT-4o/GPT-5 — expect more retries and treat local-model certification
+  runs as a way to validate the *pipeline*, not as equivalent-quality certification scoring.
+
 #### 2. Bring up the shared mongo, then the certifier
 
 ```bash

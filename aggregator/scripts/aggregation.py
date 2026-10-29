@@ -37,7 +37,14 @@ from aggregator.scripts.numeric_aggregation import (
     compute_boolean_aggregates,
     compute_derived_rates,
     compute_numeric_aggregates,
+    compute_ciso_derived_rates,
+    compute_ciso_numeric_aggregates,
 )
+
+# Categories whose per-run docs have no fault-injection timeline (no
+# detection/mitigation timestamps) and therefore need the CISO-shaped
+# numeric/derived-rate computation instead of the generic one.
+_CISO_SHAPED_CATEGORIES = {"ciso_fault"}
 from aggregator.scripts.rai_scoring import compute_responsible_ai
 
 # ---------------------------------------------------------------------------
@@ -228,8 +235,21 @@ def _extract_run_id(doc: Dict[str, Any]) -> Optional[str]:
 
 
 def _distinct_run_ids(docs: List[Dict[str, Any]]) -> set:
-    """Return the set of distinct, non-empty run_ids across docs."""
-    return {rid for rid in (_extract_run_id(d) for d in docs) if rid}
+    """Return the set of distinct run_ids across docs.
+
+    Docs without an extractable run_id each form their own pseudo-run
+    (consistent with _group_docs_by_run in numeric_aggregation.py).
+    """
+    result: set = set()
+    fallback_idx = 0
+    for doc in docs:
+        rid = _extract_run_id(doc)
+        if rid:
+            result.add(rid)
+        else:
+            result.add(f"__no_run_id_{fallback_idx}__")
+            fallback_idx += 1
+    return result
 
 
 class DirectoryQueryService:
@@ -269,7 +289,16 @@ class DirectoryQueryService:
     def _filter_by_agent(self, docs: List[Dict[str, Any]], agent_id: Optional[str]) -> List[Dict[str, Any]]:
         if not agent_id:
             return docs
-        return [d for d in docs if _extract_agent_id(d) == agent_id]
+        matched = [d for d in docs if _extract_agent_id(d) == agent_id]
+        if matched:
+            return matched
+        # Some extraction paths (e.g. trace-based flash-agent metrics) stamp
+        # agent_id with the trace/workflow id rather than the requested
+        # agent_id, while agent_name is still correctly populated. Only fall
+        # back to agent_name when the strict agent_id match found nothing, so
+        # directories that legitimately mix multiple agents (agent_id set
+        # correctly) keep exact agent_id filtering.
+        return [d for d in docs if _extract_agent_name(d) == agent_id]
 
     def query_runs_by_agent(self, agent_id: str) -> List[Dict[str, Any]]:
         docs = self._filter_by_agent(self._load_all_docs(), agent_id)
@@ -515,6 +544,7 @@ class ScorecardAssembler:
             "total_failed_runs": total_failed_runs,
             "total_faults_tested": len(all_faults),
             "total_fault_categories": len(category_scorecards),
+            "runs_per_fault": runs_per_fault,
             "fault_category_scorecards": category_scorecards,
         }
 
@@ -590,6 +620,11 @@ def _validate_metrics_across_categories(
         "sensitive_data_exposure_count",
         "adversarial_input_count",
         "tool_selection_accuracy",
+        # ciso_fault has no detection/mitigation timeline, so its own fields
+        # must be checked too -- otherwise a run set containing ONLY CISO
+        # docs would be wrongly flagged as metrics_validation_failed.
+        "ciso_task_passed",
+        "ciso_time_to_resolve",
     ]
     critical_fields_qualitative = [
         "rai_check_status",
@@ -720,11 +755,23 @@ class AggregationOrchestrator:
                 }
 
             # Step 2: Numeric aggregates
-            numeric_aggs = compute_numeric_aggregates(docs)
+            # ciso_fault has no fault-injection timeline (no detection/mitigation
+            # timestamps) -- computing the generic aggregates against it would
+            # silently report misleading 0% rates for a task type where
+            # "detection" isn't a meaningful concept. See numeric_aggregation.py's
+            # compute_ciso_numeric_aggregates/compute_ciso_derived_rates docstrings.
+            is_ciso_shaped = fault_category in _CISO_SHAPED_CATEGORIES
+            if is_ciso_shaped:
+                numeric_aggs = compute_ciso_numeric_aggregates(docs)
+            else:
+                numeric_aggs = compute_numeric_aggregates(docs)
             logger.info(f"Computed numeric aggregates for {len(numeric_aggs)} metrics")
 
             # Step 3: Derived rates
-            derived_rates = compute_derived_rates(docs)
+            if is_ciso_shaped:
+                derived_rates = compute_ciso_derived_rates(docs)
+            else:
+                derived_rates = compute_derived_rates(docs)
             logger.info(f"Computed derived rates: {derived_rates}")
 
             # Step 4: Boolean aggregates

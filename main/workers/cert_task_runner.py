@@ -2,6 +2,7 @@ import asyncio
 import io
 import json
 import logging
+import shutil
 import time
 import traceback
 import uuid
@@ -31,6 +32,35 @@ def resolve_cert_output_dir(workspace_dir: Path, agent_id: str, experiment_id: s
     path = workspace_dir / agent_id / experiment_id
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def export_report_to_host_dir(
+    report_paths: Dict[str, str],
+    export_root: Path,
+    agent_id: str,
+    experiment_id: str,
+) -> Dict[str, str]:
+    """Best-effort copy of finished HTML/PDF report files into a second,
+    host-bridged directory for easy discovery outside the container.
+
+    agent_id/experiment_id are assumed already validated by the earlier call
+    to resolve_cert_output_dir() in the same task. Never raises — per-file
+    copy failures are caught and simply omitted from the returned dict, since
+    this export is a convenience feature and must not affect certification
+    task success/failure.
+    """
+    dest_dir = export_root / agent_id / experiment_id
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    written: Dict[str, str] = {}
+    for key, src in report_paths.items():
+        try:
+            src_path = Path(src)
+            dest_path = dest_dir / src_path.name
+            shutil.copy2(src_path, dest_path)
+            written[key] = str(dest_path)
+        except Exception as exc:
+            log.warning("cert host export: failed to copy %s (non-fatal): %s", key, exc)
+    return written
 
 
 def classify_cert_error(exc: Exception) -> str:
@@ -190,6 +220,7 @@ async def run_cert_task(
     # ── Stage: running_pipeline (inside semaphore) ────────────────────────────
     # The semaphore limits simultaneous heavy cert pipeline runs to prevent OOM
     report_paths: Dict[str, str] = {}
+    exported: Dict[str, str] = {}
     try:
         async with cert_semaphore:
             await cert_session_svc.update_stage(cert_task_id, "running_pipeline")
@@ -251,6 +282,23 @@ async def run_cert_task(
                         log.info("Stored %s report in GridFS: file_id=%s", fmt, file_id)
                     except Exception as exc:
                         log.warning("GridFS upload failed for %s (non-fatal): %s", fmt, exc)
+
+            # Best-effort copy of the finished report to a host-bridged directory
+            # (see Settings.cert_host_export_dir) — unset in local non-Docker dev
+            # and CLUSTER_MODE=cloud/local deploys, where this is a pure no-op.
+            if settings.cert_host_export_dir and report_paths:
+                try:
+                    exported = await asyncio.to_thread(
+                        export_report_to_host_dir,
+                        report_paths,
+                        settings.cert_host_export_dir,
+                        request.agent_id,
+                        request.experiment_id,
+                    )
+                    if exported:
+                        log.info("Exported certification report to host dir: %s", exported)
+                except Exception as exc:
+                    log.warning("cert host export step failed (non-fatal): %s", exc)
 
             elapsed = time.monotonic() - start
 
@@ -317,6 +365,8 @@ async def run_cert_task(
                 f"gridfs:{gridfs_ids['pdf']}" if "pdf" in gridfs_ids
                 else report_paths.get("pdf_path", "")
             ),
+            "html_report_host_export": exported.get("html_path", ""),
+            "pdf_report_host_export": exported.get("pdf_path", ""),
         },
         "storage_mode": storage_type,
         "processing_time_seconds": round(elapsed, 1),

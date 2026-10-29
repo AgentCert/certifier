@@ -84,9 +84,17 @@ __all__ = [
 # Context assembly
 # ---------------------------------------------------------------------------
 
+_CISO_SHAPED_CATEGORIES = {"ciso_fault"}
+
+
+def _is_ciso(cat: dict) -> bool:
+    return cat.get("fault_category", "") in _CISO_SHAPED_CATEGORIES
+
+
 def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
     """Build the 7-dimension context block for the LLM prompt."""
     cats = phase1["categories"]
+    sre_cats = [c for c in cats if not _is_ciso(c)]
     meta = phase1.get("meta", {})
     scorecard = phase2["scorecard"]["dimensions"]
     sc_map = {d["dimension"]: d["value"] for d in scorecard}
@@ -109,8 +117,8 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
 
     # 1. Detection
     lines.append("=== 1. DETECTION PERFORMANCE ===\n")
-    lines.append("Per-category detection metrics:")
-    for c in cats:
+    lines.append("Per-category detection metrics (SRE categories):")
+    for c in sre_cats:
         det = c["derived"]["fault_detection_success_rate"]
         cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
         ttd_cat = ((c.get("numeric") or {}).get("time_to_detect") or {}).get("category", {}) or {}
@@ -141,18 +149,18 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
                 )
     lines.append(f"\nScorecard: Detection Rate = {sc_map.get('Detection Rate', 'N/A')}")
     # Compute weighted overall but expose only as percentage with run-level framing.
-    eval_total = sum(c["total_runs"] for c in cats)
-    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
+    eval_total = sum(c["total_runs"] for c in sre_cats)
+    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in sre_cats)
     overall_det = (det_count / eval_total * 100) if eval_total else 0
     lines.append(
         f"Overall detection rate: {overall_det:.1f}% "
-        f"(across {distinct_total} successful runs)\n"
+        f"(across {distinct_total} successful runs, SRE categories only)\n"
     )
 
     # 2. Mitigation
     lines.append("=== 2. MITIGATION PERFORMANCE ===\n")
-    lines.append("Per-category mitigation metrics:")
-    for c in cats:
+    lines.append("Per-category mitigation metrics (SRE categories):")
+    for c in sre_cats:
         mit = c["derived"]["fault_mitigation_success_rate"]
         fp = c["derived"]["false_positive_rate"]
         cat_runs = c.get("distinct_runs", c.get("total_runs", 0))
@@ -331,12 +339,13 @@ def _build_qualitative_context(phase1: dict, phase2: dict) -> str:
 def _fallback_findings(phase1: dict) -> dict:
     """Rule-based fallback findings per dimension."""
     cats = phase1["categories"]
+    sre_cats = [c for c in cats if not _is_ciso(c)]
     meta = phase1.get("meta", {})
     distinct_total = meta.get("successful_runs", 0) or sum(
         c.get("distinct_runs", c.get("total_runs", 0)) for c in cats
     )
-    eval_total = sum(c["total_runs"] for c in cats) or 1
-    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in cats)
+    eval_total = sum(c["total_runs"] for c in sre_cats) or 1
+    det_count = sum(int(c["derived"]["fault_detection_success_rate"] * c["total_runs"]) for c in sre_cats)
     overall_det = det_count / eval_total * 100
 
     result = {}

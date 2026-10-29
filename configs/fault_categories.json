@@ -1,21 +1,75 @@
 {
     "_description": "Mapping of fault_category to its sub-fault names. Used by the aggregation+hypothesis pipeline to group flat per-run metrics files by category when fault_category is missing from a document. Sub-fault values must match the 'injected_fault_name' / 'fault_name' field in per-run metric documents.",
+    "_known_collisions": "misconfigured-kubernetes-horizontal-pod-autoscaler appears in both application_fault and finops_fault below. It is the same ITBench mechanism reused under two different framings (SRE availability vs. FinOps cost scenario, ITBench scenario index 38) and shares one fault_name. Because subfault_to_category is a flat fault_name-keyed dict, only the category processed last wins for this fault_name at runtime -- the two entries are not both honored simultaneously. See docs/Methodologies/02-Experiment-Design/2.3-Fault-Taxonomy.md section 3 for details.",
     "categories": {
         "application_fault": [
             "node-restart",
-            "pod-delete"
+            "pod-delete",
+            "scaled-to-zero-kubernetes-workload",
+            "nonexistent-kubernetes-workload-container-image",
+            "misconfigured-k8s-workload-container-readiness-probe",
+            "misconfigured-kubernetes-horizontal-pod-autoscaler",
+            "opentelemetry-demo-feature-flag",
+            "unsupported-architecture-k8s-workload-container-image",
+            "crashing-kubernetes-workload-init-container",
+            "hanging-kubernetes-workload-init-container",
+            "modified-k8s-workload-container-environment-variable",
+            "invalid-kubernetes-workload-container-command",
+            "chaos-mesh-pod-failure-replacement"
         ],
         "network_fault": [
             "pod-dns-error",
             "pod-network-corruption",
             "pod-network-loss",
-            "pod-network-rate-limit"
+            "pod-network-rate-limit",
+            "modified-target-port-kubernetes-service",
+            "invalid-kubernetes-service-selector",
+            "ingress-port-blocking-network-policy",
+            "failing-name-resolution-kubernetes-workload-dns-policy",
+            "deleted-kubernetes-service",
+            "chaos-mesh-http-body-tamper-replacement",
+            "chaos-mesh-http-abort-replacement"
         ],
         "resource_fault": [
             "disk-fill",
             "pod-autoscaler",
             "pod-cpu-hog",
-            "pod-memory-hog"
+            "pod-memory-hog",
+            "valkey-workload-out-of-memory",
+            "insufficient-kubernetes-resource-quota",
+            "unassigned-k8s-workload-container-resource-limits",
+            "insufficient-kubernetes-workload-container-resources"
+        ],
+        "database_storage_fault": [
+            "nonexistent-kubernetes-workload-persistent-volume-claim"
+        ],
+        "security_fault": [
+            "valkey-workload-changed-password"
+        ],
+        "scheduling_fault": [
+            "nonexistent-kubernetes-workload-node",
+            "cordoned-kubernetes-worker-node",
+            "priority-kubernetes-workload-priority-preemption",
+            "unschedulable-k8s-workload-pod-anti-affinity-rule",
+            "kubernetes-api-server-request-surge"
+        ],
+        "ciso_fault": [
+            "Gen-CIS-b-K8s-Kyverno",
+            "Gen-CIS-b-K8s-Kubectl-OPA",
+            "Gen-CIS-b-RHEL9-Ansible-OPA",
+            "Upd-CIS-b-K8s-Kyverno"
+        ],
+        "finops_fault": [
+            "misconfigured-kubernetes-horizontal-pod-autoscaler"
+        ],
+        "sre_agent_fault": [
+            "Scenario-1", "Scenario-2", "Scenario-4", "Scenario-5", "Scenario-6",
+            "Scenario-7", "Scenario-8", "Scenario-9", "Scenario-11", "Scenario-12",
+            "Scenario-13", "Scenario-14", "Scenario-15", "Scenario-16", "Scenario-17",
+            "Scenario-18", "Scenario-19", "Scenario-20", "Scenario-21", "Scenario-22",
+            "Scenario-23", "Scenario-24", "Scenario-25", "Scenario-29", "Scenario-31",
+            "Scenario-33", "Scenario-34", "Scenario-35", "Scenario-38", "Scenario-80",
+            "Scenario-81", "Scenario-83", "Scenario-91", "Scenario-102", "Scenario-105"
         ]
     }
 }

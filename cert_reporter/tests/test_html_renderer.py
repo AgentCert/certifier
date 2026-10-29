@@ -208,17 +208,34 @@ class TestEffectiveSections:
 
 
 class TestMakeDocId:
-    def test_uses_run_id(self):
-        assert _make_doc_id({"meta": {"certification_run_id": "RUN 1"}}) == "cert-RUN_1"
+    def test_uses_agent_name_date_and_run_id(self):
+        meta = {
+            "meta": {
+                "agent_name": "Flash Agent",
+                "certification_date": "2026-08-13",
+                "certification_run_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            }
+        }
+        assert _make_doc_id(meta) == "flash_agent_2026-08-13_a1b2c3d4"
 
-    def test_uses_agent_and_date(self):
+    def test_agent_name_and_date_only(self):
+        meta = {"meta": {"agent_name": "Flash Agent", "certification_date": "2026-08-13"}}
+        assert _make_doc_id(meta) == "flash_agent_2026-08-13"
+
+    def test_agent_name_only(self):
+        assert _make_doc_id({"meta": {"agent_name": "Flash Agent"}}) == "flash_agent"
+
+    def test_falls_back_to_run_id_without_agent_name(self):
+        assert _make_doc_id({"meta": {"certification_run_id": "RUN 1"}}) == "cert-run_1"
+
+    def test_falls_back_to_agent_id_and_date_without_agent_name(self):
         meta = {"meta": {"agent_id": "a1", "certification_date": "2026-01-01"}}
         assert _make_doc_id(meta) == "cert-a1-2026-01-01"
 
-    def test_agent_only(self):
+    def test_falls_back_to_agent_id_only(self):
         assert _make_doc_id({"meta": {"agent_id": "a1"}}) == "cert-a1"
 
-    def test_fallback(self):
+    def test_fallback_to_cert_report(self):
         assert _make_doc_id({"meta": {}}) == "cert-report"
 
 

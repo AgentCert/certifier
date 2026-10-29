@@ -76,6 +76,16 @@ def _build_scope_context(meta: dict) -> str:
         else f"Successful Runs:   {meta['successful_runs']}\n"
     )
 
+    # Real council composition (aggregator/scripts/llm_council.py:get_council_model_info()),
+    # not an assumed constant — reflects however many judges/models actually ran.
+    llm_council = meta.get("llm_council") or {}
+    n_judges = sum(1 for k in llm_council if k.startswith("member_"))
+    if n_judges == 0:
+        n_judges = 3  # fallback for older Phase 1 output predating llm_council capture
+    eval_method_line = f"k={n_judges} judge{'s' if n_judges != 1 else ''}"
+    if "meta_model" in llm_council or not llm_council:
+        eval_method_line += " + meta-reconciliation"
+
     return (
         f"Agent:             {meta['agent_name']}\n"
         f"Agent ID:          {meta['agent_id']}\n"
@@ -87,7 +97,7 @@ def _build_scope_context(meta: dict) -> str:
         f"Total Faults:      {meta['total_faults_tested']}\n"
         f"Runs per Fault:    {meta['total_runs']}\n"
         f"Evaluation Method: Multi-judge LLM Council\n"
-        f"                   k=3 judges + meta-reconciliation"
+        f"                   {eval_method_line}"
     )
 
 

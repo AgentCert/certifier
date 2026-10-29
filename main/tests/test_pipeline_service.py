@@ -16,6 +16,7 @@ from main.services import pipeline_service as ps
 from main.services.pipeline_service import (
     GroupedDocsQueryService,
     _build_fault_config_from_bucket,
+    _build_telemetry_gap_result,
     _build_skip_block,
     _doc_fault_category,
     _doc_fault_name,
@@ -69,6 +70,24 @@ class TestBuildFaultConfig:
         assert cfg["ground_truth"]["foo"] == "bar"
 
 
+class TestTelemetryGapResult:
+    def test_preserves_fault_identity_without_claiming_detection(self):
+        result = _build_telemetry_gap_result(
+            "fault-1",
+            {
+                "fault_name": "pod-delete",
+                "severity": "resource",
+                "run_id": "run-1",
+                "namespace": "sock-shop",
+            },
+            agent_id="agent-1",
+        )
+        assert result["fault_name"] == "pod-delete"
+        assert result["telemetry_status"] == "missing"
+        assert result["evaluation_status"] == "inconclusive"
+        assert result["quantitative"]["detection_success"] is None
+        assert result["quantitative"]["agent_id"] == "agent-1"
+
 # ── _normalize_severity_labels ─────────────────────────────────────────────
 
 class TestNormalizeSeverity:
@@ -120,7 +139,7 @@ class TestDocFaultHelpers:
 # ── _group_docs_by_category ────────────────────────────────────────────────
 
 class TestGroupDocs:
-    def test_groups_and_skips_unmapped(self):
+    def test_groups_and_routes_unmapped_to_unclassified(self):
         docs = [
             {"fault_name": "PodKill"},
             {"fault_name": "NetLoss"},
@@ -128,9 +147,14 @@ class TestGroupDocs:
         ]
         cats = {"resource": ["PodKill"], "network": ["NetLoss"]}
         grouped = _group_docs_by_category(docs, cats)
-        assert set(grouped.keys()) == {"resource", "network"}
+        # Unmapped docs (e.g. Phase 0 bucketing that only produced a generic
+        # fault_name) are routed to "unclassified" rather than dropped, so
+        # they still count toward the certification instead of silently
+        # vanishing (and potentially leaving zero categories).
+        assert set(grouped.keys()) == {"resource", "network", "unclassified"}
         assert len(grouped["resource"]) == 1
-        assert "Unmapped" not in str(grouped.keys())
+        assert len(grouped["unclassified"]) == 1
+        assert grouped["unclassified"][0]["fault_name"] == "Unmapped"
 
     def test_empty(self):
         assert _group_docs_by_category([], {}) == {}

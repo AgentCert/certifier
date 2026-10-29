@@ -215,3 +215,156 @@ class TestAcquireTraceLangfuse:
             await svc.acquire_trace(source, tmp_path / "out",
                                     experiment_id="e", run_id="r")
         assert e.value.error_code == "TRACE_NOT_FOUND"
+
+    async def test_trace_id_threaded_to_fetch(self, tmp_path, monkeypatch):
+        # source.trace_id must reach _fetch_langfuse_observations as the
+        # trace_id kwarg -- this is what lets agent-sidecar-instrumented runs
+        # (which set Langfuse trace_id = NOTIFY_ID but never write
+        # experiment_id/experiment_run_id metadata) be looked up at all.
+        monkeypatch.setenv("LANGFUSE_HOST", "http://lf")
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+
+        captured = {}
+
+        def fake_fetch(**kwargs):
+            captured.update(kwargs)
+            return [{"id": "obs-1", "startTime": "2024-01-01T00:00:00Z"}]
+
+        monkeypatch.setattr(ts, "_fetch_langfuse_observations", fake_fetch)
+        svc = TraceService()
+        source = LangfuseTraceSource(type="langfuse", trace_id="notify-abc-123")
+        await svc.acquire_trace(source, tmp_path / "out", experiment_id="e", run_id="r")
+        assert captured["trace_id"] == "notify-abc-123"
+
+    async def test_missing_trace_id_defaults_to_empty_string(self, tmp_path, monkeypatch):
+        # A LangfuseTraceSource with no trace_id set must thread through "" (falsy),
+        # not None, so _fetch_langfuse_observations's `if trace_id:` fallback branch
+        # stays simple.
+        monkeypatch.setenv("LANGFUSE_HOST", "http://lf")
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+
+        captured = {}
+
+        def fake_fetch(**kwargs):
+            captured.update(kwargs)
+            return [{"id": "obs-1", "startTime": "2024-01-01T00:00:00Z"}]
+
+        monkeypatch.setattr(ts, "_fetch_langfuse_observations", fake_fetch)
+        svc = TraceService()
+        source = LangfuseTraceSource(type="langfuse")
+        await svc.acquire_trace(source, tmp_path / "out", experiment_id="e", run_id="r")
+        assert captured["trace_id"] == ""
+
+
+# ── _fetch_langfuse_observations / _get_full_trace (trace_id direct lookup) ───
+
+class _FakeTrace:
+    def __init__(self, id, observations=None):
+        self.id = id
+        self.observations = observations or []
+
+
+class _FakeObservation:
+    def __init__(self, **kwargs):
+        self._data = kwargs
+
+    def dict(self):
+        return dict(self._data)
+
+
+class _FakeTraceAPI:
+    def __init__(self, traces_by_id=None):
+        self._traces_by_id = traces_by_id or {}
+        self.get_calls = []
+
+    def get(self, trace_id):
+        self.get_calls.append(trace_id)
+        if trace_id not in self._traces_by_id:
+            raise RuntimeError("404 not found")
+        return self._traces_by_id[trace_id]
+
+    def list(self, filter, page, limit):
+        raise AssertionError("trace.list() must not be called when trace_id is given")
+
+
+class _FakeLangfuseClient:
+    def __init__(self, trace_api):
+        self.api = type("_Api", (), {"trace": trace_api})()
+
+
+class TestFetchLangfuseObservationsByTraceId:
+    def test_direct_lookup_bypasses_metadata_filter(self, monkeypatch):
+        obs = _FakeObservation(id="obs-1", startTime="2024-01-01T00:00:00Z")
+        trace = _FakeTrace(id="notify-123", observations=[obs])
+        trace_api = _FakeTraceAPI(traces_by_id={"notify-123": trace})
+        monkeypatch.setattr("langfuse.Langfuse", lambda **kwargs: _FakeLangfuseClient(trace_api))
+
+        result = ts._fetch_langfuse_observations(
+            base_url="http://lf", public_key="pk", secret_key="sk",
+            experiment_id="", run_id="", trace_id="notify-123",
+            page_size=50, max_pages=10, include_observations=True,
+        )
+        assert [o["id"] for o in result] == ["obs-1"]
+        assert trace_api.get_calls == ["notify-123"]
+
+    def test_direct_lookup_not_found_raises_trace_not_found(self, monkeypatch):
+        trace_api = _FakeTraceAPI(traces_by_id={})
+        monkeypatch.setattr("langfuse.Langfuse", lambda **kwargs: _FakeLangfuseClient(trace_api))
+
+        with pytest.raises(TraceIngestionError) as e:
+            ts._fetch_langfuse_observations(
+                base_url="http://lf", public_key="pk", secret_key="sk",
+                experiment_id="", run_id="", trace_id="missing-id",
+                page_size=50, max_pages=10, include_observations=True,
+            )
+        assert e.value.error_code == "TRACE_NOT_FOUND"
+
+    def test_include_observations_false_skips_body(self, monkeypatch):
+        trace = _FakeTrace(id="notify-123", observations=[_FakeObservation(id="obs-1")])
+        trace_api = _FakeTraceAPI(traces_by_id={"notify-123": trace})
+        monkeypatch.setattr("langfuse.Langfuse", lambda **kwargs: _FakeLangfuseClient(trace_api))
+
+        result = ts._fetch_langfuse_observations(
+            base_url="http://lf", public_key="pk", secret_key="sk",
+            experiment_id="", run_id="", trace_id="notify-123",
+            page_size=50, max_pages=10, include_observations=False,
+        )
+        assert result == []
+
+    def test_empty_trace_id_falls_back_to_metadata_filter(self, monkeypatch):
+        called = {}
+
+        def fake_list_traces(client, experiment_id, run_id, page_size, max_pages):
+            called["experiment_id"] = experiment_id
+            called["run_id"] = run_id
+            return []
+
+        monkeypatch.setattr(ts, "_list_traces", fake_list_traces)
+        monkeypatch.setattr(
+            "langfuse.Langfuse", lambda **kwargs: _FakeLangfuseClient(_FakeTraceAPI())
+        )
+
+        with pytest.raises(TraceIngestionError) as e:
+            ts._fetch_langfuse_observations(
+                base_url="http://lf", public_key="pk", secret_key="sk",
+                experiment_id="exp-1", run_id="run-1", trace_id="",
+                page_size=50, max_pages=10, include_observations=True,
+            )
+        assert called == {"experiment_id": "exp-1", "run_id": "run-1"}
+        assert e.value.error_code == "TRACE_NOT_FOUND"
+        assert "exp-1" in str(e.value)
+
+
+class TestGetFullTrace:
+    def test_returns_trace_on_success(self):
+        trace_api = _FakeTraceAPI(traces_by_id={"t1": _FakeTrace(id="t1")})
+        client = _FakeLangfuseClient(trace_api)
+        result = ts._get_full_trace(client, "t1")
+        assert result.id == "t1"
+
+    def test_returns_none_on_any_exception(self):
+        trace_api = _FakeTraceAPI(traces_by_id={})
+        client = _FakeLangfuseClient(trace_api)
+        assert ts._get_full_trace(client, "missing") is None

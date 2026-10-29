@@ -8,7 +8,7 @@ Usage:
         --agent-id <agent_id> \
         --agent-name <agent_name> \
         [--certification-run-id <run_id>] \
-        [--runs-per-fault 30] [--debug]
+        [--runs-per-fault 30] [--include-ciso-finops] [--debug]
 """
 
 import argparse
@@ -60,6 +60,20 @@ def main():
         help="Expected number of runs per fault (default: 30).",
     )
     parser.add_argument(
+        "--include-ciso-finops",
+        action="store_true",
+        default=False,
+        help=(
+            "Include CISO and FinOps as tested dimensions in the scorecard/report "
+            "(default: false). FinOps reports real data (ITBench scenario 38's "
+            "HPA-misconfig runs); CISO has no execution path in ACE yet, so an "
+            "explicit 'not implemented' note is added to the report's Limitations "
+            "section instead of silently omitting it. When false (default), any "
+            "ciso_fault/finops_fault-categorized runs are excluded from the "
+            "scorecard entirely."
+        ),
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Persist intermediate outputs for debugging.",
@@ -75,6 +89,7 @@ def main():
             certification_run_id=args.certification_run_id,
             runs_per_fault=args.runs_per_fault,
             debug=args.debug,
+            include_ciso_finops=args.include_ciso_finops,
         )
     )
 

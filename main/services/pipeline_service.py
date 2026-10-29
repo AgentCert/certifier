@@ -38,6 +38,47 @@ _DEFAULT_FAULT_CATEGORIES_CONFIG: Path = (
     Path(__file__).resolve().parent.parent.parent / "configs" / "fault_categories.json"
 )
 
+# Categories excluded from a certification run unless include_ciso_finops=True.
+# ciso_fault never has real data today (no chaos-charts fault bundle or Argo
+# workflow implements any CISO scenario), but is still excluded defensively
+# for symmetry and in case that changes. finops_fault does have real data
+# (ITBench scenario 38, the misconfigured-kubernetes-horizontal-pod-autoscaler
+# fault) and is excluded by default so a standard SRE certification run
+# doesn't silently fold FinOps-framed runs into its scorecard.
+_CISO_FINOPS_CATEGORIES = {"ciso_fault", "finops_fault"}
+
+
+def _add_ciso_not_implemented_note(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Make the CISO gap explicit in the Limitations section rather than
+    silently omitting any mention of it. CISO has no execution path in ACE
+    today -- no chaos-charts fault bundle or Argo workflow exists for any
+    CISO scenario type -- so it can never contribute real data to a run.
+    Called only when include_ciso_finops=True, since that's the point at
+    which a caller has explicitly asked for CISO to be a tested dimension."""
+    for section in report.get("sections", []):
+        if section.get("id") != "limitations":
+            continue
+        content = section.setdefault("content", [])
+        next_idx = max((item.get("index", 0) for item in content), default=0) + 1
+        content.append({
+            "type": "enumerated_item",
+            "kind": "limitation",
+            "index": next_idx,
+            "severity": "Medium",
+            "scope": "CISO",
+            "body": (
+                "CISO compliance scenarios (CIS Benchmark policy generation/remediation via "
+                "Kyverno, OPA, or Ansible) were requested as a tested dimension for this "
+                "certification but have no execution path in ACE today -- no chaos-charts "
+                "fault bundle or Argo workflow exists for this task type. No CISO trace data "
+                "could be collected or scored; this dimension is entirely absent from every "
+                "metric above, not merely filtered out."
+            ),
+            "tags": ["CISO", "Not Implemented"],
+        })
+        break
+    return report
+
 
 # ── Narrative fallback defaults ───────────────────────────────────────────────
 # Required keys in the Phase 3 narratives output. If the LLM call for any of
@@ -78,16 +119,26 @@ _NARRATIVE_FALLBACKS: Dict[str, Any] = {
         "tokens_used": 0,
     },
     "limitations_enriched": {
+        # Shape must match what report_assembler._section_limitations reads
+        # from each item: severity, category, limitation, label (optional),
+        # frequency (optional) -- NOT the generic severity/headline/detail
+        # shape used elsewhere, or it crashes with KeyError instead of
+        # falling back.
         "items": [
-            {"severity": "note", "headline": "Limitations unavailable", "detail": "LLM narrative call did not return results."}
+            {"severity": "Medium", "category": "—", "label": None,
+             "frequency": "N/A", "limitation": "LLM narrative call did not return results for this run."}
         ],
         "source": "fallback",
         "model": None,
         "tokens_used": 0,
     },
     "recommendations_enriched": {
+        # Shape must match report_assembler._section_recommendations: priority,
+        # category, recommendation, label (optional) -- see limitations_enriched
+        # note above.
         "items": [
-            {"severity": "note", "headline": "Recommendations unavailable", "detail": "LLM narrative call did not return results."}
+            {"priority": "Medium", "category": "—", "label": None,
+             "recommendation": "LLM narrative call did not return results for this run."}
         ],
         "source": "fallback",
         "model": None,
@@ -245,6 +296,46 @@ def _build_fault_config_from_bucket(bucket_data: Dict[str, Any]) -> Dict[str, An
     }
 
 
+
+
+def _build_telemetry_gap_result(
+    fault_id: str,
+    bucket_data: Dict[str, Any],
+    agent_id: str = "",
+) -> Dict[str, Any]:
+    """Represent an injected fault with no agent events without scoring it as a miss."""
+    resolved_agent_id = bucket_data.get("agent_id") or agent_id or ""
+    return {
+        "fault_id": fault_id,
+        "run_id": bucket_data.get("run_id", ""),
+        "agent_id": resolved_agent_id,
+        "agent_name": bucket_data.get("agent_name") or "",
+        "experiment_id": bucket_data.get("experiment_id") or "",
+        "fault_name": bucket_data.get("fault_name") or fault_id,
+        "evaluation_status": "inconclusive",
+        "telemetry_status": "missing",
+        "quantitative": {
+            "agent_id": resolved_agent_id,
+            "agent_name": bucket_data.get("agent_name") or "",
+            "experiment_id": bucket_data.get("experiment_id") or "",
+            "run_id": bucket_data.get("run_id") or "",
+            "injected_fault_name": bucket_data.get("fault_name") or fault_id,
+            "injected_fault_category": bucket_data.get("severity"),
+            "fault_namespace": bucket_data.get("namespace"),
+            "fault_target_service": bucket_data.get("target_pod"),
+            "fault_injection_time": bucket_data.get("injection_timestamp"),
+            "fault_detected": "Unknown - no agent telemetry in fault window",
+            "detection_success": None,
+        },
+        "qualitative": {
+            "evaluation_status": "inconclusive",
+            "reason": "No agent telemetry was captured during the injected fault window.",
+        },
+        "token_usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        "trace_tokens": {},
+        "phase_0_tokens": {},
+    }
+
 # ── Aggregation / Certification helpers ───────────────────────────────────────
 
 def _save_json(data: dict, path: Path) -> None:
@@ -380,20 +471,28 @@ def _group_docs_by_category(
             subfault_to_category[s] = cat
 
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    skipped = 0
+    unclassified = 0
     for doc in docs:
         cat = _doc_fault_category(doc, subfault_to_category)
         if cat:
             grouped[cat].append(doc)
         else:
-            skipped += 1
+            unclassified += 1
+            # Don't drop the doc: Phase 0 bucketing can legitimately produce a
+            # fault_name of "unknown" (e.g. a run's fault(s) collapsed into one
+            # generic bucket). Route it to a catch-all category so it still
+            # counts toward the scorecard rather than silently vanishing and
+            # potentially leaving zero categories (which hard-fails the whole
+            # certification even when metrics were successfully extracted).
+            grouped["unclassified"].append(doc)
             logger.warning(
                 "Could not determine fault_category for doc with "
-                f"fault_name={_doc_fault_name(doc)!r}; skipping."
+                f"fault_name={_doc_fault_name(doc)!r}; routed to 'unclassified'."
             )
-    if skipped:
+    if unclassified:
         logger.warning(
-            f"{skipped} metric docs could not be mapped to a fault_category."
+            f"{unclassified} metric docs could not be mapped to a canonical "
+            "fault_category and were grouped under 'unclassified'."
         )
     logger.info(
         "Grouped docs into categories: "
@@ -615,6 +714,7 @@ class BucketPipelineService:
         store_to_mongodb: bool,
         agent_id: str = "",
         config: Optional[Dict[str, Any]] = None,
+        fault_windows: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """Run fault bucketing then per-bucket metric extraction (Phase 0+1).
 
@@ -627,6 +727,12 @@ class BucketPipelineService:
                               so the aggregation phase can filter by agent.
             config:           App config dict; loaded from ``configs/configs.json``
                               if not provided.
+            fault_windows:    Optional externally-known ground-truth fault time
+                              windows (see ``FaultWindow`` in
+                              ``main/models/bucket_requests.py``), used by Phase 0
+                              to split a trace into per-fault buckets when it
+                              carries no `fault: *` spans of its own. Empty/None
+                              preserves existing single-bucket-fallback behavior.
 
         Returns:
             List of per-fault result dicts, each containing ``quantitative``,
@@ -654,6 +760,7 @@ class BucketPipelineService:
             output_dir=str(buckets_dir),
             config=config,
             batch_size=batch_size,
+            fault_windows=fault_windows,
         )
         buckets = await pipeline.run()
 
@@ -691,11 +798,6 @@ class BucketPipelineService:
             logger.info(f"--- Extracting metrics for fault: {fault_id} ---")
             bucket_dict = bucket.to_dict()
             events = bucket_dict.get("events", [])
-
-            if not events:
-                logger.warning(f"Bucket '{fault_id}' has no events, skipping.")
-                continue
-
             run_id = bucket_dict.get("run_id", "")
             # Build a filesystem-safe filename prefix from the fault + run identifiers
             safe_name = (
@@ -703,6 +805,21 @@ class BucketPipelineService:
                 if run_id
                 else fault_id.replace("/", "_").replace(" ", "_")
             )
+
+            if not events:
+                logger.warning(
+                    "Bucket '%s' has no agent events; recording an inconclusive "
+                    "telemetry gap instead of dropping the injected fault.",
+                    fault_id,
+                )
+                gap_result = _build_telemetry_gap_result(
+                    fault_id, bucket_dict, agent_id=agent_id or "",
+                )
+                metrics_file = metrics_dir / f"{safe_name}_metrics.json"
+                with open(metrics_file, "w", encoding="utf-8") as f:
+                    json.dump(gap_result, f, indent=2, default=str)
+                results.append(gap_result)
+                continue
 
             # Write the bucket's events to a temp file so TraceMetricsExtractor
             # can consume them via its standard file-based interface
@@ -767,7 +884,9 @@ class BucketPipelineService:
             "trace_file": str(Path(trace_file).name),
             "run_id": results[0].get("run_id", "") if results else "",
             "total_faults": len(buckets),
-            "faults_extracted": len(results),
+            "faults_accounted": len(results),
+            "faults_extracted": sum(r.get("telemetry_status") != "missing" for r in results),
+            "telemetry_gaps": sum(r.get("telemetry_status") == "missing" for r in results),
             "bucketing_tokens": {
                 "input": pipeline.total_input_tokens,
                 "output": pipeline.total_output_tokens,
@@ -794,7 +913,8 @@ class BucketPipelineService:
         logger.info("Pipeline Complete")
         logger.info("=" * 60)
         logger.info(f"  Faults bucketed : {len(buckets)}")
-        logger.info(f"  Metrics extracted: {len(results)}")
+        logger.info(f"  Faults accounted: {len(results)}")
+        logger.info(f"  Telemetry gaps: {sum(r.get('telemetry_status') == 'missing' for r in results)}")
         logger.info(f"  Output directory : {output_path}")
         logger.info(f"  Summary file     : {summary_file.name}")
 
@@ -837,6 +957,7 @@ class CertPipelineService:
         config: Optional[Dict[str, Any]] = None,
         storage_type: str = "local",
         analysis_options: Optional[AnalysisOptions] = None,
+        include_ciso_finops: bool = False,
     ) -> Dict[str, Any]:
         """Run aggregation then (optional, gated) statistical hypothesis then certification.
 
@@ -850,6 +971,15 @@ class CertPipelineService:
                                   significance checks in the aggregator.
             debug:                When True, the cert pipeline retains intermediate
                                   outputs for post-mortem inspection.
+            include_ciso_finops:  Default False. When True, includes the FinOps
+                                  dimension (real data, from ITBench scenario 38's
+                                  HPA-misconfig runs) in the scorecard/report, and
+                                  adds an explicit Limitations note that CISO has
+                                  no execution path in ACE and contributed no data.
+                                  When False (default), any runs categorized as
+                                  ciso_fault/finops_fault are excluded from the
+                                  scorecard entirely (still counted in Total Runs,
+                                  same as any other unclassified doc).
             config:               App config dict; loaded from ``configs/configs.json``
                                   if not provided.
             storage_type:         ``"local"`` reads ``*metrics.json`` files from
@@ -918,6 +1048,22 @@ class CertPipelineService:
             )
             fault_cats = _load_fault_categories_config(cfg_path)
             grouped_runs = _group_docs_by_category(agent_docs, fault_cats)
+
+            if not include_ciso_finops:
+                excluded = {
+                    cat: len(docs) for cat, docs in grouped_runs.items()
+                    if cat in _CISO_FINOPS_CATEGORIES
+                }
+                if excluded:
+                    logger.info(
+                        f"include_ciso_finops=False; excluding categories from this "
+                        f"certification's scorecard: {excluded} (docs still count "
+                        "toward Total Runs, same as any unclassified doc)."
+                    )
+                grouped_runs = {
+                    cat: docs for cat, docs in grouped_runs.items()
+                    if cat not in _CISO_FINOPS_CATEGORIES
+                }
 
             # Use grouped docs as the query service for canonical fault categories
             grouped_query_service = GroupedDocsQueryService(grouped_runs)
@@ -992,6 +1138,7 @@ class CertPipelineService:
                     "total_documents": len(agent_docs),
                     "total_fault_categories": len(categories),
                     "fault_categories": categories,
+                    "include_ciso_finops": include_ciso_finops,
                     "advanced_analysis": opts.advanced_analysis,
                     "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                     "statistical_hypothesis_reason": sh.get("reason"),
@@ -1048,6 +1195,7 @@ class CertPipelineService:
                     "total_documents": len(agent_docs),
                     "total_fault_categories": 0,
                     "fault_categories": categories,
+                    "include_ciso_finops": include_ciso_finops,
                     "advanced_analysis": opts.advanced_analysis,
                     "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                     "statistical_hypothesis_reason": sh.get("reason"),
@@ -1127,6 +1275,22 @@ class CertPipelineService:
 
             logger.info(f"Certification report written to {report_path}")
 
+            # Only add the "not implemented" note when CISO truly contributed no
+            # data (still the common case -- most callers have no CISO execution
+            # harness yet). If ciso_fault docs WERE supplied (e.g. via
+            # metrics_extractor.build_ciso_metrics_doc feeding a real CISO run),
+            # "ciso_fault" is already in `categories` and was scored normally
+            # through aggregate_fault_category's CISO-shaped branch -- adding a
+            # blanket "not implemented" note in that case would be actively wrong.
+            if include_ciso_finops and "ciso_fault" not in categories:
+                report = _add_ciso_not_implemented_note(report)
+                _save_json(report, report_path)
+                logger.info(
+                    "include_ciso_finops=True but no ciso_fault data was found; added "
+                    "CISO 'not implemented' note to the Limitations section and "
+                    "re-saved the certification report."
+                )
+
             # Write a lightweight summary alongside the full report for quick inspection
             sh = aggregated_scorecard.get("statistical_hypothesis", {}) or {}
             summary = {
@@ -1137,6 +1301,7 @@ class CertPipelineService:
                 "total_documents": len(agent_docs),
                 "total_fault_categories": len(categories),
                 "fault_categories": categories,
+                "include_ciso_finops": include_ciso_finops,
                 "advanced_analysis": opts.advanced_analysis,
                 "statistical_hypothesis_status": sh.get("status") if sh else "not_requested",
                 "statistical_hypothesis_reason": sh.get("reason"),

@@ -126,20 +126,29 @@ def _build_limitations_context(phase1: dict, phase2: dict) -> tuple[str, str]:
     sc_lines = "\n".join(f"  {d['dimension']:30s} {d['value']}" for d in dims)
     support_parts.append(f"Scorecard Dimensions:\n{sc_lines}")
 
-    # Per-category derived rates
+    # Per-category derived rates — SRE and CISO have different schemas
     cats = phase1.get("categories", [])
+    _ciso_shaped = {"ciso_fault"}
     derived_lines = []
     for c in cats:
-        d = c["derived"]
-        derived_lines.append(
-            f"  {c['label']}: det={d['fault_detection_success_rate']*100:.0f}%, "
-            f"mit={d['fault_mitigation_success_rate']*100:.0f}%, "
-            f"fn={d['false_negative_rate']*100:.0f}%, "
-            f"fp={d['false_positive_rate']*100:.0f}%, "
-            f"ps_rai={privacy_security_for_category(d)*100:.0f}%, "
-            f"fairness_pass={d['rai_compliance_rate']*100:.0f}%, "
-            f"sec={d['security_compliance_rate']*100:.0f}%"
-        )
+        d = c.get("derived") or {}
+        if c.get("fault_category", "") in _ciso_shaped:
+            pass_rate = d.get("ciso_task_pass_rate")
+            rate_str = f"{pass_rate*100:.0f}%" if isinstance(pass_rate, (int, float)) else "N/A"
+            derived_lines.append(
+                f"  {c['label']}: policy_pass_rate={rate_str} "
+                f"(CISO compliance — no detection/mitigation timeline)"
+            )
+        else:
+            derived_lines.append(
+                f"  {c['label']}: det={d.get('fault_detection_success_rate', 0)*100:.0f}%, "
+                f"mit={d.get('fault_mitigation_success_rate', 0)*100:.0f}%, "
+                f"fn={d.get('false_negative_rate', 0)*100:.0f}%, "
+                f"fp={d.get('false_positive_rate', 0)*100:.0f}%, "
+                f"ps_rai={privacy_security_for_category(d)*100:.0f}%, "
+                f"fairness_pass={d.get('rai_compliance_rate', 0)*100:.0f}%, "
+                f"sec={d.get('security_compliance_rate', 0)*100:.0f}%"
+            )
     support_parts.append(f"Per-category Derived Rates:\n" + "\n".join(derived_lines))
 
     # Per-category boolean flags
