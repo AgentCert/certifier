@@ -825,6 +825,11 @@ Phase-0 tests run without making real Azure OpenAI calls.
 The setting is mandatory — see `main/config/settings.py`. Set it in `.env` (or in the
 monorepo-root `.env` when using compose).
 
+**Docker build fails with `libatomic.so.1: cannot open shared object file`.**
+Playwright's bundled Node requires `libatomic1` in both the builder stage (to install
+Chromium) and the runtime stage (to render PDFs). Both stages install it explicitly;
+keep it in both package lists when extending the Dockerfile.
+
 **`pw.chromium.launch()` fails inside Docker.**
 The runtime Dockerfile installs every shared library Playwright's bundled Chromium needs.
 If you've extended the image, make sure `libnss3`, `libatk1.0-0`, `libgbm1`,

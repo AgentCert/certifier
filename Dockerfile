@@ -29,6 +29,10 @@ FROM ${PYTHON_IMAGE} AS builder
 # (no Linux wheel exists for it at all); removed from requirements.txt as
 # unused (zero imports anywhere in this codebase).
 
+# Playwright's bundled Node requires libatomic even to download Chromium.
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create a virtual environment so we can copy it cleanly into the runtime stage
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -53,7 +57,7 @@ RUN playwright install chromium && chmod -R a+rX /opt/playwright-browsers
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM ${PYTHON_IMAGE} AS runtime
 
-# Runtime system libraries — all required by playwright's bundled Chromium
+# Runtime system libraries — required by playwright's bundled Node and Chromium
 # browser for PDF rendering (cert_reporter pipeline). Without these,
 # `pw.chromium.launch()` fails with a missing-shared-library error at runtime.
 # (lxml's wheel statically bundles its own libxml2/libxslt, so those aren't
@@ -61,6 +65,7 @@ FROM ${PYTHON_IMAGE} AS runtime
 # dependency — both verified via a from-scratch build with these apt packages
 # absent: full pip install + every top-level import succeeded.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        libatomic1 \
         libnss3 \
         libnspr4 \
         libatk1.0-0 \
